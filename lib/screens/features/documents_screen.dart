@@ -1,0 +1,65 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../theme/colors.dart';
+import '../../widgets/common_widgets.dart';
+
+import '../../utils/pdf_utils.dart';
+
+class DocumentsScreen extends StatelessWidget {
+  const DocumentsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final docs = [
+      {'name': 'Admit Card - Final Exam',  'type': 'PDF', 'size': '245 KB', 'emoji': '🎫', 'content': 'Roll Number: ADM240300\nClass: 10-B\nExam Center: EduSphere Main Campus\nShift: Morning (09:00 AM - 12:00 PM)'},
+      {'name': 'Fee Receipt - Term 1',     'type': 'PDF', 'size': '128 KB', 'emoji': '🧾', 'content': 'Transaction ID: TXN998877\nAmount Paid: ₹45,000\nPayment Date: 05/04/2026\nStatus: FULLY PAID'},
+      {'name': 'Report Card - Term 1',     'type': 'PDF', 'size': '512 KB', 'emoji': '📊', 'content': 'Overall Grade: A+\nMathematics: 98/100\nPhysics: 95/100\nEnglish: 92/100\nAttendance: 96%'},
+      {'name': 'Bonafide Certificate',     'type': 'PDF', 'size': '89 KB',  'emoji': '📜', 'content': 'This is to certify that Amit Khan is a regular student of Grade 10-B at EduSphere High School for the session 2024-2025.'},
+      {'name': 'Library Card',             'type': 'PDF', 'size': '64 KB',  'emoji': '📚', 'content': 'Library Member ID: LIB-0023\nValid Until: 31/03/2026\nBook Limit: 4 Books\nLoan Period: 14 Days'},
+      {'name': 'ID Card',                  'type': 'PDF', 'size': '156 KB', 'emoji': '🪪', 'content': 'Student ID: ADM240300\nName: Amit Khan\nEmergency No: +91-9413585777\nBlood Group: O+'},
+      {'name': 'Transfer Certificate',     'type': 'PDF', 'size': '98 KB',  'emoji': '📋', 'content': 'Certificate No: TC/2026/042\nReason for Leaving: Completion of Secondary Education\nCharacter: Exemplary'},
+    ];
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Column(
+        children: [
+          PageHeader(title: 'My Documents', subtitle: 'Official school documents', theme: roleThemes['student']!),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: docs.length,
+              itemBuilder: (_, i) {
+                final d = docs[i];
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                  child: Row(children: [
+                    Text(d['emoji']!, style: const TextStyle(fontSize: 32)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(d['name']!, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13)),
+                      Text('${d['type']} • ${d['size']}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                    ])),
+                    GestureDetector(
+                      onTap: () async {
+                        showToast(context, 'Generating ${d['name'] as String}...');
+                        await PDFUtils.generateAndSavePDF(context, d['name'] as String, d['content'] as String);
+                      },
+                      child: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(12)),
+                        child: const Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 20),
+                      ),
+                    ),
+                  ]),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
