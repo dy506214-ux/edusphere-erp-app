@@ -9,6 +9,7 @@ import '../screens/features/notification_preferences_screen.dart';
 import 'features/privacy_security_screen.dart';
 import 'features/help_support_screen.dart';
 import 'features/change_password_screen.dart';
+import 'features/student_profile_details_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -209,6 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
+                        _menuItem(Icons.person_outline_rounded, 'Personal Information', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const StudentProfileDetailsScreen()))),
                         _menuItem(Icons.notifications_outlined, 'Notification Preferences', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationPreferencesScreen()))),
                         _menuItem(Icons.lock_outline_rounded, 'Change Password', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ChangePasswordScreen()))),
                         _menuItem(Icons.shield_outlined, 'Privacy & Security', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()))),
