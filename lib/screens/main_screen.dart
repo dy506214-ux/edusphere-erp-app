@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:developer' as dev;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
 import '../models/user_model.dart';
+import '../services/socket_service.dart';
+import '../widgets/common_widgets.dart';
 import 'dashboards/student_dashboard.dart';
 import 'dashboards/teacher_dashboard.dart';
 import 'dashboards/parent_dashboard.dart';
@@ -29,6 +33,79 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _loadUserName();
+    _initSocketConnection();
+  }
+
+  @override
+  void dispose() {
+    try {
+      SocketService().off('NEW_NOTIFICATION');
+      SocketService().off('attendance:qr-scan');
+      SocketService().off('ATTENDANCE_MARKED');
+      SocketService().disconnect();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _initSocketConnection() {
+    try {
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        SocketService().connect(
+          userId: currentUser.id,
+          role: widget.role,
+        );
+        _setupSocketListeners();
+      }
+    } catch (e) {
+      dev.log('⚠️ Failed to initialize socket connection: $e', name: 'MainScreen');
+    }
+  }
+
+  void _setupSocketListeners() {
+    // 1. Listen for NEW_NOTIFICATION
+    SocketService().on('NEW_NOTIFICATION', (data) {
+      if (!mounted) return;
+      dev.log('🔔 Real-time notification: $data', name: 'MainScreen');
+      
+      final title = data['title'] as String? ?? 'Notification';
+      final message = data['message'] as String? ?? 'You have a new update';
+      
+      showToast(
+        context,
+        '📣 $title: $message',
+      );
+    });
+
+    // 2. Listen for attendance:qr-scan
+    SocketService().on('attendance:qr-scan', (data) {
+      if (!mounted) return;
+      dev.log('🟢 Attendance QR Scan: $data', name: 'MainScreen');
+      
+      final action = data['action'] as String? ?? 'checkin';
+      final user = data['user'] as Map? ?? {};
+      final userName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+      
+      showToast(
+        context,
+        '🚨 Live Scan! $userName marked ${action.toUpperCase()}',
+      );
+    });
+
+    // 3. Listen for ATTENDANCE_MARKED
+    SocketService().on('ATTENDANCE_MARKED', (data) {
+      if (!mounted) return;
+      dev.log('🟢 Attendance Marked: $data', name: 'MainScreen');
+      
+      final studentName = data['studentName'] as String? ?? 'User';
+      final status = data['status'] as String? ?? 'PRESENT';
+      final type = data['type'] as String? ?? 'System';
+      
+      showToast(
+        context,
+        '📅 Attendance: $studentName marked $status via $type',
+      );
+    });
   }
 
   Future<void> _loadUserName() async {

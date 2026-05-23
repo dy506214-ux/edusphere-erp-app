@@ -1,10 +1,15 @@
 const { Client } = require('pg');
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
 
 async function main() {
-  const dbUri = "postgresql://postgres.xernedkpgdrvjokokdoa:akshitsha84@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres";
   console.log("Testing connection via Node.js with pooler...");
   const client = new Client({
-    connectionString: dbUri,
+    user: 'postgres.xernedkpgdrvjokokdoa',
+    password: 'akshitsha84',
+    host: 'aws-0-ap-northeast-2.pooler.supabase.com',
+    port: 6543,
+    database: 'postgres',
     ssl: { rejectUnauthorized: false }
   });
 

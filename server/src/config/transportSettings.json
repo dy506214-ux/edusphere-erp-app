@@ -1,0 +1,7 @@
+{
+  "geofenceThreshold": 500,
+  "strictRouteDeviation": true,
+  "pushNotifications": true,
+  "emailSummaries": false,
+  "dataRetentionDays": 90
+}
