@@ -1,0 +1,62 @@
+/**
+ * System-wide constants for EduSphere ERP
+ */
+
+const ROLES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  ADMIN: 'ADMIN',           // Also represents Principal
+  TEACHER: 'TEACHER',
+  STUDENT: 'STUDENT',
+  PARENT: 'PARENT',
+  LIBRARIAN: 'LIBRARIAN',
+  ACCOUNTANT: 'ACCOUNTANT',
+  HR_MANAGER: 'HR_MANAGER',
+  ADMISSION_MANAGER: 'ADMISSION_MANAGER',
+  INVENTORY_MANAGER: 'INVENTORY_MANAGER',
+  TRANSPORT_MANAGER: 'TRANSPORT_MANAGER',
+  DRIVER: 'DRIVER',
+  STAFF: 'STAFF',
+};
+
+/**
+ * Roles that can be assigned to users (single source of truth).
+ * Used by authController, userController, and any validation logic.
+ */
+const VALID_ROLES = Object.values(ROLES);
+
+const ATTENDANCE_STATUS = {
+  PRESENT: 'PRESENT',
+  ABSENT: 'ABSENT',
+  LATE: 'LATE',
+  HALF_DAY: 'HALF_DAY',
+  ON_LEAVE: 'ON_LEAVE',
+};
+
+const EXAM_STATUS = {
+  DRAFT: 'DRAFT',
+  PUBLISHED: 'PUBLISHED',
+  SCHEDULED: 'SCHEDULED',
+  IN_PROGRESS: 'IN_PROGRESS',
+  MARKS_ENTRY: 'MARKS_ENTRY',
+  MARKS_COMPLETED: 'MARKS_COMPLETED',
+  COMPLETED: 'COMPLETED',
+  REPORT_GENERATED: 'REPORT_GENERATED',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  FROZEN: 'FROZEN',
+};
+
+const DEFAULTS = {
+  CURRENCY: 'INR',
+  PASS_PERCENTAGE: 40,
+  SCHOOL_START_TIME: '08:30',
+  EXAM_DURATION: 180,
+  EXAM_START_TIME: '09:00',
+};
+
+module.exports = {
+  ROLES,
+  VALID_ROLES,
+  ATTENDANCE_STATUS,
+  EXAM_STATUS,
+  DEFAULTS,
+};
