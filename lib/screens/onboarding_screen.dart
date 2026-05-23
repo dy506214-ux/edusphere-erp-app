@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/colors.dart';
-import 'login_screen.dart';
+import 'welcome_screen.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -25,7 +26,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       _ctrl.nextPage(duration: const Duration(milliseconds: 350), curve: Curves.easeInOut);
     } else {
       Navigator.pushReplacement(context, PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const LoginScreen(),
+        pageBuilder: (_, __, ___) => const WelcomeScreen(),
         transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
         transitionDuration: const Duration(milliseconds: 400),
       ));
@@ -42,7 +43,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Align(
               alignment: Alignment.topRight,
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.all(16.r),
                 child: TextButton(
                   onPressed: _go,
                   child: Text('Skip', style: GoogleFonts.inter(color: AppColors.textMedium, fontWeight: FontWeight.w600)),
@@ -58,36 +59,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List.generate(_slides.length, (i) => AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: _page == i ? 32 : 8, height: 8,
+                      margin: EdgeInsets.symmetric(horizontal: 4.w),
+                      width: _page == i ? 32 : 8, height: 8.h,
                       decoration: BoxDecoration(
                         color: _page == i ? AppColors.studentPrimary : AppColors.border,
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(4.r),
                       ),
                     )),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24.h),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _go,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.studentPrimary,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                       ),
                       child: Text(_page == _slides.length - 1 ? 'Get Started →' : 'Continue',
-                        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white)),
+                        style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: Colors.white)),
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32.h),
                 ],
               ),
             ),
@@ -111,23 +112,23 @@ class _SlideWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
+      padding: EdgeInsets.symmetric(horizontal: 32.w),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 140, height: 140,
+            width: 140.w, height: 140.h,
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: slide.colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
-              borderRadius: BorderRadius.circular(40),
-              boxShadow: [BoxShadow(color: slide.colors[0].withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 15))],
+              borderRadius: BorderRadius.circular(40.r),
+              boxShadow: [BoxShadow(color: slide.colors[0].withValues(alpha: 0.4), blurRadius: 30, offset: const Offset(0, 15))],
             ),
-            child: Center(child: Text(slide.emoji, style: const TextStyle(fontSize: 64))),
+            child: Center(child: Text(slide.emoji, style: TextStyle(fontSize: 64.sp))),
           ),
-          const SizedBox(height: 40),
-          Text(slide.title, style: GoogleFonts.inter(fontSize: 26, fontWeight: FontWeight.w900, color: AppColors.textDark), textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          Text(slide.desc, style: GoogleFonts.inter(fontSize: 15, color: AppColors.textMedium, height: 1.6), textAlign: TextAlign.center),
+          SizedBox(height: 40.h),
+          Text(slide.title, style: GoogleFonts.inter(fontSize: 26.sp, fontWeight: FontWeight.w900, color: AppColors.textDark), textAlign: TextAlign.center),
+          SizedBox(height: 16.h),
+          Text(slide.desc, style: GoogleFonts.inter(fontSize: 15.sp, color: AppColors.textMedium, height: 1.6.h), textAlign: TextAlign.center),
         ],
       ),
     );

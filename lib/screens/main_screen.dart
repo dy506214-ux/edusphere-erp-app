@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'dart:developer' as dev;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
+import '../models/user_model.dart';
+import '../services/socket_service.dart';
 import '../widgets/common_widgets.dart';
 import 'dashboards/student_dashboard.dart';
 import 'dashboards/teacher_dashboard.dart';
+import 'dashboards/parent_dashboard.dart';
+import 'dashboards/admin_dashboard.dart';
+import 'dashboards/accountant_dashboard.dart';
+import 'dashboards/transport_dashboard.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'welcome_screen.dart';
+import 'features/class_management_screen.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
   final String role;
@@ -16,6 +27,97 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  String _userName = 'Alex Rivera';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+    _initSocketConnection();
+  }
+
+  @override
+  void dispose() {
+    try {
+      SocketService().off('NEW_NOTIFICATION');
+      SocketService().off('attendance:qr-scan');
+      SocketService().off('ATTENDANCE_MARKED');
+      SocketService().disconnect();
+    } catch (_) {}
+    super.dispose();
+  }
+
+  void _initSocketConnection() {
+    try {
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        SocketService().connect(
+          userId: currentUser.id,
+          role: widget.role,
+        );
+        _setupSocketListeners();
+      }
+    } catch (e) {
+      dev.log('⚠️ Failed to initialize socket connection: $e', name: 'MainScreen');
+    }
+  }
+
+  void _setupSocketListeners() {
+    // 1. Listen for NEW_NOTIFICATION
+    SocketService().on('NEW_NOTIFICATION', (data) {
+      if (!mounted) return;
+      dev.log('🔔 Real-time notification: $data', name: 'MainScreen');
+      
+      final title = data['title'] as String? ?? 'Notification';
+      final message = data['message'] as String? ?? 'You have a new update';
+      
+      showToast(
+        context,
+        '📣 $title: $message',
+      );
+    });
+
+    // 2. Listen for attendance:qr-scan
+    SocketService().on('attendance:qr-scan', (data) {
+      if (!mounted) return;
+      dev.log('🟢 Attendance QR Scan: $data', name: 'MainScreen');
+      
+      final action = data['action'] as String? ?? 'checkin';
+      final user = data['user'] as Map? ?? {};
+      final userName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+      
+      showToast(
+        context,
+        '🚨 Live Scan! $userName marked ${action.toUpperCase()}',
+      );
+    });
+
+    // 3. Listen for ATTENDANCE_MARKED
+    SocketService().on('ATTENDANCE_MARKED', (data) {
+      if (!mounted) return;
+      dev.log('🟢 Attendance Marked: $data', name: 'MainScreen');
+      
+      final studentName = data['studentName'] as String? ?? 'User';
+      final status = data['status'] as String? ?? 'PRESENT';
+      final type = data['type'] as String? ?? 'System';
+      
+      showToast(
+        context,
+        '📅 Attendance: $studentName marked $status via $type',
+      );
+    });
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString('${widget.role}_name') ?? 
+                  (widget.role == 'teacher' ? prefs.getString('teacher_name') : null) ??
+                  (widget.role == 'student' ? prefs.getString('student_name') : null) ??
+                  kCredentials[widget.role]?['name'] ?? 
+                  'EduSphere User';
+    });
+  }
   int _idx = 0;
 
   RoleTheme get _theme => roleThemes[widget.role]!;
@@ -24,6 +126,10 @@ class _MainScreenState extends State<MainScreen> {
     switch (widget.role) {
       case 'student':    return StudentDashboard(theme: _theme);
       case 'teacher':    return TeacherDashboard(theme: _theme);
+      case 'parent':     return ParentDashboard(theme: _theme);
+      case 'admin':      return AdminDashboard(theme: _theme);
+      case 'accountant': return AccountantDashboard(theme: _theme);
+      case 'transport':  return TransportDashboard(theme: _theme);
       default:           return StudentDashboard(theme: _theme);
     }
   }
@@ -35,6 +141,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = [
       _dashboard(),
+      if (widget.role == 'teacher') ClassManagementScreen(theme: _theme, onBack: () => setState(() => _idx = 0)),
       MessagesScreen(theme: _theme),
       ProfileScreen(role: widget.role, theme: _theme),
     ];
@@ -51,17 +158,19 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: isDesktop ? null : Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 20, offset: const Offset(0, -4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4))],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(icon: Icons.home_rounded, label: 'Home', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
-                _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
-                _NavItem(icon: Icons.person_rounded, label: 'Profile', selected: _idx == 2, color: _theme.primary, onTap: () => setState(() => _idx = 2)),
+                if (widget.role == 'teacher')
+                  _NavItem(icon: Icons.school_rounded, label: 'Classes', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 2 : 1)),
+                _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 3 : 2)),
               ],
             ),
           ),
@@ -69,70 +178,76 @@ class _MainScreenState extends State<MainScreen> {
       ),
     );
   }
+
+  bool selectedIdx(int i) => _idx == i;
   Widget _buildSidebar() {
     return Container(
-      width: 280,
-      decoration: BoxDecoration(
+      width: 280.w,
+      decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(right: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         children: [
-          const SizedBox(height: 40),
+          SizedBox(height: 40.h),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: EdgeInsets.symmetric(horizontal: 24.w),
             child: Row(
               children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 40.w, height: 40.h,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                    borderRadius: BorderRadius.circular(10.r),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(8.r),
                     child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Text('EDUSPHERE', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 1)),
+                SizedBox(width: 12.w),
+                Text('EDUSPHERE', style: GoogleFonts.outfit(fontSize: 20.sp, fontWeight: FontWeight.w900, color: AppColors.textDark, letterSpacing: 1)),
               ],
             ),
           ),
-          const SizedBox(height: 40),
+          SizedBox(height: 40.h),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Column(
                 children: [
                   _SidebarItem(icon: Icons.home_rounded, label: 'Dashboard', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
-                  const SizedBox(height: 8),
-                  _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
-                  const SizedBox(height: 8),
-                  _SidebarItem(icon: Icons.person_rounded, label: 'Profile Settings', selected: _idx == 2, color: _theme.primary, onTap: () => setState(() => _idx = 2)),
+                  SizedBox(height: 8.h),
+                  if (widget.role == 'teacher') ...[
+                    _SidebarItem(icon: Icons.school_rounded, label: 'Class Management', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                    SizedBox(height: 8.h),
+                  ],
+                  _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 2 : 1)),
+                  SizedBox(height: 8.h),
+                  _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 3 : 2)),
                 ],
               ),
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
+            padding: EdgeInsets.all(24.r),
+            decoration: const BoxDecoration(border: Border(top: BorderSide(color: AppColors.border))),
             child: Row(
               children: [
                 CircleAvatar(backgroundColor: _theme.light, child: Icon(Icons.person_rounded, color: _theme.primary)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Alex Rivera', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
-                      Text(_theme.label, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                      Text(_userName, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                      Text(_theme.label, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.logout_rounded, color: AppColors.error, size: 20), 
+                  icon: Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp), 
                   onPressed: () => Navigator.pushAndRemoveUntil(context, 
                     MaterialPageRoute(builder: (_) => const WelcomeScreen()), (r) => false)
                 ),
@@ -159,16 +274,16 @@ class _SidebarItem extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12.r),
         ),
         child: Row(
           children: [
-            Icon(icon, color: selected ? color : AppColors.textLight, size: 22),
-            const SizedBox(width: 16),
-            Text(label, style: GoogleFonts.inter(fontSize: 14, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? color : AppColors.textMedium)),
+            Icon(icon, color: selected ? color : AppColors.textLight, size: 22.sp),
+            SizedBox(width: 16.w),
+            Text(label, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: selected ? FontWeight.w700 : FontWeight.w500, color: selected ? color : AppColors.textMedium)),
           ],
         ),
       ),
@@ -190,17 +305,17 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
+          color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16.r),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: selected ? color : AppColors.textLight, size: 24),
-            const SizedBox(height: 2),
-            Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: selected ? AppColors.textDark : AppColors.textLight)),
+            Icon(icon, color: selected ? color : AppColors.textLight, size: 24.sp),
+            SizedBox(height: 2.h),
+            Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: selected ? AppColors.textDark : AppColors.textLight)),
           ],
         ),
       ),

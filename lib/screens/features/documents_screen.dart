@@ -4,6 +4,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 
 import '../../utils/pdf_utils.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class DocumentsScreen extends StatelessWidget {
   const DocumentsScreen({super.key});
@@ -27,20 +28,20 @@ class DocumentsScreen extends StatelessWidget {
           PageHeader(title: 'My Documents', subtitle: 'Official school documents', theme: roleThemes['student']!),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               itemCount: docs.length,
               itemBuilder: (_, i) {
                 final d = docs[i];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.all(16.r),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                   child: Row(children: [
-                    Text(d['emoji']!, style: const TextStyle(fontSize: 32)),
-                    const SizedBox(width: 14),
+                    Text(d['emoji']!, style: TextStyle(fontSize: 32.sp)),
+                    SizedBox(width: 14.w),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(d['name']!, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13)),
-                      Text('${d['type']} • ${d['size']}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                      Text(d['name']!, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13.sp)),
+                      Text('${d['type']} • ${d['size']}', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                     ])),
                     GestureDetector(
                       onTap: () async {
@@ -48,9 +49,9 @@ class DocumentsScreen extends StatelessWidget {
                         await PDFUtils.generateAndSavePDF(context, d['name'] as String, d['content'] as String);
                       },
                       child: Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 20),
+                        width: 40.w, height: 40.h,
+                        decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(12.r)),
+                        child: Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 20.sp),
                       ),
                     ),
                   ]),

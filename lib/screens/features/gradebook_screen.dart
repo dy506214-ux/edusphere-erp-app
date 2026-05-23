@@ -5,6 +5,7 @@ import '../../widgets/common_widgets.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class GradebookScreen extends StatelessWidget {
   const GradebookScreen({super.key});
@@ -64,40 +65,40 @@ class GradebookScreen extends StatelessWidget {
           PageHeader(title: 'Gradebook', subtitle: 'Class 12-B • Term 2', theme: roleThemes['teacher']!),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               child: Column(
                 children: [
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(color: AppColors.teacherPrimary, borderRadius: const BorderRadius.vertical(top: Radius.circular(20))),
+                          padding: EdgeInsets.all(14.r),
+                          decoration: BoxDecoration(color: AppColors.teacherPrimary, borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
                           child: Row(children: [
-                            Expanded(flex: 3, child: Text('Student', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white))),
-                            Expanded(child: Text('Phy', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white))),
-                            Expanded(child: Text('Math', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white))),
-                            Expanded(child: Text('Chem', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white))),
-                            Expanded(child: Text('Avg', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white))),
+                            Expanded(flex: 3, child: Text('Student', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white))),
+                            Expanded(child: Text('Phy', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white))),
+                            Expanded(child: Text('Math', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white))),
+                            Expanded(child: Text('Chem', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white))),
+                            Expanded(child: Text('Avg', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white))),
                           ]),
                         ),
                         ...students.asMap().entries.map((e) {
                           final s = e.value;
                           final avg = s['avg'] as int;
                           return Container(
-                            padding: const EdgeInsets.all(14),
+                            padding: EdgeInsets.all(14.r),
                             decoration: BoxDecoration(
                               color: e.key.isEven ? Colors.white : AppColors.background,
-                              border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
+                              border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5.w)),
                             ),
                             child: Row(children: [
-                              Expanded(flex: 3, child: Text(s['name'] as String, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textDark))),
-                              Expanded(child: Text('${s['physics']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textDark))),
-                              Expanded(child: Text('${s['maths']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textDark))),
-                              Expanded(child: Text('${s['chemistry']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textDark))),
+                              Expanded(flex: 3, child: Text(s['name'] as String, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textDark))),
+                              Expanded(child: Text('${s['physics']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textDark))),
+                              Expanded(child: Text('${s['maths']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textDark))),
+                              Expanded(child: Text('${s['chemistry']}', textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textDark))),
                               Expanded(child: Text('$avg%', textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900,
+                                style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w900,
                                   color: avg >= 90 ? const Color(0xFF10B981) : avg >= 75 ? AppColors.teacherPrimary : Colors.red))),
                             ]),
                           );
@@ -105,7 +106,7 @@ class GradebookScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
                   LoadingButton(
                     label: '📥 Export Gradebook',
                     color: AppColors.teacherPrimary,
@@ -113,7 +114,7 @@ class GradebookScreen extends StatelessWidget {
                       await _exportPDF(context, students);
                     },
                   ),
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80.h),
                 ],
               ),
             ),

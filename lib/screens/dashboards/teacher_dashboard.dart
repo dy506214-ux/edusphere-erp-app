@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../features/timetable_screen.dart';
@@ -14,16 +15,38 @@ import '../features/notices_screen.dart';
 import '../features/discussion_forum_screen.dart';
 import '../profile_screen.dart';
 import '../messages_screen.dart';
-import '../features/online_classes_screen.dart';
 import '../features/change_password_screen.dart';
 import '../features/notification_preferences_screen.dart';
 import '../features/leave_application_screen.dart';
 import '../features/cocurricular_screen.dart';
-import '../features/study_materials_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class TeacherDashboard extends StatelessWidget {
+class TeacherDashboard extends StatefulWidget {
   final RoleTheme theme;
   const TeacherDashboard({super.key, required this.theme});
+
+  @override
+  State<TeacherDashboard> createState() => _TeacherDashboardState();
+}
+
+class _TeacherDashboardState extends State<TeacherDashboard> {
+  String teacherName = 'Emma Johnson';
+  String teacherDesignation = 'Senior Mathematics Teacher';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTeacherData();
+  }
+
+  Future<void> _loadTeacherData() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      teacherName = prefs.getString('teacher_name') ?? 'Emma Johnson';
+      teacherDesignation = prefs.getString('teacher_design') ?? 'Senior Mathematics Teacher';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +56,7 @@ class TeacherDashboard extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
           SliverPadding(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
             sliver: SliverToBoxAdapter(
               child: Center(
                 child: Container(
@@ -42,27 +65,27 @@ class TeacherDashboard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildStats(context),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
                       const SectionTitle(title: 'Classroom Control'),
-                      const SizedBox(height: 12),
+                      SizedBox(height: 12.h),
                       _buildQuickActions(context),
-                      const SizedBox(height: 24),
+                      SizedBox(height: 24.h),
                       // Removed Next Class section
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8.h),
               // ── CLASSROOM MANAGEMENT ─────────────────────────────────────
               const SectionTitle(title: '🏫 Classroom Management'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _buildSection(context, [
-                _mod('My Timetable & Classes', 'Today: 4 classes', '📅', const Color(0xFF3B82F6), const TimetableScreen()),
+                _mod('My Timetable & Classes', 'Today: 4 classes', '📅', const Color(0xFF3B82F6), const TimetableScreen(isStudent: false)),
                 _mod('Attendance (Mark)',      'Class 12-B',       '✅', const Color(0xFF16A34A), const MarkAttendanceScreen()),
                 _mod('Lesson Plan & Syllabus', '78% covered',      '📋', const Color(0xFFF59E0B), const LessonPlanScreen()),
                 // Removed Online Classes module
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // ── ACADEMIC ────────────────────────────────────────────────
               const SectionTitle(title: '📚 Academic'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _buildSection(context, [
                 _mod('Manage Assignments',     'Publish to students', '📝', const Color(0xFFF97316), const CreateAssignmentScreen()),
                 _mod('Create Quizzes / Tests', 'MCQ builder',         '🧠', const Color(0xFF8B5CF6), const CreateQuizScreen()),
@@ -71,38 +94,37 @@ class TeacherDashboard extends StatelessWidget {
                 _mod('Grade Book / Marks',     'Update records',      '📊', const Color(0xFFEC4899), const GradebookScreen()),
                 _mod('Student Performance',    'Charts & analytics',  '📈', const Color(0xFF0EA5E9), const StudentPerformanceScreen()),
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // ── COMMUNICATION ───────────────────────────────────────────
               const SectionTitle(title: '💬 Communication'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _buildSection(context, [
                 _mod('Send Notices',           'Announcements',       '📢', const Color(0xFFD97706), const NoticesScreen()),
-                _mod('Message Students/Parents','2 unread messages',  '💬', const Color(0xFF8B5CF6), MessagesScreen(theme: theme)),
+                _mod('Message Students/Parents','2 unread messages',  '💬', const Color(0xFF8B5CF6), MessagesScreen(theme: widget.theme)),
                 _mod('Discussion Forum',       'Engage with students','🗣️', const Color(0xFF0EA5E9), const DiscussionForumScreen()),
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // ── PROFILE & ACCOUNT ────────────────────────────────────────
               const SectionTitle(title: '👤 Profile & Account'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _buildSection(context, [
-                _mod('View / Update Profile',  'Manage details',      '👤', const Color(0xFF3B82F6), ProfileScreen(role: 'teacher', theme: theme)),
+                _mod('My Profile',  'Manage details',      '👤', const Color(0xFF3B82F6), ProfileScreen(role: 'teacher', theme: widget.theme)),
                 _mod('Change Password',        'Update security',     '🔑', const Color(0xFFF59E0B), const ChangePasswordScreen()),
                 _mod('Notification Prefs',     'Manage alerts',       '🔔', const Color(0xFF8B5CF6), const NotificationPreferencesScreen()),
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
 
               // ── OTHER FEATURES ───────────────────────────────────────────
               const SectionTitle(title: '⚡ Other Features'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _buildSection(context, [
                 _mod('Co-curricular Activity', 'Manage clubs',        '⚽', const Color(0xFF7C3AED), const CoCurricularScreen()),
                 _mod('Event / Competition',    'Upcoming events',     '🏆', const Color(0xFF10B981), const CoCurricularScreen()),
                 _mod('Leave Application',      'Apply & track leaves','📅', const Color(0xFF16A34A), const LeaveApplicationScreen()),
-                _mod('Resource Sharing',       'Share documents',     '📁', const Color(0xFF64748B), const StudyMaterialsScreen()),
               ]),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
                     ],
                   ),
                 ),
@@ -114,37 +136,45 @@ class TeacherDashboard extends StatelessWidget {
     );
   }
 
+
   Widget _buildHeader(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(gradient: theme.gradient),
+      decoration: BoxDecoration(gradient: widget.theme.gradient),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
           child: Row(
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Welcome back 👋', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-                    const SizedBox(height: 4),
-                    Text('Prof. Harrison', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-                    const SizedBox(height: 6),
+                    Text('Welcome back 👋', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+                    SizedBox(height: 4.h),
+                    Text(teacherName, style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                    SizedBox(height: 6.h),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-                      child: Text('HOD Physics Dept.', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white)),
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.r)),
+                      child: Text(teacherDesignation, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white)),
                     ),
                   ],
                 ),
               ),
               GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: theme))),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: widget.theme))),
                 child: Container(
-                  width: 52, height: 52,
-                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
-                  child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
+                  width: 52.w, height: 52.w,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2), 
+                    borderRadius: BorderRadius.circular(16.r), 
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.w),
+                    image: const DecorationImage(
+                      image: NetworkImage('https://i.pravatar.cc/300?img=32'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -158,7 +188,7 @@ class TeacherDashboard extends StatelessWidget {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     return GridView.count(
       crossAxisCount: isDesktop ? 4 : 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: isDesktop ? 1.4 : 1.15,
+      crossAxisSpacing: 16.w, mainAxisSpacing: 16.h, childAspectRatio: isDesktop ? 1.3 : 1.05,
       children: const [
         InfoCard(title: 'Classes Today', value: '04', icon: Icons.videocam_rounded, iconColor: AppColors.studentPrimary, bgColor: AppColors.studentLight, trend: 'Next: 10:30 AM'),
         InfoCard(title: 'Attendance', value: '94%', icon: Icons.check_circle_rounded, iconColor: Color(0xFF10B981), bgColor: Color(0xFFECFDF5), trend: 'Class 12-B'),
@@ -180,7 +210,7 @@ class TeacherDashboard extends StatelessWidget {
     ];
     return GridView.count(
       crossAxisCount: isDesktop ? 6 : 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: isDesktop ? 1.4 : 1.1,
+      crossAxisSpacing: 16.w, mainAxisSpacing: 16.h, childAspectRatio: isDesktop ? 1.4 : 1.1,
       children: actions.map((a) => QuickBtn(
         label: a['label'] as String,
         icon: a['icon'] as IconData,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../theme/colors.dart';
 
 // ── Page Header ───────────────────────────────────────────────────────────────
@@ -8,6 +9,7 @@ class PageHeader extends StatelessWidget {
   final String? subtitle;
   final RoleTheme theme;
   final List<Widget>? actions;
+  final VoidCallback? onBack;
 
   const PageHeader({
     super.key,
@@ -15,6 +17,7 @@ class PageHeader extends StatelessWidget {
     this.subtitle,
     required this.theme,
     this.actions,
+    this.onBack,
   });
 
   @override
@@ -24,28 +27,32 @@ class PageHeader extends StatelessWidget {
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+          padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 20.h),
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: onBack ?? () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                },
                 child: Container(
-                  width: 40, height: 40,
+                  width: 40.w, height: 40.w,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12.r),
                   ),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18),
+                  child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18.sp),
                 ),
               ),
-              const SizedBox(width: 14),
+              SizedBox(width: 14.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text(title, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.white)),
                     if (subtitle != null)
-                      Text(subtitle!, style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withOpacity(0.7))),
+                      Text(subtitle!, style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.white.withValues(alpha: 0.7))),
                   ],
                 ),
               ),
@@ -80,22 +87,22 @@ class InfoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         border: Border.all(color: AppColors.border),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r, offset: Offset(0, 2.h))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40, height: 40,
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: iconColor, size: 20),
+            width: 40.w, height: 40.w,
+            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12.r)),
+            child: Icon(icon, color: iconColor, size: 20.sp),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -103,14 +110,14 @@ class InfoCard extends StatelessWidget {
               children: [
                 FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(value, style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                  child: Text(value, style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
                 ),
                 Text(title, 
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textLight),
+                  style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: AppColors.textLight),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (trend != null)
                   Text(trend!, 
-                    style: GoogleFonts.inter(fontSize: 10, color: AppColors.textLight),
+                    style: GoogleFonts.inter(fontSize: 10.sp, color: AppColors.textLight),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
               ],
             ),
@@ -143,34 +150,34 @@ class FeatureCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.r),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r, offset: Offset(0, 2.h))],
         ),
         child: Row(
           children: [
             Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: color.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))]),
-              child: Center(child: Text(emoji, style: const TextStyle(fontSize: 24))),
+              width: 52.w, height: 52.w,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16.r),
+                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10.r, offset: Offset(0, 4.h))]),
+              child: Center(child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
             ),
-            const SizedBox(width: 16),
+            SizedBox(width: 16.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14)),
-                  const SizedBox(height: 3),
-                  Text(desc, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                  Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14.sp)),
+                  SizedBox(height: 3.h),
+                  Text(desc, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 20),
+            Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 20.sp),
           ],
         ),
       ),
@@ -194,21 +201,21 @@ class QuickBtn extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r)],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 48, height: 48,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14),
-                boxShadow: [BoxShadow(color: color.withOpacity(0.35), blurRadius: 10, offset: const Offset(0, 4))]),
-              child: Icon(icon, color: Colors.white, size: 22),
+              width: 48.w, height: 48.w,
+              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14.r),
+                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 10.r, offset: Offset(0, 4.h))]),
+              child: Icon(icon, color: Colors.white, size: 22.sp),
             ),
-            const SizedBox(height: 8),
-            Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: AppColors.textMedium),
+            SizedBox(height: 8.h),
+            Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium),
               textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
@@ -222,14 +229,14 @@ void showToast(BuildContext context, String msg, {bool isError = false}) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Row(children: [
       Icon(isError ? Icons.error_outline : Icons.check_circle_rounded,
-          color: isError ? AppColors.error : AppColors.success, size: 18),
-      const SizedBox(width: 10),
-      Expanded(child: Text(msg, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white))),
+          color: isError ? AppColors.error : AppColors.success, size: 18.sp),
+      SizedBox(width: 10.w),
+      Expanded(child: Text(msg, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.sp))),
     ]),
     backgroundColor: AppColors.textDark,
     behavior: SnackBarBehavior.floating,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    margin: const EdgeInsets.all(16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
+    margin: EdgeInsets.all(16.r),
     duration: const Duration(seconds: 2),
   ));
 }
@@ -238,9 +245,18 @@ void showToast(BuildContext context, String msg, {bool isError = false}) {
 class LoadingButton extends StatefulWidget {
   final String label;
   final Color color;
+  final Color? textColor;
+  final bool? isLoading;
   final Future<void> Function() onPressed;
 
-  const LoadingButton({super.key, required this.label, required this.color, required this.onPressed});
+  const LoadingButton({
+    super.key, 
+    required this.label, 
+    required this.color, 
+    required this.onPressed,
+    this.textColor,
+    this.isLoading,
+  });
 
   @override
   State<LoadingButton> createState() => _LoadingButtonState();
@@ -251,22 +267,23 @@ class _LoadingButtonState extends State<LoadingButton> {
 
   @override
   Widget build(BuildContext context) {
+    final bool activeLoading = widget.isLoading ?? _loading;
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: _loading ? null : () async {
+        onPressed: activeLoading ? null : () async {
           setState(() => _loading = true);
           await widget.onPressed();
           if (mounted) setState(() => _loading = false);
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: widget.color,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          padding: EdgeInsets.symmetric(vertical: 16.h),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         ),
-        child: _loading
-            ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
-            : Text(widget.label, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.white)),
+        child: activeLoading
+            ? SizedBox(width: 22.w, height: 22.w, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5.w))
+            : Text(widget.label, style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: widget.textColor ?? Colors.white)),
       ),
     );
   }
@@ -285,11 +302,11 @@ class SectionTitle extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.textDark, letterSpacing: 0.8)),
+        Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800, color: AppColors.textDark, letterSpacing: 0.8)),
         if (action != null)
           GestureDetector(
             onTap: onAction,
-            child: Text(action!, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.studentPrimary)),
+            child: Text(action!, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.studentPrimary)),
           ),
       ],
     );
@@ -307,27 +324,27 @@ class NotifItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 26)),
-          const SizedBox(width: 14),
+          Text(emoji, style: TextStyle(fontSize: 26.sp)),
+          SizedBox(width: 14.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
-                Text(time, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                Text(title, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                Text(time, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 18),
+          Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 18.sp),
         ],
       ),
     );

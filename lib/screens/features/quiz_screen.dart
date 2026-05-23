@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class QuizScreen extends StatefulWidget {
   const QuizScreen({super.key});
@@ -28,8 +29,11 @@ class _QuizScreenState extends State<QuizScreen> {
   void _startQuiz() {
     setState(() { _view = 'quiz'; _current = 0; _selected.clear(); _timeLeft = 600; });
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (_timeLeft > 0) setState(() => _timeLeft--);
-      else _submitQuiz();
+      if (_timeLeft > 0) {
+        setState(() => _timeLeft--);
+      } else {
+        _submitQuiz();
+      }
     });
   }
 
@@ -58,7 +62,7 @@ class _QuizScreenState extends State<QuizScreen> {
           PageHeader(title: 'Quiz & Assessments', theme: roleThemes['student']!),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               children: [
                 _quizCard(context, 'Physics Chapter 4', 'Thermodynamics', 5, '10 min', 'live'),
                 _quizCard(context, 'Mathematics Quiz', 'Calculus', 10, '20 min', 'upcoming'),
@@ -75,44 +79,44 @@ class _QuizScreenState extends State<QuizScreen> {
     final isLive = status == 'live';
     final isDone = status == 'completed';
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
+      margin: EdgeInsets.only(bottom: 14.h),
+      padding: EdgeInsets.all(18.r),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(20),
+        color: Colors.white, borderRadius: BorderRadius.circular(20.r),
         border: Border.all(color: isLive ? Colors.red.shade300 : AppColors.border, width: isLive ? 2 : 1),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15)),
+          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15.sp)),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
             decoration: BoxDecoration(
               color: isLive ? Colors.red.shade50 : isDone ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(8.r),
             ),
             child: Text(isLive ? '🔴 Live' : isDone ? '✅ Done' : '⏰ Soon',
-              style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w800,
+              style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800,
                 color: isLive ? Colors.red : isDone ? const Color(0xFF10B981) : AppColors.warning)),
           ),
         ]),
-        const SizedBox(height: 6),
-        Text(subject, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
-        const SizedBox(height: 8),
+        SizedBox(height: 6.h),
+        Text(subject, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
+        SizedBox(height: 8.h),
         Row(children: [
           _tag('📝 $qs questions'),
-          const SizedBox(width: 8),
+          SizedBox(width: 8.w),
           _tag('⏱ $time'),
-          if (isDone) ...[const SizedBox(width: 8), _tag('Score: 88%', color: const Color(0xFF10B981))],
+          if (isDone) ...[SizedBox(width: 8.w), _tag('Score: 88%', color: const Color(0xFF10B981))],
         ]),
-        const SizedBox(height: 14),
+        SizedBox(height: 14.h),
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: isLive ? _startQuiz : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: isLive ? AppColors.studentPrimary : AppColors.border,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: EdgeInsets.symmetric(vertical: 12.h),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
             ),
             child: Text(isLive ? 'Start Quiz' : isDone ? 'View Results' : 'Notify Me',
               style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: isLive ? Colors.white : AppColors.textMedium)),
@@ -123,9 +127,9 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Widget _tag(String t, {Color? color}) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-    decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
-    child: Text(t, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: color ?? AppColors.textMedium)),
+    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+    decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8.r)),
+    child: Text(t, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: color ?? AppColors.textMedium)),
   );
 
   Widget _buildQuiz(BuildContext context) {
@@ -138,27 +142,27 @@ class _QuizScreenState extends State<QuizScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20.r),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('PHYSICS QUIZ', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                  Text('PHYSICS QUIZ', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
                   Text('Question ${_current + 1}/${_questions.length}', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white)),
                 ]),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(color: _timeLeft < 60 ? Colors.red : const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                  decoration: BoxDecoration(color: _timeLeft < 60 ? Colors.red : const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12.r)),
                   child: Row(children: [
-                    const Icon(Icons.timer_rounded, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
+                    Icon(Icons.timer_rounded, color: Colors.white, size: 16.sp),
+                    SizedBox(width: 6.w),
                     Text('$mins:${secs.toString().padLeft(2, '0')}', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white)),
                   ]),
                 ),
               ]),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(4.r),
                 child: LinearProgressIndicator(
                   value: (_current + 1) / _questions.length,
                   minHeight: 4,
@@ -167,19 +171,19 @@ class _QuizScreenState extends State<QuizScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: 24.h),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
                 child: Column(
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(24)),
-                      child: Text(q['q'] as String, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white, height: 1.5)),
+                      padding: EdgeInsets.all(24.r),
+                      decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(24.r)),
+                      child: Text(q['q'] as String, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white, height: 1.5.h)),
                     ),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20.h),
                     Expanded(
                       child: ListView.builder(
                         itemCount: (q['opts'] as List).length,
@@ -189,26 +193,26 @@ class _QuizScreenState extends State<QuizScreen> {
                             onTap: () => setState(() => _selected[_current] = i),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 200),
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(18),
+                              margin: EdgeInsets.only(bottom: 12.h),
+                              padding: EdgeInsets.all(18.r),
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.studentPrimary.withOpacity(0.15) : const Color(0xFF1E293B),
-                                borderRadius: BorderRadius.circular(16),
+                                color: isSelected ? AppColors.studentPrimary.withValues(alpha: 0.15) : const Color(0xFF1E293B),
+                                borderRadius: BorderRadius.circular(16.r),
                                 border: Border.all(color: isSelected ? AppColors.studentPrimary : const Color(0xFF334155), width: isSelected ? 2 : 1),
                               ),
                               child: Row(children: [
                                 Container(
-                                  width: 28, height: 28,
+                                  width: 28.w, height: 28.h,
                                   decoration: BoxDecoration(
                                     color: isSelected ? AppColors.studentPrimary : const Color(0xFF334155),
                                     shape: BoxShape.circle,
                                   ),
                                   child: Center(child: Text(String.fromCharCode(65 + i),
-                                    style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.white))),
+                                    style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w900, color: Colors.white))),
                                 ),
-                                const SizedBox(width: 14),
+                                SizedBox(width: 14.w),
                                 Text((q['opts'] as List)[i] as String,
-                                  style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : const Color(0xFF94A3B8))),
+                                  style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w600, color: isSelected ? Colors.white : const Color(0xFF94A3B8))),
                               ]),
                             ),
                           );
@@ -220,7 +224,7 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20.r),
               child: Row(children: [
                 if (_current > 0) ...[
                   Expanded(
@@ -228,25 +232,28 @@ class _QuizScreenState extends State<QuizScreen> {
                       onPressed: () => setState(() => _current--),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Color(0xFF334155)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: EdgeInsets.symmetric(vertical: 14.h),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
                       ),
                       child: Text('Previous', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: const Color(0xFF94A3B8))),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12.w),
                 ],
                 Expanded(
                   flex: 2,
                   child: ElevatedButton(
                     onPressed: () {
-                      if (_current < _questions.length - 1) setState(() => _current++);
-                      else _submitQuiz();
+                      if (_current < _questions.length - 1) {
+                        setState(() => _current++);
+                      } else {
+                        _submitQuiz();
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.studentPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
                     ),
                     child: Text(_current == _questions.length - 1 ? 'Submit Quiz' : 'Next →',
                       style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white)),
@@ -265,41 +272,41 @@ class _QuizScreenState extends State<QuizScreen> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: EdgeInsets.all(24.r),
           child: Column(
             children: [
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               Container(
-                width: 120, height: 120,
-                decoration: BoxDecoration(color: AppColors.studentLight, shape: BoxShape.circle),
-                child: Center(child: Text('$_score/${_questions.length}', style: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w900, color: AppColors.studentPrimary))),
+                width: 120.w, height: 120.h,
+                decoration: const BoxDecoration(color: AppColors.studentLight, shape: BoxShape.circle),
+                child: Center(child: Text('$_score/${_questions.length}', style: GoogleFonts.inter(fontSize: 28.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary))),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               Text(_score >= 4 ? '🎉 Excellent!' : _score >= 3 ? '👍 Good Job!' : '📚 Keep Practicing!',
-                style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-              const SizedBox(height: 8),
+                style: GoogleFonts.inter(fontSize: 24.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+              SizedBox(height: 8.h),
               Text('You scored ${(_score / _questions.length * 100).round()}% in Physics Quiz',
-                style: GoogleFonts.inter(fontSize: 14, color: AppColors.textMedium), textAlign: TextAlign.center),
-              const SizedBox(height: 24),
+                style: GoogleFonts.inter(fontSize: 14.sp, color: AppColors.textMedium), textAlign: TextAlign.center),
+              SizedBox(height: 24.h),
               ..._questions.asMap().entries.map((e) {
                 final correct = _selected[e.key] == (e.value['ans'] as int);
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
+                  margin: EdgeInsets.only(bottom: 10.h),
+                  padding: EdgeInsets.all(14.r),
                   decoration: BoxDecoration(
                     color: correct ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: correct ? const Color(0xFF10B981) : Colors.red, width: 1.5),
+                    borderRadius: BorderRadius.circular(16.r),
+                    border: Border.all(color: correct ? const Color(0xFF10B981) : Colors.red, width: 1.5.w),
                   ),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(e.value['q'] as String, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textDark)),
-                    const SizedBox(height: 4),
+                    Text(e.value['q'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                    SizedBox(height: 4.h),
                     Text(correct ? '✅ Correct' : '❌ Correct: ${(e.value['opts'] as List)[e.value['ans'] as int]}',
-                      style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: correct ? const Color(0xFF10B981) : Colors.red)),
+                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: correct ? const Color(0xFF10B981) : Colors.red)),
                   ]),
                 );
               }),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               LoadingButton(
                 label: 'Back to Academics',
                 color: AppColors.studentPrimary,

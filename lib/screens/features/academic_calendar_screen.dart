@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AcademicCalendarScreen extends StatefulWidget {
   const AcademicCalendarScreen({super.key});
@@ -46,13 +47,13 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           PageHeader(title: 'Academic Calendar', subtitle: 'Events & Important Dates', theme: roleThemes['student']!),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               child: Column(
                 children: [
                   // Month selector
                   Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    padding: EdgeInsets.all(4.r),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
@@ -60,33 +61,33 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                           onTap: () => setState(() => _selectedMonth = e.key),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
-                            margin: const EdgeInsets.symmetric(horizontal: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            margin: EdgeInsets.symmetric(horizontal: 2.w),
+                            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
                             decoration: BoxDecoration(
                               color: _selectedMonth == e.key ? AppColors.studentPrimary : Colors.transparent,
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(14.r),
                             ),
-                            child: Text(e.value, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w800,
+                            child: Text(e.value, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800,
                               color: _selectedMonth == e.key ? Colors.white : AppColors.textLight)),
                           ),
                         )).toList(),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
 
                   // Mini Calendar
                   Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
+                    padding: EdgeInsets.all(20.r),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
-                        Text('${_months[_selectedMonth]} 2026', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 16)),
-                        const SizedBox(height: 16),
+                        Text('${_months[_selectedMonth]} 2026', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 16.sp)),
+                        SizedBox(height: 16.h),
                         Row(children: ['S','M','T','W','T','F','S'].map((d) => Expanded(
-                          child: Center(child: Text(d, style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: AppColors.textLight))),
+                          child: Center(child: Text(d, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: AppColors.textLight))),
                         )).toList()),
-                        const SizedBox(height: 8),
+                        SizedBox(height: 8.h),
                         GridView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -97,7 +98,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                           ),
                           itemCount: 42,
                           itemBuilder: (_, i) {
-                            final year = 2026;
+                            const year = 2026;
                             final month = _selectedMonth + 1;
                             final firstDay = DateTime(year, month, 1);
                             final daysInMonth = DateTime(year, month + 1, 0).day;
@@ -117,20 +118,20 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                             return Container(
                               decoration: BoxDecoration(
                                 color: isToday ? AppColors.studentPrimary : hasEvent ? AppColors.studentLight : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(8.r),
                               ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Text('$day', style: GoogleFonts.inter(
-                                    fontSize: 11, 
+                                    fontSize: 11.sp, 
                                     fontWeight: FontWeight.w700,
                                     color: isToday ? Colors.white : hasEvent ? AppColors.studentPrimary : AppColors.textDark,
                                   )),
                                   if (hasEvent && !isToday)
                                     Container(
-                                      width: 4, 
-                                      height: 4, 
+                                      width: 4.w, 
+                                      height: 4.h, 
                                       decoration: BoxDecoration(
                                         color: (_events[dateKey]![0]['color'] as Color), 
                                         shape: BoxShape.circle,
@@ -141,52 +142,52 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                             );
                           },
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: 12.h),
                         // Legend
                         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                           _legend(Colors.red, 'Exam'),
-                          const SizedBox(width: 16),
+                          SizedBox(width: 16.w),
                           _legend(Colors.green, 'Event'),
-                          const SizedBox(width: 16),
+                          SizedBox(width: 16.w),
                           _legend(Colors.orange, 'Holiday'),
-                          const SizedBox(width: 16),
+                          SizedBox(width: 16.w),
                           _legend(Colors.purple, 'Meeting'),
                         ]),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
 
                   // Upcoming Events Timeline
                   const SectionTitle(title: 'Upcoming Events'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   ..._upcomingEvents.map((e) => Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: e['color'] as Color, borderRadius: BorderRadius.circular(18), border: Border.all(color: AppColors.border)),
+                    margin: EdgeInsets.only(bottom: 10.h),
+                    padding: EdgeInsets.all(14.r),
+                    decoration: BoxDecoration(color: e['color'] as Color, borderRadius: BorderRadius.circular(18.r), border: Border.all(color: AppColors.border)),
                     child: Row(children: [
                       Container(
-                        width: 48, height: 48,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.border)),
+                        width: 48.w, height: 48.h,
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14.r), border: Border.all(color: AppColors.border)),
                         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          Text((e['date'] as String).split(' ')[1], style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
-                          Text((e['date'] as String).split(' ')[0], style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                          Text((e['date'] as String).split(' ')[1], style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
+                          Text((e['date'] as String).split(' ')[0], style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w700, color: AppColors.textLight)),
                         ]),
                       ),
-                      const SizedBox(width: 14),
+                      SizedBox(width: 14.w),
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(e['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13)),
-                        const SizedBox(height: 3),
+                        Text(e['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13.sp)),
+                        SizedBox(height: 3.h),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
-                          child: Text(e['type'] as String, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6.r)),
+                          child: Text(e['type'] as String, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textMedium)),
                         ),
                       ])),
-                      Text(e['emoji'] as String, style: const TextStyle(fontSize: 24)),
+                      Text(e['emoji'] as String, style: TextStyle(fontSize: 24.sp)),
                     ]),
                   )),
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80.h),
                 ],
               ),
             ),
@@ -197,8 +198,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   Widget _legend(Color c, String t) => Row(children: [
-    Container(width: 10, height: 10, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
-    const SizedBox(width: 4),
-    Text(t, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+    Container(width: 10.w, height: 10.h, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+    SizedBox(width: 4.w),
+    Text(t, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
   ]);
 }

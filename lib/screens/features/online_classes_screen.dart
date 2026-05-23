@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class OnlineClassesScreen extends StatefulWidget {
   const OnlineClassesScreen({super.key});
@@ -53,7 +54,7 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
               labelColor: AppColors.studentPrimary,
               unselectedLabelColor: AppColors.textLight,
               indicatorColor: AppColors.studentPrimary,
-              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13),
+              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13.sp),
               tabs: const [Tab(text: '🔴 Live Classes'), Tab(text: '📹 Recordings')],
             ),
           ),
@@ -63,67 +64,67 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
               children: [
                 // Live Classes
                 ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r),
                   itemCount: _liveClasses.length,
                   itemBuilder: (_, i) {
                     final c = _liveClasses[i];
                     final isLive = c['live'] as bool;
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 14),
-                      padding: const EdgeInsets.all(18),
+                      margin: EdgeInsets.only(bottom: 14.h),
+                      padding: EdgeInsets.all(18.r),
                       decoration: BoxDecoration(
-                        color: Colors.white, borderRadius: BorderRadius.circular(20),
+                        color: Colors.white, borderRadius: BorderRadius.circular(20.r),
                         border: Border.all(color: isLive ? Colors.red.shade300 : AppColors.border, width: isLive ? 2 : 1),
-                        boxShadow: isLive ? [BoxShadow(color: Colors.red.withOpacity(0.1), blurRadius: 16)] : null,
+                        boxShadow: isLive ? [BoxShadow(color: Colors.red.withValues(alpha: 0.1), blurRadius: 16)] : null,
                       ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(c['subject'] as String, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-                            Text(c['topic'] as String, style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMedium)),
+                            Text(c['subject'] as String, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                            Text(c['topic'] as String, style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium)),
                           ]),
                           if (isLive)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20)),
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20.r)),
                               child: Row(children: [
-                                Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                                const SizedBox(width: 4),
-                                Text('LIVE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+                                Container(width: 6.w, height: 6.h, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                                SizedBox(width: 4.w),
+                                Text('LIVE', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white)),
                               ]),
                             )
                           else
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
-                              child: Text(c['time'] as String, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textMedium)),
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12.r)),
+                              child: Text(c['time'] as String, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium)),
                             ),
                         ]),
-                        const SizedBox(height: 10),
+                        SizedBox(height: 10.h),
                         Row(children: [
-                          const Icon(Icons.person_rounded, size: 14, color: AppColors.textLight),
-                          const SizedBox(width: 4),
-                          Text(c['teacher'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                          Icon(Icons.person_rounded, size: 14.sp, color: AppColors.textLight),
+                          SizedBox(width: 4.w),
+                          Text(c['teacher'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                           if (isLive) ...[
-                            const SizedBox(width: 16),
-                            const Icon(Icons.people_rounded, size: 14, color: AppColors.textLight),
-                            const SizedBox(width: 4),
-                            Text('${c['students']} joined', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                            SizedBox(width: 16.w),
+                            Icon(Icons.people_rounded, size: 14.sp, color: AppColors.textLight),
+                            SizedBox(width: 4.w),
+                            Text('${c['students']} joined', style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                           ],
                         ]),
-                        const SizedBox(height: 14),
+                        SizedBox(height: 14.h),
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: isLive ? () { setState(() { _inClass = true; _activeSubject = c['subject'] as String; }); } : null,
-                            icon: Icon(isLive ? Icons.videocam_rounded : Icons.schedule_rounded, size: 18),
+                            icon: Icon(isLive ? Icons.videocam_rounded : Icons.schedule_rounded, size: 18.sp),
                             label: Text(isLive ? 'Join Now' : 'Starts at ${c['time']}',
                               style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: isLive ? AppColors.studentPrimary : AppColors.border,
                               foregroundColor: isLive ? Colors.white : AppColors.textMedium,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              padding: EdgeInsets.symmetric(vertical: 12.h),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14.r)),
                             ),
                           ),
                         ),
@@ -133,37 +134,37 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
                 ),
                 // Recordings
                 ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r),
                   itemCount: _recordings.length,
                   itemBuilder: (_, i) {
                     final r = _recordings[i];
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                      margin: EdgeInsets.only(bottom: 12.h),
+                      padding: EdgeInsets.all(16.r),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                       child: Row(children: [
                         Container(
-                          width: 52, height: 52,
-                          decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(14)),
-                          child: const Icon(Icons.play_circle_filled_rounded, color: AppColors.studentPrimary, size: 28),
+                          width: 52.w, height: 52.h,
+                          decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(14.r)),
+                          child: Icon(Icons.play_circle_filled_rounded, color: AppColors.studentPrimary, size: 28.sp),
                         ),
-                        const SizedBox(width: 14),
+                        SizedBox(width: 14.w),
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(r['subject'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 14)),
-                          Text(r['topic'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
-                          const SizedBox(height: 4),
+                          Text(r['subject'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 14.sp)),
+                          Text(r['topic'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
+                          SizedBox(height: 4.h),
                           Row(children: [
-                            Text(r['date'] as String, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
-                            const SizedBox(width: 8),
-                            Text('• ${r['duration']}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                            Text(r['date'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
+                            SizedBox(width: 8.w),
+                            Text('• ${r['duration']}', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                           ]),
                         ])),
                         GestureDetector(
                           onTap: () => showToast(context, 'Playing recording...'),
                           child: Container(
-                            width: 36, height: 36,
-                            decoration: BoxDecoration(color: AppColors.studentPrimary, borderRadius: BorderRadius.circular(10)),
-                            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                            width: 36.w, height: 36.h,
+                            decoration: BoxDecoration(color: AppColors.studentPrimary, borderRadius: BorderRadius.circular(10.r)),
+                            child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20.sp),
                           ),
                         ),
                       ]),
@@ -186,26 +187,26 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
           children: [
             // Top bar
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               child: Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20)),
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(20.r)),
                   child: Row(children: [
-                    Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
-                    const SizedBox(width: 4),
-                    Text('LIVE', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Container(width: 6.w, height: 6.h, decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle)),
+                    SizedBox(width: 4.w),
+                    Text('LIVE', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: Colors.white)),
                   ]),
                 ),
-                const SizedBox(width: 12),
-                Expanded(child: Text(_activeSubject, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16))),
+                SizedBox(width: 12.w),
+                Expanded(child: Text(_activeSubject, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16.sp))),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12)),
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
+                  decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(12.r)),
                   child: Row(children: [
-                    const Icon(Icons.people_rounded, color: Colors.white, size: 14),
-                    const SizedBox(width: 4),
-                    Text('38', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white)),
+                    Icon(Icons.people_rounded, color: Colors.white, size: 14.sp),
+                    SizedBox(width: 4.w),
+                    Text('38', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white)),
                   ]),
                 ),
               ]),
@@ -213,17 +214,17 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
             // Video area
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20)),
+                margin: EdgeInsets.symmetric(horizontal: 16.w),
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(20.r)),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(color: const Color(0xFF334155), shape: BoxShape.circle),
-                    child: const Icon(Icons.person_rounded, color: Color(0xFF64748B), size: 40),
+                    width: 80.w, height: 80.h,
+                    decoration: const BoxDecoration(color: Color(0xFF334155), shape: BoxShape.circle),
+                    child: Icon(Icons.person_rounded, color: const Color(0xFF64748B), size: 40.sp),
                   ),
-                  const SizedBox(height: 12),
-                  Text('Prof. Harrison', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
-                  Text('Physics - Thermodynamics', style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF64748B))),
+                  SizedBox(height: 12.h),
+                  Text('Prof. Harrison', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16.sp)),
+                  Text('Physics - Thermodynamics', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B))),
                 ]),
               ),
             ),
@@ -231,39 +232,39 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
             Align(
               alignment: Alignment.bottomRight,
               child: Container(
-                margin: const EdgeInsets.only(right: 32, bottom: 8),
-                width: 80, height: 110,
-                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14), border: Border.all(color: Colors.white.withOpacity(0.2))),
-                child: const Icon(Icons.person_rounded, color: Color(0xFF64748B), size: 32),
+                margin: EdgeInsets.only(right: 32.w, bottom: 8.h),
+                width: 80.w, height: 110.h,
+                decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(14.r), border: Border.all(color: Colors.white.withValues(alpha: 0.2))),
+                child: Icon(Icons.person_rounded, color: const Color(0xFF64748B), size: 32.sp),
               ),
             ),
             // Controls
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20.r),
               child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 _ctrl(Icons.mic_rounded, Icons.mic_off_rounded, _micOn, Colors.white, () => setState(() => _micOn = !_micOn)),
                 _ctrl(Icons.videocam_rounded, Icons.videocam_off_rounded, _camOn, Colors.white, () => setState(() => _camOn = !_camOn)),
                 GestureDetector(
                   onTap: () {
                     showDialog(context: context, builder: (_) => AlertDialog(
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
                       title: Text('Leave Class?', style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
                       content: Text('Are you sure you want to leave the live class?', style: GoogleFonts.inter()),
                       actions: [
                         TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: GoogleFonts.inter(color: AppColors.textMedium))),
                         ElevatedButton(
                           onPressed: () { Navigator.pop(context); setState(() => _inClass = false); },
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r))),
                           child: Text('Leave', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800)),
                         ),
                       ],
                     ));
                   },
                   child: Container(
-                    width: 60, height: 60,
+                    width: 60.w, height: 60.h,
                     decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 16)]),
-                    child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 26),
+                      boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 16)]),
+                    child: Icon(Icons.call_end_rounded, color: Colors.white, size: 26.sp),
                   ),
                 ),
                 _ctrlSimple(Icons.chat_bubble_rounded, () => showToast(context, 'Chat opened')),
@@ -279,18 +280,18 @@ class _OnlineClassesScreenState extends State<OnlineClassesScreen> with SingleTi
   Widget _ctrl(IconData on, IconData off, bool state, Color color, VoidCallback tap) => GestureDetector(
     onTap: tap,
     child: Container(
-      width: 52, height: 52,
+      width: 52.w, height: 52.h,
       decoration: BoxDecoration(color: state ? const Color(0xFF1E293B) : Colors.red, shape: BoxShape.circle),
-      child: Icon(state ? on : off, color: Colors.white, size: 22),
+      child: Icon(state ? on : off, color: Colors.white, size: 22.sp),
     ),
   );
 
   Widget _ctrlSimple(IconData icon, VoidCallback tap) => GestureDetector(
     onTap: tap,
     child: Container(
-      width: 52, height: 52,
+      width: 52.w, height: 52.h,
       decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-      child: Icon(icon, color: Colors.white, size: 22),
+      child: Icon(icon, color: Colors.white, size: 22.sp),
     ),
   );
 }

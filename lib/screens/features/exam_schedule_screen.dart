@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:file_picker/file_picker.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../utils/pdf_utils.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ExamScheduleScreen extends StatefulWidget {
   const ExamScheduleScreen({super.key});
@@ -14,7 +13,6 @@ class ExamScheduleScreen extends StatefulWidget {
 
 class _ExamScheduleScreenState extends State<ExamScheduleScreen> with SingleTickerProviderStateMixin {
   late TabController _tab;
-  bool _downloading = false;
 
   final _exams = [
     {'subject': 'Physics',       'date': 'June 10', 'day': 'Wed', 'time': '10:00 AM', 'room': 'Hall A', 'duration': '3 hrs', 'syllabus': 'Ch 1-8'},
@@ -44,7 +42,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> with SingleTick
               labelColor: AppColors.studentPrimary,
               unselectedLabelColor: AppColors.textLight,
               indicatorColor: AppColors.studentPrimary,
-              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13),
+              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w800, fontSize: 13.sp),
               tabs: const [Tab(text: '📋 Schedule'), Tab(text: '🎫 Admit Card')],
             ),
           ),
@@ -54,105 +52,104 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> with SingleTick
               children: [
                 // Schedule
                 SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r),
                   child: Column(
                     children: [
                       // Countdown
                       Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(gradient: roleThemes['student']!.gradient, borderRadius: BorderRadius.circular(24)),
+                        padding: EdgeInsets.all(20.r),
+                        decoration: BoxDecoration(gradient: roleThemes['student']!.gradient, borderRadius: BorderRadius.circular(24.r)),
                         child: Row(children: [
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text('FINALS BEGIN IN', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-                            Text('39 Days', style: GoogleFonts.inter(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white)),
-                            Text('June 10 — June 20, 2026', style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withOpacity(0.7))),
+                            Text('FINALS BEGIN IN', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+                            Text('39 Days', style: GoogleFonts.inter(fontSize: 36.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                            Text('June 10 — June 20, 2026', style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.7))),
                           ])),
-                          const Text('📅', style: TextStyle(fontSize: 48)),
+                          Text('📅', style: TextStyle(fontSize: 48.sp)),
                         ]),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: 16.h),
                       ..._exams.map((e) => Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                        margin: EdgeInsets.only(bottom: 12.h),
+                        padding: EdgeInsets.all(16.r),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                         child: Row(children: [
                           Container(
-                            width: 56, height: 56,
-                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(16)),
+                            width: 56.w, height: 56.h,
+                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(16.r)),
                             child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                              Text((e['date'] as String).split(' ')[1], style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
-                              Text((e['date'] as String).split(' ')[0], style: GoogleFonts.inter(fontSize: 9, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                              Text((e['date'] as String).split(' ')[1], style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
+                              Text((e['date'] as String).split(' ')[0], style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w700, color: AppColors.textLight)),
                             ]),
                           ),
-                          const SizedBox(width: 14),
+                          SizedBox(width: 14.w),
                           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(e['subject'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15)),
-                            const SizedBox(height: 3),
-                            Text('${e['time']} • ${e['room']} • ${e['duration']}', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
-                            const SizedBox(height: 3),
-                            Text('Syllabus: ${e['syllabus']}', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                            Text(e['subject'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15.sp)),
+                            SizedBox(height: 3.h),
+                            Text('${e['time']} • ${e['room']} • ${e['duration']}', style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
+                            SizedBox(height: 3.h),
+                            Text('Syllabus: ${e['syllabus']}', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                           ])),
-                          Text(e['day'] as String, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+                          Text(e['day'] as String, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textLight)),
                         ]),
                       )),
-                      const SizedBox(height: 80),
+                      SizedBox(height: 80.h),
                     ],
                   ),
                 ),
                 // Admit Card
                 SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16.r),
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: EdgeInsets.all(24.r),
                         decoration: BoxDecoration(
-                          color: Colors.white, borderRadius: BorderRadius.circular(24),
+                          color: Colors.white, borderRadius: BorderRadius.circular(24.r),
                           border: Border.all(color: AppColors.border),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 20)],
+                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20)],
                         ),
                         child: Column(children: [
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Text('EduSphere School', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-                              Text('Admit Card — Final Exam 2026', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                              Text('EduSphere School', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                              Text('Admit Card — Final Exam 2026', style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                             ]),
-                            const Text('🎓', style: TextStyle(fontSize: 36)),
+                            Text('🎓', style: TextStyle(fontSize: 36.sp)),
                           ]),
-                          const Divider(height: 24),
+                          Divider(height: 24.h),
                           _admitRow('Student Name', 'Alex Rivera'),
                           _admitRow('Roll Number', '24'),
                           _admitRow('Class', 'Grade 12-A'),
                           _admitRow('Exam', 'Final Term 2026'),
                           _admitRow('Center', 'Main Campus'),
-                          const Divider(height: 24),
+                          Divider(height: 24.h),
                           Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(12)),
+                            padding: EdgeInsets.all(12.r),
+                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(12.r)),
                             child: Row(children: [
-                              const Icon(Icons.info_outline_rounded, color: AppColors.studentPrimary, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text('Carry this admit card to all exams. No entry without it.', style: GoogleFonts.inter(fontSize: 11, color: AppColors.studentPrimary, fontWeight: FontWeight.w600))),
+                              Icon(Icons.info_outline_rounded, color: AppColors.studentPrimary, size: 18.sp),
+                              SizedBox(width: 8.w),
+                              Expanded(child: Text('Carry this admit card to all exams. No entry without it.', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.studentPrimary, fontWeight: FontWeight.w600))),
                             ]),
                           ),
                         ]),
                       ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20.h),
                       LoadingButton(
                         label: '📥 Download Admit Card',
                         color: AppColors.studentPrimary,
                         onPressed: () async {
-                          setState(() => _downloading = true);
                           await Future.delayed(const Duration(seconds: 1));
                           
-                          if (mounted) {
-                            final content = 'Student Name: Alex Rivera\nRoll Number: 24\nClass: Grade 12-A\nExam: Final Term 2026\nCenter: Main Campus\n\nInstructions:\n1. Carry this admit card to all exams.\n2. No entry without it.\n3. Reporting time is 30 mins before the exam.';
-                            await PDFUtils.generateAndSavePDF(context, 'Admit Card - Alex Rivera', content);
-                            setState(() => _downloading = false);
-                          }
+                          if (!mounted) return;
+                          
+                          const content = 'Student Name: Alex Rivera\nRoll Number: 24\nClass: Grade 12-A\nExam: Final Term 2026\nCenter: Main Campus\n\nInstructions:\n1. Carry this admit card to all exams.\n2. No entry without it.\n3. Reporting time is 30 mins before the exam.';
+                          if (!context.mounted) return;
+                          await PDFUtils.generateAndSavePDF(context, 'Admit Card - Alex Rivera', content);
                         },
                       ),
-                      const SizedBox(height: 80),
+                      SizedBox(height: 80.h),
                     ],
                   ),
                 ),
@@ -165,11 +162,11 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> with SingleTick
   }
 
   Widget _admitRow(String k, String v) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
+    padding: EdgeInsets.symmetric(vertical: 6.h),
     child: Row(children: [
-      SizedBox(width: 120, child: Text(k, style: GoogleFonts.inter(fontSize: 13, color: AppColors.textMedium))),
+      SizedBox(width: 120.w, child: Text(k, style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium))),
       Text(': ', style: GoogleFonts.inter(color: AppColors.textLight)),
-      Text(v, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+      Text(v, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark)),
     ]),
   );
 }

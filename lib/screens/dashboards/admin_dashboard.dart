@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AdminDashboard extends StatelessWidget {
   final RoleTheme theme;
@@ -15,18 +16,18 @@ class AdminDashboard extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(child: _header()),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.r),
             sliver: SliverList(delegate: SliverChildListDelegate([
               _stats(),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Admin Control Panel'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _quickActions(context),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Management Modules'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _modules(context),
-              const SizedBox(height: 100),
+              SizedBox(height: 100.h),
             ])),
           ),
         ],
@@ -37,19 +38,19 @@ class AdminDashboard extends StatelessWidget {
   Widget _header() => Container(
     decoration: BoxDecoration(gradient: theme.gradient),
     child: SafeArea(bottom: false, child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Admin Panel 🛡️', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-          Text('Dr. Sharma', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-            child: Text('School Administrator', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white))),
+          Text('Admin Panel 🛡️', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+          Text('Dr. Sharma', style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+          SizedBox(height: 6.h),
+          Container(padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.r)),
+            child: Text('School Administrator', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white))),
         ])),
-        Container(width: 52, height: 52,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
-          child: const Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 28)),
+        Container(width: 52.w, height: 52.h,
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16.r), border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.w)),
+          child: Icon(Icons.admin_panel_settings_rounded, color: Colors.white, size: 28.sp)),
       ]),
     )),
   );

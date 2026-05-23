@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class DiscussionForumScreen extends StatefulWidget {
   const DiscussionForumScreen({super.key});
@@ -27,35 +28,35 @@ class _DiscussionForumScreenState extends State<DiscussionForumScreen> {
           PageHeader(title: 'Discussion Forum', subtitle: '${_threads.length} active threads', theme: roleThemes['student']!),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               itemCount: _threads.length,
               itemBuilder: (_, i) {
                 final t = _threads[i];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.all(16.r),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Row(children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(8)),
-                        child: Text(t['tag'] as String, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.studentPrimary)),
+                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(8.r)),
+                        child: Text(t['tag'] as String, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.studentPrimary)),
                       ),
                       const Spacer(),
-                      Text(t['time'] as String, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                      Text(t['time'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                     ]),
-                    const SizedBox(height: 8),
-                    Text(t['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8.h),
+                    Text(t['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14.sp)),
+                    SizedBox(height: 8.h),
                     Row(children: [
-                      const Icon(Icons.person_rounded, size: 14, color: AppColors.textLight),
-                      const SizedBox(width: 4),
-                      Text(t['author'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                      Icon(Icons.person_rounded, size: 14.sp, color: AppColors.textLight),
+                      SizedBox(width: 4.w),
+                      Text(t['author'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                       const Spacer(),
-                      const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.textLight),
-                      const SizedBox(width: 4),
-                      Text('${t['replies']} replies', style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                      Icon(Icons.chat_bubble_outline_rounded, size: 14.sp, color: AppColors.textLight),
+                      SizedBox(width: 4.w),
+                      Text('${t['replies']} replies', style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                     ]),
                   ]),
                 );
@@ -63,7 +64,7 @@ class _DiscussionForumScreenState extends State<DiscussionForumScreen> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.r),
             color: Colors.white,
             child: Row(children: [
               Expanded(
@@ -73,12 +74,12 @@ class _DiscussionForumScreenState extends State<DiscussionForumScreen> {
                     hintText: 'Start a new discussion...',
                     hintStyle: GoogleFonts.inter(color: AppColors.textLight),
                     filled: true, fillColor: AppColors.background,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20.r), borderSide: BorderSide.none),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10.w),
               GestureDetector(
                 onTap: () {
                   if (_ctrl.text.trim().isNotEmpty) {
@@ -90,9 +91,9 @@ class _DiscussionForumScreenState extends State<DiscussionForumScreen> {
                   }
                 },
                 child: Container(
-                  width: 48, height: 48,
-                  decoration: BoxDecoration(color: AppColors.studentPrimary, borderRadius: BorderRadius.circular(16)),
-                  child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                  width: 48.w, height: 48.h,
+                  decoration: BoxDecoration(color: AppColors.studentPrimary, borderRadius: BorderRadius.circular(16.r)),
+                  child: Icon(Icons.send_rounded, color: Colors.white, size: 20.sp),
                 ),
               ),
             ]),

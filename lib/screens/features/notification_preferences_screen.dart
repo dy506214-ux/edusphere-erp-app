@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class NotificationPreferencesScreen extends StatefulWidget {
   const NotificationPreferencesScreen({super.key});
@@ -66,15 +67,15 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
           PageHeader(title: 'Notification Preferences', subtitle: 'Manage your alerts', theme: roleThemes['student']!),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Notification channels
                   const SectionTitle(title: 'Notification Channels'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
                         _channelTile('in_app', '📱', 'In-App Notifications', 'Alerts inside the app'),
@@ -84,13 +85,13 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
 
                   // Academic notifications
                   const SectionTitle(title: 'Academic Alerts'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
                         _prefTile('assignments', '📝', 'Assignment Reminders', 'Due date alerts'),
@@ -101,13 +102,13 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
 
                   // Financial notifications
                   const SectionTitle(title: 'Financial Alerts'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
                         _prefTile('fees', '💳', 'Fee Reminders', 'Due date & payment alerts'),
@@ -115,13 +116,13 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
 
                   // General notifications
                   const SectionTitle(title: 'General Alerts'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Container(
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(
                       children: [
                         _prefTile('notices', '📢', 'School Notices', 'Announcements'),
@@ -131,7 +132,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
 
                   LoadingButton(
                     label: 'Save Preferences',
@@ -141,7 +142,7 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
                       if (context.mounted) { showToast(context, 'Preferences saved!'); Navigator.pop(context); }
                     },
                   ),
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80.h),
                 ],
               ),
             ),
@@ -153,14 +154,14 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
 
   Widget _prefTile(String key, String emoji, String title, String subtitle, {bool isLast = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(border: isLast ? null : Border(bottom: BorderSide(color: AppColors.border, width: 0.5.w))),
       child: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 22)),
-        const SizedBox(width: 14),
+        Text(emoji, style: TextStyle(fontSize: 22.sp)),
+        SizedBox(width: 14.w),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14)),
-          Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14.sp)),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
         ])),
         Switch(
           value: _prefs[key] ?? false,
@@ -174,14 +175,14 @@ class _NotificationPreferencesScreenState extends State<NotificationPreferencesS
 
   Widget _channelTile(String key, String emoji, String title, String subtitle, {bool isLast = false}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(border: isLast ? null : const Border(bottom: BorderSide(color: AppColors.border, width: 0.5))),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(border: isLast ? null : Border(bottom: BorderSide(color: AppColors.border, width: 0.5.w))),
       child: Row(children: [
-        Text(emoji, style: const TextStyle(fontSize: 22)),
-        const SizedBox(width: 14),
+        Text(emoji, style: TextStyle(fontSize: 22.sp)),
+        SizedBox(width: 14.w),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14)),
-          Text(subtitle, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+          Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14.sp)),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
         ])),
         Switch(
           value: _channels[key] ?? false,

@@ -3,21 +3,30 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme/colors.dart';
 import 'screens/welcome_screen.dart';
 
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+
 class EduSphereApp extends StatelessWidget {
   const EduSphereApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'EduSphere',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        fontFamily: GoogleFonts.inter().fontFamily,
-        colorScheme: ColorScheme.fromSeed(seedColor: AppColors.studentPrimary),
-        scaffoldBackgroundColor: AppColors.background,
-      ),
-      home: const WelcomeScreen(),
+    return ScreenUtilInit(
+      designSize: const Size(393, 852), // iPhone 14 Pro size as baseline
+      minTextAdapt: true,
+      splitScreenMode: true,
+      builder: (context, child) {
+        return MaterialApp(
+          title: 'EduSphere',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            fontFamily: GoogleFonts.inter().fontFamily,
+            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.studentPrimary),
+            scaffoldBackgroundColor: AppColors.background,
+          ),
+          home: const WelcomeScreen(),
+        );
+      },
     );
   }
 }

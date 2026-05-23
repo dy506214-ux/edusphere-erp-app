@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class TransportDashboard extends StatelessWidget {
   final RoleTheme theme;
@@ -15,22 +16,22 @@ class TransportDashboard extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(child: _header()),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.r),
             sliver: SliverList(delegate: SliverChildListDelegate([
               _stats(),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Live Tracking'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _liveTracking(context),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Quick Actions'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _quickActions(context),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Transport Modules'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _modules(context),
-              const SizedBox(height: 100),
+              SizedBox(height: 100.h),
             ])),
           ),
         ],
@@ -41,19 +42,19 @@ class TransportDashboard extends StatelessWidget {
   Widget _header() => Container(
     decoration: BoxDecoration(gradient: theme.gradient),
     child: SafeArea(bottom: false, child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Transport Manager 🚌', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-          Text('Mr. Rajan', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-            child: Text('Fleet: 12 Vehicles Active', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white))),
+          Text('Transport Manager 🚌', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+          Text('Mr. Rajan', style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+          SizedBox(height: 6.h),
+          Container(padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.r)),
+            child: Text('Fleet: 12 Vehicles Active', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white))),
         ])),
-        Container(width: 52, height: 52,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
-          child: const Icon(Icons.directions_bus_rounded, color: Colors.white, size: 28)),
+        Container(width: 52.w, height: 52.h,
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16.r), border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.w)),
+          child: Icon(Icons.directions_bus_rounded, color: Colors.white, size: 28.sp)),
       ]),
     )),
   );
@@ -71,49 +72,49 @@ class TransportDashboard extends StatelessWidget {
 
   Widget _liveTracking(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: Colors.white, borderRadius: BorderRadius.circular(24),
+        color: Colors.white, borderRadius: BorderRadius.circular(24.r),
         border: Border.all(color: AppColors.border),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text('Bus Route 3 - Live', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15)),
+            Text('Bus Route 3 - Live', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15.sp)),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8)),
+              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8.r)),
               child: Row(children: [
-                Container(width: 6, height: 6, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
-                const SizedBox(width: 4),
-                Text('ON TIME', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.green)),
+                Container(width: 6.w, height: 6.h, decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle)),
+                SizedBox(width: 4.w),
+                Text('ON TIME', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: Colors.green)),
               ]),
             ),
           ]),
-          const SizedBox(height: 16),
+          SizedBox(height: 16.h),
           Container(
-            height: 120,
+            height: 120.h,
             decoration: BoxDecoration(
-              color: AppColors.background, borderRadius: BorderRadius.circular(16),
+              color: AppColors.background, borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: AppColors.border),
             ),
             child: Center(
               child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.map_rounded, size: 40, color: theme.primary),
-                const SizedBox(height: 8),
-                Text('Live Map View', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textMedium)),
-                Text('Bus #KA-01-1234 • ETA: 8 min', style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                Icon(Icons.map_rounded, size: 40.sp, color: theme.primary),
+                SizedBox(height: 8.h),
+                Text('Live Map View', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium)),
+                Text('Bus #KA-01-1234 • ETA: 8 min', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
               ]),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12.h),
           Row(children: [
             _trackChip(Icons.speed_rounded, '42 km/h', Colors.blue),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.w),
             _trackChip(Icons.people_rounded, '38 students', Colors.green),
-            const SizedBox(width: 8),
+            SizedBox(width: 8.w),
             _trackChip(Icons.location_on_rounded, '2.4 km away', Colors.orange),
           ]),
         ],
@@ -124,11 +125,11 @@ class TransportDashboard extends StatelessWidget {
   Widget _trackChip(IconData icon, String label, Color color) => Expanded(
     child: Container(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10.r)),
       child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
-        Flexible(child: Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w700, color: color), overflow: TextOverflow.ellipsis)),
+        Icon(icon, size: 14.sp, color: color),
+        SizedBox(width: 4.w),
+        Flexible(child: Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: color), overflow: TextOverflow.ellipsis)),
       ]),
     ),
   );

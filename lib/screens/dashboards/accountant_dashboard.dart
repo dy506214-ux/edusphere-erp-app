@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../features/fees_screen.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AccountantDashboard extends StatelessWidget {
   final RoleTheme theme;
@@ -16,18 +17,18 @@ class AccountantDashboard extends StatelessWidget {
         slivers: [
           SliverToBoxAdapter(child: _header()),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(16.r),
             sliver: SliverList(delegate: SliverChildListDelegate([
               _stats(),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Fee Management'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _quickActions(context),
-              const SizedBox(height: 20),
+              SizedBox(height: 20.h),
               const SectionTitle(title: 'Financial Modules'),
-              const SizedBox(height: 12),
+              SizedBox(height: 12.h),
               _modules(context),
-              const SizedBox(height: 100),
+              SizedBox(height: 100.h),
             ])),
           ),
         ],
@@ -38,19 +39,19 @@ class AccountantDashboard extends StatelessWidget {
   Widget _header() => Container(
     decoration: BoxDecoration(gradient: theme.gradient),
     child: SafeArea(bottom: false, child: Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+      padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
       child: Row(children: [
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Finance Dashboard 💼', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-          Text('Ms. Priya', style: GoogleFonts.inter(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
-          const SizedBox(height: 6),
-          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
-            child: Text('Senior Accountant', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white))),
+          Text('Finance Dashboard 💼', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+          Text('Ms. Priya', style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+          SizedBox(height: 6.h),
+          Container(padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.r)),
+            child: Text('Senior Accountant', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white))),
         ])),
-        Container(width: 52, height: 52,
-          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(16), border: Border.all(color: Colors.white.withOpacity(0.4), width: 2)),
-          child: const Icon(Icons.account_balance_rounded, color: Colors.white, size: 28)),
+        Container(width: 52.w, height: 52.h,
+          decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16.r), border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.w)),
+          child: Icon(Icons.account_balance_rounded, color: Colors.white, size: 28.sp)),
       ]),
     )),
   );
@@ -59,7 +60,7 @@ class AccountantDashboard extends StatelessWidget {
     crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
     crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 1.4,
     children: const [
-      InfoCard(title: 'Fee Collected', value: '₹8.2L', icon: Icons.account_balance_wallet_rounded, iconColor: AppColors.accountPrimary, bgColor: AppColors.accountLight, trend: 'This month'),
+      InfoCard(title: 'Fee Collected', value: '₹8.2L', icon: Icons.account_balance_wallet_rounded, iconColor: AppColors.accountantPrimary, bgColor: AppColors.accountantLight, trend: 'This month'),
       InfoCard(title: 'Pending Fees', value: '₹1.4L', icon: Icons.pending_rounded, iconColor: Color(0xFFEF4444), bgColor: Color(0xFFFEF2F2), trend: '48 students'),
       InfoCard(title: 'Transactions', value: '342', icon: Icons.receipt_long_rounded, iconColor: Color(0xFF3B82F6), bgColor: AppColors.studentLight, trend: 'This month'),
       InfoCard(title: 'Concessions', value: '12', icon: Icons.discount_rounded, iconColor: Color(0xFFF59E0B), bgColor: Color(0xFFFFFBEB), trend: 'Active'),

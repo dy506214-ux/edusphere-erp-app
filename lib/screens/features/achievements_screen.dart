@@ -4,6 +4,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 
 import '../../utils/pdf_utils.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -25,23 +26,23 @@ class AchievementsScreen extends StatelessWidget {
           PageHeader(title: 'Achievements & Certificates', subtitle: '5 earned', theme: roleThemes['student']!),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               itemCount: achievements.length,
               itemBuilder: (_, i) {
                 final a = achievements[i];
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: a['color'] as Color, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.all(16.r),
+                  decoration: BoxDecoration(color: a['color'] as Color, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                   child: Row(children: [
-                    Text(a['emoji'] as String, style: const TextStyle(fontSize: 36)),
-                    const SizedBox(width: 16),
+                    Text(a['emoji'] as String, style: TextStyle(fontSize: 36.sp)),
+                    SizedBox(width: 16.w),
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(a['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 14)),
-                      const SizedBox(height: 3),
-                      Text(a['desc'] as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
-                      const SizedBox(height: 3),
-                      Text(a['date'] as String, style: GoogleFonts.inter(fontSize: 11, color: AppColors.textLight)),
+                      Text(a['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 14.sp)),
+                      SizedBox(height: 3.h),
+                      Text(a['desc'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
+                      SizedBox(height: 3.h),
+                      Text(a['date'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
                     ])),
                     GestureDetector(
                       onTap: () async {
@@ -49,9 +50,9 @@ class AchievementsScreen extends StatelessWidget {
                         await PDFUtils.generateAndSavePDF(context, 'Certificate - ${a['title'] as String}', a['content'] as String);
                       },
                       child: Container(
-                        width: 36, height: 36,
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: AppColors.border)),
-                        child: const Icon(Icons.download_rounded, size: 18, color: AppColors.studentPrimary),
+                        width: 36.w, height: 36.h,
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10.r), border: Border.all(color: AppColors.border)),
+                        child: Icon(Icons.download_rounded, size: 18.sp, color: AppColors.studentPrimary),
                       ),
                     ),
                   ]),

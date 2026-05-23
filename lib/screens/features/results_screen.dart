@@ -5,6 +5,7 @@ import '../../widgets/common_widgets.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ResultsScreen extends StatelessWidget {
   const ResultsScreen({super.key});
@@ -29,59 +30,59 @@ class ResultsScreen extends StatelessWidget {
           PageHeader(title: 'Exam Results', subtitle: 'Term 2 — 2024-25', theme: roleThemes['student']!),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16.r),
               child: Column(
                 children: [
                   // Summary
                   Container(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(24.r),
                     decoration: BoxDecoration(
                       gradient: roleThemes['student']!.gradient,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [BoxShadow(color: AppColors.studentPrimary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))],
+                      borderRadius: BorderRadius.circular(24.r),
+                      boxShadow: [BoxShadow(color: AppColors.studentPrimary.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8))],
                     ),
                     child: Row(children: [
                       Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Overall Performance', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white.withOpacity(0.7))),
-                        Text('$pct%', style: GoogleFonts.inter(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white)),
-                        Text('$total/${subjects.length * 100} marks', style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withOpacity(0.7))),
+                        Text('Overall Performance', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7))),
+                        Text('$pct%', style: GoogleFonts.inter(fontSize: 40.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                        Text('$total/${subjects.length * 100} marks', style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.7))),
                       ])),
                       Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                        const Text('🏆', style: TextStyle(fontSize: 36)),
-                        const SizedBox(height: 8),
-                        Text('Grade A+', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16)),
-                        Text('Rank #5 / 48', style: GoogleFonts.inter(fontSize: 12, color: Colors.white.withOpacity(0.7))),
+                        Text('🏆', style: TextStyle(fontSize: 36.sp)),
+                        SizedBox(height: 8.h),
+                        Text('Grade A+', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 16.sp)),
+                        Text('Rank #5 / 48', style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.white.withValues(alpha: 0.7))),
                       ]),
                     ]),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20.h),
                   const SectionTitle(title: 'Subject-wise Marks'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   ...subjects.map((s) => Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: AppColors.border)),
+                    margin: EdgeInsets.only(bottom: 12.h),
+                    padding: EdgeInsets.all(18.r),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: AppColors.border)),
                     child: Column(children: [
                       Row(children: [
                         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Text(s['name']! as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15)),
-                          Text(s['teacher']! as String, style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium)),
+                          Text(s['name']! as String, style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15.sp)),
+                          Text(s['teacher']! as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
                         ])),
                         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                           Row(children: [
-                            Text('${s['marks']}', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
-                            Text('/${s['total']}', style: GoogleFonts.inter(fontSize: 14, color: AppColors.textLight)),
+                            Text('${s['marks']}', style: GoogleFonts.inter(fontSize: 24.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
+                            Text('/${s['total']}', style: GoogleFonts.inter(fontSize: 14.sp, color: AppColors.textLight)),
                           ]),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(8)),
-                            child: Text(s['grade']! as String, style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
+                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(8.r)),
+                            child: Text(s['grade']! as String, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
                           ),
                         ]),
                       ]),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10.h),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(4.r),
                         child: LinearProgressIndicator(
                           value: (s['marks'] as int) / 100,
                           minHeight: 8,
@@ -91,7 +92,7 @@ class ResultsScreen extends StatelessWidget {
                       ),
                     ]),
                   )),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16.h),
                   LoadingButton(
                     label: '📥 Download Report Card',
                     color: AppColors.studentPrimary,
@@ -138,7 +139,7 @@ class ResultsScreen extends StatelessWidget {
                       }
                     },
                   ),
-                  const SizedBox(height: 80),
+                  SizedBox(height: 80.h),
                 ],
               ),
             ),

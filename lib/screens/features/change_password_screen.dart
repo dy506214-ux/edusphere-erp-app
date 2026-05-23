@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
@@ -24,50 +25,50 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           PageHeader(title: 'Change Password', subtitle: 'Update your account security', theme: roleThemes['student']!),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24.r),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(
                     child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
+                      padding: EdgeInsets.all(20.r),
+                      decoration: const BoxDecoration(
                         color: AppColors.studentLight,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.lock_reset_rounded, size: 64, color: AppColors.studentPrimary),
+                      child: Icon(Icons.lock_reset_rounded, size: 64.sp, color: AppColors.studentPrimary),
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  Text('Current Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 32.h),
+                  Text('Current Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14.sp)),
+                  SizedBox(height: 8.h),
                   _buildPasswordField('Enter current password', _obscureCurrent, () => setState(() => _obscureCurrent = !_obscureCurrent)),
                   
-                  const SizedBox(height: 20),
-                  Text('New Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 20.h),
+                  Text('New Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14.sp)),
+                  SizedBox(height: 8.h),
                   _buildPasswordField('Enter new password', _obscureNew, () => setState(() => _obscureNew = !_obscureNew)),
                   
-                  const SizedBox(height: 20),
-                  Text('Confirm New Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14)),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 20.h),
+                  Text('Confirm New Password', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 14.sp)),
+                  SizedBox(height: 8.h),
                   _buildPasswordField('Re-enter new password', _obscureConfirm, () => setState(() => _obscureConfirm = !_obscureConfirm)),
                   
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12.h),
                   Row(
                     children: [
-                      const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textMedium),
-                      const SizedBox(width: 8),
+                      Icon(Icons.info_outline_rounded, size: 16.sp, color: AppColors.textMedium),
+                      SizedBox(width: 8.w),
                       Expanded(
                         child: Text(
                           'Password must be at least 8 characters long and include a mix of letters, numbers, and symbols.',
-                          style: GoogleFonts.inter(fontSize: 12, color: AppColors.textMedium),
+                          style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium),
                         ),
                       ),
                     ],
                   ),
                   
-                  const SizedBox(height: 40),
+                  SizedBox(height: 40.h),
                   GestureDetector(
                     onTap: () {
                       showToast(context, 'Password updated successfully!');
@@ -75,16 +76,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     },
                     child: Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.symmetric(vertical: 16.h),
                       decoration: BoxDecoration(
                         gradient: roleThemes['student']!.gradient,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [BoxShadow(color: AppColors.studentPrimary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))],
+                        borderRadius: BorderRadius.circular(16.r),
+                        boxShadow: [BoxShadow(color: AppColors.studentPrimary.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4))],
                       ),
                       child: Center(
                         child: Text(
                           'Update Password',
-                          style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                          style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w700, color: Colors.white),
                         ),
                       ),
                     ),
@@ -102,21 +103,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppColors.border),
       ),
       child: TextField(
         obscureText: obscure,
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: GoogleFonts.inter(color: AppColors.textLight, fontSize: 14),
+          hintStyle: GoogleFonts.inter(color: AppColors.textLight, fontSize: 14.sp),
           prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.textLight),
           suffixIcon: IconButton(
             icon: Icon(obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: AppColors.textLight),
             onPressed: toggle,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
         ),
       ),
     );
