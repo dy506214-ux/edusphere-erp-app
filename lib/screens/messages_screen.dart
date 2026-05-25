@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer' as dev;
 import '../theme/colors.dart';
 import '../widgets/common_widgets.dart';
-import '../services/socket_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class MessagesScreen extends StatefulWidget {
@@ -26,8 +26,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool _isLoadingContacts = false;
   String _currentUserId = '';
   String _currentUserRole = '';
-  String _currentUserName = '';
   String _searchQuery = '';
+
+  // Periodic polling timer for robust real-time database synchronization
+  Timer? _pollTimer;
 
   @override
   void initState() {
@@ -49,14 +51,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
       ]),
     ];
 
-    // Load actual users from Supabase and connect real-time chat updates
+    // Load actual users and connect real-time Supabase chat stream
     _initializeRealTimeUsers();
-    SocketService().on('receive_message', _handleIncomingMessage);
   }
 
   @override
   void dispose() {
-    SocketService().off('receive_message', _handleIncomingMessage);
+    _pollTimer?.cancel();
     _msgCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
@@ -72,7 +73,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       _currentUserRole = prefs.getString('user_role') ?? (currentUser.email?.contains('teacher') == true ? 'teacher' : 'student');
-      _currentUserName = prefs.getString('${_currentUserRole}_name') ?? 'User';
 
       setState(() {
         _isLoadingContacts = true;
@@ -87,9 +87,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
           'role': e['department'] as String? ?? 'Teacher',
         }).toList();
 
-        // Resolve Prof. Harrison's ID dynamically!
+        // Resolve Prof. Harrison's ID dynamically matching "harrison" in email
         final teacherRecord = res.firstWhere(
-          (t) => (t['email'] as String? ?? '').contains('teacher'),
+          (t) => (t['email'] as String? ?? '').contains('harrison'),
           orElse: () => res.isNotEmpty ? res.first : null,
         );
 
@@ -105,11 +105,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   realId,
                   realName,
                   realDept,
-                  chat.time,
-                  chat.unread,
-                  chat.online,
-                  chat.preview,
-                  chat.messages,
+                  'Now',
+                  0,
+                  true,
+                  'Start a conversation...',
+                  [],
                 );
                 break;
               }
@@ -125,9 +125,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
           'role': e['class_name'] as String? ?? 'Student',
         }).toList();
 
-        // Resolve Alex Rivera's ID dynamically!
+        // Resolve Alex Rivera's ID dynamically matching "alex" in email
         final studentRecord = res.firstWhere(
-          (s) => (s['email'] as String? ?? '').contains('student'),
+          (s) => (s['email'] as String? ?? '').contains('alex'),
           orElse: () => res.isNotEmpty ? res.first : null,
         );
 
@@ -143,11 +143,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   realId,
                   realName,
                   realClass,
-                  chat.time,
-                  chat.unread,
-                  chat.online,
-                  chat.preview,
-                  chat.messages,
+                  'Now',
+                  0,
+                  true,
+                  'Start a conversation...',
+                  [],
                 );
                 break;
               }
@@ -155,6 +155,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
           });
         }
       }
+
+      // Initialize real-time Supabase Database Message Polling!
+      _startPolling();
+
     } catch (e) {
       dev.log('⚠️ Error loading real-time users: $e', name: 'MessagesScreen');
     } finally {
@@ -166,84 +170,210 @@ class _MessagesScreenState extends State<MessagesScreen> {
     }
   }
 
-  void _handleIncomingMessage(dynamic data) {
-    if (!mounted) return;
-    dev.log('📩 Real-time message received: $data', name: 'MessagesScreen');
+  void _startPolling() {
+    _pollTimer?.cancel();
     
-    final senderId = data['senderId'] as String? ?? '';
-    final senderName = data['senderName'] as String? ?? 'User';
-    final text = data['text'] as String? ?? '';
-    final timestamp = data['timestamp'] as String? ?? '';
+    // Fetch once on load
+    _fetchMessagesFromDb();
     
-    if (senderId.isEmpty || text.isEmpty) return;
+    // Poll the database every 1.5 seconds for robust real-time updates across screens
+    _pollTimer = Timer.periodic(const Duration(milliseconds: 1500), (timer) {
+      _fetchMessagesFromDb();
+    });
+    dev.log('🔥 Supabase direct database polling messaging listener connected.', name: 'MessagesScreen');
+  }
 
-    String formattedTime = 'Now';
+  Future<void> _fetchMessagesFromDb() async {
+    if (_currentUserId.isEmpty) return;
     try {
-      final parsed = DateTime.parse(timestamp).toLocal();
-      formattedTime = '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
-    } catch (_) {}
-
-    setState(() {
-      int chatIndex = _chats.indexWhere((c) => c.id == senderId);
+      final List<dynamic> res = await Supabase.instance.client
+          .from('messages')
+          .select()
+          .or('sender_id.eq.$_currentUserId,recipient_id.eq.$_currentUserId')
+          .order('created_at', ascending: true);
+          
+      if (!mounted) return;
       
-      if (chatIndex != -1) {
-        final existingChat = _chats[chatIndex];
-        existingChat.messages.add(_Msg('them', text, formattedTime));
-        existingChat.unread = (_active?.id == senderId) ? 0 : existingChat.unread + 1;
-        
-        if (chatIndex > 0) {
-          _chats.removeAt(chatIndex);
-          _chats.insert(0, existingChat);
-        }
-      } else {
-        final newChat = _Chat(
-          senderId,
-          senderName,
-          'Contact',
-          formattedTime,
-          (_active?.id == senderId) ? 0 : 1,
-          true,
-          text,
-          [_Msg('them', text, formattedTime)],
-        );
-        _chats.insert(0, newChat);
+      final List<Map<String, dynamic>> data = List<Map<String, dynamic>>.from(res);
+      _processStreamedMessages(data);
+    } catch (e) {
+      dev.log('⚠️ Error fetching messages: $e', name: 'MessagesScreen');
+    }
+  }
+
+  void _processStreamedMessages(List<Map<String, dynamic>> data) {
+    if (!mounted) return;
+    
+    // Group messages by unique contact ID
+    final Map<String, List<_Msg>> chatMessages = {};
+    final Map<String, int> chatUnreadCount = {};
+    final Map<String, String> latestTimeMap = {};
+    final Map<String, String> latestTextMap = {};
+    
+    // Sort all received database rows by created_at ascending
+    final sorted = List<Map<String, dynamic>>.from(data);
+    sorted.sort((a, b) => (a['created_at'] as String).compareTo(b['created_at'] as String));
+    
+    for (final row in sorted) {
+      final senderId = row['sender_id'] as String;
+      final recipientId = row['recipient_id'] as String;
+      final text = row['text'] as String;
+      final isSeen = row['is_seen'] as bool;
+      final createdAt = row['created_at'] as String;
+      
+      // Filter out messages not belonging to this user
+      if (senderId != _currentUserId && recipientId != _currentUserId) continue;
+      
+      final String contactId = (senderId == _currentUserId) ? recipientId : senderId;
+      
+      String formattedTime = 'Now';
+      try {
+        final parsed = DateTime.parse(createdAt).toLocal();
+        formattedTime = '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}';
+      } catch (_) {}
+      
+      final isMe = (senderId == _currentUserId);
+      final msg = _Msg(
+        isMe ? 'me' : 'them', 
+        text, 
+        formattedTime,
+        isSeen: isSeen,
+        id: row['id'] as String,
+      );
+      
+      if (!chatMessages.containsKey(contactId)) {
+        chatMessages[contactId] = [];
+      }
+      chatMessages[contactId]!.add(msg);
+      
+      // If I received this message and it's unseen, increment unread count
+      if (!isMe && !isSeen) {
+        chatUnreadCount[contactId] = (chatUnreadCount[contactId] ?? 0) + 1;
       }
       
-      if (_active?.id == senderId) {
-        _active = _chats.firstWhere((c) => c.id == senderId);
+      latestTimeMap[contactId] = formattedTime;
+      latestTextMap[contactId] = text;
+      
+      // Real-Time Seen Trigger:
+      // If the message is received by me, is currently unseen, and the chat thread with this contact is currently open
+      if (!isMe && !isSeen && _active != null && _active!.id == contactId) {
+        _markAllFromContactAsSeen(contactId);
+      }
+    }
+    
+    setState(() {
+      for (final contactId in chatMessages.keys) {
+        final messages = chatMessages[contactId]!;
+        final unread = chatUnreadCount[contactId] ?? 0;
+        final latestTime = latestTimeMap[contactId] ?? 'Now';
+        final latestText = latestTextMap[contactId] ?? '';
+        
+        final contactInfo = _availableContacts.firstWhere(
+          (c) => c['id'] == contactId, 
+          orElse: () => {'id': contactId, 'name': 'EduSphere Contact', 'role': 'Chat'},
+        );
+        
+        final chatObj = _Chat(
+          contactId,
+          contactInfo['name']!,
+          contactInfo['role']!,
+          latestTime,
+          unread,
+          true,
+          latestText,
+          messages,
+        );
+        
+        int existingIndex = _chats.indexWhere((c) => c.id == contactId);
+        if (existingIndex != -1) {
+          _chats[existingIndex] = chatObj;
+        } else {
+          _chats.insert(0, chatObj);
+        }
+      }
+      
+      // Ensure currently active chat maintains real-time updates
+      if (_active != null && chatMessages.containsKey(_active!.id)) {
+        _active = _chats.firstWhere((c) => c.id == _active!.id);
       }
     });
   }
 
-  void _send() {
+  bool _isMarkingSeen = false;
+  void _markAllFromContactAsSeen(String contactId) async {
+    if (_isMarkingSeen) return;
+    _isMarkingSeen = true;
+    try {
+      await Supabase.instance.client
+          .from('messages')
+          .update({'is_seen': true})
+          .eq('sender_id', contactId)
+          .eq('recipient_id', _currentUserId)
+          .eq('is_seen', false);
+      dev.log('👀 Batch marked messages from $contactId as seen', name: 'MessagesScreen');
+    } catch (e) {
+      dev.log('⚠️ Failed to batch mark seen: $e', name: 'MessagesScreen');
+    } finally {
+      _isMarkingSeen = false;
+    }
+  }
+
+  void _openChat(_Chat c) async {
+    setState(() {
+      c.unread = 0;
+      _active = c;
+    });
+    
+    // Mark all received unseen messages from this contact as seen inside the database
+    if (!c.id.startsWith('mock_')) {
+      try {
+        await Supabase.instance.client
+            .from('messages')
+            .update({'is_seen': true})
+            .eq('sender_id', c.id)
+            .eq('recipient_id', _currentUserId)
+            .eq('is_seen', false);
+        dev.log('👀 All messages from ${c.name} marked as SEEN', name: 'MessagesScreen');
+        // Instantly refresh list from database
+        _fetchMessagesFromDb();
+      } catch (e) {
+        dev.log('⚠️ Failed to mark messages seen: $e', name: 'MessagesScreen');
+      }
+    }
+  }
+
+  void _send() async {
     if (_msgCtrl.text.trim().isEmpty || _active == null) return;
     
     final text = _msgCtrl.text.trim();
     final recipientId = _active!.id;
+    _msgCtrl.clear(); 
     
-    setState(() { 
-      _active!.messages.add(_Msg('me', text, 'Now')); 
-      _msgCtrl.clear(); 
+    // Optimistic UI Update: immediately add message to screen locally for instant rendering
+    setState(() {
+      final tempMsg = _Msg('me', text, 'Now', isSeen: false, id: 'temp_${DateTime.now().millisecondsSinceEpoch}');
+      _active!.messages.add(tempMsg);
     });
 
     if (!recipientId.startsWith('mock_')) {
       try {
-        SocketService().emit('send_message', {
-          'senderId': _currentUserId,
-          'senderName': _currentUserName,
-          'recipientId': recipientId,
+        // Direct database insert
+        await Supabase.instance.client.from('messages').insert({
+          'sender_id': _currentUserId,
+          'recipient_id': recipientId,
           'text': text,
+          'is_seen': false,
         });
-        dev.log('📤 Socket message emitted successfully to $recipientId', name: 'MessagesScreen');
+        
+        // Immediately fetch database state to synchronize
+        _fetchMessagesFromDb();
+        dev.log('📤 Message successfully sent and database fetched.', name: 'MessagesScreen');
       } catch (e) {
-        dev.log('⚠️ Failed to emit socket message: $e', name: 'MessagesScreen');
+        dev.log('⚠️ Failed to send message to database: $e', name: 'MessagesScreen');
       }
     } else {
-      Future.delayed(const Duration(milliseconds: 1200), () {
-        if (mounted && _active != null && _active!.id == recipientId) {
-          setState(() => _active!.messages.add(const _Msg('them', 'Got it! Thanks.', 'Now')));
-        }
-      });
+      // Mock chats maintain local memory list without any mock reply triggers (Real Conversation mode)
+      dev.log('📝 Sent mock message locally (not synced to DB).', name: 'MessagesScreen');
     }
   }
 
@@ -320,7 +450,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               ] : filtered);
 
                         if (display.isEmpty) {
-                          return Center(child: Text('No contacts found', style: GoogleFonts.inter(color: AppColors.textLight)));
+                           return Center(child: Text('No contacts found', style: GoogleFonts.inter(color: AppColors.textLight)));
                         }
 
                         return ListView.builder(
@@ -428,10 +558,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 final latestTime = c.messages.isNotEmpty ? c.messages.last.time : c.time;
                 
                 return GestureDetector(
-                  onTap: () => setState(() {
-                    c.unread = 0;
-                    _active = c;
-                  }),
+                  onTap: () => _openChat(c),
                   child: Container(
                     margin: EdgeInsets.only(bottom: 10.h),
                     padding: EdgeInsets.all(14.r),
@@ -540,7 +667,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                       Text(m.text, style: GoogleFonts.inter(fontSize: 13.sp, color: isMe ? Colors.white : AppColors.textDark, fontWeight: FontWeight.w500)),
                       SizedBox(height: 4.h),
-                      Text(m.time, style: GoogleFonts.inter(fontSize: 10.sp, color: isMe ? Colors.white.withValues(alpha: 0.6) : AppColors.textLight)),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(m.time, style: GoogleFonts.inter(fontSize: 10.sp, color: isMe ? Colors.white.withValues(alpha: 0.6) : AppColors.textLight)),
+                          if (isMe && !_active!.id.startsWith('mock_')) ...[
+                            SizedBox(width: 4.w),
+                            Icon(
+                              m.isSeen ? Icons.done_all_rounded : Icons.done_rounded,
+                              size: 14.sp,
+                              color: m.isSeen ? Colors.lightBlueAccent : Colors.white.withValues(alpha: 0.6),
+                            ),
+                          ],
+                        ],
+                      ),
                     ]),
                   ),
                 );
@@ -601,4 +741,10 @@ class _Chat {
   final List<_Msg> messages; 
   _Chat(this.id, this.name, this.role, this.time, this.unread, this.online, this.preview, this.messages); 
 }
-class _Msg { final String from, text, time; const _Msg(this.from, this.text, this.time); }
+
+class _Msg { 
+  final String from, text, time; 
+  final bool isSeen;
+  final String id;
+  const _Msg(this.from, this.text, this.time, {this.isSeen = false, this.id = ''}); 
+}

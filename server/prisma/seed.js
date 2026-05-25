@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcrypt');
+const { randomUUID } = require('crypto');
 const prisma = new PrismaClient();
 
 // ⛔ Safety guard — prevent seeding demo data in production
@@ -75,7 +76,6 @@ async function main() {
     console.log('🏫 2. Creating Classes 1 to 10 (A & B Sections) and common subjects...');
     let classesMap = {}; // Use numericValue as key
     let sectionsList = [];
-    const classNames = ['Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10'];
 
     for (let numeric = 1; numeric <= 10; numeric++) {
         const classObj = await prisma.class.create({
@@ -150,6 +150,7 @@ async function main() {
                 address: `Teacher House ${i}, ${getRandom(CITIES)}`, bloodGroup: getRandom(BLOOD_GROUPS)
             }
         });
+
         const tch = await prisma.teacher.create({
             data: {
                 userId: u.id, employeeId: `TCH-${(1000 + tchCounter++)}`,
@@ -224,6 +225,7 @@ async function main() {
     // ─── 6. TRANSPORTATION DATA ──────────────────────
     console.log('🚌 6. Creating Transport Routes, Vehicles, and mapping staff...');
     const routes = [];
+    const routeStopsMap = {};
     for (let r = 1; r <= 3; r++) {
         const route = await prisma.transportRoute.create({
             data: { name: `Route ${r} (Morning)`, colorCode: '#4ade80', startLocation: 'School', endLocation: 'Sector 50', totalDistance: 15.5 }
@@ -232,9 +234,12 @@ async function main() {
 
         // Stops
         for (let s = 1; s <= 5; s++) {
-            await prisma.routeStop.create({
+            const stop = await prisma.routeStop.create({
                 data: { routeId: route.id, name: `Stop ${s} (Sector ${s * 10})`, latitude: 28.5 + (Math.random() * 0.1), longitude: 77.0 + (Math.random() * 0.1), arrivalTime: `07:${10 + (s * 5)}`, order: s }
             });
+            if (s === 1) {
+                routeStopsMap[route.id] = stop;
+            }
         }
     }
 
@@ -250,10 +255,9 @@ async function main() {
         vehicles.push(vehicle);
     }
 
-
     // ─── 7. FEE STRUCTURE ────────────────────────────
     console.log('💰 7. Creating standard Fee Structures...');
-    let feeStructsMap = {}; // Math classes 1-5 = struct1, 6-10 = struct2
+    let feeStructsMap = {}; // Match classes 1-5 = struct1, 6-10 = struct2
     const feeConfig = [
         { name: 'Primary Class Fees (1-5)', total: 45000, items: [{ type: 'TUITION', val: 40000 }, { type: 'MISC', val: 5000 }] },
         { name: 'Senior Class Fees (6-10)', total: 65000, items: [{ type: 'TUITION', val: 55000 }, { type: 'MISC', val: 10000 }] }
@@ -270,100 +274,110 @@ async function main() {
         if (conf.name.includes('Senior')) feeStructsMap.senior = fs.id;
     }
 
-
     // ─── 8. MASSIVE STUDENT SEEDING (300 STUDENTS) ───
-    console.log('🎓 8. Procedurally generating 300 Students (approx 15 per section)...');
+    console.log('🎓 8. Procedurally generating 300 Students (approx 15 per section) with fast bulk inserts...');
     
-    // We will evenly distribute 300 students among 20 sections (10 classes * 2 sections). That's 15 students per section.
     let studentCounter = 1;
-    let studentsRef = [];
+    const usersData = [];
+    const studentsData = [];
+    const parentsData = [];
+    const studentParentsData = [];
+    const feeLedgersData = [];
+    const feePaymentsData = [];
+    const transportAllocationsData = [];
 
-    // Helper functions for mass insertion
+    const parentsMapByPhone = new Map();
     const chunkArray = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }, (v, i) => arr.slice(i * size, i * size + size));
 
     for (let numeric = 1; numeric <= 10; numeric++) {
         const cClass = classesMap[numeric];
-        // Find Sections A and B for this class
         const relatedSections = sectionsList.filter(s => s.classId === cClass.id);
         
         for (const section of relatedSections) {
-            // Generate 15 students for this specific Section
             for (let st = 1; st <= 15; st++) {
                 const sFirst = getRandom(FIRST_NAMES);
                 const sLast = getRandom(LAST_NAMES);
                 const sEmail = `student${studentCounter}@demoschool.com`;
                 const admNo = `ADM24${studentCounter.toString().padStart(4, '0')}`;
                 
-                // User Account
-                const u = await prisma.user.create({
-                    data: {
-                        firstName: sFirst, lastName: sLast, email: sEmail, password: passwordHash,
-                        role: 'STUDENT', roles: ['STUDENT'], isActive: true, phone: randomPhone(),
-                        gender: getRandom(GENDERS), dateOfBirth: dob(7 + numeric), // Approximate age
-                        address: `${getRandom(STREETS)}, ${getRandom(CITIES)}`, bloodGroup: getRandom(BLOOD_GROUPS)
-                    }
+                const userId = randomUUID();
+                const studentId = randomUUID();
+                const ledgerId = randomUUID();
+                const sPhone = randomPhone();
+                const sAddress = `${getRandom(STREETS)}, ${getRandom(CITIES)}`;
+
+                // User data
+                usersData.push({
+                    id: userId,
+                    firstName: sFirst, lastName: sLast, email: sEmail, password: passwordHash,
+                    role: 'STUDENT', roles: ['STUDENT'], isActive: true, phone: sPhone,
+                    gender: getRandom(GENDERS), dateOfBirth: dob(7 + numeric),
+                    address: sAddress, bloodGroup: getRandom(BLOOD_GROUPS)
                 });
 
-                // Student Profile
-                const stu = await prisma.student.create({
-                    data: {
-                        userId: u.id, admissionNumber: admNo, rollNumber: st.toString().padStart(2, '0'),
-                        currentClassId: cClass.id, sectionId: section.id, academicYearId: academicYear.id,
-                        status: 'ACTIVE', religion: getRandom(RELIGIONS), caste: getRandom(CATEGORIES), nationality: 'Indian',
-                        permanentAddress: u.address, emergencyContact: `Guardian of ${sFirst}`, emergencyPhone: randomPhone()
-                    }
+                // Student profile data
+                studentsData.push({
+                    id: studentId,
+                    userId: userId, admissionNumber: admNo, rollNumber: st.toString().padStart(2, '0'),
+                    currentClassId: cClass.id, sectionId: section.id, academicYearId: academicYear.id,
+                    status: 'ACTIVE', religion: getRandom(RELIGIONS), caste: getRandom(CATEGORIES), nationality: 'Indian',
+                    permanentAddress: sAddress, emergencyContact: `Guardian of ${sFirst}`, emergencyPhone: randomPhone()
                 });
-                studentsRef.push({ id: stu.id, userId: u.id, classId: cClass.id, sectionId: section.id, numericValue: numeric });
 
-                // Father Profile
+                // Parent data (FATHER)
                 const fFirst = getRandom(FIRST_NAMES);
                 const fPhone = randomPhone();
-                const parentUser = await prisma.parent.upsert({
-                    where: { phone: fPhone },
-                    update: {},
-                    create: { firstName: fFirst, lastName: sLast, phone: fPhone, email: `${fFirst.toLowerCase()}@parent.com`, occupation: 'Private Service' }
+                let parentUuid = randomUUID();
+
+                if (!parentsMapByPhone.has(fPhone)) {
+                    parentsMapByPhone.set(fPhone, parentUuid);
+                    parentsData.push({
+                        id: parentUuid,
+                        firstName: fFirst, lastName: sLast, phone: fPhone, email: `${fFirst.toLowerCase()}@parent.com`, occupation: 'Private Service'
+                    });
+                } else {
+                    parentUuid = parentsMapByPhone.get(fPhone);
+                }
+
+                // Link Student-Parent
+                studentParentsData.push({
+                    id: randomUUID(),
+                    studentId: studentId, parentId: parentUuid, relationship: 'FATHER'
                 });
 
-                // Link
-                await prisma.studentParent.create({
-                    data: { studentId: stu.id, parentId: parentUser.id, relationship: 'FATHER' }
-                });
-
-                // Fee Ledger Generation
+                // Fee Ledger
                 const feeStructId = numeric <= 5 ? feeStructsMap.primary : feeStructsMap.senior;
                 const totalFee = numeric <= 5 ? 45000 : 65000;
                 
-                // Randomize Payment Status (60% paid, 20% partial, 20% pending)
                 const rnd = Math.random();
                 let paid = 0; let status = 'PENDING';
                 if (rnd > 0.4) { paid = totalFee; status = 'PAID'; }
                 else if (rnd > 0.2) { paid = totalFee / 2; status = 'PARTIALLY_PAID'; }
 
-                const ledger = await prisma.studentFeeLedger.create({
-                    data: {
-                        studentId: stu.id, academicYearId: academicYear.id, feeStructureId: feeStructId,
-                        totalPayable: totalFee, totalPaid: paid, totalPending: totalFee - paid, status: status
-                    }
+                feeLedgersData.push({
+                    id: ledgerId,
+                    studentId: studentId, academicYearId: academicYear.id, feeStructureId: feeStructId,
+                    totalPayable: totalFee, totalPaid: paid, totalPending: totalFee - paid, status: status
                 });
 
-                // Generate simulated payment receipt if paid
+                // Fee Payment Receipt
                 if (paid > 0) {
-                    await prisma.feePayment.create({
-                        data: {
-                            receiptNumber: `RCPT-${Math.floor(Date.now() / 1000)}-${studentCounter}`, studentId: stu.id, feeStructureId: feeStructId,
-                            ledgerId: ledger.id, academicYearId: academicYear.id, amount: paid, totalAmount: paid,
-                            paymentMode: 'ONLINE', transactionId: `TXN-${Math.floor(Math.random() * 999999)}`, status: 'COMPLETED'
-                        }
+                    feePaymentsData.push({
+                        id: randomUUID(),
+                        receiptNumber: `RCPT-${Math.floor(Date.now() / 1000)}-${studentCounter}`, studentId: studentId, feeStructureId: feeStructId,
+                        ledgerId: ledgerId, academicYearId: academicYear.id, amount: paid, totalAmount: paid,
+                        paymentMode: 'ONLINE', transactionId: `TXN-${Math.floor(Math.random() * 999999)}`, status: 'COMPLETED'
                     });
                 }
 
-                // Arbitrary Transport Assignment (~30% of students)
+                // Transport Assignment (~30% of students)
                 if (Math.random() > 0.7) {
                     const rndRoute = getRandom(routes);
-                    const rndStop = await prisma.routeStop.findFirst({ where: { routeId: rndRoute.id }});
+                    const rndStop = routeStopsMap[rndRoute.id];
                     if (rndStop) {
-                        await prisma.transportAllocation.create({
-                            data: { studentId: stu.id, routeId: rndRoute.id, stopId: rndStop.id, academicYearId: academicYear.id }
+                        transportAllocationsData.push({
+                            id: randomUUID(),
+                            studentId: studentId, routeId: rndRoute.id, stopId: rndStop.id, academicYearId: academicYear.id
                         });
                     }
                 }
@@ -373,18 +387,37 @@ async function main() {
         }
     }
 
+    // Perform massive bulk insertions in dependency order
+    console.log(`📦 Bulk inserting ${usersData.length} User records...`);
+    await prisma.user.createMany({ data: usersData });
+
+    console.log(`📦 Bulk inserting ${parentsData.length} Parent records...`);
+    await prisma.parent.createMany({ data: parentsData });
+
+    console.log(`📦 Bulk inserting ${studentsData.length} Student records...`);
+    await prisma.student.createMany({ data: studentsData });
+
+    console.log(`📦 Bulk inserting ${studentParentsData.length} Student-Parent relationship mappings...`);
+    await prisma.studentParent.createMany({ data: studentParentsData });
+
+    console.log(`📦 Bulk inserting ${feeLedgersData.length} Fee Ledger accounts...`);
+    await prisma.studentFeeLedger.createMany({ data: feeLedgersData });
+
+    console.log(`📦 Bulk inserting ${feePaymentsData.length} Fee Payment receipts...`);
+    await prisma.feePayment.createMany({ data: feePaymentsData });
+
+    console.log(`📦 Bulk inserting ${transportAllocationsData.length} Transport Allocations...`);
+    await prisma.transportAllocation.createMany({ data: transportAllocationsData });
+
     // ─── 9. HISTORICAL ATTENDANCE ────────────────────
     console.log('🗓️ 9. Marking random recent attendance (Students & Staff last 5 days)...');
     
-    // Last 5 days generator
     const last5Days = [];
     for (let i = 1; i <= 5; i++) {
         const d = new Date(); d.setDate(d.getDate() - i);
-        // Avoid weekends (simplistic check)
         if (d.getDay() !== 0 && d.getDay() !== 6) last5Days.push(d);
     }
 
-    // Mark for a sample of teachers using createMany for speed
     let attendanceRecords = [];
     for (const d of last5Days) {
         // Teachers
@@ -407,11 +440,13 @@ async function main() {
     console.log('📢 10. Creating Books, dummy Library issues, and Announcements...');
     
     const bookCategory = ['Mathematics', 'Science Fiction', 'History', 'Computer Science'];
+    const booksData = [];
     for(let i=1; i<=20; i++) {
-        await prisma.book.create({
-            data: { title: `Educational Volume ${i}`, author: `Author ${getRandom(FIRST_NAMES)}`, category: getRandom(bookCategory), isbn: `978-3-16-1484${i.toString().padStart(3,'0')}`, totalCopies: 5, availableCopies: 5 }
+        booksData.push({
+            title: `Educational Volume ${i}`, author: `Author ${getRandom(FIRST_NAMES)}`, category: getRandom(bookCategory), isbn: `978-3-16-1484${i.toString().padStart(3,'0')}`, totalCopies: 5, availableCopies: 5
         });
     }
+    await prisma.book.createMany({ data: booksData });
 
     await prisma.announcement.createMany({
         data: [
