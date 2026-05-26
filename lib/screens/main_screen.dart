@@ -142,7 +142,10 @@ class _MainScreenState extends State<MainScreen> {
     final screens = [
       _dashboard(),
       if (widget.role == 'teacher') ClassManagementScreen(theme: _theme, onBack: () => setState(() => _idx = 0)),
-      MessagesScreen(theme: _theme),
+      MessagesScreen(
+        theme: _theme,
+        isActive: _idx == (widget.role == 'teacher' ? 2 : 1),
+      ),
       ProfileScreen(role: widget.role, theme: _theme),
     ];
 
