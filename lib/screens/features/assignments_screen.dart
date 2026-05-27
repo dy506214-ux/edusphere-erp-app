@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
@@ -27,22 +29,85 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> with SingleTicker
   final List<Map<String, dynamic>> _pending = [];
   final List<Map<String, dynamic>> _submitted = [];
 
+  RealtimeChannel? _assignmentsChannel;
+  Timer? _assignmentsPollTimer;
+
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 2, vsync: this);
     _loadAssignmentsData();
+    _connectRealTime();
   }
 
   @override
   void dispose() {
+    _assignmentsPollTimer?.cancel();
+    if (_assignmentsChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_assignmentsChannel!);
+      } catch (_) {}
+    }
     _tab.dispose();
     super.dispose();
   }
 
-  Future<void> _loadAssignmentsData() async {
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      
+      if (_assignmentsChannel != null) {
+        client.removeChannel(_assignmentsChannel!);
+      }
+      
+      dev.log('📡 Subscribing to Supabase Realtime changes for Assignments Screen...', name: 'AssignmentsScreen');
+      _assignmentsChannel = client.channel('public:assignments_screen_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'assignments',
+          callback: (payload) {
+            dev.log('🔥 Real-time assignment event payload: $payload', name: 'AssignmentsScreen');
+            if (mounted) {
+              _loadAssignmentsData(showLoading: false);
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'submissions',
+          callback: (payload) {
+            dev.log('🔥 Real-time submission event payload: $payload', name: 'AssignmentsScreen');
+            if (mounted) {
+              _loadAssignmentsData(showLoading: false);
+            }
+          },
+        );
+      
+      _assignmentsChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Assignments channel status: $status', name: 'AssignmentsScreen');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Assignments subscription error: $error', name: 'AssignmentsScreen');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Assignments channel: $e', name: 'AssignmentsScreen');
+    }
+    
+    // Polling fallback every 2 seconds for robust silent updates
+    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        _loadAssignmentsData(showLoading: false);
+      }
+    });
+  }
+
+  Future<void> _loadAssignmentsData({bool showLoading = true}) async {
     if (!mounted) return;
-    setState(() { _isLoading = true; });
+    if (showLoading) {
+      setState(() { _isLoading = true; });
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
@@ -200,7 +265,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> with SingleTicker
                     _pending.isEmpty
                       ? Center(child: Text('No pending assignments! 🎉', style: GoogleFonts.inter(color: AppColors.textMedium, fontSize: 14.sp)))
                       : RefreshIndicator(
-                          onRefresh: _loadAssignmentsData,
+                          onRefresh: () => _loadAssignmentsData(showLoading: true),
                           color: AppColors.studentPrimary,
                           child: ListView.builder(
                             padding: EdgeInsets.all(16.r),
@@ -260,7 +325,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> with SingleTicker
                                             if (context.mounted) {
                                               showToast(context, 'Successfully submitted ${a['title']}!');
                                             }
-                                            await _loadAssignmentsData();
+                                            await _loadAssignmentsData(showLoading: true);
                                             if (context.mounted) {
                                               _tab.animateTo(1); // Switch to Submitted tab
                                             }
@@ -286,7 +351,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> with SingleTicker
                     _submitted.isEmpty
                       ? Center(child: Text('No submissions yet.', style: GoogleFonts.inter(color: AppColors.textMedium, fontSize: 14.sp)))
                       : RefreshIndicator(
-                          onRefresh: _loadAssignmentsData,
+                          onRefresh: () => _loadAssignmentsData(showLoading: true),
                           color: AppColors.studentPrimary,
                           child: ListView.builder(
                             padding: EdgeInsets.all(16.r),

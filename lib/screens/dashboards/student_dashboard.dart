@@ -22,6 +22,8 @@ import '../features/change_password_screen.dart';
 import '../profile_screen.dart';
 import '../messages_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -39,10 +41,76 @@ class _StudentDashboardState extends State<StudentDashboard> {
   int pendingCount = 4;
   double attendanceRate = 100.0;
 
+  RealtimeChannel? _dashboardChannel;
+  Timer? _dashboardPollTimer;
+
   @override
   void initState() {
     super.initState();
     _loadStudentData();
+    _connectRealTime();
+  }
+
+  @override
+  void dispose() {
+    _dashboardPollTimer?.cancel();
+    if (_dashboardChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_dashboardChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      
+      if (_dashboardChannel != null) {
+        client.removeChannel(_dashboardChannel!);
+      }
+      
+      dev.log('📡 Subscribing to Supabase Realtime changes for Student Dashboard...', name: 'StudentDashboard');
+      _dashboardChannel = client.channel('public:student_dashboard_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'assignments',
+          callback: (payload) {
+            dev.log('🔥 Real-time assignment event payload in dashboard: $payload', name: 'StudentDashboard');
+            if (mounted) {
+              _loadStudentData();
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'submissions',
+          callback: (payload) {
+            dev.log('🔥 Real-time submission event payload in dashboard: $payload', name: 'StudentDashboard');
+            if (mounted) {
+              _loadStudentData();
+            }
+          },
+        );
+      
+      _dashboardChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Student Dashboard channel status: $status', name: 'StudentDashboard');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Student Dashboard subscription error: $error', name: 'StudentDashboard');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Student Dashboard channel: $e', name: 'StudentDashboard');
+    }
+    
+    // Polling fallback every 2 seconds for robust real-time updates
+    _dashboardPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        _loadStudentData();
+      }
+    });
   }
 
   Future<void> _loadStudentData() async {
