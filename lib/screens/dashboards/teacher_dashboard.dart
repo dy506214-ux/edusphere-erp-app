@@ -3,23 +3,24 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../features/timetable_screen.dart';
+import '../features/schedule_screen.dart';
 import '../features/mark_attendance_screen.dart';
 import '../features/create_assignment_screen.dart';
 import '../features/gradebook_screen.dart';
 import '../features/create_quiz_screen.dart';
-import '../features/my_quizzes_screen.dart';
 import '../features/upload_material_screen.dart';
 import '../features/student_performance_screen.dart';
 import '../features/lesson_plan_screen.dart';
-import '../features/notices_screen.dart';
-import '../features/discussion_forum_screen.dart';
+import '../features/announcements_screen.dart';
 import '../profile_screen.dart';
 import '../messages_screen.dart';
-import '../features/change_password_screen.dart';
-import '../features/notification_preferences_screen.dart';
 import '../features/leave_application_screen.dart';
-import '../features/cocurricular_screen.dart';
+import '../features/exam_marks_entry_screen.dart';
+import '../features/exam_approval_screen.dart';
+import '../features/exam_terms_screen.dart';
+import '../features/fee_approvals_screen.dart';
+import '../features/scanner_list_screen.dart';
+import '../features/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TeacherDashboard extends StatefulWidget {
@@ -79,11 +80,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       SizedBox(height: 12.h),
                       _buildSection(context, [
                         _mod(
-                            'My Timetable & Classes',
+                            'My Schedule',
                             'Today: 4 classes',
                             '📅',
                             const Color(0xFF3B82F6),
-                            const TimetableScreen(isStudent: false)),
+                            ScheduleScreen(role: 'teacher', theme: widget.theme)),
                         _mod(
                             'Attendance (Mark)',
                             'Class 12-B',
@@ -92,7 +93,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             const MarkAttendanceScreen()),
                         _mod('Lesson Plan & Syllabus', '78% covered', '📋',
                             const Color(0xFFF59E0B), const LessonPlanScreen()),
-                        // Removed Online Classes module
+                        _mod(
+                            'QR Scanners',
+                            'Monitor school attendance checkpoints',
+                            '📡',
+                            const Color(0xFF0EA5E9),
+                            ScannerListScreen(theme: widget.theme)),
                       ]),
                       SizedBox(height: 20.h),
 
@@ -118,6 +124,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             const Color(0xFFF43F5E), const GradebookScreen()),
                         _mod('Grade Book / Marks', 'Update records', '📊',
                             const Color(0xFFEC4899), const GradebookScreen()),
+                        _mod('Marks Entry', 'Record student scores', '✏️',
+                            widget.theme.primary, ExamMarksEntryScreen(theme: widget.theme)),
+                        _mod('Exam Approvals', 'Approve/Reject submissions', '✅',
+                            const Color(0xFF10B981), ExamApprovalScreen(theme: widget.theme)),
+                        _mod('Academic Terms Performance', 'Summaries per term', '🗓️',
+                            const Color(0xFFF59E0B), ExamTermsScreen(theme: widget.theme)),
                         _mod(
                             'Student Performance',
                             'Charts & analytics',
@@ -131,20 +143,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       const SectionTitle(title: '💬 Communication'),
                       SizedBox(height: 12.h),
                       _buildSection(context, [
-                        _mod('Send Notices', 'Announcements', '📢',
-                            const Color(0xFFD97706), const NoticesScreen()),
+                        _mod('Announcements', 'Send notices & notifications', '📢',
+                            const Color(0xFFD97706), AnnouncementsScreen(theme: widget.theme)),
                         _mod(
                             'Message Students/Parents',
                             '2 unread messages',
                             '💬',
                             const Color(0xFF8B5CF6),
                             MessagesScreen(theme: widget.theme)),
-                        _mod(
-                            'Discussion Forum',
-                            'Engage with students',
-                            '🗣️',
-                            const Color(0xFF0EA5E9),
-                            const DiscussionForumScreen()),
                       ]),
                       SizedBox(height: 20.h),
 
@@ -160,17 +166,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                             ProfileScreen(
                                 role: 'teacher', theme: widget.theme)),
                         _mod(
-                            'Change Password',
-                            'Update security',
-                            '🔑',
-                            const Color(0xFFF59E0B),
-                            const ChangePasswordScreen()),
-                        _mod(
-                            'Notification Prefs',
-                            'Manage alerts',
-                            '🔔',
-                            const Color(0xFF8B5CF6),
-                            const NotificationPreferencesScreen()),
+                            'Settings & Security',
+                            'Manage notification, password preferences',
+                            '⚙️',
+                            const Color(0xFF64748B),
+                            SettingsScreen(role: 'teacher', theme: widget.theme)),
                       ]),
                       SizedBox(height: 20.h),
 
@@ -179,23 +179,17 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                       SizedBox(height: 12.h),
                       _buildSection(context, [
                         _mod(
-                            'Co-curricular Activity',
-                            'Manage clubs',
-                            '⚽',
-                            const Color(0xFF7C3AED),
-                            const CoCurricularScreen()),
-                        _mod(
-                            'Event / Competition',
-                            'Upcoming events',
-                            '🏆',
-                            const Color(0xFF10B981),
-                            const CoCurricularScreen()),
-                        _mod(
                             'Leave Application',
                             'Apply & track leaves',
                             '📅',
                             const Color(0xFF16A34A),
                             const LeaveApplicationScreen()),
+                        _mod(
+                            'Fee Approvals',
+                            'Waiver & discount requests',
+                            '💰',
+                            const Color(0xFF7C3AED),
+                            FeeApprovalsScreen(theme: widget.theme)),
                       ]),
                       SizedBox(height: 20.h),
                     ],
@@ -323,40 +317,40 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     final actions = [
       {
-        'label': 'Attendance',
-        'icon': Icons.people_rounded,
-        'color': const Color(0xFF16A34A),
-        'screen': const MarkAttendanceScreen()
+        'label': 'My Schedule',
+        'icon': Icons.calendar_today_rounded,
+        'color': const Color(0xFF3B82F6),
+        'screen': ScheduleScreen(theme: widget.theme, role: 'teacher')
       },
       {
-        'label': 'Assignment',
-        'icon': Icons.add_circle_rounded,
-        'color': const Color(0xFF2563EB),
-        'screen': const CreateAssignmentScreen()
-      },
-      {
-        'label': 'Gradebook',
-        'icon': Icons.bar_chart_rounded,
-        'color': const Color(0xFFEC4899),
-        'screen': const GradebookScreen()
-      },
-      {
-        'label': 'Quiz',
-        'icon': Icons.quiz_rounded,
-        'color': const Color(0xFF8B5CF6),
-        'screen': const CreateQuizScreen()
-      },
-      {
-        'label': 'Upload',
-        'icon': Icons.upload_file_rounded,
-        'color': const Color(0xFFF97316),
-        'screen': const UploadMaterialScreen()
-      },
-      {
-        'label': 'Performance',
-        'icon': Icons.insights_rounded,
+        'label': 'QR Scanners',
+        'icon': Icons.qr_code_scanner_rounded,
         'color': const Color(0xFF0EA5E9),
-        'screen': const StudentPerformanceScreen()
+        'screen': ScannerListScreen(theme: widget.theme)
+      },
+      {
+        'label': 'Announcements',
+        'icon': Icons.campaign_rounded,
+        'color': const Color(0xFFD97706),
+        'screen': AnnouncementsScreen(theme: widget.theme)
+      },
+      {
+        'label': 'Marks Entry',
+        'icon': Icons.edit_note_rounded,
+        'color': widget.theme.primary,
+        'screen': ExamMarksEntryScreen(theme: widget.theme)
+      },
+      {
+        'label': 'Exam Approvals',
+        'icon': Icons.fact_check_rounded,
+        'color': const Color(0xFF10B981),
+        'screen': ExamApprovalScreen(theme: widget.theme)
+      },
+      {
+        'label': 'Settings',
+        'icon': Icons.settings_rounded,
+        'color': const Color(0xFF64748B),
+        'screen': SettingsScreen(role: 'teacher', theme: widget.theme)
       },
     ];
     return GridView.count(

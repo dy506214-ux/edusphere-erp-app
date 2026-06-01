@@ -2,23 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
-import '../features/timetable_screen.dart';
+import '../features/schedule_screen.dart';
 import '../features/assignments_screen.dart';
 import '../features/attendance_screen.dart';
 import '../features/results_screen.dart';
 import '../features/study_materials_screen.dart';
 import '../features/quiz_screen.dart';
-import '../features/fees_screen.dart';
-import '../features/notices_screen.dart';
+import '../features/fee_ledger_screen.dart';
+import '../features/announcements_screen.dart';
 import '../features/documents_screen.dart';
-import '../features/discussion_forum_screen.dart';
-import '../features/achievements_screen.dart';
-import '../features/cocurricular_screen.dart';
 import '../features/academic_calendar_screen.dart';
 import '../features/exam_schedule_screen.dart';
-import '../features/feedback_screen.dart';
-import '../features/notification_preferences_screen.dart';
-import '../features/change_password_screen.dart';
+import '../features/exam_terms_screen.dart';
+import '../features/exam_report_card_screen.dart';
+import '../features/library_screen.dart';
+import '../features/library_overdue_screen.dart';
+import '../features/settings_screen.dart';
 import '../profile_screen.dart';
 import '../messages_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -227,12 +226,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         const SectionTitle(title: '📚 Academic'),
                         SizedBox(height: 12.h),
                         _buildSection(context, [
-                          _mod('Class Timetable',       'Today: 5 classes',        '📅', const Color(0xFF3B82F6), const TimetableScreen(isStudent: true)),
+                          _mod('My Schedule',           'Today: 5 classes',        '📅', const Color(0xFF3B82F6), ScheduleScreen(theme: widget.theme, role: 'student')),
                           _mod('Study Materials',       '24 new PDFs available',   '📚', const Color(0xFF6366F1), const StudyMaterialsScreen()),
                           _mod('Assignments',           '$pendingCount pending task${pendingCount == 1 ? "" : "s"}', '📝', const Color(0xFFF97316), const AssignmentsScreen()),
                           _mod('Quiz & Assessments',    'Physics quiz: Live now!', '🧠', const Color(0xFFEC4899), const QuizScreen()),
                           _mod('Exam Schedule',         'Finals: June 10-20',      '📋', const Color(0xFFF59E0B), const ExamScheduleScreen()),
                           _mod('Results & Grade Card',  'Latest: Physics 88/100',  '🏆', const Color(0xFF8B5CF6), const ResultsScreen()),
+                          _mod('Exam Terms',            'Term-wise report cards',  '🗓️', const Color(0xFF8B5CF6), ExamTermsScreen(theme: widget.theme)),
+                          _mod('Official Report Card',  'Download official PDF',   '🎓', const Color(0xFFEC4899), ExamReportCardScreen(theme: widget.theme)),
                           _mod('Attendance & Leave',    '${attendanceRate.toStringAsFixed(0)}% this month',          '✅', const Color(0xFF10B981), const AttendanceScreen()),
                           _mod('Academic Calendar',     'Upcoming events & dates', '🗓️', const Color(0xFF0EA5E9), const AcademicCalendarScreen()),
                         ]),
@@ -242,9 +243,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         const SectionTitle(title: '💬 Communication'),
                         SizedBox(height: 12.h),
                         _buildSection(context, [
-                          _mod('Notice Board',          '3 new announcements',     '📢', const Color(0xFFD97706), const NoticesScreen()),
+                          _mod('Announcements',         '3 new announcements',     '📢', const Color(0xFFD97706), AnnouncementsScreen(theme: widget.theme)),
                           _mod('Message Teachers',      '2 unread messages',       '💬', const Color(0xFF8B5CF6), MessagesScreen(theme: widget.theme)),
-                          _mod('Discussion Forum',      '12 active threads',       '🗣️', const Color(0xFF0EA5E9), const DiscussionForumScreen()),
                         ]),
                         SizedBox(height: 20.h),
 
@@ -253,8 +253,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         SizedBox(height: 12.h),
                         _buildSection(context, [
                           _mod('View / Update Profile', 'Manage personal details', '👤', const Color(0xFF3B82F6), ProfileScreen(role: 'student', theme: widget.theme)),
-                          _mod('Change Password',       'Update security settings','🔑', const Color(0xFFF59E0B), const ChangePasswordScreen()),
-                          _mod('Notification Prefs',    'Manage your alerts',      '🔔', const Color(0xFF8B5CF6), const NotificationPreferencesScreen()),
+                          _mod('Settings & Security',   'Notifications, password', '⚙️', const Color(0xFF64748B), SettingsScreen(role: 'student', theme: widget.theme)),
                         ]),
                         SizedBox(height: 20.h),
 
@@ -262,12 +261,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         const SectionTitle(title: '⚡ Other Features'),
                         SizedBox(height: 12.h),
                         _buildSection(context, [
-                          _mod('E-Library Access',   'Explore books & journals', '📖', const Color(0xFF6366F1), const StudyMaterialsScreen()),
-                          _mod('Download Documents', 'Admit card, certificates', '📁', const Color(0xFF64748B), const DocumentsScreen()),
-                          _mod('Fee Payment',        'Term 2 fee due',           '💳', const Color(0xFF059669), const FeesScreen()),
-                          _mod('Feedback & Surveys', 'Share your experience',    '⭐', const Color(0xFFF97316), const FeedbackScreen()),
-                          _mod('Co-curricular',      'Sports, Arts, Clubs',      '⚽', const Color(0xFF7C3AED), const CoCurricularScreen()),
-                          _mod('Achievements',       '5 certificates earned',    '🎖️', const Color(0xFFD97706), const AchievementsScreen()),
+                          _mod('Library',               'Explore books & journals', '📖', const Color(0xFF6366F1), LibraryScreen(theme: widget.theme)),
+                          _mod('Library Overdue',       'View overdue & fines',     '⚠️', const Color(0xFFEF4444), LibraryOverdueScreen(theme: widget.theme)),
+                          _mod('Download Documents',    'Admit card, certificates', '📁', const Color(0xFF64748B), const DocumentsScreen()),
+                          _mod('Fee Details',           'View breakdown & pay online', '🧾', const Color(0xFF7C3AED), FeeLedgerScreen(theme: widget.theme)),
                         ]),
                         SizedBox(height: 20.h),
                       ],
@@ -365,15 +362,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget _buildQuickActions(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     final actions = [
-      {'label': 'Timetable',   'icon': Icons.calendar_today_rounded,  'color': const Color(0xFF3B82F6), 'screen': const TimetableScreen(isStudent: true)},
-      {'label': 'Assignments', 'icon': Icons.description_rounded,      'color': const Color(0xFFF97316), 'screen': const AssignmentsScreen()},
-      {'label': 'Attendance',  'icon': Icons.check_circle_rounded,     'color': const Color(0xFF10B981), 'screen': const AttendanceScreen()},
-      {'label': 'Results',     'icon': Icons.emoji_events_rounded,     'color': const Color(0xFF8B5CF6), 'screen': const ResultsScreen()},
-      {'label': 'Pay Fees',    'icon': Icons.credit_card_rounded,      'color': const Color(0xFF059669), 'screen': const FeesScreen()},
-      {'label': 'E-Library',   'icon': Icons.menu_book_rounded,        'color': const Color(0xFF6366F1), 'screen': const StudyMaterialsScreen()},
+      {'label': 'My Schedule',  'icon': Icons.calendar_today_rounded,  'color': const Color(0xFF3B82F6), 'screen': ScheduleScreen(theme: widget.theme, role: 'student')},
+      {'label': 'Library',      'icon': Icons.menu_book_rounded,        'color': const Color(0xFF6366F1), 'screen': LibraryScreen(theme: widget.theme)},
+      {'label': 'Fee Details',  'icon': Icons.credit_card_rounded,      'color': const Color(0xFF059669), 'screen': FeeLedgerScreen(theme: widget.theme)},
+      {'label': 'Announcements','icon': Icons.campaign_rounded,         'color': const Color(0xFFF97316), 'screen': AnnouncementsScreen(theme: widget.theme)},
+      {'label': 'Report Card',  'icon': Icons.analytics_rounded,        'color': const Color(0xFFEC4899), 'screen': ExamReportCardScreen(theme: widget.theme)},
+      {'label': 'Exam Terms',   'icon': Icons.assessment_rounded,       'color': const Color(0xFF8B5CF6), 'screen': ExamTermsScreen(theme: widget.theme)},
+      {'label': 'Assignments',  'icon': Icons.description_rounded,      'color': const Color(0xFFF97316), 'screen': const AssignmentsScreen()},
+      {'label': 'Settings',     'icon': Icons.settings_rounded,         'color': const Color(0xFF64748B), 'screen': SettingsScreen(role: 'student', theme: widget.theme)},
     ];
     return GridView.count(
-      crossAxisCount: isDesktop ? 6 : 3, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+      crossAxisCount: isDesktop ? 8 : 4, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: isDesktop ? 1.4 : 1.1,
       children: actions.map((a) => QuickBtn(
         label: a['label'] as String,

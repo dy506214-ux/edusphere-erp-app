@@ -38,7 +38,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
       if (response.user != null) {
         final user = response.user!;
-        final role = user.userMetadata?['role'] as String? ?? (email.contains('teacher') ? 'teacher' : 'student');
+        String rawRole = user.userMetadata?['role'] as String? ?? '';
+        if (rawRole != 'teacher' && rawRole != 'student') {
+          rawRole = email.contains('teacher') ? 'teacher' : 'student';
+        }
+        final role = rawRole;
         
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user_role', role);
@@ -52,6 +56,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 .single();
 
             await prefs.setString('teacher_name', data['name'] as String? ?? 'Emma Johnson');
+            await prefs.setString('teacher_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
             await prefs.setString('teacher_design', data['designation'] as String? ?? 'Senior Teacher');
             await prefs.setString('teacher_dept', data['department'] as String? ?? 'Academics');
             await prefs.setString('teacher_email', data['email'] as String? ?? email);
@@ -68,6 +73,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 .eq('email', email)
                 .single();
 
+            await prefs.setString('student_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
             await prefs.setString('student_name', data['name'] as String? ?? 'Alex Rivera');
             await prefs.setString('student_email', data['email'] as String? ?? email);
             await prefs.setString('student_class', data['class_name'] as String? ?? 'Grade 12');
@@ -79,10 +85,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             
             await prefs.setString('${role}_name', data['name'] as String? ?? 'Alex Rivera');
             await prefs.setString('${role}_email', data['email'] as String? ?? email);
-          } else {
-            final name = user.userMetadata?['name'] as String? ?? 'EduSphere User';
-            await prefs.setString('${role}_name', name);
-            await prefs.setString('${role}_email', email);
           }
         } catch (e) {
           final name = user.userMetadata?['name'] as String? ?? 'EduSphere User';

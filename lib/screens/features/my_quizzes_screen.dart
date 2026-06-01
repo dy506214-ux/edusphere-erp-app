@@ -31,11 +31,12 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
         .toList()
         .reversed
         .toList();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _quizzes = list;
         _loading = false;
       });
+    }
   }
 
   Future<void> _delete(String id) async {

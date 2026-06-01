@@ -805,7 +805,7 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF10B981)))
                     else ...[
-                      Text('❌ Your answer: ${opts[studentIdx!]}',
+                      Text('❌ Your answer: ${opts[studentIdx]}',
                           style: GoogleFonts.inter(
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w700,

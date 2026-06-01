@@ -699,7 +699,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> with Si
                   contentPadding: EdgeInsets.all(12.r),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: AppColors.border)),
                   enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: AppColors.border)),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide(color: AppColors.teacherPrimary)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: AppColors.teacherPrimary)),
                 ),
               ),
             ],

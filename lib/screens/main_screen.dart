@@ -8,10 +8,6 @@ import '../services/socket_service.dart';
 import '../widgets/common_widgets.dart';
 import 'dashboards/student_dashboard.dart';
 import 'dashboards/teacher_dashboard.dart';
-import 'dashboards/parent_dashboard.dart';
-import 'dashboards/admin_dashboard.dart';
-import 'dashboards/accountant_dashboard.dart';
-import 'dashboards/transport_dashboard.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'welcome_screen.dart';
@@ -126,10 +122,6 @@ class _MainScreenState extends State<MainScreen> {
     switch (widget.role) {
       case 'student':    return StudentDashboard(theme: _theme);
       case 'teacher':    return TeacherDashboard(theme: _theme);
-      case 'parent':     return ParentDashboard(theme: _theme);
-      case 'admin':      return AdminDashboard(theme: _theme);
-      case 'accountant': return AccountantDashboard(theme: _theme);
-      case 'transport':  return TransportDashboard(theme: _theme);
       default:           return StudentDashboard(theme: _theme);
     }
   }

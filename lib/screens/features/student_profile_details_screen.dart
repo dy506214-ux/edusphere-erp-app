@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
-import '../../widgets/common_widgets.dart';
 
 class StudentProfileDetailsScreen extends StatelessWidget {
   const StudentProfileDetailsScreen({super.key});
@@ -36,7 +35,7 @@ class StudentProfileDetailsScreen extends StatelessWidget {
                 border: Border.all(color: AppColors.border),
 boxShadow: [
   BoxShadow(
-    color: Colors.black.withOpacity(0.03),
+    color: Colors.black.withValues(alpha: 0.03),
     blurRadius: 10,
     offset: const Offset(0, 4),
   )
@@ -263,7 +262,7 @@ boxShadow: [
   );
 
 Widget _divider() =>
-    Divider(height: 24, color: AppColors.border.withOpacity(0.5));
+    Divider(height: 24, color: AppColors.border.withValues(alpha: 0.5));
 
   Widget _healthItem(String label, String val, {Color? color}) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,

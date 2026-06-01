@@ -6,7 +6,6 @@ import 'add_lesson_screen.dart';
 import 'analytics_detail_screen.dart';
 import 'homework_screen.dart';
 import 'notifications_screen.dart';
-import 'all_chapters_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class LessonPlanScreen extends StatefulWidget {
@@ -146,13 +145,7 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           SizedBox(height: 16.h),
           _buildStatsGrid(),
           SizedBox(height: 24.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Chapters', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: darkNavy)),
-              TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllChaptersScreen())), child: Text('View all', style: GoogleFonts.inter(color: accentBlue, fontWeight: FontWeight.w600))),
-            ],
-          ),
+          Text('Chapters', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: darkNavy)),
           SizedBox(height: 12.h),
           _buildChapterItem(
             context: context,
