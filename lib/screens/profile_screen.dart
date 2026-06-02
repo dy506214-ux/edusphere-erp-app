@@ -12,7 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ProfileScreen extends StatefulWidget {
   final String role;
   final RoleTheme theme;
-  const ProfileScreen({super.key, required this.role, required this.theme});
+  final VoidCallback? onBack;
+  const ProfileScreen({super.key, required this.role, required this.theme, this.onBack});
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -148,6 +149,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return _buildTeacherProfile();
     }
 
+    final canPop = Navigator.canPop(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -157,6 +160,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: EdgeInsets.all(20.r),
               child: Column(
                 children: [
+                  if (canPop || widget.onBack != null) ...[
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: GestureDetector(
+                        onTap: () {
+                          if (canPop) {
+                            Navigator.pop(context);
+                          } else if (widget.onBack != null) {
+                            widget.onBack!();
+                          }
+                        },
+                        child: Container(
+                          margin: EdgeInsets.only(bottom: 12.h),
+                          width: 40.w, height: 40.w,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark, size: 18.sp),
+                        ),
+                      ),
+                    ),
+                  ],
                   // Profile card
                   Container(
                     width: double.infinity,
@@ -272,12 +299,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildTeacherProfile() {
+    final canPop = Navigator.canPop(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
+        leading: (canPop || widget.onBack != null) ? GestureDetector(
+          onTap: () {
+            if (canPop) {
+              Navigator.pop(context);
+            } else if (widget.onBack != null) {
+              widget.onBack!();
+            }
+          },
+          child: Container(
+            margin: EdgeInsets.all(8.r),
+            decoration: BoxDecoration(color: const Color(0xFFF1F5F9), borderRadius: BorderRadius.circular(12.r)),
+            child: Icon(Icons.arrow_back_ios_new_rounded, size: 18.sp, color: AppColors.textDark),
+          ),
+        ) : null,
         title: Text('My Profile', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: AppColors.textDark)),
         centerTitle: true,
         actions: [

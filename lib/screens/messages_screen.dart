@@ -14,7 +14,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 class MessagesScreen extends StatefulWidget {
   final RoleTheme theme;
   final bool isActive;
-  const MessagesScreen({super.key, required this.theme, this.isActive = true});
+  final VoidCallback? onBack;
+  const MessagesScreen({super.key, required this.theme, this.isActive = true, this.onBack});
   @override
   State<MessagesScreen> createState() => _MessagesScreenState();
 }
@@ -713,6 +714,16 @@ class _MessagesScreenState extends State<MessagesScreen> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         elevation: 2,
+        leading: (!_isSearching && (Navigator.canPop(context) || widget.onBack != null)) ? GestureDetector(
+          onTap: () {
+            if (Navigator.canPop(context)) {
+              Navigator.pop(context);
+            } else if (widget.onBack != null) {
+              widget.onBack!();
+            }
+          },
+          child: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+        ) : null,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: widget.theme.gradient,

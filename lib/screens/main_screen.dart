@@ -11,6 +11,7 @@ import 'dashboards/teacher_dashboard.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'welcome_screen.dart';
+import 'academic_screen.dart';
 import 'features/class_management_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -133,12 +134,14 @@ class _MainScreenState extends State<MainScreen> {
 
     final screens = [
       _dashboard(),
+      if (widget.role == 'student') AcademicScreen(theme: _theme, onBack: () => setState(() => _idx = 0)),
       if (widget.role == 'teacher') ClassManagementScreen(theme: _theme, onBack: () => setState(() => _idx = 0)),
       MessagesScreen(
         theme: _theme,
-        isActive: _idx == (widget.role == 'teacher' ? 2 : 1),
+        isActive: _idx == (widget.role == 'teacher' || widget.role == 'student' ? 2 : 1),
+        onBack: () => setState(() => _idx = 0),
       ),
-      ProfileScreen(role: widget.role, theme: _theme),
+      ProfileScreen(role: widget.role, theme: _theme, onBack: () => setState(() => _idx = 0)),
     ];
 
     return Scaffold(
@@ -162,10 +165,12 @@ class _MainScreenState extends State<MainScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(icon: Icons.home_rounded, label: 'Home', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
+                if (widget.role == 'student')
+                  _NavItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
                 if (widget.role == 'teacher')
-                  _NavItem(icon: Icons.school_rounded, label: 'Classes', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
-                _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 2 : 1)),
-                _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 3 : 2)),
+                  _NavItem(icon: Icons.class_rounded, label: 'Classes', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 2 : 1)),
+                _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 3 : 2)),
               ],
             ),
           ),
@@ -214,13 +219,17 @@ class _MainScreenState extends State<MainScreen> {
                 children: [
                   _SidebarItem(icon: Icons.home_rounded, label: 'Dashboard', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
                   SizedBox(height: 8.h),
-                  if (widget.role == 'teacher') ...[
-                    _SidebarItem(icon: Icons.school_rounded, label: 'Class Management', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                  if (widget.role == 'student') ...[
+                    _SidebarItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
                     SizedBox(height: 8.h),
                   ],
-                  _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 2 : 1)),
+                  if (widget.role == 'teacher') ...[
+                    _SidebarItem(icon: Icons.class_rounded, label: 'Class Management', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                    SizedBox(height: 8.h),
+                  ],
+                  _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 2 : 1)),
                   SizedBox(height: 8.h),
-                  _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' ? 3 : 2)),
+                  _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 3 : 2)),
                 ],
               ),
             ),

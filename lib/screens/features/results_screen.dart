@@ -130,7 +130,7 @@ class ResultsScreen extends StatelessWidget {
                   style: pw.TextStyle(
                     fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(0xFF1A6FDB),
+                    color: const PdfColor.fromInt(0xFF1A6FDB),
                   ),
                 ),
                 pw.SizedBox(height: 8),
@@ -268,7 +268,7 @@ class ResultsScreen extends StatelessWidget {
           style: pw.TextStyle(
             fontSize: 11,
             fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            color: bold ? PdfColor.fromInt(0xFF1A6FDB) : PdfColors.black,
+            color: bold ? const PdfColor.fromInt(0xFF1A6FDB) : PdfColors.black,
           ),
         ),
       ]),

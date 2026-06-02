@@ -355,7 +355,7 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                     style: pw.TextStyle(
                         fontSize: 20,
                         fontWeight: pw.FontWeight.bold,
-                        color: PdfColor.fromInt(0xFF1A6FDB))),
+                        color: const PdfColor.fromInt(0xFF1A6FDB))),
                 pw.SizedBox(height: 6),
                 pw.Text(
                     'Subject: $_subject  •  $pages pages  •  Generated: $dateStr',
@@ -382,7 +382,7 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
                       style: pw.TextStyle(
                           fontSize: 13,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColor.fromInt(0xFF1A6FDB)),
+                          color: const PdfColor.fromInt(0xFF1A6FDB)),
                     ),
                   ),
                   pw.Padding(
