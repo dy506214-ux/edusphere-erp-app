@@ -371,61 +371,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ],
           ),
-          SizedBox(height: 24.h),
-          
-          // Profile Details Grid Block
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final colsCount = constraints.maxWidth > 800 ? 4 : (constraints.maxWidth > 500 ? 2 : 1);
-              return GridView.count(
-                crossAxisCount: colsCount,
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisSpacing: 16.w,
-                mainAxisSpacing: 16.h,
-                childAspectRatio: colsCount == 4 ? 2.2 : 3.0,
-                children: [
-                  _infoCardItem('PERSONAL', 'DOB: $dob\nGender: $gender'),
-                  _infoCardItem('FAMILY', 'Father: $fatherName\nPh: $familyPhone'),
-                  _infoCardItem('CONTACT', 'Email: $studentEmail\nPhone: $studentPhone'),
-                  _infoCardItem('ADDRESS', address),
-                ],
-              );
-            },
-          ),
         ],
       ),
-    );
-  }
-
-  Widget _infoCardItem(String title, String val) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.inter(
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w800,
-            color: AppColors.textLight,
-            letterSpacing: 0.8,
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Expanded(
-          child: Text(
-            val,
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textMedium,
-              height: 1.4,
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 
