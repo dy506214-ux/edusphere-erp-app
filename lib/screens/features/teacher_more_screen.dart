@@ -130,20 +130,30 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                     _buildMenuItem(
                       icon: Icons.description_outlined,
                       label: 'Examinations',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ExamScheduleScreen()),
-                      ),
+                      onTap: () async {
+                        final res = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const ExamScheduleScreen()),
+                        );
+                        if (res is int && context.mounted) {
+                          widget.onNavigate(res);
+                        }
+                      },
                     ),
                     _buildMenuItem(
                       icon: Icons.assignment_turned_in_outlined,
                       label: 'Marks Entry',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ExamMarksEntryScreen(theme: widget.theme),
-                        ),
-                      ),
+                      onTap: () async {
+                        final res = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ExamMarksEntryScreen(theme: widget.theme),
+                          ),
+                        );
+                        if (res is int && context.mounted) {
+                          widget.onNavigate(res);
+                        }
+                      },
                     ),
                     _buildMenuItem(
                       icon: Icons.access_time_rounded,

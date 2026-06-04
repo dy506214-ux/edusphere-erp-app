@@ -398,13 +398,19 @@ class _MainScreenState extends State<MainScreen> {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme)));
                     }),
-                    _buildDrawerItem(Icons.description_outlined, 'Examinations', () {
+                    _buildDrawerItem(Icons.description_outlined, 'Examinations', () async {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                      final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                      if (res is int) {
+                        setState(() => _idx = res);
+                      }
                     }),
-                    _buildDrawerItem(Icons.assignment_turned_in_outlined, 'Marks Entry', () {
+                    _buildDrawerItem(Icons.assignment_turned_in_outlined, 'Marks Entry', () async {
                       Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: _theme)));
+                      final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: _theme)));
+                      if (res is int) {
+                        setState(() => _idx = res);
+                      }
                     }),
                     _buildDrawerItem(Icons.access_time_rounded, 'My Schedule', () {
                       Navigator.pop(context);

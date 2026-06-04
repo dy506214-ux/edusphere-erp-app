@@ -1,10 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../../theme/colors.dart';
-import '../../widgets/common_widgets.dart';
+
+class AnnouncementModel {
+  final String id;
+  final String title;
+  final String content;
+  final String priority; // 'HIGH' | 'NORMAL' | 'LOW'
+  final String audience; // 'ALL' | 'STUDENTS' | 'TEACHERS'
+  final String date;
+
+  AnnouncementModel({
+    required this.id,
+    required this.title,
+    required this.content,
+    required this.priority,
+    required this.audience,
+    required this.date,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'content': content,
+        'priority': priority,
+        'audience': audience,
+        'date': date,
+      };
+
+  factory AnnouncementModel.fromJson(Map<String, dynamic> json) => AnnouncementModel(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        content: json['content'] as String,
+        priority: json['priority'] as String,
+        audience: json['audience'] as String,
+        date: json['date'] as String,
+      );
+}
 
 class AnnouncementsScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -15,481 +50,342 @@ class AnnouncementsScreen extends StatefulWidget {
 }
 
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
+  List<AnnouncementModel> _announcements = [];
   bool _isLoading = true;
-  String _currentRole = 'student'; // Fallback role
-  List<Map<String, dynamic>> _allAnnouncements = [];
-  List<Map<String, dynamic>> _filteredAnnouncements = [];
-  String _selectedPriority = 'All'; // 'All' | 'HIGH' | 'NORMAL' | 'LOW'
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadAnnouncements();
   }
 
-  Future<void> _loadData() async {
+  // --- Load Announcements ---
+  Future<void> _loadAnnouncements() async {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      _currentRole = prefs.getString('user_role') ?? 'student';
-
-      final response = await Supabase.instance.client
-          .from('Announcement')
-          .select('*')
-          .eq('isPublished', true)
-          .order('createdAt', ascending: false);
-
-      final announcementsList = List<Map<String, dynamic>>.from(response);
-
-      // Filter active and targeted announcements in-memory for 100% database safety
-      final now = DateTime.now();
-      final roleUpper = _currentRole.toUpperCase();
-      // Handle potential plural formats in audience target checks
-      final rolePlural = roleUpper == 'STUDENT' ? 'STUDENTS' : (roleUpper == 'TEACHER' ? 'TEACHERS' : '${roleUpper}S');
-
-      _allAnnouncements = announcementsList.where((ann) {
-        // 1. Expiration check: expiresAt == null || expiresAt > today
-        final expiresAtStr = ann['expiresAt'];
-        if (expiresAtStr != null) {
-          final expiresAt = DateTime.tryParse(expiresAtStr);
-          if (expiresAt != null && expiresAt.isBefore(now)) {
-            return false;
-          }
-        }
-
-        // 2. Audience check: targetAudience contains 'ALL' OR targetAudience contains currentRole
-        final targetAudienceRaw = ann['targetAudience'];
-        List<String> targetAudience = [];
-        if (targetAudienceRaw is List) {
-          targetAudience = List<String>.from(targetAudienceRaw.map((e) => e.toString().toUpperCase()));
-        } else if (targetAudienceRaw != null) {
-          targetAudience = [targetAudienceRaw.toString().toUpperCase()];
-        }
-
-        if (targetAudience.isEmpty ||
-            targetAudience.contains('ALL') ||
-            targetAudience.contains(roleUpper) ||
-            targetAudience.contains(rolePlural)) {
-          return true;
-        }
-
-        return false;
-      }).toList();
-
-      _applyPriorityFilter();
-    } catch (e) {
-      debugPrint('Error loading announcements: $e');
-      if (mounted) {
-        showToast(context, 'Failed to load announcements', isError: true);
+      final String? rawList = prefs.getString('local_announcements_list');
+      if (rawList != null) {
+        final List<dynamic> decoded = json.decode(rawList);
+        setState(() {
+          _announcements = decoded.map((e) => AnnouncementModel.fromJson(e as Map<String, dynamic>)).toList();
+        });
       }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
+    } catch (_) {}
+    setState(() => _isLoading = false);
   }
 
-  void _applyPriorityFilter() {
-    if (_selectedPriority == 'All') {
-      _filteredAnnouncements = List.from(_allAnnouncements);
-    } else {
-      _filteredAnnouncements = _allAnnouncements.where((ann) {
-        final priority = (ann['priority'] ?? 'NORMAL').toString().toUpperCase();
-        // Standardize URGENT and HIGH priorities
-        if (_selectedPriority == 'HIGH') {
-          return priority == 'HIGH' || priority == 'URGENT';
-        }
-        return priority == _selectedPriority;
-      }).toList();
-    }
-  }
-
-  String _formatDate(String dateStr) {
+  // --- Save Announcements ---
+  Future<void> _saveAnnouncements() async {
     try {
-      final dateTime = DateTime.parse(dateStr).toLocal();
-      final now = DateTime.now();
-      final difference = now.difference(dateTime);
-      
-      final today = DateTime(now.year, now.month, now.day);
-      final dateDay = DateTime(dateTime.year, dateTime.month, dateTime.day);
-      
-      if (dateDay == today) {
-        if (difference.inMinutes < 60) {
-          if (difference.inMinutes <= 0) return 'Just now';
-          return '${difference.inMinutes} ${difference.inMinutes == 1 ? "min" : "mins"} ago';
-        } else {
-          return '${difference.inHours} ${difference.inHours == 1 ? "hour" : "hours"} ago';
-        }
-      } else if (today.difference(dateDay).inDays == 1) {
-        return 'Yesterday';
-      } else {
-        final day = dateTime.day.toString().padLeft(2, '0');
-        final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        final month = months[dateTime.month - 1];
-        return '$day $month';
-      }
-    } catch (e) {
-      return 'N/A';
-    }
+      final prefs = await SharedPreferences.getInstance();
+      final String encoded = json.encode(_announcements.map((e) => e.toJson()).toList());
+      await prefs.setString('local_announcements_list', encoded);
+    } catch (_) {}
   }
 
-  Map<String, dynamic> _getPriorityStyle(String priority) {
-    final p = priority.toUpperCase();
-    if (p == 'HIGH' || p == 'URGENT') {
-      return {
-        'label': p,
-        'bg': AppColors.error.withValues(alpha: 0.08),
-        'text': AppColors.error,
-      };
-    } else if (p == 'NORMAL' || p == 'MEDIUM') {
-      return {
-        'label': 'NORMAL',
-        'bg': widget.theme.primary.withValues(alpha: 0.08),
-        'text': widget.theme.primary,
-      };
-    } else {
-      return {
-        'label': 'LOW',
-        'bg': AppColors.textLight.withValues(alpha: 0.12),
-        'text': AppColors.textMedium,
-      };
-    }
+  // --- Add Announcement ---
+  void _addAnnouncement(AnnouncementModel announcement) {
+    setState(() {
+      _announcements.insert(0, announcement);
+    });
+    _saveAnnouncements();
   }
 
-  String _getAudienceLabel(List<dynamic>? targetAudience) {
-    if (targetAudience == null || targetAudience.isEmpty) return 'All';
-    final auds = targetAudience.map((e) => e.toString().toUpperCase()).toList();
-    if (auds.contains('ALL')) return 'All';
-    
-    final isStudent = auds.contains('STUDENT') || auds.contains('STUDENTS');
-    final isTeacher = auds.contains('TEACHER') || auds.contains('TEACHERS');
-    final isParent = auds.contains('PARENT') || auds.contains('PARENTS');
-    
-    if (isStudent && isTeacher) return 'Students & Teachers';
-    if (isStudent) return 'Students';
-    if (isTeacher) return 'Teachers';
-    if (isParent) return 'Parents';
-    
-    final first = auds.first.toLowerCase();
-    if (first.length > 1) {
-      return first[0].toUpperCase() + first.substring(1);
-    }
-    return first.toUpperCase();
+  // --- Delete Announcement ---
+  void _deleteAnnouncement(String id) {
+    setState(() {
+      _announcements.removeWhere((element) => element.id == id);
+    });
+    _saveAnnouncements();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Announcement deleted', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+        duration: const Duration(seconds: 1),
+      ),
+    );
   }
 
-  void _showAnnouncementDetail(Map<String, dynamic> announcement) {
-    final title = announcement['title'] ?? 'No Title';
-    final content = announcement['content'] ?? '';
-    final createdAtStr = announcement['createdAt'] ?? '';
-    final priority = (announcement['priority'] ?? 'NORMAL').toString();
-    final targetAudienceRaw = announcement['targetAudience'] as List? ?? [];
-    
-    final priorityStyle = _getPriorityStyle(priority);
-    final audienceLabel = _getAudienceLabel(targetAudienceRaw);
-    final dateFormatted = _formatDate(createdAtStr);
+  // --- Stats Computations ---
+  int get _totalCount => _announcements.length;
+  int get _activeCount => _announcements.length; // all created are active in local mockup
+  int get _highPriorityCount => _announcements.where((e) => e.priority == 'HIGH').length;
+
+  // --- Open Create Form Bottom Sheet ---
+  void _openCreateSheet() {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    String selectedPriority = 'NORMAL'; // default
+    String selectedAudience = 'ALL'; // default
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      barrierColor: Colors.black.withValues(alpha: 0.5),
-      builder: (context) => Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20.r,
-              offset: Offset(0, -5.h),
-            ),
-          ],
-        ),
-        padding: EdgeInsets.all(24.r),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40.w,
-                height: 4.h,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2.r),
-                ),
-              ),
-            ),
-            SizedBox(height: 24.h),
-            Row(
-              children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: priorityStyle['bg'] as Color,
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Text(
-                    priorityStyle['label'] as String,
-                    style: GoogleFonts.inter(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w900,
-                      color: priorityStyle['text'] as Color,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                SizedBox(width: 8.w),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                  decoration: BoxDecoration(
-                    color: widget.theme.light,
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Text(
-                    'For: $audienceLabel',
-                    style: GoogleFonts.inter(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w800,
-                      color: widget.theme.primary,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                Icon(
-                  Icons.access_time_rounded,
-                  size: 14.sp,
-                  color: AppColors.textLight,
-                ),
-                SizedBox(width: 4.w),
-                Text(
-                  dateFormatted,
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 20.h),
-            Container(
-              height: 1.h,
-              color: AppColors.border,
-            ),
-            SizedBox(height: 20.h),
-            Text(
-              title,
-              style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textDark,
-                height: 1.3,
-              ),
-            ),
-            SizedBox(height: 16.h),
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.4,
-              ),
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: Text(
-                  content,
-                  style: GoogleFonts.inter(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMedium,
-                    height: 1.6,
-                  ),
-                ),
-              ),
-            ),
-            SizedBox(height: 32.h),
-            SizedBox(
-              width: double.infinity,
-              child: LoadingButton(
-                label: 'Close',
-                color: widget.theme.primary,
-                onPressed: () async {
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-            SizedBox(height: 12.h),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPriorityFilters() {
-    final priorities = ['All', 'HIGH', 'NORMAL', 'LOW'];
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      physics: const BouncingScrollPhysics(),
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Row(
-        children: priorities.map((p) {
-          final isSelected = _selectedPriority == p;
-          
-          Color selectedBg;
-          Color selectedText;
-          
-          if (isSelected) {
-            selectedBg = widget.theme.primary;
-            selectedText = Colors.white;
-          } else {
-            selectedBg = Colors.white;
-            selectedText = AppColors.textMedium;
-          }
-
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedPriority = p;
-                _applyPriorityFilter();
-              });
-            },
-            child: Container(
-              margin: EdgeInsets.only(right: 10.w),
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
               decoration: BoxDecoration(
-                color: selectedBg,
-                borderRadius: BorderRadius.circular(24.r),
-                border: Border.all(
-                  color: isSelected ? Colors.transparent : AppColors.border,
-                  width: 1,
-                ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: widget.theme.primary.withValues(alpha: 0.25),
-                          blurRadius: 8.r,
-                          offset: Offset(0, 3.h),
-                        )
-                      ]
-                    : [],
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
               ),
-              child: Text(
-                p == 'All' ? 'All Alerts' : p,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: selectedText,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildAnnouncementCard(Map<String, dynamic> announcement) {
-    final title = announcement['title'] ?? 'No Title';
-    final content = announcement['content'] ?? '';
-    final createdAtStr = announcement['createdAt'] ?? '';
-    final priority = (announcement['priority'] ?? 'NORMAL').toString();
-    final targetAudienceRaw = announcement['targetAudience'] as List? ?? [];
-    
-    final priorityStyle = _getPriorityStyle(priority);
-    final audienceLabel = _getAudienceLabel(targetAudienceRaw);
-    final dateFormatted = _formatDate(createdAtStr);
-
-    return Container(
-      margin: EdgeInsets.only(bottom: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 10.r,
-            offset: Offset(0, 4.h),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16.r),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16.r),
-          onTap: () => _showAnnouncementDetail(announcement),
-          child: Padding(
-            padding: EdgeInsets.all(16.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: priorityStyle['bg'] as Color,
-                        borderRadius: BorderRadius.circular(6.r),
+              child: Column(
+                children: [
+                  // Handle
+                  Container(
+                    margin: EdgeInsets.symmetric(vertical: 12.h),
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                  // Header
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20.w),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Create New Announcement",
+                          style: GoogleFonts.inter(
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Color(0xFFE2E8F0)),
+                  // Scroll Area for inputs
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Title
+                          Text(
+                            "Title",
+                            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark),
+                          ),
+                          SizedBox(height: 6.h),
+                          TextField(
+                            controller: titleCtrl,
+                            decoration: InputDecoration(
+                              hintText: "Enter title e.g. Welcome to Academic Year",
+                              hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textLight),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          // Content
+                          Text(
+                            "Content / Description",
+                            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark),
+                          ),
+                          SizedBox(height: 6.h),
+                          TextField(
+                            controller: contentCtrl,
+                            maxLines: 4,
+                            decoration: InputDecoration(
+                              hintText: "Write details about the update or notice...",
+                              hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textLight),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.5),
+                              ),
+                            ),
+                          ),
+                          SizedBox(height: 16.h),
+                          // Priority Selection
+                          Text(
+                            "Priority Level",
+                            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark),
+                          ),
+                          SizedBox(height: 8.h),
+                          Row(
+                            children: [
+                              _buildPriorityOption(
+                                label: "LOW",
+                                isSelected: selectedPriority == 'LOW',
+                                color: Colors.grey,
+                                onTap: () => setModalState(() => selectedPriority = 'LOW'),
+                              ),
+                              SizedBox(width: 8.w),
+                              _buildPriorityOption(
+                                label: "NORMAL",
+                                isSelected: selectedPriority == 'NORMAL',
+                                color: const Color(0xFF2563EB),
+                                onTap: () => setModalState(() => selectedPriority = 'NORMAL'),
+                              ),
+                              SizedBox(width: 8.w),
+                              _buildPriorityOption(
+                                label: "HIGH",
+                                isSelected: selectedPriority == 'HIGH',
+                                color: Colors.redAccent,
+                                onTap: () => setModalState(() => selectedPriority = 'HIGH'),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 16.h),
+                          // Audience Selection
+                          Text(
+                            "Target Audience",
+                            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark),
+                          ),
+                          SizedBox(height: 8.h),
+                          Row(
+                            children: [
+                              _buildAudienceOption(
+                                label: "ALL",
+                                display: "Everyone",
+                                isSelected: selectedAudience == 'ALL',
+                                onTap: () => setModalState(() => selectedAudience = 'ALL'),
+                              ),
+                              SizedBox(width: 8.w),
+                              _buildAudienceOption(
+                                label: "STUDENTS",
+                                display: "Students",
+                                isSelected: selectedAudience == 'STUDENTS',
+                                onTap: () => setModalState(() => selectedAudience = 'STUDENTS'),
+                              ),
+                              SizedBox(width: 8.w),
+                              _buildAudienceOption(
+                                label: "TEACHERS",
+                                display: "Teachers",
+                                isSelected: selectedAudience == 'TEACHERS',
+                                onTap: () => setModalState(() => selectedAudience = 'TEACHERS'),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        priorityStyle['label'] as String,
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w800,
-                          color: priorityStyle['text'] as Color,
-                          letterSpacing: 0.5,
+                    ),
+                  ),
+                  // Publish button
+                  SafeArea(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2563EB),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            if (titleCtrl.text.trim().isEmpty || contentCtrl.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Please fill in both title and content', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                                  backgroundColor: AppColors.error,
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                ),
+                              );
+                              return;
+                            }
+
+                            final newAnn = AnnouncementModel(
+                              id: DateTime.now().millisecondsSinceEpoch.toString(),
+                              title: titleCtrl.text.trim(),
+                              content: contentCtrl.text.trim(),
+                              priority: selectedPriority,
+                              audience: selectedAudience,
+                              date: "Today",
+                            );
+
+                            _addAnnouncement(newAnn);
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white),
+                                    SizedBox(width: 8.w),
+                                    Text('Announcement published!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                                backgroundColor: AppColors.success,
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            "Publish Announcement",
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    Text(
-                      dateFormatted,
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textLight,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                    height: 1.3,
                   ),
-                ),
-                SizedBox(height: 6.h),
-                Text(
-                  content,
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMedium,
-                    height: 1.5,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 12.h),
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                  decoration: BoxDecoration(
-                    color: widget.theme.light,
-                    borderRadius: BorderRadius.circular(6.r),
-                  ),
-                  child: Text(
-                    'For: $audienceLabel',
-                    style: GoogleFonts.inter(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w700,
-                      color: widget.theme.primary,
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPriorityOption({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withValues(alpha: 0.1) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: isSelected ? color : const Color(0xFFE2E8F0), width: 1.5.w),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+              color: isSelected ? color : AppColors.textMedium,
             ),
           ),
         ),
@@ -497,53 +393,32 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 48.h, horizontal: 24.w),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(16.r),
-            decoration: BoxDecoration(
-              color: widget.theme.light,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.campaign_outlined,
-              size: 48.sp,
-              color: widget.theme.primary,
-            ),
+  Widget _buildAudienceOption({
+    required String label,
+    required String display,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFE2E8F0), width: 1.5.w),
           ),
-          SizedBox(height: 16.h),
-          Text(
-            'No Announcements',
-            style: GoogleFonts.inter(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            _selectedPriority == 'All'
-                ? 'All quiet for now. Check back later for important school updates.'
-                : 'There are no announcements with "$_selectedPriority" priority at the moment.',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textMedium,
-              height: 1.5,
-            ),
+          child: Text(
+            display,
             textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+              color: isSelected ? const Color(0xFF2563EB) : AppColors.textMedium,
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -551,46 +426,583 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leadingWidth: 40.w,
+        leading: Padding(
+          padding: EdgeInsets.only(left: 12.w),
+          child: IconButton(
+            icon: const Icon(Icons.menu, color: Color(0xFF0F172A)),
+            onPressed: () => Navigator.pop(context),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ),
+        titleSpacing: 8.w,
+        title: Text(
+          'EduSphere',
+          style: GoogleFonts.inter(
+            color: const Color(0xFF0F172A),
+            fontWeight: FontWeight.w900,
+            fontSize: 20.sp,
+            letterSpacing: 0.2,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_off_outlined, color: Color(0xFF0F172A)),
+            onPressed: () {},
+          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)),
+                onPressed: () {},
+              ),
+              Positioned(
+                right: 8.w,
+                top: 8.h,
+                child: Container(
+                  padding: EdgeInsets.all(3.r),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    "3",
+                    style: GoogleFonts.inter(fontSize: 8.sp, color: Colors.white, fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(width: 8.w),
+        ],
+      ),
       body: Column(
         children: [
-          PageHeader(
-            title: 'Announcements',
-            subtitle: 'Official school updates & alerts',
-            theme: widget.theme,
-          ),
-          _buildPriorityFilters(),
           Expanded(
-            child: _isLoading
-                ? Center(
-                    child: CircularProgressIndicator(
-                      color: widget.theme.primary,
-                      strokeWidth: 3.w,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Banner Card
+                  _buildBannerCard(),
+                  SizedBox(height: 16.h),
+                  // New Announcement button Row
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563EB),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                        elevation: 0,
+                      ),
+                      onPressed: _openCreateSheet,
+                      icon: Icon(Icons.add, size: 16.sp, color: Colors.white),
+                      label: Text(
+                        "New Announcement",
+                        style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: Colors.white),
+                      ),
                     ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _loadData,
-                    color: widget.theme.primary,
-                    child: _filteredAnnouncements.isEmpty
-                        ? SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.all(16.r),
-                            child: _buildEmptyState(),
-                          )
-                        : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
-                            itemCount: _filteredAnnouncements.length,
-                            itemBuilder: (context, index) {
-                              return _buildAnnouncementCard(
-                                _filteredAnnouncements[index],
-                              );
-                            },
-                          ),
                   ),
+                  SizedBox(height: 16.h),
+                  // 2. Stats Grid
+                  _buildStatsGrid(),
+                  SizedBox(height: 16.h),
+                  // 3. Content Section (Empty State or List)
+                  _isLoading
+                      ? Container(
+                          height: 250.h,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+                        )
+                      : (_announcements.isEmpty ? _buildEmptyStateCard() : _buildAnnouncementsList()),
+                  SizedBox(height: 32.h),
+                ],
+              ),
+            ),
+          ),
+          // Bottom Navigation Bar
+          _buildBottomNav(),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF2563EB),
+        onPressed: _openCreateSheet,
+        child: const Icon(Icons.campaign_rounded, color: Colors.white),
+      ),
+    );
+  }
+
+  // --- UI Component: Banner Card ---
+  Widget _buildBannerCard() {
+    return Container(
+      padding: EdgeInsets.all(18.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10.r),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2563EB),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Icon(Icons.notifications_active_rounded, color: Colors.white, size: 24.sp),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Announcements",
+                  style: GoogleFonts.inter(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  "Create and manage school-wide announcements",
+                  style: GoogleFonts.inter(
+                    fontSize: 10.5.sp,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textMedium,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Megaphone Illustration
+          const MegaphoneIllustration(),
+        ],
+      ),
+    );
+  }
+
+  // --- UI Component: Stats Grid ---
+  Widget _buildStatsGrid() {
+    return Row(
+      children: [
+        _buildStatCard(
+          icon: Icons.notifications_none_rounded,
+          label: "Total Announcements",
+          value: _totalCount.toString(),
+          color: const Color(0xFF2563EB),
+          bgLight: const Color(0xFFEFF6FF),
+        ),
+        SizedBox(width: 8.w),
+        _buildStatCard(
+          icon: Icons.notifications_none_rounded,
+          label: "Active",
+          value: _activeCount.toString(),
+          color: const Color(0xFF10B981),
+          bgLight: const Color(0xFFECFDF5),
+        ),
+        SizedBox(width: 8.w),
+        _buildStatCard(
+          icon: Icons.notifications_none_rounded,
+          label: "High Priority",
+          value: _highPriorityCount.toString(),
+          color: Colors.redAccent,
+          bgLight: const Color(0xFFFEF2F2),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required Color bgLight,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: BoxDecoration(
+                color: bgLight,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 16.sp),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 9.sp,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textMedium,
+              ),
+            ),
+            SizedBox(height: 6.h),
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w900,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- UI Component: Empty State Card ---
+  Widget _buildEmptyStateCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          // Styled Bell Circle
+          Container(
+            padding: EdgeInsets.all(20.r),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.notifications_active_outlined, size: 48.sp, color: const Color(0xFF2563EB)),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No announcements',
+            style: GoogleFonts.inter(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            "Create your first announcement\nto notify users",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF64748B),
+              height: 1.4,
+            ),
+          ),
+          SizedBox(height: 20.h),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+              elevation: 0,
+            ),
+            onPressed: _openCreateSheet,
+            icon: Icon(Icons.add, size: 16.sp, color: Colors.white),
+            label: Text(
+              "Create Announcement",
+              style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: Colors.white),
+            ),
           ),
         ],
       ),
     );
   }
+
+  // --- UI Component: Announcements List ---
+  Widget _buildAnnouncementsList() {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _announcements.length,
+      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      itemBuilder: (context, index) {
+        final ann = _announcements[index];
+
+        // Priority colors
+        Color badgeBg = const Color(0xFFF1F5F9);
+        Color badgeText = const Color(0xFF475569);
+        if (ann.priority == 'HIGH') {
+          badgeBg = const Color(0xFFFEF2F2);
+          badgeText = Colors.redAccent;
+        } else if (ann.priority == 'NORMAL') {
+          badgeBg = const Color(0xFFEFF6FF);
+          badgeText = const Color(0xFF2563EB);
+        }
+
+        return Container(
+          padding: EdgeInsets.all(16.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(6.r),
+                    ),
+                    child: Text(
+                      ann.priority,
+                      style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: badgeText),
+                    ),
+                  ),
+                  Text(
+                    ann.date,
+                    style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w500, color: AppColors.textMedium),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10.h),
+              Text(
+                ann.title,
+                style: GoogleFonts.inter(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textDark,
+                ),
+              ),
+              SizedBox(height: 6.h),
+              Text(
+                ann.content,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textMedium,
+                  height: 1.4,
+                ),
+              ),
+              SizedBox(height: 12.h),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(6.r),
+                    ),
+                    child: Text(
+                      "For: ${ann.audience == 'ALL' ? 'Everyone' : (ann.audience == 'STUDENTS' ? 'Students' : 'Teachers')}",
+                      style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+                    ),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18.sp),
+                    onPressed: () => _deleteAnnouncement(ann.id),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // --- UI Component: Bottom Navigation Bar ---
+  Widget _buildBottomNav() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: const Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          )
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBottomNavItem(icon: Icons.grid_view_rounded, label: 'Dashboard', index: 0),
+              _buildBottomNavItem(icon: Icons.calendar_month_outlined, label: 'Calendar', index: 1),
+              _buildBottomNavItem(icon: Icons.people_outline_rounded, label: 'Students', index: 2),
+              _buildBottomNavItem(icon: Icons.notifications_active_rounded, label: 'Announcements', index: 3, isSelected: true),
+              _buildBottomNavItem(icon: Icons.more_horiz_rounded, label: 'More', index: 4),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- UI Component: Bottom Nav Item ---
+  Widget _buildBottomNavItem({
+    required IconData icon,
+    required String label,
+    required int index,
+    bool isSelected = false,
+  }) {
+    final activeColor = widget.theme.primary;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          if (!isSelected) {
+            // Pop back to main screen passing the tab index
+            Navigator.pop(context, index);
+          }
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 4.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                color: isSelected ? activeColor : const Color(0xFF94A3B8),
+                size: 24.sp,
+              ),
+              SizedBox(height: 3.h),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  color: isSelected ? activeColor : const Color(0xFF94A3B8),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class MegaphoneIllustration extends StatelessWidget {
+  const MegaphoneIllustration({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 60.w,
+      height: 60.h,
+      child: CustomPaint(
+        painter: MegaphonePainter(),
+      ),
+    );
+  }
+}
+
+class MegaphonePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final hornPaint = Paint()
+      ..color = const Color(0xFF2563EB)
+      ..style = PaintingStyle.fill;
+
+    // Megaphone horn
+    final path = Path()
+      ..moveTo(size.width * 0.35, size.height * 0.5)
+      ..lineTo(size.width * 0.75, size.height * 0.25)
+      ..lineTo(size.width * 0.85, size.height * 0.6)
+      ..lineTo(size.width * 0.45, size.height * 0.7)
+      ..close();
+    canvas.drawPath(path, hornPaint);
+
+    // Megaphone handle
+    final handlePaint = Paint()
+      ..color = const Color(0xFF1E3A8A)
+      ..strokeWidth = 6.w
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(size.width * 0.5, size.height * 0.6),
+      Offset(size.width * 0.5, size.height * 0.8),
+      handlePaint,
+    );
+
+    // Megaphone front oval (cap)
+    final capPaint = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..style = PaintingStyle.fill;
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(size.width * 0.8, size.height * 0.425),
+        width: 10.w,
+        height: 22.h,
+      ),
+      capPaint,
+    );
+
+    // Megaphone back joint
+    final backPaint = Paint()
+      ..color = const Color(0xFF1E3A8A)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(
+      Offset(size.width * 0.38, size.height * 0.58),
+      6.r,
+      backPaint,
+    );
+
+    // Sound waves
+    final wavePaint = Paint()
+      ..color = const Color(0xFF93C5FD)
+      ..strokeWidth = 2.5.w
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(size.width * 0.88, size.height * 0.425), width: 12.w, height: 20.h),
+      -1.0,
+      2.0,
+      false,
+      wavePaint,
+    );
+    canvas.drawArc(
+      Rect.fromCenter(center: Offset(size.width * 0.94, size.height * 0.425), width: 24.w, height: 36.h),
+      -1.0,
+      2.0,
+      false,
+      wavePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
