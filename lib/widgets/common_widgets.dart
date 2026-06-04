@@ -86,44 +86,88 @@ class InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r, offset: Offset(0, 2.h))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40.w, height: 40.w,
-            decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(12.r)),
-            child: Icon(icon, color: iconColor, size: 20.sp),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double h = constraints.maxHeight;
+        final double padding = (h * 0.12).clamp(8.0, 16.0);
+        final double iconSize = (h * 0.28).clamp(24.0, 40.0);
+        final double spacing = (h * 0.08).clamp(4.0, 12.0);
+        final double valueFontSize = (h * 0.16).clamp(14.0, 22.0);
+        final double titleFontSize = (h * 0.08).clamp(8.0, 11.0);
+        final double trendFontSize = (h * 0.07).clamp(7.0, 10.0);
+
+        return Container(
+          padding: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: AppColors.border),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8.r,
+                offset: Offset(0, 2.h),
+              )
+            ],
           ),
-          SizedBox(height: 12.h),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(value, style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: iconSize,
+                height: iconSize,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular((iconSize * 0.3).clamp(6.0, 12.0)),
                 ),
-                Text(title, 
-                  style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: AppColors.textLight),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (trend != null)
-                  Text(trend!, 
-                    style: GoogleFonts.inter(fontSize: 10.sp, color: AppColors.textLight),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
+                child: Icon(icon, color: iconColor, size: (iconSize * 0.5).clamp(12.0, 20.0)),
+              ),
+              SizedBox(height: spacing),
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.bottomLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        value,
+                        style: GoogleFonts.inter(
+                          fontSize: valueFontSize,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      Text(
+                        title,
+                        style: GoogleFonts.inter(
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textLight,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (trend != null)
+                        Text(
+                          trend!,
+                          style: GoogleFonts.inter(
+                            fontSize: trendFontSize,
+                            color: AppColors.textLight,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -205,25 +249,50 @@ class QuickBtn extends StatelessWidget {
           border: Border.all(color: AppColors.border),
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r)],
         ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 8.h),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Container(
-                  width: 44.w, height: 44.w,
-                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(14.r),
-                    boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 8.r, offset: Offset(0, 3.h))]),
-                  child: Icon(icon, color: Colors.white, size: 22.sp),
-                ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double availableHeight = constraints.maxHeight;
+            final double iconSize = (availableHeight * 0.45).clamp(24.0, 48.0);
+            final double spacing = (availableHeight * 0.08).clamp(4.0, 8.0);
+            final double fontSize = (availableHeight * 0.12).clamp(8.0, 11.0);
+
+            return Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: iconSize,
+                    height: iconSize,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular((iconSize * 0.3).clamp(8.0, 14.0)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.35),
+                          blurRadius: (iconSize * 0.2).clamp(4.0, 10.0),
+                          offset: Offset(0, (iconSize * 0.08).clamp(2.0, 4.0)),
+                        )
+                      ],
+                    ),
+                    child: Icon(icon, color: Colors.white, size: (iconSize * 0.46).clamp(12.0, 22.0)),
+                  ),
+                  SizedBox(height: spacing),
+                  Text(
+                    label,
+                    style: GoogleFonts.inter(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textMedium,
+                    ),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-              SizedBox(height: 6.h),
-              Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium),
-                textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
