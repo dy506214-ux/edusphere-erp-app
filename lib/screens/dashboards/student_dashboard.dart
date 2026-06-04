@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
+import '../../widgets/common_widgets.dart';
+import '../features/assignments_screen.dart';
+import '../features/schedule_screen.dart';
 import '../features/attendance_screen.dart';
 import '../features/results_screen.dart';
 import '../features/fee_ledger_screen.dart';

@@ -7,41 +7,45 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart' as intl;
 import '../theme/colors.dart';
-import 'features/schedule_screen.dart';
-import 'features/study_materials_screen.dart';
-import 'features/assignments_screen.dart';
-import 'features/quiz_screen.dart';
 import 'features/exam_schedule_screen.dart';
-import 'features/results_screen.dart';
 import 'features/exam_terms_screen.dart';
 import 'features/exam_report_card_screen.dart';
-import 'features/attendance_screen.dart';
-import 'features/academic_calendar_screen.dart';
 
-// ── Academic Hub Screen (main tab) ───────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// Academic Management Screen — supports Classes, Subjects, Sections, and Exams
+// ══════════════════════════════════════════════════════════════════════════════
 class AcademicScreen extends StatefulWidget {
   final RoleTheme theme;
   final VoidCallback? onBack;
-  const AcademicScreen({super.key, required this.theme, this.onBack});
+
+  const AcademicScreen({
+    super.key,
+    required this.theme,
+    this.onBack,
+  });
 
   @override
   State<AcademicScreen> createState() => _AcademicScreenState();
 }
 
 class _AcademicScreenState extends State<AcademicScreen> {
-  bool _isLoading = true;
-  double attendanceRate = 0.0;
-  String studentName = 'Student';
-  String _className = 'Class 1';
-  String _section = 'A';
-  final List<Map<String, dynamic>> _attendanceHistory = [];
+
+  int _activeTab = 0; // 0 = Classes, 1 = Subjects, 2 = Sections, 3 = Exams & Results
+
+  // ── Database Lists ──
+  List<Map<String, dynamic>> _classesList = [];
+  List<Map<String, dynamic>> _subjectsList = [];
+  List<Map<String, dynamic>> _sectionsList = [];
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadLocalData();
   }
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // LOCAL DATA PERSISTENCE
+  // ═════════════════════════════════════════════════════════════════════════
   Future<void> _loadData() async {
     if (!mounted) return;
     setState(() { _isLoading = true; });
@@ -54,7 +58,69 @@ class _AcademicScreenState extends State<AcademicScreen> {
           'Student';
     });
 
+  Future<void> _loadLocalData() async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      
+      final classesJson = prefs.getString('academic_classes_list');
+      if (classesJson != null) {
+        _classesList = List<Map<String, dynamic>>.from(json.decode(classesJson));
+      }
+      
+      final subjectsJson = prefs.getString('academic_subjects_list');
+      if (subjectsJson != null) {
+        _subjectsList = List<Map<String, dynamic>>.from(json.decode(subjectsJson));
+      }
+
+      final sectionsJson = prefs.getString('academic_sections_list');
+      if (sectionsJson != null) {
+        _sectionsList = List<Map<String, dynamic>>.from(json.decode(sectionsJson));
+      }
+
+      if (mounted) setState(() {});
+    } catch (_) {}
+  }
+
+  Future<void> _saveLocalData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('academic_classes_list', json.encode(_classesList));
+      await prefs.setString('academic_subjects_list', json.encode(_subjectsList));
+      await prefs.setString('academic_sections_list', json.encode(_sectionsList));
+    } catch (_) {}
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // DIALOGS TO CREATE ITEMS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  void _showAddClassDialog() {
+    final nameCtrl = TextEditingController();
+    final levelCtrl = TextEditingController();
+    final yearCtrl = TextEditingController(text: '2026-2027');
+    final teacherCtrl = TextEditingController();
+    final studentsCtrl = TextEditingController(text: '0');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Class', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDialogField(nameCtrl, 'Class Name', 'e.g. Class 10 - A'),
+              SizedBox(height: 12.h),
+              _buildDialogField(levelCtrl, 'Level', 'e.g. Secondary'),
+              SizedBox(height: 12.h),
+              _buildDialogField(yearCtrl, 'Academic Year', 'e.g. 2026-2027'),
+              SizedBox(height: 12.h),
+              _buildDialogField(teacherCtrl, 'Class Teacher', 'e.g. Mr. John Doe'),
+              SizedBox(height: 12.h),
+              _buildDialogField(studentsCtrl, 'Students Count', 'e.g. 40', keyboardType: TextInputType.number),
+            ],
+          ),
       final savedEmail = prefs.getString('student_email') ??
           prefs.getString('user_email') ??
           'alex.rivera@edusmart.edu';
@@ -250,10 +316,436 @@ class _AcademicScreenState extends State<AcademicScreen> {
             ),
           ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              setState(() {
+                _classesList.add({
+                  'name': nameCtrl.text.trim(),
+                  'level': levelCtrl.text.trim(),
+                  'academic_year': yearCtrl.text.trim(),
+                  'class_teacher': teacherCtrl.text.trim(),
+                  'students': int.tryParse(studentsCtrl.text.trim()) ?? 0,
+                });
+              });
+              _saveLocalData();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
 
+  void _showAddSubjectDialog() {
+    final nameCtrl = TextEditingController();
+    final codeCtrl = TextEditingController();
+    final classCtrl = TextEditingController();
+    final teacherCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Subject', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDialogField(nameCtrl, 'Subject Name', 'e.g. Physics'),
+              SizedBox(height: 12.h),
+              _buildDialogField(codeCtrl, 'Subject Code', 'e.g. PHY101'),
+              SizedBox(height: 12.h),
+              _buildDialogField(classCtrl, 'Class/Grade', 'e.g. Class 10'),
+              SizedBox(height: 12.h),
+              _buildDialogField(teacherCtrl, 'Subject Teacher', 'e.g. Dr. Emily Green'),
+              SizedBox(height: 12.h),
+              _buildDialogField(descCtrl, 'Description', 'e.g. Intro to Mechanics'),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              setState(() {
+                _subjectsList.add({
+                  'name': nameCtrl.text.trim(),
+                  'code': codeCtrl.text.trim(),
+                  'class': classCtrl.text.trim(),
+                  'teacher': teacherCtrl.text.trim(),
+                  'description': descCtrl.text.trim(),
+                });
+              });
+              _saveLocalData();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSectionDialog() {
+    final nameCtrl = TextEditingController();
+    final classCtrl = TextEditingController();
+    final maxCtrl = TextEditingController(text: '40');
+    final studentsCtrl = TextEditingController(text: '0');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Section', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildDialogField(nameCtrl, 'Section Name', 'e.g. Section A'),
+              SizedBox(height: 12.h),
+              _buildDialogField(classCtrl, 'Class', 'e.g. Class 10'),
+              SizedBox(height: 12.h),
+              _buildDialogField(maxCtrl, 'Max Students', 'e.g. 40', keyboardType: TextInputType.number),
+              SizedBox(height: 12.h),
+              _buildDialogField(studentsCtrl, 'Current Students', 'e.g. 35', keyboardType: TextInputType.number),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            onPressed: () {
+              if (nameCtrl.text.trim().isEmpty) return;
+              setState(() {
+                _sectionsList.add({
+                  'name': nameCtrl.text.trim(),
+                  'class': classCtrl.text.trim(),
+                  'max_students': int.tryParse(maxCtrl.text.trim()) ?? 40,
+                  'students': int.tryParse(studentsCtrl.text.trim()) ?? 0,
+                });
+              });
+              _saveLocalData();
+              Navigator.pop(ctx);
+            },
+            child: const Text('Create', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDialogField(
+    TextEditingController ctrl,
+    String label,
+    String hint, {
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return TextField(
+      controller: ctrl,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: GoogleFonts.inter(fontSize: 12.sp),
+        contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // BUILD METHODS
+  // ═════════════════════════════════════════════════════════════════════════
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            _buildTabs(),
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                child: _buildActiveTabContent(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: _activeTab < 3
+          ? FloatingActionButton(
+              onPressed: _activeTab == 0
+                  ? _showAddClassDialog
+                  : _activeTab == 1
+                      ? _showAddSubjectDialog
+                      : _showAddSectionDialog,
+              backgroundColor: widget.theme.primary,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      color: Colors.white,
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
+            onPressed: widget.onBack ?? () => Navigator.pop(context),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Academic Management',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  'Manage classes, subjects, and sections',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.sp,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabs() {
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: 8.h),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: 12.w),
+        child: Row(
+          children: [
+            _buildTabSelector(0, 'Classes'),
+            SizedBox(width: 6.w),
+            _buildTabSelector(1, 'Subjects'),
+            SizedBox(width: 6.w),
+            _buildTabSelector(2, 'Sections'),
+            SizedBox(width: 6.w),
+            _buildTabSelector(3, 'Exams & Results'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabSelector(int index, String label) {
+    final isSelected = _activeTab == index;
+    return GestureDetector(
+      onTap: () => setState(() => _activeTab = index),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(
+            color: isSelected ? const Color(0xFFBFDBFE) : Colors.transparent,
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          style: GoogleFonts.inter(
+            fontSize: 11.sp,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF475569),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveTabContent() {
+    switch (_activeTab) {
+      case 0:
+        return _buildClassesTab();
+      case 1:
+        return _buildSubjectsTab();
+      case 2:
+        return _buildSectionsTab();
+      case 3:
+        return _buildExamsTab();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // CLASSES TAB
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildClassesTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Classes', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+        Text('Manage class/grade levels', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+        SizedBox(height: 16.h),
+        _classesList.isEmpty
+            ? _buildEmptyState('No classes found. Create one to get started.', _showAddClassDialog)
+            : _buildClassesTable(),
+      ],
+    );
+  }
+
+  Widget _buildClassesTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+          columns: const [
+            DataColumn(label: Text('Name')),
+            DataColumn(label: Text('Level')),
+            DataColumn(label: Text('Academic Year')),
+            DataColumn(label: Text('Class Teacher')),
+            DataColumn(label: Text('Students')),
+          ],
+          rows: _classesList.map((c) {
+            return DataRow(cells: [
+              DataCell(Text(c['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
+              DataCell(Text(c['level']?.toString() ?? '')),
+              DataCell(Text(c['academic_year']?.toString() ?? '')),
+              DataCell(Text(c['class_teacher']?.toString() ?? '')),
+              DataCell(Text(c['students']?.toString() ?? '0')),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // SUBJECTS TAB
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildSubjectsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Subjects', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+        Text('Manage academic subjects', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+        SizedBox(height: 16.h),
+        _subjectsList.isEmpty
+            ? _buildEmptyState('No subjects found. Create one to get started.', _showAddSubjectDialog)
+            : _buildSubjectsTable(),
+      ],
+    );
+  }
+
+  Widget _buildSubjectsTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+          columns: const [
+            DataColumn(label: Text('Name')),
+            DataColumn(label: Text('Code')),
+            DataColumn(label: Text('Class')),
+            DataColumn(label: Text('Teacher')),
+            DataColumn(label: Text('Description')),
+          ],
+          rows: _subjectsList.map((s) {
+            return DataRow(cells: [
+              DataCell(Text(s['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
+              DataCell(Text(s['code']?.toString() ?? '')),
+              DataCell(Text(s['class']?.toString() ?? '')),
+              DataCell(Text(s['teacher']?.toString() ?? '')),
+              DataCell(Text(s['description']?.toString() ?? '', overflow: TextOverflow.ellipsis)),
+            ]);
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // SECTIONS TAB
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildSectionsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Sections', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+        Text('Manage class sections/divisions', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+        SizedBox(height: 16.h),
+        _sectionsList.isEmpty
+            ? _buildEmptyState('No sections found. Create one to get started.', _showAddSectionDialog)
+            : _buildSectionsTable(),
+      ],
+    );
+  }
+
+  Widget _buildSectionsTable() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+          columns: const [
+            DataColumn(label: Text('Name')),
+            DataColumn(label: Text('Class')),
+            DataColumn(label: Text('Max Students')),
+            DataColumn(label: Text('Students')),
+          ],
+          rows: _sectionsList.map((s) {
+            return DataRow(cells: [
+              DataCell(Text(s['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
+              DataCell(Text(s['class']?.toString() ?? '')),
+              DataCell(Text(s['max_students']?.toString() ?? '40')),
+              DataCell(Text(s['students']?.toString() ?? '0')),
+            ]);
+          }).toList(),
   Widget _buildRefreshButton() {
     return TextButton.icon(
       style: TextButton.styleFrom(
@@ -654,108 +1146,82 @@ class _AcademicScreenState extends State<AcademicScreen> {
       ],
     );
   }
-}
 
-// ── All Academic Features Screen ──────────────────────────────────────────────
-class AcademicFeaturesScreen extends StatelessWidget {
-  final RoleTheme theme;
-  final int pendingCount;
-  final double attendanceRate;
+  // ═════════════════════════════════════════════════════════════════════════
+  // EXAMS & RESULTS TAB
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildExamsTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Examination & Results', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+        Text('Configure terms, grading scales, and manage student results.', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+        SizedBox(height: 20.h),
 
-  const AcademicFeaturesScreen({
-    super.key,
-    required this.theme,
-    this.pendingCount = 0,
-    this.attendanceRate = 75.0,
-  });
+        // 1. Exam Management Card
+        _buildActionCard(
+          title: 'Exam Management',
+          subtitle: 'Create and schedule exams, assign subjects and marks structure.',
+          buttonLabel: 'Go to Exams',
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen())),
+        ),
+        SizedBox(height: 16.h),
 
-  @override
-  Widget build(BuildContext context) {
-    final features = [
-      {
-        'title': 'My Schedule',
-        'desc': "Today's classes",
-        'icon': Icons.calendar_today_rounded,
-        'color': const Color(0xFF3B82F6),
-        'screen': ScheduleScreen(theme: theme, role: 'student'),
-      },
-      {
-        'title': 'Study Materials',
-        'desc': '24 new PDFs available',
-        'icon': Icons.menu_book_rounded,
-        'color': const Color(0xFF6366F1),
-        'screen': const StudyMaterialsScreen(),
-      },
-      {
-        'title': 'Assignments',
-        'desc': '$pendingCount pending task${pendingCount == 1 ? "" : "s"}',
-        'icon': Icons.assignment_rounded,
-        'color': const Color(0xFFF97316),
-        'screen': const AssignmentsScreen(),
-      },
-      {
-        'title': 'Quiz & Assessments',
-        'desc': 'Practice quizzes & exams',
-        'icon': Icons.psychology_rounded,
-        'color': const Color(0xFFEC4899),
-        'screen': const QuizScreen(),
-      },
-      {
-        'title': 'Exam Schedule',
-        'desc': 'Finals: June 10-20',
-        'icon': Icons.assignment_outlined,
-        'color': const Color(0xFFF59E0B),
-        'screen': const ExamScheduleScreen(),
-      },
-      {
-        'title': 'Results & Grade Card',
-        'desc': 'Latest: Physics 85/100',
-        'icon': Icons.emoji_events_rounded,
-        'color': const Color(0xFF8B5CF6),
-        'screen': const ResultsScreen(),
-      },
-      {
-        'title': 'Exam Terms',
-        'desc': 'Term wise guidelines',
-        'icon': Icons.calendar_month_rounded,
-        'color': const Color(0xFF7C3AED),
-        'screen': ExamTermsScreen(theme: theme),
-      },
-      {
-        'title': 'Official Report Card',
-        'desc': 'Download official PDF',
-        'icon': Icons.school_rounded,
-        'color': const Color(0xFFEC4899),
-        'screen': ExamReportCardScreen(theme: theme),
-      },
-      {
-        'title': 'Attendance & Leave',
-        'desc': '${attendanceRate.toStringAsFixed(0)}% this month',
-        'icon': Icons.check_circle_rounded,
-        'color': const Color(0xFF10B981),
-        'screen': const AttendanceScreen(),
-      },
-      {
-        'title': 'Academic Calendar',
-        'desc': 'Upcoming events & dates',
-        'icon': Icons.event_rounded,
-        'color': const Color(0xFF0EA5E9),
-        'screen': const AcademicCalendarScreen(),
-      },
-    ];
+        // 2. Terms & Grading Card
+        _buildDualActionCard(
+          title: 'Terms & Grading',
+          subtitle: 'Define academic terms and customize grading scales for the institution.',
+          btn1Label: 'Terms',
+          onBtn1Pressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamTermsScreen(theme: widget.theme))),
+          btn2Label: 'Grading',
+          onBtn2Pressed: () => _showGradingScaleDialog(),
+        ),
+        SizedBox(height: 16.h),
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
-            sliver: SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) =>
-                    _buildFeatureTile(context, features[index]),
-                childCount: features.length,
+        // 3. Approvals Card
+        _buildActionCard(
+          title: 'Approvals',
+          subtitle: 'Principal review and approval of generated student report cards.',
+          buttonLabel: 'Pending Review',
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required String title,
+    required String subtitle,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.outfit(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+          SizedBox(height: 4.h),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+          SizedBox(height: 16.h),
+          SizedBox(
+            width: double.infinity,
+            height: 44.h,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066CC),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              ),
+              onPressed: onPressed,
+              child: Text(
+                buttonLabel,
+                style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),
           ),
@@ -764,166 +1230,135 @@ class AcademicFeaturesScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildDualActionCard({
+    required String title,
+    required String subtitle,
+    required String btn1Label,
+    required VoidCallback onBtn1Pressed,
+    required String btn2Label,
+    required VoidCallback onBtn2Pressed,
+  }) {
     return Container(
-      color: Colors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Title row
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 40.w,
-                      height: 40.w,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      child: Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 18.sp, color: AppColors.textDark),
+      width: double.infinity,
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: GoogleFonts.outfit(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+          SizedBox(height: 4.h),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+          SizedBox(height: 16.h),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 44.h,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                    ),
+                    onPressed: onBtn1Pressed,
+                    child: Text(
+                      btn1Label,
+                      style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
                     ),
                   ),
-                  SizedBox(width: 14.w),
-                  Text(
-                    'Academic',
-                    style: GoogleFonts.inter(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark),
-                  ),
-                ],
-              ),
-            ),
-            // Hub banner
-            Padding(
-              padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-              child: Container(
-                padding: EdgeInsets.all(16.r),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFFEEF2FF), Color(0xFFDDE1FF)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18.r),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Your Academic Hub',
-                            style: GoogleFonts.inter(
-                                fontSize: 15.sp,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.textDark),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            'All your study tools\nin one place',
-                            style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                color: AppColors.textMedium,
-                                height: 1.4),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      width: 62.w,
-                      height: 62.w,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16.r),
-                      ),
-                      child: Icon(Icons.menu_book_rounded,
-                          size: 34.sp, color: const Color(0xFF6366F1)),
-                    ),
-                  ],
                 ),
               ),
-            ),
-          ],
-        ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: SizedBox(
+                  height: 44.h,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFFE2E8F0)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                    ),
+                    onPressed: onBtn2Pressed,
+                    child: Text(
+                      btn2Label,
+                      style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildFeatureTile(
-      BuildContext context, Map<String, dynamic> feature) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => feature['screen'] as Widget),
-      ),
-      child: Container(
-        margin: EdgeInsets.only(bottom: 10.h),
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 8.r,
-                offset: Offset(0, 2.h))
-          ],
-        ),
-        child: Row(
+  void _showGradingScaleDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Grading System', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 48.w,
-              height: 48.w,
-              decoration: BoxDecoration(
-                color: feature['color'] as Color,
-                borderRadius: BorderRadius.circular(14.r),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        (feature['color'] as Color).withValues(alpha: 0.3),
-                    blurRadius: 8.r,
-                    offset: Offset(0, 3.h),
-                  )
-                ],
-              ),
-              child: Icon(feature['icon'] as IconData,
-                  color: Colors.white, size: 24.sp),
-            ),
-            SizedBox(width: 14.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    feature['title'] as String,
-                    style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    feature['desc'] as String,
-                    style: GoogleFonts.inter(
-                        fontSize: 12.sp, color: AppColors.textMedium),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: AppColors.textLight, size: 20.sp),
+            Text('• A+ : 95% - 100% (Excellent)', style: TextStyle(fontWeight: FontWeight.w500)),
+            SizedBox(height: 6),
+            Text('• A  : 90% - 94% (Very Good)'),
+            SizedBox(height: 6),
+            Text('• B+ : 85% - 89% (Good)'),
+            SizedBox(height: 6),
+            Text('• B  : 80% - 84% (Above Average)'),
+            SizedBox(height: 6),
+            Text('• C  : 70% - 79% (Average)'),
+            SizedBox(height: 6),
+            Text('• D  : 60% - 69% (Pass)'),
+            SizedBox(height: 6),
+            Text('• F  : Below 60% (Fail)', style: TextStyle(color: Colors.red)),
           ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // EMPTY STATE HELPER
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildEmptyState(String text, VoidCallback onCreate) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 32.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.folder_open_rounded, size: 48.sp, color: const Color(0xFFCBD5E1)),
+          SizedBox(height: 12.h),
+          Text(
+            text,
+            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 16.h),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: widget.theme.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+            ),
+            onPressed: onCreate,
+            child: const Text('Create One', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }

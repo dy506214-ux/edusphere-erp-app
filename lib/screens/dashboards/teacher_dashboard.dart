@@ -1,27 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../../theme/colors.dart';
-import '../../widgets/common_widgets.dart';
-import '../features/schedule_screen.dart';
-import '../features/mark_attendance_screen.dart';
-import '../features/create_assignment_screen.dart';
-import '../features/gradebook_screen.dart';
-import '../features/create_quiz_screen.dart';
-import '../features/upload_material_screen.dart';
-import '../features/student_performance_screen.dart';
-import '../features/lesson_plan_screen.dart';
-import '../features/announcements_screen.dart';
-import '../profile_screen.dart';
-import '../messages_screen.dart';
-import '../features/leave_application_screen.dart';
-import '../features/exam_marks_entry_screen.dart';
-import '../features/exam_approval_screen.dart';
-import '../features/exam_terms_screen.dart';
-import '../features/fee_approvals_screen.dart';
-import '../features/scanner_list_screen.dart';
-import '../features/settings_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final RoleTheme theme;
@@ -32,170 +14,376 @@ class TeacherDashboard extends StatefulWidget {
 }
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
-  String teacherName = 'Emma Johnson';
-  String teacherDesignation = 'Senior Mathematics Teacher';
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _selectedDay;
 
   @override
   void initState() {
     super.initState();
-    _loadTeacherData();
-  }
-
-  Future<void> _loadTeacherData() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      teacherName = prefs.getString('teacher_name') ?? 'Emma Johnson';
-      teacherDesignation =
-          prefs.getString('teacher_design') ?? 'Senior Mathematics Teacher';
-    });
+    _selectedDay = _focusedDay;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _buildHeader(context)),
-          SliverPadding(
-            padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
-            sliver: SliverToBoxAdapter(
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 1200),
+      backgroundColor: const Color(0xFFF0F4F8),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(),
+            SizedBox(height: 24.h),
+            _buildMetricsGrid(),
+            SizedBox(height: 24.h),
+            _buildSchoolCalendar(),
+            SizedBox(height: 24.h),
+            _buildUpcomingEvents(),
+            SizedBox(height: 80.h), // space for FAB
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {},
+        backgroundColor: const Color(0xFF0EA5E9),
+        child: Icon(Icons.auto_awesome, color: Colors.white, size: 28.sp), // closest to the spark icon
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Teacher Dashboard',
+                style: GoogleFonts.outfit(
+                    fontSize: 24.sp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0F172A))),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF64748B)),
+                  SizedBox(width: 4.w),
+                  Text('Refresh',
+                      style: GoogleFonts.inter(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF475569))),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 8.h),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Good day, Vikram.',
+                      style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          color: const Color(0xFF64748B))),
+                  SizedBox(height: 4.h),
+                  Text('Here\'s what\'s happening in your classes.',
+                      style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          color: const Color(0xFF64748B))),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.calendar_month_rounded, size: 16.sp, color: const Color(0xFF3B82F6)),
+                  SizedBox(width: 6.w),
+                  Text(DateFormat('EEE, d MMM yyyy').format(DateTime.now()),
+                      style: GoogleFonts.inter(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF3B82F6))),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMetricsGrid() {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16.w,
+      mainAxisSpacing: 16.h,
+      childAspectRatio: 1.5,
+      children: [
+        _buildStatCard(
+            'ATTENDANCE TODAY', '95%', Icons.people_outline_rounded,
+            const Color(0xFF0EA5E9), const Color(0xFFE0F2FE), true),
+        _buildStatCard(
+            'MY STUDENTS', '300', Icons.school_outlined,
+            const Color(0xFF0EA5E9), const Color(0xFFE0F2FE), false),
+        _buildStatCard(
+            'PENDING ATTEND.', '0', Icons.access_time_rounded,
+            const Color(0xFFF59E0B), const Color(0xFFFEF3C7), false),
+        _buildStatCard(
+            'OVERDUE BOOKS', '0', Icons.menu_book_rounded,
+            const Color(0xFFEF4444), const Color(0xFFFEE2E2), false),
+      ],
+    );
+  }
+
+  Widget _buildStatCard(String title, String value, IconData icon, Color iconColor, Color bgColor, bool showProgress) {
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border(left: BorderSide(color: iconColor, width: 4.w)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(title,
+                    style: GoogleFonts.inter(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                        letterSpacing: 0.5)),
+              ),
+              Container(
+                padding: EdgeInsets.all(8.r),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: iconColor, size: 18.sp),
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value,
+                  style: GoogleFonts.outfit(
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A))),
+              if (showProgress) ...[
+                SizedBox(height: 8.h),
+                Container(
+                  height: 4.h,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: 0.95,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: iconColor,
+                        borderRadius: BorderRadius.circular(2.r),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSchoolCalendar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20.r),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded,
+                        color: const Color(0xFF0EA5E9), size: 20.sp),
+                    SizedBox(width: 8.w),
+                    Text('School Calendar',
+                        style: GoogleFonts.outfit(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A))),
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Text('Academic schedule & events',
+                    style: GoogleFonts.inter(
+                        fontSize: 12.sp, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          TableCalendar(
+            firstDay: DateTime.utc(2020, 1, 1),
+            lastDay: DateTime.utc(2030, 12, 31),
+            focusedDay: _focusedDay,
+            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              titleTextStyle: GoogleFonts.inter(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A)),
+              leftChevronIcon:
+                  Icon(Icons.chevron_left, color: const Color(0xFF0F172A), size: 24.sp),
+              rightChevronIcon:
+                  Icon(Icons.chevron_right, color: const Color(0xFF0F172A), size: 24.sp),
+              headerPadding: EdgeInsets.symmetric(vertical: 8.h),
+            ),
+            daysOfWeekStyle: DaysOfWeekStyle(
+              weekdayStyle: GoogleFonts.inter(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B)),
+              weekendStyle: GoogleFonts.inter(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B)),
+            ),
+            calendarStyle: CalendarStyle(
+              defaultTextStyle: GoogleFonts.inter(
+                  fontSize: 13.sp, color: const Color(0xFF1E293B)),
+              weekendTextStyle: GoogleFonts.inter(
+                  fontSize: 13.sp, color: const Color(0xFF1E293B)),
+              outsideTextStyle: GoogleFonts.inter(
+                  fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+              todayDecoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF0EA5E9), width: 1.5),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              todayTextStyle: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0EA5E9)),
+              selectedDecoration: BoxDecoration(
+                color: const Color(0xFF0EA5E9),
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(8.r),
+              ),
+              selectedTextStyle: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.all(20.r),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                    'EVENTS FOR ${DateFormat('d MMM').format(_selectedDay ?? DateTime.now()).toUpperCase()}',
+                    style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF64748B),
+                        letterSpacing: 0.5)),
+                SizedBox(height: 12.h),
+                const Divider(color: Color(0xFFE2E8F0)),
+                SizedBox(height: 24.h),
+                Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildStats(context),
-                      SizedBox(height: 24.h),
-                      const SectionTitle(title: 'Classroom Control'),
+                      Icon(Icons.calendar_today_rounded,
+                          color: const Color(0xFFCBD5E1), size: 32.sp),
                       SizedBox(height: 12.h),
-                      _buildQuickActions(context),
-                      SizedBox(height: 24.h),
-                      // Removed Next Class section
-                      SizedBox(height: 8.h),
-                      // ── CLASSROOM MANAGEMENT ─────────────────────────────────────
-                      const SectionTitle(title: '🏫 Classroom Management'),
-                      SizedBox(height: 12.h),
-                      _buildSection(context, [
-                        _mod(
-                            'My Schedule',
-                            'Today: 4 classes',
-                            '📅',
-                            const Color(0xFF3B82F6),
-                            ScheduleScreen(role: 'teacher', theme: widget.theme)),
-                        _mod(
-                            'Attendance (Mark)',
-                            'Class 12-B',
-                            '✅',
-                            const Color(0xFF16A34A),
-                            const MarkAttendanceScreen()),
-                        _mod('Lesson Plan & Syllabus', '78% covered', '📋',
-                            const Color(0xFFF59E0B), const LessonPlanScreen()),
-                        _mod(
-                            'QR Scanners',
-                            'Monitor school attendance checkpoints',
-                            '📡',
-                            const Color(0xFF0EA5E9),
-                            ScannerListScreen(theme: widget.theme)),
-                      ]),
-                      SizedBox(height: 20.h),
-
-                      // ── ACADEMIC ────────────────────────────────────────────────
-                      const SectionTitle(title: '📚 Academic'),
-                      SizedBox(height: 12.h),
-                      _buildSection(context, [
-                        _mod(
-                            'Manage Assignments',
-                            'Publish to students',
-                            '📝',
-                            const Color(0xFFF97316),
-                            const CreateAssignmentScreen()),
-                        _mod('Quiz / Tests', 'MCQ builder', '🧠',
-                            const Color(0xFF8B5CF6), const CreateQuizScreen()),
-                        _mod(
-                            'Upload Study Materials',
-                            'PDFs, Videos',
-                            '📤',
-                            const Color(0xFF6366F1),
-                            const UploadMaterialScreen()),
-                        _mod('Evaluate Submissions', '12 pending', '📝',
-                            const Color(0xFFF43F5E), const GradebookScreen()),
-                        _mod('Grade Book / Marks', 'Update records', '📊',
-                            const Color(0xFFEC4899), const GradebookScreen()),
-                        _mod('Marks Entry', 'Record student scores', '✏️',
-                            widget.theme.primary, ExamMarksEntryScreen(theme: widget.theme)),
-                        _mod('Exam Approvals', 'Approve/Reject submissions', '✅',
-                            const Color(0xFF10B981), ExamApprovalScreen(theme: widget.theme)),
-                        _mod('Academic Terms Performance', 'Summaries per term', '🗓️',
-                            const Color(0xFFF59E0B), ExamTermsScreen(theme: widget.theme)),
-                        _mod(
-                            'Student Performance',
-                            'Charts & analytics',
-                            '📈',
-                            const Color(0xFF0EA5E9),
-                            const StudentPerformanceScreen()),
-                      ]),
-                      SizedBox(height: 20.h),
-
-                      // ── COMMUNICATION ───────────────────────────────────────────
-                      const SectionTitle(title: '💬 Communication'),
-                      SizedBox(height: 12.h),
-                      _buildSection(context, [
-                        _mod('Announcements', 'Send notices & notifications', '📢',
-                            const Color(0xFFD97706), AnnouncementsScreen(theme: widget.theme)),
-                        _mod(
-                            'Message Students/Parents',
-                            '2 unread messages',
-                            '💬',
-                            const Color(0xFF8B5CF6),
-                            MessagesScreen(theme: widget.theme)),
-                      ]),
-                      SizedBox(height: 20.h),
-
-                      // ── PROFILE & ACCOUNT ────────────────────────────────────────
-                      const SectionTitle(title: '👤 Profile & Account'),
-                      SizedBox(height: 12.h),
-                      _buildSection(context, [
-                        _mod(
-                            'My Profile',
-                            'Manage details',
-                            '👤',
-                            const Color(0xFF3B82F6),
-                            ProfileScreen(
-                                role: 'teacher', theme: widget.theme)),
-                        _mod(
-                            'Settings & Security',
-                            'Manage notification, password preferences',
-                            '⚙️',
-                            const Color(0xFF64748B),
-                            SettingsScreen(role: 'teacher', theme: widget.theme)),
-                      ]),
-                      SizedBox(height: 20.h),
-
-                      // ── OTHER FEATURES ───────────────────────────────────────────
-                      const SectionTitle(title: '⚡ Other Features'),
-                      SizedBox(height: 12.h),
-                      _buildSection(context, [
-                        _mod(
-                            'Leave Application',
-                            'Apply & track leaves',
-                            '📅',
-                            const Color(0xFF16A34A),
-                            const LeaveApplicationScreen()),
-                        _mod(
-                            'Fee Approvals',
-                            'Waiver & discount requests',
-                            '💰',
-                            const Color(0xFF7C3AED),
-                            FeeApprovalsScreen(theme: widget.theme)),
-                      ]),
-                      SizedBox(height: 20.h),
+                      Text('No events scheduled',
+                          style: GoogleFonts.inter(
+                              fontSize: 13.sp,
+                              fontStyle: FontStyle.italic,
+                              color: const Color(0xFF64748B))),
                     ],
                   ),
                 ),
-              ),
+                SizedBox(height: 24.h),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4F8),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('View Full Academic Schedule',
+                          style: GoogleFonts.inter(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF0F172A))),
+                      SizedBox(width: 4.w),
+                      Icon(Icons.chevron_right,
+                          size: 16.sp, color: const Color(0xFF0F172A)),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -203,198 +391,101 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     );
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildUpcomingEvents() {
     return Container(
-      decoration: BoxDecoration(gradient: widget.theme.gradient),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1120),
+        borderRadius: BorderRadius.circular(16.r),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.all(20.r),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Text('Welcome back 👋',
-                        style: GoogleFonts.inter(
-                            fontSize: 12.sp,
+                    Icon(Icons.calendar_month_rounded,
+                        color: const Color(0xFF0EA5E9), size: 20.sp),
+                    SizedBox(width: 8.w),
+                    Text('Upcoming Events',
+                        style: GoogleFonts.outfit(
+                            fontSize: 18.sp,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white.withValues(alpha: 0.7))),
-                    SizedBox(height: 4.h),
-                    Text(teacherName,
-                        style: GoogleFonts.inter(
-                            fontSize: 22.sp,
-                            fontWeight: FontWeight.w900,
                             color: Colors.white)),
-                    SizedBox(height: 6.h),
-                    Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(8.r)),
-                      child: Text(teacherDesignation,
-                          style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white)),
-                    ),
                   ],
                 ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => ProfileScreen(
-                            role: 'teacher', theme: widget.theme))),
-                child: Container(
-                  width: 52.w,
-                  height: 52.w,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(16.r),
-                    border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.4), width: 2.w),
-                    image: const DecorationImage(
-                      image: NetworkImage('https://i.pravatar.cc/300?img=32'),
-                      fit: BoxFit.cover,
-                    ),
+                SizedBox(height: 4.h),
+                Text('School activities & schedule',
+                    style: GoogleFonts.inter(
+                        fontSize: 12.sp, color: const Color(0xFF94A3B8))),
+              ],
+            ),
+          ),
+          const Divider(color: Color(0xFF1E293B)),
+          Padding(
+            padding: EdgeInsets.all(20.r),
+            child: Column(
+              children: [
+                SizedBox(height: 16.h),
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(16.r),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1E293B),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.calendar_today_rounded,
+                            color: const Color(0xFF475569), size: 32.sp),
+                      ),
+                      SizedBox(height: 16.h),
+                      Text('No upcoming events scheduled',
+                          style: GoogleFonts.inter(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF94A3B8))),
+                    ],
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: 32.h),
+                Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0F172A),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text('View Full Schedule',
+                          style: GoogleFonts.inter(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF38BDF8))),
+                      SizedBox(width: 4.w),
+                      Icon(Icons.chevron_right,
+                          size: 16.sp, color: const Color(0xFF38BDF8)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
-
-  Widget _buildStats(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 900;
-    return GridView.count(
-      crossAxisCount: isDesktop ? 4 : 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16.w,
-      mainAxisSpacing: 16.h,
-      childAspectRatio: isDesktop ? 1.3 : 1.05,
-      children: const [
-        InfoCard(
-            title: 'Classes Today',
-            value: '04',
-            icon: Icons.videocam_rounded,
-            iconColor: AppColors.studentPrimary,
-            bgColor: AppColors.studentLight,
-            trend: 'Next: 10:30 AM'),
-        InfoCard(
-            title: 'Attendance',
-            value: '94%',
-            icon: Icons.check_circle_rounded,
-            iconColor: Color(0xFF10B981),
-            bgColor: Color(0xFFECFDF5),
-            trend: 'Class 12-B'),
-        InfoCard(
-            title: 'Evaluations',
-            value: '12',
-            icon: Icons.description_rounded,
-            iconColor: Color(0xFFF59E0B),
-            bgColor: Color(0xFFFFFBEB),
-            trend: 'Pending'),
-        InfoCard(
-            title: 'Avg. Score',
-            value: '78%',
-            icon: Icons.trending_up_rounded,
-            iconColor: Color(0xFF8B5CF6),
-            bgColor: Color(0xFFF5F3FF),
-            trend: 'This month'),
-      ],
-    );
-  }
-
-  Widget _buildQuickActions(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 900;
-    final actions = [
-      {
-        'label': 'My Schedule',
-        'icon': Icons.calendar_today_rounded,
-        'color': const Color(0xFF3B82F6),
-        'screen': ScheduleScreen(theme: widget.theme, role: 'teacher')
-      },
-      {
-        'label': 'QR Scanners',
-        'icon': Icons.qr_code_scanner_rounded,
-        'color': const Color(0xFF0EA5E9),
-        'screen': ScannerListScreen(theme: widget.theme)
-      },
-      {
-        'label': 'Announcements',
-        'icon': Icons.campaign_rounded,
-        'color': const Color(0xFFD97706),
-        'screen': AnnouncementsScreen(theme: widget.theme)
-      },
-      {
-        'label': 'Marks Entry',
-        'icon': Icons.edit_note_rounded,
-        'color': widget.theme.primary,
-        'screen': ExamMarksEntryScreen(theme: widget.theme)
-      },
-      {
-        'label': 'Exam Approvals',
-        'icon': Icons.fact_check_rounded,
-        'color': const Color(0xFF10B981),
-        'screen': ExamApprovalScreen(theme: widget.theme)
-      },
-      {
-        'label': 'Settings',
-        'icon': Icons.settings_rounded,
-        'color': const Color(0xFF64748B),
-        'screen': SettingsScreen(role: 'teacher', theme: widget.theme)
-      },
-    ];
-    return GridView.count(
-      crossAxisCount: isDesktop ? 6 : 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16.w,
-      mainAxisSpacing: 16.h,
-      childAspectRatio: isDesktop ? 1.4 : 0.95,
-      children: actions
-          .map((a) => QuickBtn(
-                label: a['label'] as String,
-                icon: a['icon'] as IconData,
-                color: a['color'] as Color,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => a['screen'] as Widget)),
-              ))
-          .toList(),
-    );
-  }
-
-  Map<String, dynamic> _mod(String title, String desc, String emoji,
-          Color color, Widget screen) =>
-      {
-        'title': title,
-        'desc': desc,
-        'emoji': emoji,
-        'color': color,
-        'screen': screen
-      };
-
-  Widget _buildSection(
-      BuildContext context, List<Map<String, dynamic>> modules) {
-    return Column(
-      children: modules
-          .map((m) => FeatureCard(
-                title: m['title'] as String,
-                desc: m['desc'] as String,
-                emoji: m['emoji'] as String,
-                color: m['color'] as Color,
-                onTap: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => m['screen'] as Widget)),
-              ))
-          .toList(),
-    );
-  }
 }
+
+
