@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'fee_payment_screen.dart';
+import 'dart:async';
+import 'dart:developer' as dev;
 
 class FeeLedgerScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -33,18 +35,83 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
   String _studentName = 'Alex Rivera';
   String _studentId = '';
 
-
+  RealtimeChannel? _feeChannel;
+  Timer? _feePollTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadLedgerData();
+    _loadLedgerData(showLoading: true);
+    _connectRealTime();
   }
 
-  Future<void> _loadLedgerData() async {
-    setState(() {
-      _loading = true;
+  @override
+  void dispose() {
+    _feePollTimer?.cancel();
+    if (_feeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_feeChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_feeChannel != null) {
+        client.removeChannel(_feeChannel!);
+      }
+      
+      dev.log('📡 Subscribing to Supabase Realtime changes for Fees Screen...', name: 'FeeLedgerScreen');
+      _feeChannel = client.channel('public:fee_ledger_screen_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'StudentFeeLedger',
+          callback: (payload) {
+            dev.log('🔥 Real-time ledger event payload: $payload', name: 'FeeLedgerScreen');
+            if (mounted) {
+              _loadLedgerData(showLoading: false);
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'FeePayment',
+          callback: (payload) {
+            dev.log('🔥 Real-time fee payment event payload: $payload', name: 'FeeLedgerScreen');
+            if (mounted) {
+              _loadLedgerData(showLoading: false);
+            }
+          },
+        );
+      
+      _feeChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Fees channel status: $status', name: 'FeeLedgerScreen');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Fees subscription error: $error', name: 'FeeLedgerScreen');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Fees channel: $e', name: 'FeeLedgerScreen');
+    }
+    
+    // Polling fallback every 2 seconds
+    _feePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        _loadLedgerData(showLoading: false);
+      }
     });
+  }
+
+  Future<void> _loadLedgerData({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() {
+        _loading = true;
+      });
+    }
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -58,11 +125,25 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
       }
 
       if (_studentId.isNotEmpty) {
-        // 1. Fetch fee ledger joined with fee_structures
+        // Resolve studentId from Student table in case _studentId is the auth userId
+        try {
+          final studentProfile = await Supabase.instance.client
+              .from('Student')
+              .select('id')
+              .eq('userId', _studentId)
+              .maybeSingle();
+          if (studentProfile != null) {
+            _studentId = studentProfile['id'] as String;
+          }
+        } catch (_) {
+          // Keep as is
+        }
+
+        // 1. Fetch fee ledger joined with FeeStructure
         final ledgerRes = await Supabase.instance.client
-            .from('fee_ledgers')
-            .select('*, fee_structures(*)')
-            .eq('student_id', _studentId);
+            .from('StudentFeeLedger')
+            .select('*, FeeStructure(*)')
+            .eq('studentId', _studentId);
 
         final List<Map<String, dynamic>> ledgerData = List<Map<String, dynamic>>.from(ledgerRes);
 
@@ -72,10 +153,10 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
           final List<Map<String, dynamic>> heads = [];
 
           for (var entry in ledgerData) {
-            final structure = entry['fee_structures'] as Map<String, dynamic>? ?? {};
-            final headName = structure['name'] as String? ?? entry['fee_head'] as String? ?? 'Fee';
-            final amount = (entry['amount'] as num? ?? structure['amount'] as num? ?? 0).toDouble();
-            final paid = (entry['paid_amount'] as num? ?? 0).toDouble();
+            final structure = entry['FeeStructure'] as Map<String, dynamic>? ?? {};
+            final headName = structure['name'] as String? ?? 'Fee';
+            final amount = (entry['totalPayable'] ?? entry['amount'] ?? structure['totalAmount'] ?? 0).toDouble();
+            final paid = (entry['totalPaid'] ?? entry['paid_amount'] ?? 0).toDouble();
 
             String status = 'UNPAID';
             if (paid >= amount && amount > 0) {
@@ -100,21 +181,21 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
 
         // 2. Fetch payment history
         final paymentsRes = await Supabase.instance.client
-            .from('fee_payments')
+            .from('FeePayment')
             .select()
-            .eq('student_id', _studentId)
-            .order('payment_date', ascending: false);
+            .eq('studentId', _studentId)
+            .order('paymentDate', ascending: false);
 
         final List<Map<String, dynamic>> paymentsData = List<Map<String, dynamic>>.from(paymentsRes);
 
         if (paymentsData.isNotEmpty) {
           _paymentHistory = paymentsData.map((p) {
             return {
-              'date': p['payment_date'] as String? ?? '',
+              'date': p['paymentDate'] as String? ?? '',
               'amount': (p['amount'] as num? ?? 0).toDouble(),
-              'method': p['payment_method'] as String? ?? 'UPI',
-              'receipt': p['receipt_number'] as String? ?? 'RCT-00000000',
-              'status': p['status'] as String? ?? 'SUCCESS',
+              'method': p['paymentMode']?.toString() ?? 'UPI',
+              'receipt': p['receiptNumber'] as String? ?? 'RCT-00000000',
+              'status': p['status']?.toString() ?? 'SUCCESS',
             };
           }).toList();
         } else {
@@ -238,7 +319,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.studentPrimary))
                 : RefreshIndicator(
-                    onRefresh: _loadLedgerData,
+                    onRefresh: () => _loadLedgerData(showLoading: true),
                     color: widget.theme.primary,
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(16.r),

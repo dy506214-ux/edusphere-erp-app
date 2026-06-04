@@ -61,7 +61,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'assignments',
+          table: 'Assignment',
           callback: (payload) {
             dev.log('🔥 Real-time assignment event payload: $payload', name: 'AssignmentsScreen');
             if (mounted) {
@@ -72,7 +72,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'submissions',
+          table: 'AssignmentSubmission',
           callback: (payload) {
             dev.log('🔥 Real-time submission event payload: $payload', name: 'AssignmentsScreen');
             if (mounted) {
@@ -116,50 +116,81 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       }
 
       // 1. Fetch student info
-      final studentRes = await Supabase.instance.client
-          .from('students')
+      final userRes = await Supabase.instance.client
+          .from('User')
           .select()
           .eq('email', _studentEmailStr)
           .maybeSingle();
 
-      if (studentRes != null) {
-        _studentIdStr = studentRes['id'] as String;
-        _classNameStr = studentRes['class_name'] as String? ?? 'Grade 12';
-        _sectionStr = studentRes['section'] as String? ?? 'A';
-        _studentNameStr = studentRes['name'] as String? ?? _studentNameStr;
+      if (userRes != null) {
+        final userId = userRes['id'] as String;
+        _studentNameStr = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
+        
+        final studentRes = await Supabase.instance.client
+            .from('Student')
+            .select()
+            .eq('userId', userId)
+            .maybeSingle();
+
+        if (studentRes != null) {
+          _studentIdStr = studentRes['id'] as String;
+          _classNameStr = studentRes['currentClassId'] as String? ?? '';
+          _sectionStr = studentRes['sectionId'] as String? ?? '';
+        }
       }
 
       // 2. Fetch assignments for this class & section
-      final List<dynamic> assignmentsRes = await Supabase.instance.client
-          .from('assignments')
-          .select()
-          .eq('class_name', _classNameStr)
-          .eq('section', _sectionStr);
+      final List<dynamic> assignmentsRes = _classNameStr.isNotEmpty
+          ? await Supabase.instance.client
+              .from('Assignment')
+              .select()
+              .eq('classId', _classNameStr)
+          : [];
+
+      final List<dynamic> filteredAssignments = assignmentsRes.where((a) {
+        final aSecId = a['sectionId'];
+        return aSecId == null || _sectionStr.isEmpty || aSecId == _sectionStr;
+      }).toList();
 
       // 3. Fetch submissions by this student
       final List<dynamic> submissionsRes = _studentIdStr.isNotEmpty
           ? await Supabase.instance.client
-              .from('submissions')
+              .from('AssignmentSubmission')
               .select()
-              .eq('student_id', _studentIdStr)
+              .eq('studentId', _studentIdStr)
           : [];
 
-      // Map submissions by assignment_id
+      // Map submissions by assignmentId
       final Map<String, Map<String, dynamic>> submissionsMap = {};
       for (var sub in submissionsRes) {
-        final assId = sub['assignment_id'] as String;
+        final assId = (sub['assignmentId'] ?? sub['assignment_id']) as String;
         submissionsMap[assId] = Map<String, dynamic>.from(sub);
       }
 
       final List<Map<String, dynamic>> tempAssignments = [];
 
-      for (var ass in assignmentsRes) {
+      for (var ass in filteredAssignments) {
         final assId = ass['id'] as String;
         final title = ass['title'] as String? ?? 'Untitled';
-        final subject = ass['subject'] as String? ?? 'General';
         final desc = ass['description'] as String? ?? '';
-        final dueDateStr = ass['due_date'] as String?;
+        final dueDateStr = (ass['dueDate'] ?? ass['due_date']) as String?;
         
+        // Fetch subject name dynamically
+        String subject = 'General';
+        final subId = ass['subjectId'] as String?;
+        if (subId != null && subId.isNotEmpty) {
+          try {
+            final subRes = await Supabase.instance.client
+                .from('Subject')
+                .select('name')
+                .eq('id', subId)
+                .maybeSingle();
+            if (subRes != null) {
+              subject = subRes['name'] as String? ?? 'General';
+            }
+          } catch (_) {}
+        }
+
         DateTime? due;
         if (dueDateStr != null) {
           try {
@@ -182,7 +213,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
         String? formattedSub;
         if (sub != null) {
-          final subAtStr = sub['submitted_at'] as String?;
+          final subAtStr = (sub['submittedAt'] ?? sub['submitted_at']) as String?;
           if (subAtStr != null) {
             try {
               final subAt = DateTime.parse(subAtStr);
@@ -201,8 +232,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           'isSubmitted': isSubmitted,
           'submittedAt': formattedSub ?? 'Recently',
           'grade': sub?['grade'] as String? ?? 'Pending',
-          'score': sub?['score'] as String? ?? 'Not Graded',
-          'fileName': sub?['file_name'] as String?,
+          'score': (sub?['feedback'] ?? sub?['score'])?.toString() ?? 'Not Graded',
+          'fileName': (sub?['filePath'] ?? sub?['fileName'] ?? sub?['file_name']) as String?,
         });
       }
 
@@ -246,7 +277,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                   ),
                   SizedBox(height: 4.h),
                   Text(
-                    'View and submit your classwork',
+                    'View and submit your classwork • $_studentNameStr',
                     style: GoogleFonts.inter(
                       fontSize: 14.sp,
                       color: const Color(0xFF64748B),
@@ -730,16 +761,16 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       });
                       try {
                         await Supabase.instance.client
-                            .from('submissions')
+                            .from('AssignmentSubmission')
                             .upsert({
-                              'assignment_id': a['id'],
-                              'student_id': _studentIdStr,
-                              'student_name': _studentNameStr,
-                              'file_name': selectedFile!.name,
+                              'assignmentId': a['id'],
+                              'studentId': _studentIdStr,
+                              'filePath': selectedFile!.name,
+                              'status': 'SUBMITTED',
                               'grade': 'Pending',
-                              'score': 'Not Graded',
-                              'submitted_at': DateTime.now().toUtc().toIso8601String(),
-                            }, onConflict: 'assignment_id, student_id');
+                              'feedback': null,
+                              'submittedAt': DateTime.now().toUtc().toIso8601String(),
+                            }, onConflict: 'assignmentId,studentId');
                         
                         if (context.mounted) {
                           showToast(context, 'Successfully submitted ${a['title']}!');

@@ -5,6 +5,8 @@ import '../../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import 'dart:developer' as dev;
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -25,14 +27,70 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   int _absentCount = 0;
   double _attendanceRate = 100.0;
 
+  RealtimeChannel? _attendanceChannel;
+  Timer? _attendancePollTimer;
+
   @override
   void initState() {
     super.initState();
-    _loadAttendanceData();
+    _loadAttendanceData(showLoading: true);
+    _connectRealTime();
   }
 
-  Future<void> _loadAttendanceData() async {
-    setState(() { _isLoading = true; });
+  @override
+  void dispose() {
+    _attendancePollTimer?.cancel();
+    if (_attendanceChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_attendanceChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_attendanceChannel != null) {
+        client.removeChannel(_attendanceChannel!);
+      }
+      
+      dev.log('📡 Subscribing to Supabase Realtime changes for Attendance Screen...', name: 'AttendanceScreen');
+      _attendanceChannel = client.channel('public:attendance_screen_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'AttendanceRecord',
+          callback: (payload) {
+            dev.log('🔥 Real-time attendance event payload: $payload', name: 'AttendanceScreen');
+            if (mounted) {
+              _loadAttendanceData(showLoading: false);
+            }
+          },
+        );
+      
+      _attendanceChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Attendance channel status: $status', name: 'AttendanceScreen');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Attendance subscription error: $error', name: 'AttendanceScreen');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Attendance channel: $e', name: 'AttendanceScreen');
+    }
+    
+    // Polling fallback every 2 seconds
+    _attendancePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted) {
+        _loadAttendanceData(showLoading: false);
+      }
+    });
+  }
+
+  Future<void> _loadAttendanceData({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() { _isLoading = true; });
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
@@ -45,53 +103,64 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         _studentNameStr = savedName;
       }
 
-      // Query database for student ID
-      final studentRes = await Supabase.instance.client
-          .from('students')
+      // Query database for student ID using User & Student mapping
+      final userRes = await Supabase.instance.client
+          .from('User')
           .select()
           .eq('email', _studentEmailStr)
           .maybeSingle();
 
-      if (studentRes != null) {
-        _studentIdStr = studentRes['id'] as String;
+      if (userRes != null) {
+        final userId = userRes['id'] as String;
+        _studentNameStr = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
 
-        // Query attendance records for this student
-        final attendanceRes = await Supabase.instance.client
-            .from('attendance')
+        final studentRes = await Supabase.instance.client
+            .from('Student')
             .select()
-            .eq('student_id', _studentIdStr);
+            .eq('userId', userId)
+            .maybeSingle();
 
-        final Map<int, String> dbCalData = {};
-        int dbPresent = 0;
-        int dbAbsent = 0;
+        if (studentRes != null) {
+          _studentIdStr = studentRes['id'] as String;
 
-        for (var record in attendanceRes) {
-          final dateStr = record['date'] as String;
-          final status = record['status'] as String;
-          
-          try {
-            final date = DateTime.parse(dateStr);
-            // We populate specifically for May 2026
-            if (date.month == 5 && date.year == 2026) {
-              dbCalData[date.day] = status;
+          // Query attendance records for this student
+          final attendanceRes = await Supabase.instance.client
+              .from('AttendanceRecord')
+              .select()
+              .eq('studentId', _studentIdStr);
+
+          final Map<int, String> dbCalData = {};
+          int dbPresent = 0;
+          int dbAbsent = 0;
+
+          for (var record in attendanceRes) {
+            final dateStr = record['date'] as String;
+            final status = record['status'] as String;
+            
+            try {
+              final date = DateTime.parse(dateStr);
+              // We populate specifically for May 2026
+              if (date.month == 5 && date.year == 2026) {
+                dbCalData[date.day] = status;
+              }
+            } catch (_) {}
+
+            if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+              dbPresent++;
+            } else if (status == 'ABSENT' || status == 'A') {
+              dbAbsent++;
             }
-          } catch (_) {}
-
-          if (status == 'P' || status == 'Present' || status == 'L' || status == 'Late') {
-            dbPresent++;
-          } else if (status == 'A' || status == 'Absent') {
-            dbAbsent++;
           }
-        }
 
-        final totalClasses = dbPresent + dbAbsent;
-        
-        setState(() {
-          _calData = dbCalData;
-          _presentCount = dbPresent;
-          _absentCount = dbAbsent;
-          _attendanceRate = totalClasses > 0 ? (dbPresent / totalClasses) * 100 : 100.0;
-        });
+          final totalClasses = dbPresent + dbAbsent;
+          
+          setState(() {
+            _calData = dbCalData;
+            _presentCount = dbPresent;
+            _absentCount = dbAbsent;
+            _attendanceRate = totalClasses > 0 ? (dbPresent / totalClasses) * 100 : 100.0;
+          });
+        }
       }
     } catch (e) {
       // Fallback stays as default state values
@@ -160,7 +229,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             child: _isLoading 
               ? const Center(child: CircularProgressIndicator(color: AppColors.studentPrimary))
               : RefreshIndicator(
-                  onRefresh: _loadAttendanceData,
+                  onRefresh: () => _loadAttendanceData(showLoading: true),
                   color: AppColors.studentPrimary,
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -223,9 +292,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   final status = _calData[day];
                                   Color bg = AppColors.background;
                                   Color fg = AppColors.textLight;
-                                  if (status == 'P' || status == 'Present') { bg = AppColors.studentPrimary; fg = Colors.white; }
-                                  else if (status == 'A' || status == 'Absent') { bg = Colors.red; fg = Colors.white; }
-                                  else if (status == 'L' || status == 'Late' || status == 'H') { bg = Colors.amber; fg = Colors.white; }
+                                  if (status == 'P' || status == 'Present' || status == 'PRESENT') { bg = AppColors.studentPrimary; fg = Colors.white; }
+                                  else if (status == 'A' || status == 'Absent' || status == 'ABSENT') { bg = Colors.red; fg = Colors.white; }
+                                  else if (status == 'L' || status == 'Late' || status == 'LATE' || status == 'HALF_DAY' || status == 'ON_LEAVE' || status == 'H') { bg = Colors.amber; fg = Colors.white; }
                                   return Container(
                                     decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6.r)),
                                     child: Center(child: Text('$day', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: fg))),

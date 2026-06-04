@@ -21,6 +21,10 @@ import 'features/schedule_screen.dart';
 import 'features/announcements_screen.dart';
 import 'features/exam_schedule_screen.dart';
 import 'features/teacher_attendance_screen.dart';
+import 'features/assignments_screen.dart';
+import 'features/fee_ledger_screen.dart';
+import 'features/transport_screen.dart';
+import 'features/services_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -182,19 +186,27 @@ class _MainScreenState extends State<MainScreen> {
               ])
         : [
             _dashboard(),
-            if (widget.role == 'student')
-              AcademicScreen(
-                theme: _theme,
-                onBack: () => setState(() => _idx = 0),
-                showAppBar: isDesktop,
-              ),
+            AcademicCalendarScreen(
+              onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+              showAppBar: isDesktop,
+            ),
+            const AssignmentsScreen(),
+            AcademicScreen(
+              theme: _theme,
+              onBack: () => setState(() => _idx = 0),
+              showAppBar: isDesktop,
+            ),
+            FeeLedgerScreen(theme: _theme),
+            TransportScreen(theme: _theme),
+            AnnouncementsScreen(theme: _theme),
             MessagesScreen(
               theme: _theme,
-              isActive: _idx == (widget.role == 'student' ? 2 : 1),
+              isActive: _idx == 7,
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             ),
+            ServicesScreen(theme: _theme),
             ProfileScreen(
               role: widget.role,
               theme: _theme,
@@ -252,9 +264,9 @@ class _MainScreenState extends State<MainScreen> {
                 ] else ...[
                   _NavItem(icon: Icons.home_rounded, label: 'Home', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
                   if (widget.role == 'student')
-                    _NavItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
-                  _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'student' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 2 : 1)),
-                  _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'student' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 3 : 2)),
+                    _NavItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 3, color: _theme.primary, onTap: () => setState(() => _idx = 3)),
+                  _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: _idx == (widget.role == 'student' ? 7 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 7 : 2)),
+                  _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: _idx == (widget.role == 'student' ? 9 : 3), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 9 : 3)),
                 ],
               ],
             ),
@@ -302,19 +314,35 @@ class _MainScreenState extends State<MainScreen> {
               padding: EdgeInsets.symmetric(horizontal: 16.w),
               child: Column(
                 children: [
-                  _SidebarItem(icon: Icons.home_rounded, label: 'Dashboard', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
-                  SizedBox(height: 8.h),
                   if (widget.role == 'student') ...[
-                    _SidebarItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                    _SidebarItem(icon: Icons.dashboard_rounded, label: 'Dashboard', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
                     SizedBox(height: 8.h),
-                  ],
-                  if (widget.role == 'teacher') ...[
+                    _SidebarItem(icon: Icons.calendar_month_outlined, label: 'Academic Calendar', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.checklist_rounded, label: 'Assignments', selected: _idx == 2, color: _theme.primary, onTap: () => setState(() => _idx = 2)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 3, color: _theme.primary, onTap: () => setState(() => _idx = 3)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.attach_money_rounded, label: 'Fees', selected: _idx == 4, color: _theme.primary, onTap: () => setState(() => _idx = 4)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.directions_bus_rounded, label: 'Transport', selected: _idx == 5, color: _theme.primary, onTap: () => setState(() => _idx = 5)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.notifications_none_rounded, label: 'Announcements', selected: _idx == 6, color: _theme.primary, onTap: () => setState(() => _idx = 6)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.group_outlined, label: 'Community', selected: _idx == 7, color: _theme.primary, onTap: () => setState(() => _idx = 7)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.room_service_outlined, label: 'Services', selected: _idx == 8, color: _theme.primary, onTap: () => setState(() => _idx = 8)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: _idx == 9, color: _theme.primary, onTap: () => setState(() => _idx = 9)),
+                  ] else if (widget.role == 'teacher') ...[
+                    _SidebarItem(icon: Icons.home_rounded, label: 'Dashboard', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
+                    SizedBox(height: 8.h),
                     _SidebarItem(icon: Icons.class_rounded, label: 'Class Management', selected: _idx == 1, color: _theme.primary, onTap: () => setState(() => _idx = 1)),
                     SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: _idx == 2, color: _theme.primary, onTap: () => setState(() => _idx = 2)),
+                    SizedBox(height: 8.h),
+                    _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: _idx == 3, color: _theme.primary, onTap: () => setState(() => _idx = 3)),
                   ],
-                  _SidebarItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 2 : 1), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 2 : 1)),
-                  SizedBox(height: 8.h),
-                  _SidebarItem(icon: Icons.person_rounded, label: 'My Profile', selected: selectedIdx(widget.role == 'teacher' || widget.role == 'student' ? 3 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'teacher' || widget.role == 'student' ? 3 : 2)),
                 ],
               ),
             ),
@@ -452,21 +480,45 @@ class _MainScreenState extends State<MainScreen> {
                           }),
                         ]
                       : [
-                          _buildDrawerItem(Icons.home_rounded, 'Home', () {
+                          _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () {
                             Navigator.pop(context);
                             setState(() => _idx = 0);
                           }),
-                          _buildDrawerItem(Icons.school_rounded, 'Academic', () {
+                          _buildDrawerItem(Icons.calendar_month_outlined, 'Academic Calendar', () {
                             Navigator.pop(context);
                             setState(() => _idx = 1);
                           }),
-                          _buildDrawerItem(Icons.chat_bubble_rounded, 'Messages', () {
+                          _buildDrawerItem(Icons.checklist_rounded, 'Assignments', () {
                             Navigator.pop(context);
                             setState(() => _idx = 2);
                           }),
-                          _buildDrawerItem(Icons.person_rounded, 'My Profile', () {
+                          _buildDrawerItem(Icons.school_rounded, 'Academic', () {
                             Navigator.pop(context);
                             setState(() => _idx = 3);
+                          }),
+                          _buildDrawerItem(Icons.attach_money_rounded, 'Fees', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 4);
+                          }),
+                          _buildDrawerItem(Icons.directions_bus_rounded, 'Transport', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 5);
+                          }),
+                          _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 6);
+                          }),
+                          _buildDrawerItem(Icons.group_outlined, 'Community', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 7);
+                          }),
+                          _buildDrawerItem(Icons.room_service_outlined, 'Services', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 8);
+                          }),
+                          _buildDrawerItem(Icons.person_rounded, 'My Profile', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 9);
                           }),
                         ],
                 ),

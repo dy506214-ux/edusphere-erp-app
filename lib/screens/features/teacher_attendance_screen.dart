@@ -97,31 +97,72 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     });
 
     try {
-      // Try to match students by class_name pattern
       final className = _fullClassName;
-      final res = await _supabase
-          .from('students')
-          .select('id, name, email, class_name, admission_no')
-          .eq('class_name', className)
-          .order('name');
 
-      final List<Map<String, dynamic>> studentList = [];
-      for (var s in res) {
-        studentList.add({
-          'id': s['id']?.toString() ?? '',
-          'name': s['name']?.toString() ?? 'Unknown',
-          'email': s['email']?.toString() ?? '',
-          'class_name': s['class_name']?.toString() ?? className,
-          'admission_no': s['admission_no']?.toString() ?? '',
-        });
+      // 1. Fetch Class ID by name
+      final classRes = await _supabase
+          .from('Class')
+          .select('id')
+          .eq('name', _selectedClass!)
+          .maybeSingle();
+
+      if (classRes == null) {
+        throw 'Class not found in database';
+      }
+      final classId = classRes['id'] as String;
+
+      // 2. Fetch Section ID by name (if not All Sections)
+      String? sectionId;
+      if (_selectedSection != 'All Sections') {
+        final secName = _selectedSection.replaceAll('Section ', '').trim();
+        final sectionRes = await _supabase
+            .from('Section')
+            .select('id')
+            .eq('classId', classId)
+            .eq('name', secName)
+            .maybeSingle();
+        if (sectionRes != null) {
+          sectionId = sectionRes['id'] as String;
+        }
       }
 
-      // Check existing attendance for this date & class
-      final existingAttendance = await _supabase
-          .from('attendance')
-          .select('student_id, status')
-          .eq('date', _dbDateStr)
-          .eq('class_name', className);
+      // 3. Fetch students in class & section
+      var studentQuery = _supabase
+          .from('Student')
+          .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+          .eq('currentClassId', classId);
+
+      if (sectionId != null) {
+        studentQuery = studentQuery.eq('sectionId', sectionId);
+      }
+
+      final studentRes = await studentQuery;
+
+      final List<Map<String, dynamic>> studentList = [];
+      for (var s in studentRes) {
+        final user = s['User'] as Map<String, dynamic>? ?? {};
+        final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+        studentList.add({
+          'id': s['id']?.toString() ?? '',
+          'name': name.isNotEmpty ? name : 'Unknown',
+          'email': user['email']?.toString() ?? '',
+          'class_name': className,
+          'admission_no': s['admissionNumber']?.toString() ?? '',
+        });
+      }
+      
+      // Sort alphabetically by name
+      studentList.sort((a, b) => a['name'].compareTo(b['name']));
+
+      // 4. Check existing attendance for this date & students
+      final studentIds = studentList.map((s) => s['id']).toList();
+      final List<dynamic> existingAttendance = studentIds.isNotEmpty
+          ? await _supabase
+              .from('AttendanceRecord')
+              .select('studentId, status')
+              .eq('date', _dbDateStr)
+              .inFilter('studentId', studentIds)
+          : [];
 
       Map<String, String> statusMap = {};
       bool alreadySubmitted = false;
@@ -129,8 +170,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       if (existingAttendance.isNotEmpty) {
         alreadySubmitted = true;
         for (var record in existingAttendance) {
-          statusMap[record['student_id'].toString()] =
-              record['status']?.toString() ?? 'P';
+          final sId = record['studentId']?.toString() ?? '';
+          final statusVal = record['status']?.toString() ?? 'PRESENT';
+          
+          String localStatus = 'P';
+          if (statusVal == 'ABSENT') localStatus = 'A';
+          if (statusVal == 'LATE') localStatus = 'L';
+          
+          statusMap[sId] = localStatus;
         }
       } else {
         for (var s in studentList) {
@@ -200,29 +247,37 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final className = _fullClassName;
+      final studentIds = _students.map((s) => s['id']).toList();
 
-      // Delete existing then insert (upsert pattern)
-      await _supabase
-          .from('attendance')
-          .delete()
-          .eq('date', _dbDateStr)
-          .eq('class_name', className);
+      // Delete existing records for these students on this date
+      if (studentIds.isNotEmpty) {
+        await _supabase
+            .from('AttendanceRecord')
+            .delete()
+            .eq('date', _dbDateStr)
+            .inFilter('studentId', studentIds);
+      }
 
       final records = <Map<String, dynamic>>[];
       for (var student in _students) {
         final studentId = student['id'];
+        final statusLocal = _attendanceStatus[studentId] ?? 'P';
+        String statusEnum = 'PRESENT';
+        if (statusLocal == 'A') statusEnum = 'ABSENT';
+        if (statusLocal == 'L') statusEnum = 'LATE';
+
         records.add({
-          'student_id': studentId,
+          'attendeeType': 'STUDENT',
+          'studentId': studentId,
           'date': _dbDateStr,
-          'status': _attendanceStatus[studentId] ?? 'P',
-          'class_name': className,
-          'created_at': DateTime.now().toIso8601String(),
+          'status': statusEnum,
+          'createdAt': DateTime.now().toUtc().toIso8601String(),
+          'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
       }
 
       if (records.isNotEmpty) {
-        await _supabase.from('attendance').insert(records);
+        await _supabase.from('AttendanceRecord').insert(records);
       }
 
       if (mounted) {
@@ -269,8 +324,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     setState(() => _isAnalyticsLoading = true);
     try {
       final res = await _supabase
-          .from('attendance')
-          .select('id, student_id, date, status, class_name')
+          .from('AttendanceRecord')
+          .select('id, studentId, date, status, Student(currentClassId, Class(name))')
+          .eq('attendeeType', 'STUDENT')
           .order('date', ascending: false)
           .limit(200);
 
@@ -278,17 +334,20 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       Map<String, Map<String, int>> grouped = {};
       for (var record in res) {
         final date = record['date']?.toString() ?? '';
-        final className = record['class_name']?.toString() ?? '';
+        final student = record['Student'] as Map<String, dynamic>? ?? {};
+        final classData = student['Class'] as Map<String, dynamic>? ?? {};
+        final className = classData['name']?.toString() ?? 'Class';
+        
         final key = '$date|$className';
         if (!grouped.containsKey(key)) {
           grouped[key] = {'P': 0, 'A': 0, 'L': 0, 'total': 0};
         }
-        final status = record['status']?.toString() ?? 'P';
-        if (status == 'P' || status == 'Present') {
+        final status = record['status']?.toString() ?? 'PRESENT';
+        if (status == 'PRESENT' || status == 'P' || status == 'Present') {
           grouped[key]!['P'] = (grouped[key]!['P'] ?? 0) + 1;
-        } else if (status == 'A' || status == 'Absent') {
+        } else if (status == 'ABSENT' || status == 'A' || status == 'Absent') {
           grouped[key]!['A'] = (grouped[key]!['A'] ?? 0) + 1;
-        } else if (status == 'L' || status == 'Late') {
+        } else if (status == 'LATE' || status == 'L' || status == 'Late') {
           grouped[key]!['L'] = (grouped[key]!['L'] ?? 0) + 1;
         }
         grouped[key]!['total'] = (grouped[key]!['total'] ?? 0) + 1;
