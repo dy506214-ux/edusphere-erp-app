@@ -132,196 +132,202 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F5F9),
+      backgroundColor: const Color(0xFFE5EEFC),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 460),
-            margin: EdgeInsets.all(16.r),
-            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(40.r),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 50, offset: const Offset(0, 20)),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // 3D Centered Logo - Premium Professional Icon
-                Container(
-                  width: 120.w, height: 120.h,
-                  padding: EdgeInsets.all(4.r), // Space for gradient border
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFE2E8F0), Colors.white, Color(0xFFCBD5E1)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(30.r),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 30, offset: const Offset(0, 15)),
-                      BoxShadow(color: Colors.white.withValues(alpha: 0.8), blurRadius: 10, offset: const Offset(-5, -5)),
-                    ],
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(26.r),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(26.r),
-                      child: Image.asset(
-                        'assets/images/logo.png', 
-                        fit: BoxFit.contain,
-                        // Adding a subtle fade-in for smoother appearance
-                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-                          if (wasSynchronouslyLoaded) return child;
-                          return AnimatedOpacity(
-                            opacity: frame == null ? 0 : 1,
-                            duration: const Duration(seconds: 1),
-                            curve: Curves.easeOut,
-                            child: child,
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 32.h),
-                
-                // High-End 3D Text Header
-                ShaderMask(
-                  shaderCallback: (bounds) => const LinearGradient(
-                    colors: [Color(0xFF0F172A), Color(0xFF334155)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ).createShader(bounds),
-                  child: Text(
-                    'WELCOME TO\nEDUSPHERE',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 32.sp,
-                      fontWeight: FontWeight.w900,
-                      height: 1.1.h,
-                      letterSpacing: -0.5,
-                      color: Colors.white,
-                      shadows: [
-                        const Shadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 6)),
-                        Shadow(color: Colors.white.withValues(alpha: 0.5), blurRadius: 0, offset: const Offset(-1, -1)),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  'Enter your credentials to access the system',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
-                ),
-                SizedBox(height: 48.h),
-
-                // Professional Fields
-                _buildFieldLabel('Email Address'),
-                SizedBox(height: 8.h),
-                TextField(
-                  controller: _emailCtrl,
-                  decoration: _inputDeco(Icons.email_outlined),
-                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.email],
-                ),
-                
-                SizedBox(height: 24.h),
-                
-                _buildFieldLabel('Security Password'),
-                SizedBox(height: 8.h),
-                TextField(
-                  controller: _passCtrl,
-                  obscureText: _obscure,
-                  decoration: _inputDeco(Icons.lock_outline_rounded).copyWith(
-                    suffixIcon: IconButton(
-                      icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 20.sp, color: const Color(0xFF94A3B8)),
-                      onPressed: () => setState(() => _obscure = !_obscure),
-                    ),
-                  ),
-                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) => _handleSignIn(),
-                  autofillHints: const [AutofillHints.password],
-                ),
-
-                if (_error != null) ...[
-                  SizedBox(height: 20.h),
-                  Container(
-                    padding: EdgeInsets.all(12.r),
-                    decoration: BoxDecoration(color: const Color(0xFFFFF1F2), borderRadius: BorderRadius.circular(12.r), border: Border.all(color: const Color(0xFFFECACA))),
-                    child: Text(_error!, style: GoogleFonts.inter(color: const Color(0xFFE11D48), fontSize: 12.sp, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 460),
+              margin: EdgeInsets.all(24.r),
+              padding: EdgeInsets.all(32.r),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
                   ),
                 ],
-
-                SizedBox(height: 40.h),
-
-                // Professional Login Button
-                GestureDetector(
-                  onTap: _loading ? null : _handleSignIn,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: double.infinity,
-                    height: 56.h,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF007BFF), Color(0xFF0056B3)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                      borderRadius: BorderRadius.circular(16.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF007BFF).withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Logo Circle with Graduation Cap
+                  Container(
+                    width: 68.r,
+                    height: 68.r,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF007BFF),
+                      shape: BoxShape.circle,
                     ),
-                    child: Center(
-                      child: _loading 
-                        ? SizedBox(width: 24.w, height: 24.h, child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                        : Text(
-                            'LOGIN', 
-                            style: GoogleFonts.outfit(
-                              fontSize: 18.sp, 
-                              fontWeight: FontWeight.w800, 
-                              color: Colors.white,
-                              letterSpacing: 1,
-                            ),
-                          ),
+                    child: Icon(
+                      Icons.school_rounded,
+                      color: Colors.white,
+                      size: 34.r,
                     ),
                   ),
-                ),
-                SizedBox(height: 24.h), // Bottom breathing room
-              ],
+                  SizedBox(height: 24.h),
+                  
+                  // Header Title
+                  Text(
+                    'Welcome to EduSphere',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 26.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  
+                  // Subtitle
+                  Text(
+                    'Enter your credentials to access the School ERP system',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      fontSize: 14.sp,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  SizedBox(height: 32.h),
+
+                  // Email Input Field
+                  _buildFieldLabel('Email'),
+                  SizedBox(height: 8.h),
+                  TextField(
+                    controller: _emailCtrl,
+                    decoration: _inputDeco(hintText: 'admin@school.com'),
+                    style: GoogleFonts.inter(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF0F172A),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
+                  ),
+                  
+                  SizedBox(height: 24.h),
+                  
+                  // Password Input Field
+                  _buildFieldLabel('Password'),
+                  SizedBox(height: 8.h),
+                  TextField(
+                    controller: _passCtrl,
+                    obscureText: _obscure,
+                    decoration: _inputDeco(hintText: '••••••••').copyWith(
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          size: 20.sp,
+                          color: const Color(0xFF94A3B8),
+                        ),
+                        onPressed: () => setState(() => _obscure = !_obscure),
+                      ),
+                    ),
+                    style: GoogleFonts.inter(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF0F172A),
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) => _handleSignIn(),
+                    autofillHints: const [AutofillHints.password],
+                  ),
+
+                  if (_error != null) ...[
+                    SizedBox(height: 20.h),
+                    Container(
+                      padding: EdgeInsets.all(12.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Text(
+                        _error!,
+                        style: GoogleFonts.inter(
+                          color: const Color(0xFFE11D48),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+
+                  SizedBox(height: 32.h),
+
+                  // Sign In Button
+                  GestureDetector(
+                    onTap: _loading ? null : _handleSignIn,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: double.infinity,
+                      height: 50.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF007BFF),
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: Center(
+                        child: _loading 
+                          ? SizedBox(
+                              width: 20.w,
+                              height: 20.h,
+                              child: const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2.5,
+                              ),
+                            )
+                          : Text(
+                              'Sign in',
+                              style: GoogleFonts.inter(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
-  InputDecoration _inputDeco(IconData icon) {
+  InputDecoration _inputDeco({String? hintText}) {
     return InputDecoration(
-      prefixIcon: Icon(icon, size: 20.sp, color: const Color(0xFF94A3B8)),
+      hintText: hintText,
+      hintStyle: GoogleFonts.inter(
+        fontSize: 14.sp,
+        color: const Color(0xFF94A3B8),
+        fontWeight: FontWeight.w400,
+      ),
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(18.r), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18.r), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(18.r), borderSide: BorderSide(color: const Color(0xFF007BFF), width: 2.w)),
+      fillColor: Colors.white,
+      contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.r),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.r),
+        borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.r),
+        borderSide: const BorderSide(color: Color(0xFF007BFF), width: 1.5),
+      ),
     );
   }
 
@@ -329,10 +335,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     return Align(
       alignment: Alignment.centerLeft,
       child: Padding(
-        padding: EdgeInsets.only(left: 4.w),
+        padding: EdgeInsets.only(left: 2.w),
         child: Text(
           label,
-          style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF334155), letterSpacing: 0.2),
+          style: GoogleFonts.inter(
+            fontSize: 13.5.sp,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFF1E293B),
+          ),
         ),
       ),
     );

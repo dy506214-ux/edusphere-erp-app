@@ -1,8 +1,11 @@
+import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart' as intl;
 import '../theme/colors.dart';
 import 'features/schedule_screen.dart';
 import 'features/study_materials_screen.dart';
@@ -26,9 +29,12 @@ class AcademicScreen extends StatefulWidget {
 }
 
 class _AcademicScreenState extends State<AcademicScreen> {
-  int pendingCount = 0;
-  double attendanceRate = 75.0;
+  bool _isLoading = true;
+  double attendanceRate = 0.0;
   String studentName = 'Student';
+  String _className = 'Class 1';
+  String _section = 'A';
+  final List<Map<String, dynamic>> _attendanceHistory = [];
 
   @override
   void initState() {
@@ -38,6 +44,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
   Future<void> _loadData() async {
     if (!mounted) return;
+    setState(() { _isLoading = true; });
+
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
@@ -49,11 +57,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
     try {
       final savedEmail = prefs.getString('student_email') ??
           prefs.getString('user_email') ??
-          '';
-      if (savedEmail.isEmpty) {
-        if (mounted) setState(() {});
-        return;
-      }
+          'alex.rivera@edusmart.edu';
 
       final studentRes = await Supabase.instance.client
           .from('students')
@@ -61,88 +65,188 @@ class _AcademicScreenState extends State<AcademicScreen> {
           .eq('email', savedEmail)
           .maybeSingle();
 
-      if (studentRes != null && mounted) {
+      if (studentRes != null) {
         final studentId = studentRes['id'] as String;
         final className = studentRes['class_name'] as String? ?? 'Grade 12';
         final section = studentRes['section'] as String? ?? 'A';
 
-        // Attendance
+        if (mounted) {
+          setState(() {
+            _className = className;
+            _section = section;
+          });
+        }
+
+        // Attendance rate
         final attendanceRes = await Supabase.instance.client
             .from('attendance')
             .select()
             .eq('student_id', studentId);
 
+        double rate = 0.0;
         if (attendanceRes.isNotEmpty) {
           int present = 0;
           for (var r in attendanceRes) {
             final s = r['status'] as String? ?? '';
-            if (s == 'P' || s == 'Present' || s == 'L' || s == 'Late') {
+            if (s == 'P' || s == 'Present' || s == 'L' || s == 'Late' || s == 'Leave') {
               present++;
             }
           }
-          if (mounted) {
-            setState(
-                () => attendanceRate = (present / attendanceRes.length) * 100);
-          }
+          rate = (present / attendanceRes.length) * 100;
         }
 
-        // Pending assignments
-        final assignmentsRes = await Supabase.instance.client
-            .from('assignments')
+        // Fetch recent attendance records for Attendance History
+        final List<dynamic> attendanceHistoryRes = await Supabase.instance.client
+            .from('attendance')
             .select()
-            .eq('class_name', className)
-            .eq('section', section);
+            .eq('student_id', studentId)
+            .order('date', ascending: false)
+            .limit(5);
 
-        final submissionsRes = await Supabase.instance.client
-            .from('submissions')
-            .select()
-            .eq('student_id', studentId);
+        final List<Map<String, dynamic>> tempHistory = [];
+        for (var att in attendanceHistoryRes) {
+          final rawDate = att['date'] as String;
+          final status = att['status'] as String? ?? 'Present';
+          
+          DateTime? date;
+          try {
+            date = DateTime.parse(rawDate);
+          } catch (_) {}
 
-        final pending = assignmentsRes.length - submissionsRes.length;
+          String formattedDate = rawDate;
+          if (date != null) {
+            formattedDate = intl.DateFormat('MMMM d, yyyy').format(date);
+          }
+
+          tempHistory.add({
+            'date': formattedDate,
+            'status': status,
+          });
+        }
+
         if (mounted) {
-          setState(() => pendingCount = pending < 0 ? 0 : pending);
+          setState(() {
+            attendanceRate = rate;
+            _attendanceHistory.clear();
+            _attendanceHistory.addAll(tempHistory);
+          });
         }
       }
-    } catch (_) {}
-
-    if (mounted) setState(() {});
+    } catch (e) {
+      dev.log('Error loading academic data: $e');
+    } finally {
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+    }
   }
-
-  void _push(Widget screen) =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
-          .then((_) => _loadData());
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.canPop(context);
+    final isDesktop = MediaQuery.of(context).size.width > 900;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FF),
-      body: RefreshIndicator(
-        onRefresh: _loadData,
-        color: widget.theme.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader()),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 16.h),
-                    _buildWelcomeBanner(),
-                    SizedBox(height: 20.h),
-                    _buildQuickAccess(),
-                    SizedBox(height: 20.h),
-                    _buildHubBanner(),
-                    SizedBox(height: 20.h),
-                    _buildOverview(),
-                    SizedBox(height: 20.h),
-                    _buildComingUpNext(),
-                    SizedBox(height: 28.h),
-                  ],
-                ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Custom clean header matching React Client style
+            Padding(
+              padding: EdgeInsets.fromLTRB(24.r, 24.r, 24.r, 8.r),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      if (canPop || widget.onBack != null) ...[
+                        GestureDetector(
+                          onTap: () {
+                            if (canPop) {
+                              Navigator.pop(context);
+                            } else if (widget.onBack != null) {
+                              widget.onBack!();
+                            }
+                          },
+                          child: Container(
+                            width: 40.w,
+                            height: 40.w,
+                            margin: EdgeInsets.only(right: 12.w),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12.r),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Icon(Icons.arrow_back_ios_new_rounded,
+                                size: 18.sp, color: AppColors.textDark),
+                          ),
+                        ),
+                      ],
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Academic Overview',
+                            style: GoogleFonts.inter(
+                              fontSize: 26.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            'Manage your academic journey',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              color: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  _buildRefreshButton(),
+                ],
               ),
+            ),
+
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.studentPrimary))
+                  : RefreshIndicator(
+                      onRefresh: _loadData,
+                      color: widget.theme.primary,
+                      child: ListView(
+                        padding: EdgeInsets.all(24.r),
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          if (isDesktop) ...[
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  flex: 3,
+                                  child: _buildCurrentSubjectsCard(),
+                                ),
+                                SizedBox(width: 24.w),
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildTimetablesCard(),
+                                ),
+                              ],
+                            ),
+                          ] else ...[
+                            _buildCurrentSubjectsCard(),
+                            SizedBox(height: 24.h),
+                            _buildTimetablesCard(),
+                          ],
+                          SizedBox(height: 24.h),
+                          _buildAcademicStatusCard(),
+                          SizedBox(height: 24.h),
+                          _buildAttendanceHistoryCard(),
+                        ],
+                      ),
+                    ),
             ),
           ],
         ),
@@ -150,74 +254,266 @@ class _AcademicScreenState extends State<AcademicScreen> {
     );
   }
 
-  // ── Header ──────────────────────────────────────────────────────────────────
-  Widget _buildHeader() {
-    final canPop = Navigator.canPop(context);
+  Widget _buildRefreshButton() {
+    return TextButton.icon(
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+        backgroundColor: Colors.white,
+      ),
+      onPressed: _loadData,
+      icon: Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF0F172A)),
+      label: Text(
+        'Refresh',
+        style: GoogleFonts.inter(
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentSubjectsCard() {
+    final hasSubjects = _className.contains('12');
     return Container(
-      color: Colors.white,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
-          child: Row(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16.r,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              if (canPop || widget.onBack != null) ...[
-                GestureDetector(
-                  onTap: () {
-                    if (canPop) {
-                      Navigator.pop(context);
-                    } else if (widget.onBack != null) {
-                      widget.onBack!();
-                    }
-                  },
-                  child: Container(
-                    width: 40.w, height: 40.w,
-                    margin: EdgeInsets.only(right: 12.w),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textDark, size: 18.sp),
-                  ),
-                ),
-              ] else ...[
-                Text('🎓', style: TextStyle(fontSize: 22.sp)),
-                SizedBox(width: 8.w),
-              ],
+              Icon(Icons.menu_book_outlined, color: widget.theme.primary, size: 20.sp),
+              SizedBox(width: 8.w),
               Text(
-                'ACADEMIC',
+                'Current Subjects',
                 style: GoogleFonts.inter(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
-                  letterSpacing: 0.8,
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark),
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Subjects assigned to your class',
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, color: AppColors.textMedium),
+          ),
+          SizedBox(height: 16.h),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(3),
+              1: FlexColumnWidth(2),
+              2: FlexColumnWidth(2),
+            },
+            children: [
+              TableRow(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1.5)),
+                ),
+                children: [
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text('Subject', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text('Code', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    child: Text('Type', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+                  ),
+                ],
+              ),
+              if (hasSubjects) ...[
+                _subjectRow('Mathematics', 'MATH12', 'Core'),
+                _subjectRow('Physics', 'PHYS12', 'Core'),
+                _subjectRow('Chemistry', 'CHEM12', 'Core'),
+                _subjectRow('English', 'ENGL12', 'Language'),
+              ],
+            ],
+          ),
+          if (!hasSubjects)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 36.h),
+              child: Center(
+                child: Text(
+                  'No subjects listed',
+                  style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.textMedium),
                 ),
               ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {},
-                child: Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(12.r),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTimetablesCard() {
+    return Container(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16.r,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.access_time_rounded, color: widget.theme.primary, size: 20.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Timetables',
+                style: GoogleFonts.inter(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark),
+              ),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Recent class schedules',
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, color: AppColors.textMedium),
+          ),
+          SizedBox(height: 16.h),
+          CustomPaint(
+            painter: DashedRectPainter(
+              color: const Color(0xFFCBD5E1),
+              radius: 12.r,
+            ),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 36.h),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'No timetables uploaded yet',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.textMedium,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  child: Stack(
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAcademicStatusCard() {
+    return Container(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16.r,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.verified_outlined, color: widget.theme.primary, size: 20.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Academic Status',
+                style: GoogleFonts.inter(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textDark),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 12.w),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
                     children: [
-                      Center(
-                        child: Icon(Icons.notifications_outlined,
-                            color: AppColors.textDark, size: 22.sp),
+                      Icon(Icons.school_outlined, color: const Color(0xFF64748B), size: 24.sp),
+                      SizedBox(height: 10.h),
+                      Text(
+                        'Target Class',
+                        style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium),
                       ),
-                      Positioned(
-                        top: 8.h,
-                        right: 8.w,
-                        child: Container(
-                          width: 8.w,
-                          height: 8.w,
-                          decoration: const BoxDecoration(
-                              color: Colors.red, shape: BoxShape.circle),
-                        ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        '$_className ($_section)',
+                        style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: widget.theme.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 12.w),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.check_circle_outline_rounded, color: const Color(0xFF64748B), size: 24.sp),
+                      SizedBox(height: 10.h),
+                      Text(
+                        'Attendance Progress',
+                        style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textMedium),
+                      ),
+                      SizedBox(height: 4.h),
+                      Text(
+                        _isLoading ? 'Loading...' : '${attendanceRate.toStringAsFixed(0)}%',
+                        style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF15803D)),
                       ),
                     ],
                   ),
@@ -225,426 +521,137 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  // ── Welcome banner ──────────────────────────────────────────────────────────
-  Widget _buildWelcomeBanner() {
-    return Container(
-      padding: EdgeInsets.all(20.r),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFEEF2FF), Color(0xFFDDE1FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(22.r),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Good to see you,',
-                  style: GoogleFonts.inter(
-                      fontSize: 13.sp, color: const Color(0xFF6366F1)),
-                ),
-                SizedBox(height: 6.h),
-                Text(
-                  'Keep learning,\nkeep growing! 🌱',
-                  style: GoogleFonts.inter(
-                    fontSize: 17.sp,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 72.w,
-            height: 72.w,
-            decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.school_rounded,
-                size: 40.sp, color: const Color(0xFF6366F1)),
-          ),
         ],
       ),
     );
   }
 
-  // ── Quick Access ────────────────────────────────────────────────────────────
-  Widget _buildQuickAccess() {
-    final items = [
-      {
-        'label': 'My\nSchedule',
-        'icon': Icons.calendar_today_rounded,
-        'color': const Color(0xFF3B82F6),
-        'screen': ScheduleScreen(theme: widget.theme, role: 'student'),
-      },
-      {
-        'label': 'Study\nMaterials',
-        'icon': Icons.menu_book_rounded,
-        'color': const Color(0xFF6366F1),
-        'screen': const StudyMaterialsScreen(),
-      },
-      {
-        'label': 'Assignments',
-        'icon': Icons.assignment_rounded,
-        'color': const Color(0xFFF97316),
-        'screen': const AssignmentsScreen(),
-      },
-      {
-        'label': 'Quiz &\nAssessments',
-        'icon': Icons.psychology_rounded,
-        'color': const Color(0xFFEC4899),
-        'screen': const QuizScreen(),
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Quick Access',
-              style: GoogleFonts.inter(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textDark),
-            ),
-            GestureDetector(
-              onTap: () => _push(AcademicFeaturesScreen(
-                theme: widget.theme,
-                pendingCount: pendingCount,
-                attendanceRate: attendanceRate,
-              )),
-              child: Text(
-                'View All',
+  Widget _buildAttendanceHistoryCard() {
+    return Container(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 16.r,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.history_toggle_off_rounded, color: widget.theme.primary, size: 20.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Attendance History',
                 style: GoogleFonts.inter(
-                    fontSize: 13.sp,
+                    fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
-                    color: widget.theme.primary),
+                    color: AppColors.textDark),
               ),
-            ),
-          ],
-        ),
-        SizedBox(height: 14.h),
-        Row(
-          children: items.map((item) {
-            return Expanded(
-              child: GestureDetector(
-                onTap: () => _push(item['screen'] as Widget),
-                child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 4.w),
-                  padding: EdgeInsets.symmetric(vertical: 14.h),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18.r),
-                    border: Border.all(color: AppColors.border),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.04),
-                          blurRadius: 8.r)
-                    ],
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 44.w,
-                        height: 44.w,
-                        decoration: BoxDecoration(
-                          color: item['color'] as Color,
-                          borderRadius: BorderRadius.circular(14.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (item['color'] as Color)
-                                  .withValues(alpha: 0.3),
-                              blurRadius: 8.r,
-                              offset: Offset(0, 3.h),
-                            )
-                          ],
-                        ),
-                        child: Icon(item['icon'] as IconData,
-                            color: Colors.white, size: 22.sp),
+            ],
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            'Recent attendance records',
+            style: GoogleFonts.inter(
+                fontSize: 12.sp, color: AppColors.textMedium),
+          ),
+          SizedBox(height: 16.h),
+          if (_attendanceHistory.isEmpty)
+            CustomPaint(
+              painter: DashedRectPainter(
+                color: const Color(0xFFCBD5E1),
+                radius: 12.r,
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 36.h),
+                child: Column(
+                  children: [
+                    Icon(Icons.history_rounded, color: const Color(0xFFCBD5E1), size: 32.sp),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'No attendance records found',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        fontStyle: FontStyle.italic,
+                        color: AppColors.textMedium,
                       ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        item['label'] as String,
-                        style: GoogleFonts.inter(
-                            fontSize: 9.5.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textMedium),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
               ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  // ── Hub Banner ──────────────────────────────────────────────────────────────
-  Widget _buildHubBanner() {
-    return GestureDetector(
-      onTap: () => _push(AcademicFeaturesScreen(
-        theme: widget.theme,
-        pendingCount: pendingCount,
-        attendanceRate: attendanceRate,
-      )),
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1E293B), Color(0xFF2D3F5C)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(22.r),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50.w,
-              height: 50.w,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(14.r),
-              ),
-              child: Icon(Icons.school_rounded,
-                  color: Colors.white, size: 28.sp),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _attendanceHistory.length,
+              separatorBuilder: (_, __) => const Divider(height: 16, color: AppColors.border),
+              itemBuilder: (_, index) {
+                final r = _attendanceHistory[index];
+                final status = r['status'] as String;
+                final bool isPresent = status == 'Present' || status == 'P';
+                
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      r['date'] as String,
+                      style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: AppColors.textDark),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                        color: isPresent ? const Color(0xFFDCFCE7) : const Color(0xFFFFE4E6),
+                        borderRadius: BorderRadius.circular(12.r),
+                      ),
+                      child: Text(
+                        status,
+                        style: GoogleFonts.inter(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w700,
+                          color: isPresent ? const Color(0xFF15803D) : const Color(0xFFE11D48),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Your Academic Hub',
-                    style: GoogleFonts.inter(
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Everything you need for your success',
-                    style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        color: Colors.white.withValues(alpha: 0.65),
-                        height: 1.4),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withValues(alpha: 0.7), size: 16.sp),
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  // ── Overview Grid ────────────────────────────────────────────────────────────
-  Widget _buildOverview() {
-    final items = [
-      {
-        'icon': Icons.menu_book_rounded,
-        'color': const Color(0xFF6366F1),
-        'label': 'Study Materials',
-        'val': '24',
-        'sub': 'New materials',
-      },
-      {
-        'icon': Icons.assignment_rounded,
-        'color': const Color(0xFFF97316),
-        'label': 'Assignments',
-        'val': pendingCount.toString(),
-        'sub': 'Pending',
-      },
-      {
-        'icon': Icons.psychology_rounded,
-        'color': const Color(0xFFEC4899),
-        'label': 'Quizzes',
-        'val': '0',
-        'sub': 'Upcoming',
-      },
-      {
-        'icon': Icons.trending_up_rounded,
-        'color': const Color(0xFF10B981),
-        'label': 'Performance',
-        'val': 'Good',
-        'sub': 'Keep it up!',
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  TableRow _subjectRow(String sub, String code, String type) {
+    return TableRow(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+      ),
       children: [
-        Text(
-          'Overview',
-          style: GoogleFonts.inter(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          child: Text(sub, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500, color: AppColors.textDark)),
         ),
-        SizedBox(height: 14.h),
-        GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisSpacing: 12.w,
-          mainAxisSpacing: 12.h,
-          childAspectRatio: 1.55,
-          children: items.map((item) {
-            return Container(
-              padding: EdgeInsets.all(14.r),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18.r),
-                border: Border.all(color: AppColors.border),
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
-                      blurRadius: 8.r)
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 36.w,
-                    height: 36.w,
-                    decoration: BoxDecoration(
-                      color:
-                          (item['color'] as Color).withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                    child: Icon(item['icon'] as IconData,
-                        color: item['color'] as Color, size: 18.sp),
-                  ),
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          item['label'] as String,
-                          style: GoogleFonts.inter(
-                              fontSize: 9.sp,
-                              color: AppColors.textLight,
-                              fontWeight: FontWeight.w600),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            item['val'] as String,
-                            style: GoogleFonts.inter(
-                                fontSize: 20.sp,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.textDark),
-                          ),
-                        ),
-                        Text(
-                          item['sub'] as String,
-                          style: GoogleFonts.inter(
-                              fontSize: 9.sp, color: AppColors.textLight),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }).toList(),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          child: Text(code, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500, color: AppColors.textMedium)),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(vertical: 12.h),
+          child: Text(type, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500, color: AppColors.textMedium)),
         ),
       ],
-    );
-  }
-
-  // ── Coming Up Next ───────────────────────────────────────────────────────────
-  Widget _buildComingUpNext() {
-    return GestureDetector(
-      onTap: () =>
-          _push(const ExamScheduleScreen()),
-      child: Container(
-        padding: EdgeInsets.all(16.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18.r),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8.r)
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46.w,
-              height: 46.w,
-              decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
-                borderRadius: BorderRadius.circular(14.r),
-              ),
-              child: Icon(Icons.event_rounded,
-                  color: const Color(0xFF10B981), size: 24.sp),
-            ),
-            SizedBox(width: 14.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Coming Up Next',
-                    style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textLight),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    'Finals: June 10 - 20',
-                    style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark),
-                  ),
-                  Text(
-                    'Stay focused and do your best!',
-                    style: GoogleFonts.inter(
-                        fontSize: 11.sp, color: AppColors.textLight),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right_rounded,
-                color: AppColors.textLight, size: 22.sp),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -920,4 +927,55 @@ class AcademicFeaturesScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class DashedRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashLength;
+  final double radius;
+
+  DashedRectPainter({
+    this.color = const Color(0xFFCBD5E1),
+    this.strokeWidth = 1.0,
+    this.gap = 4.0,
+    this.dashLength = 6.0,
+    this.radius = 12.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Radius.circular(radius),
+      ));
+
+    final dashPath = Path();
+    double distance = 0.0;
+    for (final pathMetric in path.computeMetrics()) {
+      while (distance < pathMetric.length) {
+        final len = dashLength;
+        final nextDistance = distance + len;
+        final isLast = nextDistance >= pathMetric.length;
+        
+        dashPath.addPath(
+          pathMetric.extractPath(distance, isLast ? pathMetric.length : nextDistance),
+          Offset.zero,
+        );
+        
+        distance = nextDistance + gap;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(DashedRectPainter oldDelegate) => false;
 }

@@ -414,7 +414,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
             padding: EdgeInsets.only(top: 4.h),
             child: Text(
               pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981), fontWeight: FontWeight.w700),
+              style: GoogleFonts.inter(
+                fontSize: 11.sp,
+                color: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                fontWeight: FontWeight.w700,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
@@ -428,7 +434,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
             padding: EdgeInsets.only(top: 4.h),
             child: Text(
               booksDue > 0 ? 'Return overdue books' : 'No overdue books',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight, fontWeight: FontWeight.w600),
+              style: GoogleFonts.inter(
+                fontSize: 11.sp,
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
             ),
           ),
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
@@ -440,8 +452,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
           leftBorderColor: const Color(0xFF8B5CF6),
           child: Row(
             children: [
-              Text('Academic performance', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight, fontWeight: FontWeight.w600)),
-              const Spacer(),
+              Expanded(
+                child: Text(
+                  'Academic performance',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.sp,
+                    color: AppColors.textLight,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              SizedBox(width: 4.w),
               Icon(Icons.arrow_forward_rounded, color: const Color(0xFF8B5CF6), size: 16.sp),
             ],
           ),
@@ -519,30 +542,59 @@ class _StudentDashboardState extends State<StudentDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('📅 School Calendar', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-                  SizedBox(height: 2.h),
-                  Text('Academic schedule & events', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight, fontWeight: FontWeight.w600)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '📅 School Calendar',
+                      style: GoogleFonts.inter(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textDark,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Academic schedule & events',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        color: AppColors.textLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              SizedBox(width: 12.w),
               Row(
                 children: [
                   IconButton(
                     icon: Icon(Icons.chevron_left_rounded, size: 22.sp, color: AppColors.textMedium),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () {
                       setState(() {
                         _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
                       });
                     },
                   ),
+                  SizedBox(width: 8.w),
                   Text(
                     '$monthName ${_selectedMonth.year}',
-                    style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                    style: GoogleFonts.inter(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textDark,
+                    ),
                   ),
+                  SizedBox(width: 8.w),
                   IconButton(
                     icon: Icon(Icons.chevron_right_rounded, size: 22.sp, color: AppColors.textMedium),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                     onPressed: () {
                       setState(() {
                         _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
