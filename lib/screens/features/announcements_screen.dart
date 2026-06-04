@@ -434,62 +434,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leadingWidth: 40.w,
-        leading: Padding(
-          padding: EdgeInsets.only(left: 12.w),
-          child: IconButton(
-            icon: const Icon(Icons.menu, color: Color(0xFF0F172A)),
-            onPressed: () => Navigator.pop(context),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-          ),
-        ),
-        titleSpacing: 8.w,
-        title: Text(
-          'EduSphere',
-          style: GoogleFonts.inter(
-            color: const Color(0xFF0F172A),
-            fontWeight: FontWeight.w900,
-            fontSize: 20.sp,
-            letterSpacing: 0.2,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_off_outlined, color: Color(0xFF0F172A)),
-            onPressed: () {},
-          ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 8.w,
-                top: 8.h,
-                child: Container(
-                  padding: EdgeInsets.all(3.r),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    "3",
-                    style: GoogleFonts.inter(fontSize: 8.sp, color: Colors.white, fontWeight: FontWeight.w800),
-                  ),
+      backgroundColor: AppColors.background,
+      appBar: widget.showAppBar
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+              leading: Navigator.canPop(context)
+                  ? const BackButton(color: Color(0xFF0F172A))
+                  : IconButton(
+                      icon: Icon(Icons.menu, size: 28.sp),
+                      onPressed: widget.onOpenDrawer,
+                    ),
+              title: Text(
+                'EduSphere',
+                style: GoogleFonts.outfit(
+                  fontSize: 22.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
                 ),
               ),
-            ],
-          ),
-          SizedBox(width: 8.w),
-        ],
-      ),
+              actions: [
+                IconButton(
+                  icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
+                  onPressed: () {},
+                ),
+                SizedBox(width: 8.w),
+              ],
+            )
+          : null,
       body: Column(
         children: [
           Expanded(

@@ -394,62 +394,81 @@ class _MainScreenState extends State<MainScreen> {
                 physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.symmetric(vertical: 12.h),
                 child: Column(
-                  children: [
-                    _buildDrawerItem(Icons.grid_view_rounded, 'Dashboard', () {
-                      Navigator.pop(context);
-                      setState(() => _idx = 0);
-                    }),
-                    _buildDrawerItem(Icons.calendar_month_outlined, 'Academic Calendar', () {
-                      Navigator.pop(context);
-                      setState(() => _idx = 1);
-                    }),
-                     _buildDrawerItem(Icons.people_outline_rounded, 'Students', () {
-                      Navigator.pop(context);
-                      setState(() => _idx = 2);
-                    }),
-                     _buildDrawerItem(Icons.calendar_today_outlined, 'Attendance', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherAttendanceScreen()));
-                    }),
-                     _buildDrawerItem(Icons.check_box_outlined, 'Assignments', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AssignmentsScreen()));
-                    }),
-                    _buildDrawerItem(Icons.menu_book_outlined, 'Academic', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme)));
-                    }),
-                    _buildDrawerItem(Icons.description_outlined, 'Examinations', () async {
-                      Navigator.pop(context);
-                      final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
-                      if (res is int) {
-                        setState(() => _idx = res);
-                      }
-                    }),
-                    _buildDrawerItem(Icons.assignment_turned_in_outlined, 'Marks Entry', () async {
-                      Navigator.pop(context);
-                      final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: _theme)));
-                      if (res is int) {
-                        setState(() => _idx = res);
-                      }
-                    }),
-                    _buildDrawerItem(Icons.access_time_rounded, 'My Schedule', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: _theme)));
-                    }),
-                    _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: _theme)));
-                    }),
-                    _buildDrawerItem(Icons.group_outlined, 'Community', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => MessagesScreen(theme: _theme, isActive: true)));
-                    }),
-                    _buildDrawerItem(Icons.person_outline_rounded, 'My Profile', () {
-                      Navigator.pop(context);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: _theme)));
-                    }),
-                  ],
+                  children: widget.role == 'teacher'
+                      ? [
+                          _buildDrawerItem(Icons.grid_view_rounded, 'Dashboard', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 0);
+                          }),
+                          _buildDrawerItem(Icons.calendar_month_outlined, 'Academic Calendar', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 1);
+                          }),
+                           _buildDrawerItem(Icons.people_outline_rounded, 'Students', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 2);
+                          }),
+                           _buildDrawerItem(Icons.calendar_today_outlined, 'Attendance', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherAttendanceScreen()));
+                          }),
+                           _buildDrawerItem(Icons.check_box_outlined, 'Assignments', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAssignmentScreen()));
+                          }),
+                          _buildDrawerItem(Icons.menu_book_outlined, 'Academic', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme)));
+                          }),
+                          _buildDrawerItem(Icons.description_outlined, 'Examinations', () async {
+                            Navigator.pop(context);
+                            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                            if (res is int) {
+                              setState(() => _idx = res);
+                            }
+                          }),
+                          _buildDrawerItem(Icons.assignment_turned_in_outlined, 'Marks Entry', () async {
+                            Navigator.pop(context);
+                            final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: _theme)));
+                            if (res is int) {
+                              setState(() => _idx = res);
+                            }
+                          }),
+                          _buildDrawerItem(Icons.access_time_rounded, 'My Schedule', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: _theme)));
+                          }),
+                          _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: _theme)));
+                          }),
+                          _buildDrawerItem(Icons.group_outlined, 'Community', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => MessagesScreen(theme: _theme, isActive: true)));
+                          }),
+                          _buildDrawerItem(Icons.person_outline_rounded, 'My Profile', () {
+                            Navigator.pop(context);
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: _theme)));
+                          }),
+                        ]
+                      : [
+                          _buildDrawerItem(Icons.home_rounded, 'Home', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 0);
+                          }),
+                          _buildDrawerItem(Icons.school_rounded, 'Academic', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 1);
+                          }),
+                          _buildDrawerItem(Icons.chat_bubble_rounded, 'Messages', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 2);
+                          }),
+                          _buildDrawerItem(Icons.person_rounded, 'My Profile', () {
+                            Navigator.pop(context);
+                            setState(() => _idx = 3);
+                          }),
+                        ],
                 ),
               ),
             ),
