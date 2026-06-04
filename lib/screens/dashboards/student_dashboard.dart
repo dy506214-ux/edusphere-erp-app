@@ -77,7 +77,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'assignments',
+          table: 'Assignment',
           callback: (_) {
             if (mounted) _loadStudentData();
           },
@@ -85,13 +85,42 @@ class _StudentDashboardState extends State<StudentDashboard> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'submissions',
+          table: 'AssignmentSubmission',
+          callback: (_) {
+            if (mounted) _loadStudentData();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'AttendanceRecord',
+          callback: (_) {
+            if (mounted) _loadStudentData();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'StudentFeeLedger',
+          callback: (_) {
+            if (mounted) _loadStudentData();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'LibraryIssue',
           callback: (_) {
             if (mounted) _loadStudentData();
           },
         );
       
-      _dashboardChannel!.subscribe();
+      _dashboardChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Student Dashboard channel status: $status', name: 'StudentDashboard');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Student Dashboard subscription error: $error', name: 'StudentDashboard');
+        }
+      });
     } catch (e) {
       dev.log('Error connecting realtime in dashboard: $e');
     }
@@ -119,116 +148,215 @@ class _StudentDashboardState extends State<StudentDashboard> {
     try {
       final supabase = Supabase.instance.client;
       
-      // 1. Fetch details from student table
-      final studentRes = await supabase
-          .from('students')
+      // 1. Fetch user by email from User table
+      final userRes = await supabase
+          .from('User')
           .select()
           .eq('email', savedEmail)
           .maybeSingle();
 
-      if (studentRes != null) {
-        final studentId = studentRes['id'] as String;
-        final cName = studentRes['class_name'] as String? ?? 'Class 1';
-        final sec = studentRes['section'] as String? ?? 'Section A';
-        final rollVal = studentRes['roll_no']?.toString() ?? '24';
+      if (userRes != null) {
+        final userId = userRes['id'] as String;
+        final fName = userRes['firstName'] as String? ?? '';
+        final lName = userRes['lastName'] as String? ?? '';
         
         setState(() {
-          studentName = studentRes['name'] as String? ?? studentName;
-          className = cName;
-          sectionName = sec;
-          rollNo = rollVal;
-          fatherName = studentRes['guardian_name'] as String? ?? '—';
-          studentPhone = studentRes['phone'] as String? ?? '—';
-          familyPhone = studentRes['phone'] as String? ?? '—';
+          studentName = '$fName $lName'.trim();
+          studentEmail = savedEmail;
+          studentPhone = userRes['phone'] as String? ?? '—';
           
-          admissionNo = studentRes['admission_no'] as String? ?? 'ADM24${rollVal.padLeft(4, '0')}';
+          final rawDob = userRes['dateOfBirth'] ?? userRes['date_of_birth'];
+          if (rawDob != null) {
+            dob = rawDob.toString().split(' ')[0].split('T')[0];
+          } else {
+            dob = '—';
+          }
+          
+          gender = userRes['gender']?.toString() ?? '—';
+          address = userRes['address'] as String? ?? '—';
         });
 
-        // 2. Fetch User table for DOB, Gender, Address
-        final userRes = await supabase
-            .from('users')
-            .select()
-            .eq('id', studentId)
-            .maybeSingle();
+        // 2. Fetch student details from Student table
+        String studentId = userId; // Fallback
+        String classId = '';
+        String sectionId = '';
         
-        if (userRes != null && mounted) {
-          setState(() {
-            final rawDob = userRes['date_of_birth'] ?? userRes['dateOfBirth'];
-            if (rawDob != null) {
-              dob = rawDob.toString().split(' ')[0].split('T')[0];
-            } else {
-              dob = '15 May 2008';
+        try {
+          final studentRes = await supabase
+              .from('Student')
+              .select()
+              .eq('userId', userId)
+              .maybeSingle();
+
+          if (studentRes != null) {
+            studentId = studentRes['id'] as String;
+            final rollVal = studentRes['rollNumber']?.toString() ?? '—';
+            final admVal = studentRes['admissionNumber'] as String? ?? '—';
+            classId = studentRes['currentClassId'] as String? ?? '';
+            sectionId = studentRes['sectionId'] as String? ?? '';
+            
+            setState(() {
+              rollNo = rollVal;
+              admissionNo = admVal;
+            });
+            
+            // Fetch class name dynamically
+            if (classId.isNotEmpty) {
+              try {
+                final classRes = await supabase
+                    .from('Class')
+                    .select('name')
+                    .eq('id', classId)
+                    .maybeSingle();
+                if (classRes != null && mounted) {
+                  setState(() {
+                    className = classRes['name'] as String? ?? 'Class 1';
+                  });
+                }
+              } catch (e) {
+                dev.log('Error loading class name: $e');
+              }
             }
-            gender = userRes['gender']?.toString() ?? 'Female';
-            address = userRes['address']?.toString() ?? 'Sector 15, Dwarka, New Delhi';
-          });
-        }
+            
+            // Fetch section name dynamically
+            if (sectionId.isNotEmpty) {
+              try {
+                final sectionRes = await supabase
+                    .from('Section')
+                    .select('name')
+                    .eq('id', sectionId)
+                    .maybeSingle();
+                if (sectionRes != null && mounted) {
+                  setState(() {
+                    sectionName = sectionRes['name'] as String? ?? 'Section A';
+                  });
+                }
+              } catch (e) {
+                dev.log('Error loading section name: $e');
+              }
+            }
 
-        // 3. Fetch live attendance percentage
-        final List<dynamic> attendanceRes = await supabase
-            .from('attendance')
-            .select()
-            .eq('student_id', studentId);
-
-        if (attendanceRes.isNotEmpty) {
-          int present = 0;
-          for (var record in attendanceRes) {
-            final status = record['status'] as String? ?? '';
-            if (status == 'P' || status == 'Present' || status == 'L' || status == 'Late' || status == 'Leave') {
-              present++;
+            // Fetch Parent details dynamically via StudentParent
+            try {
+              final studentParentRes = await supabase
+                  .from('StudentParent')
+                  .select('parentId')
+                  .eq('studentId', studentId)
+                  .limit(1)
+                  .maybeSingle();
+              if (studentParentRes != null && studentParentRes['parentId'] != null) {
+                final parentId = studentParentRes['parentId'] as String;
+                final parentRes = await supabase
+                    .from('Parent')
+                    .select('firstName, lastName, phone')
+                    .eq('id', parentId)
+                    .maybeSingle();
+                if (parentRes != null && mounted) {
+                  final pFName = parentRes['firstName'] as String? ?? '';
+                  final pLName = parentRes['lastName'] as String? ?? '';
+                  setState(() {
+                    fatherName = '$pFName $pLName'.trim();
+                    familyPhone = parentRes['phone'] as String? ?? '—';
+                  });
+                }
+              }
+            } catch (e) {
+              dev.log('Error loading parent data: $e');
             }
           }
-          setState(() {
-            attendanceRate = (present / attendanceRes.length) * 100;
-          });
+        } catch (e) {
+          dev.log('Error loading student profile: $e');
         }
 
-        // 4. Fetch pending assignments
-        final List<dynamic> assignmentsRes = await supabase
-            .from('assignments')
-            .select()
-            .eq('class_name', cName)
-            .eq('section', sec);
+        // 3. Fetch live attendance percentage from AttendanceRecord
+        try {
+          final List<dynamic> attendanceRes = await supabase
+              .from('AttendanceRecord')
+              .select()
+              .eq('studentId', studentId);
 
-        final List<dynamic> submissionsRes = await supabase
-            .from('submissions')
-            .select()
-            .eq('student_id', studentId);
-
-        setState(() {
-          pendingCount = (assignmentsRes.length - submissionsRes.length).clamp(0, 99);
-        });
-
-        // 5. Fetch Pending Fee
-        final List<dynamic> ledgerRes = await supabase
-            .from('fee_ledgers')
-            .select()
-            .eq('student_id', studentId);
-        
-        double balance = 0;
-        if (ledgerRes.isNotEmpty) {
-          for (var entry in ledgerRes) {
-            final amount = (entry['total_payable'] ?? entry['totalPayable'] ?? entry['amount'] ?? 0) as num;
-            final paid = (entry['total_paid'] ?? entry['totalPaid'] ?? entry['paid_amount'] ?? 0) as num;
-            balance += (amount.toDouble() - paid.toDouble());
+          if (attendanceRes.isNotEmpty && mounted) {
+            int present = 0;
+            for (var record in attendanceRes) {
+              final status = record['status'] as String? ?? '';
+              if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'LEAVE') {
+                present++;
+              }
+            }
+            setState(() {
+              attendanceRate = (present / attendanceRes.length) * 100;
+            });
           }
+        } catch (e) {
+          dev.log('Error loading attendance percentage: $e');
         }
-        setState(() {
-          pendingFee = balance.toInt().clamp(0, 999999);
-        });
 
-        // 6. Fetch Books Due
+        // 4. Fetch pending assignments from Assignment & AssignmentSubmission
+        try {
+          if (classId.isNotEmpty) {
+            final List<dynamic> assignmentsRes = await supabase
+                .from('Assignment')
+                .select()
+                .eq('classId', classId);
+
+            // Filter by sectionId in memory
+            final classAssignments = assignmentsRes.where((a) {
+              final aSecId = a['sectionId'];
+              return aSecId == null || sectionId.isEmpty || aSecId == sectionId;
+            }).toList();
+
+            final List<dynamic> submissionsRes = await supabase
+                .from('AssignmentSubmission')
+                .select()
+                .eq('studentId', studentId);
+
+            if (mounted) {
+              setState(() {
+                pendingCount = (classAssignments.length - submissionsRes.length).clamp(0, 99);
+              });
+            }
+          }
+        } catch (e) {
+          dev.log('Error loading pending assignments count: $e');
+        }
+
+        // 5. Fetch Pending Fee from StudentFeeLedger
+        try {
+          final List<dynamic> ledgerRes = await supabase
+              .from('StudentFeeLedger')
+              .select()
+              .eq('studentId', studentId);
+          
+          double balance = 0;
+          if (ledgerRes.isNotEmpty) {
+            for (var entry in ledgerRes) {
+              final pendingVal = (entry['totalPending'] ?? entry['total_pending'] ?? 0) as num;
+              balance += pendingVal.toDouble();
+            }
+          }
+          if (mounted) {
+            setState(() {
+              pendingFee = balance.toInt().clamp(0, 999999);
+            });
+          }
+        } catch (e) {
+          dev.log('Error loading pending fees: $e');
+        }
+
+        // 6. Fetch Books Due from LibraryIssue
         try {
           final List<dynamic> booksRes = await supabase
-              .from('library_issues')
+              .from('LibraryIssue')
               .select()
-              .eq('student_id', studentId)
+              .eq('studentId', studentId)
               .eq('status', 'ISSUED');
-          setState(() {
-            booksDue = booksRes.length;
-          });
-        } catch (_) {
-          // If library table doesn't exist, keep mock books due as 0
+          if (mounted) {
+            setState(() {
+              booksDue = booksRes.length;
+            });
+          }
+        } catch (e) {
+          dev.log('Error loading books due count: $e');
         }
       }
     } catch (e) {
@@ -256,7 +384,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Banner Section
-                  _buildProfileBanner(),
+                  _buildProfileBanner(isDesktop),
                   SizedBox(height: 24.h),
                   
                   // Metrics Grid Row
@@ -292,7 +420,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   // ── PROFILE BANNER WIDGET ──────────────────────────────────────────────────
-  Widget _buildProfileBanner() {
+  Widget _buildProfileBanner(bool isDesktop) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -371,7 +499,103 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ],
           ),
+          
+          // Info Grid Separator and Columns
+          SizedBox(height: 24.h),
+          Container(
+            height: 1.h,
+            color: AppColors.border,
+          ),
+          SizedBox(height: 20.h),
+          if (isDesktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)])),
+                Expanded(child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)])),
+                Expanded(child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)])),
+                Expanded(child: _buildInfoColumn('ADDRESS', [_buildInfoText(address)])),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 24.w,
+              runSpacing: 20.h,
+              children: [
+                SizedBox(
+                  width: 140.w,
+                  child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)]),
+                ),
+                SizedBox(
+                  width: 140.w,
+                  child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)]),
+                ),
+                SizedBox(
+                  width: 200.w,
+                  child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)]),
+                ),
+                SizedBox(
+                  width: 200.w,
+                  child: _buildInfoColumn('ADDRESS', [_buildInfoText(address)]),
+                ),
+              ],
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInfoColumn(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: GoogleFonts.inter(
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textLight,
+            letterSpacing: 0.8,
+          ),
+        ),
+        SizedBox(height: 8.h),
+        ...children,
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4.h),
+      child: RichText(
+        text: TextSpan(
+          style: GoogleFonts.inter(
+            fontSize: 12.sp,
+            color: AppColors.textDark,
+          ),
+          children: [
+            TextSpan(
+              text: '$label: ',
+              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textMedium),
+            ),
+            TextSpan(
+              text: value,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoText(String value) {
+    return Text(
+      value,
+      style: GoogleFonts.inter(
+        fontSize: 12.sp,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textDark,
+        height: 1.3,
       ),
     );
   }

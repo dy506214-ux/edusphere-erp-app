@@ -1,31 +1,43 @@
-// ignore_for_file: depend_on_referenced_packages, avoid_print, unused_local_variable
 import 'package:supabase/supabase.dart';
 
 void main() async {
   const supabaseUrl = 'https://xernedkpgdrvjokokdoa.supabase.co';
-  const supabaseAnonKey = 'eyJhbGciOiJIUz5bIiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhlcm5lZGtwZ2Rydmpva29rZG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTgzMzcsImV4cCI6MjA5NDQzNDMzN30.v6QprYMrasUoNZJDk43rSBpG54zopoJG3fG1VoYkxqI'; // Wait, let's use the correct key from check_all_tables.dart
-  const validAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhlcm5lZGtwZ2Rydmpva29rZG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTgzMzcsImV4cCI6MjA5NDQzNDMzN30.v6QprYMrasUoNZJDk43rSBpG54zopoJG3fG1VoYkxqI';
+  const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhlcm5lZGtwZ2Rydmpva29rZG9hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg4NTgzMzcsImV4cCI6MjA5NDQzNDMzN30.v6QprYMrasUoNZJDk43rSBpG54zopoJG3fG1VoYkxqI';
 
-  final supabase = SupabaseClient(supabaseUrl, validAnonKey);
-
-  print('Simulating teacher attendance submission...');
-  final List<Map<String, dynamic>> records = [
-    {
-      'student_id': 'a1e3b5c7-1234-5678-abcd-ef1234567890',
-      'student_name': 'Alex Rivera',
-      'class_name': 'Grade 1',
-      'section': 'A',
-      'date': '2026-05-19',
-      'status': 'Present',
-    }
-  ];
+  print('Connecting to Supabase...');
+  final supabase = SupabaseClient(supabaseUrl, supabaseAnonKey);
 
   try {
-    final response = await supabase
-        .from('attendance')
-        .upsert(records, onConflict: 'student_id, date');
-    print('SUCCESS! Response: $response');
+    // Let's find a valid student and assignment to test with
+    final studentRes = await supabase.from('Student').select('id').limit(1).maybeSingle();
+    final assignmentRes = await supabase.from('Assignment').select('id').limit(1).maybeSingle();
+
+    if (studentRes == null || assignmentRes == null) {
+      print('Could not find a student or assignment to run the upsert test.');
+      return;
+    }
+
+    final studentId = studentRes['id'];
+    final assignmentId = assignmentRes['id'];
+
+    print('Testing upsert for assignmentId: $assignmentId, studentId: $studentId');
+    await supabase.from('AssignmentSubmission').upsert({
+      'assignmentId': assignmentId,
+      'studentId': studentId,
+      'filePath': 'test_submission.pdf',
+      'status': 'SUBMITTED',
+      'submittedAt': DateTime.now().toUtc().toIso8601String(),
+    }, onConflict: 'assignmentId,studentId');
+
+    print('Upsert was successful!');
+
+    // Let's clean up
+    await supabase.from('AssignmentSubmission')
+        .delete()
+        .eq('assignmentId', assignmentId)
+        .eq('studentId', studentId);
+    print('Clean up successful!');
   } catch (e) {
-    print('ERROR: $e');
+    print('Error testing upsert: $e');
   }
 }
