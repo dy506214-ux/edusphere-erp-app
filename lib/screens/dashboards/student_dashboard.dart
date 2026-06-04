@@ -6,20 +6,8 @@ import '../features/assignments_screen.dart';
 import '../features/schedule_screen.dart';
 import '../features/attendance_screen.dart';
 import '../features/results_screen.dart';
-import '../features/study_materials_screen.dart';
-import '../features/quiz_screen.dart';
 import '../features/fee_ledger_screen.dart';
-import '../features/announcements_screen.dart';
-import '../features/documents_screen.dart';
-import '../features/academic_calendar_screen.dart';
-import '../features/exam_schedule_screen.dart';
-import '../features/exam_terms_screen.dart';
-import '../features/exam_report_card_screen.dart';
-import '../features/library_screen.dart';
 import '../features/library_overdue_screen.dart';
-import '../features/settings_screen.dart';
-import '../profile_screen.dart';
-import '../messages_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
@@ -35,10 +23,30 @@ class StudentDashboard extends StatefulWidget {
 }
 
 class _StudentDashboardState extends State<StudentDashboard> {
-  String studentName = 'Alex Rivera';
-  String studentClassInfo = 'Grade 12-A • Roll #24';
-  int pendingCount = 4;
-  double attendanceRate = 100.0;
+  // Student Profile Data
+  String studentName = 'Priya Singh';
+  String studentEmail = 'student1@demoschool.com';
+  String studentPhone = '—';
+  String admissionNo = 'ADM240001';
+  String className = 'Class 1';
+  String sectionName = 'Section A';
+  String rollNo = '24';
+  
+  String dob = '—';
+  String gender = '—';
+  String fatherName = '—';
+  String familyPhone = '—';
+  String address = '—';
+
+  // Metrics Data
+  double attendanceRate = 95.0;
+  int pendingFee = 0;
+  int booksDue = 0;
+  int pendingCount = 0;
+
+  // Calendar State
+  DateTime _selectedMonth = DateTime(2026, 6, 1);
+  DateTime _selectedDay = DateTime(2026, 6, 4);
 
   RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
@@ -64,47 +72,34 @@ class _StudentDashboardState extends State<StudentDashboard> {
   void _connectRealTime() {
     try {
       final client = Supabase.instance.client;
-      
       if (_dashboardChannel != null) {
         client.removeChannel(_dashboardChannel!);
       }
       
-      dev.log('📡 Subscribing to Supabase Realtime changes for Student Dashboard...', name: 'StudentDashboard');
       _dashboardChannel = client.channel('public:student_dashboard_sync')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'assignments',
-          callback: (payload) {
-            dev.log('🔥 Real-time assignment event payload in dashboard: $payload', name: 'StudentDashboard');
-            if (mounted) {
-              _loadStudentData();
-            }
+          callback: (_) {
+            if (mounted) _loadStudentData();
           },
         )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'submissions',
-          callback: (payload) {
-            dev.log('🔥 Real-time submission event payload in dashboard: $payload', name: 'StudentDashboard');
-            if (mounted) {
-              _loadStudentData();
-            }
+          callback: (_) {
+            if (mounted) _loadStudentData();
           },
         );
       
-      _dashboardChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Student Dashboard channel status: $status', name: 'StudentDashboard');
-        if (error != null) {
-          dev.log('❌ Supabase Realtime Student Dashboard subscription error: $error', name: 'StudentDashboard');
-        }
-      });
+      _dashboardChannel!.subscribe();
     } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime Student Dashboard channel: $e', name: 'StudentDashboard');
+      dev.log('Error connecting realtime in dashboard: $e');
     }
     
-    // Polling fallback every 2 seconds for robust real-time updates
+    // Polling fallback
     _dashboardPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
         _loadStudentData();
@@ -117,19 +112,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
     if (!mounted) return;
     
     final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'alex.rivera@edusmart.edu';
-    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Alex Rivera';
+    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Priya Singh';
     
     setState(() {
       studentName = savedName;
-      final className = prefs.getString('student_class') ?? 'Grade 12';
-      final section = prefs.getString('student_section') ?? 'A';
-      final rollNo = prefs.getString('student_roll') ?? '24';
-      studentClassInfo = '$className-$section • Roll #$rollNo';
+      studentEmail = savedEmail;
     });
 
     try {
-      // 1. Fetch details from student table to get dynamic data
-      final studentRes = await Supabase.instance.client
+      final supabase = Supabase.instance.client;
+      
+      // 1. Fetch details from student table
+      final studentRes = await supabase
           .from('students')
           .select()
           .eq('email', savedEmail)
@@ -137,202 +131,242 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
       if (studentRes != null) {
         final studentId = studentRes['id'] as String;
-        final className = studentRes['class_name'] as String? ?? 'Grade 12';
-        final section = studentRes['section'] as String? ?? 'A';
-        final rollNo = studentRes['roll_no']?.toString() ?? '24';
+        final cName = studentRes['class_name'] as String? ?? 'Class 1';
+        final sec = studentRes['section'] as String? ?? 'Section A';
+        final rollVal = studentRes['roll_no']?.toString() ?? '24';
         
-        if (mounted) {
+        setState(() {
+          studentName = studentRes['name'] as String? ?? studentName;
+          className = cName;
+          sectionName = sec;
+          rollNo = rollVal;
+          fatherName = studentRes['guardian_name'] as String? ?? '—';
+          studentPhone = studentRes['phone'] as String? ?? '—';
+          familyPhone = studentRes['phone'] as String? ?? '—';
+          
+          admissionNo = studentRes['admission_no'] as String? ?? 'ADM24${rollVal.padLeft(4, '0')}';
+        });
+
+        // 2. Fetch User table for DOB, Gender, Address
+        final userRes = await supabase
+            .from('users')
+            .select()
+            .eq('id', studentId)
+            .maybeSingle();
+        
+        if (userRes != null && mounted) {
           setState(() {
-            studentName = studentRes['name'] as String? ?? studentName;
-            studentClassInfo = '$className-$section • Roll #$rollNo';
+            final rawDob = userRes['date_of_birth'] ?? userRes['dateOfBirth'];
+            if (rawDob != null) {
+              dob = rawDob.toString().split(' ')[0].split('T')[0];
+            } else {
+              dob = '15 May 2008';
+            }
+            gender = userRes['gender']?.toString() ?? 'Female';
+            address = userRes['address']?.toString() ?? 'Sector 15, Dwarka, New Delhi';
           });
         }
 
-        // 2. Fetch live attendance data to calculate overall percentage
-        final List<dynamic> attendanceRes = await Supabase.instance.client
+        // 3. Fetch live attendance percentage
+        final List<dynamic> attendanceRes = await supabase
             .from('attendance')
             .select()
             .eq('student_id', studentId);
 
-        double calculatedRate = 100.0;
         if (attendanceRes.isNotEmpty) {
           int present = 0;
           for (var record in attendanceRes) {
             final status = record['status'] as String? ?? '';
-            if (status == 'P' || status == 'Present' || status == 'L' || status == 'Late') {
+            if (status == 'P' || status == 'Present' || status == 'L' || status == 'Late' || status == 'Leave') {
               present++;
             }
           }
-          calculatedRate = (present / attendanceRes.length) * 100;
-        }
-        
-        if (mounted) {
           setState(() {
-            attendanceRate = calculatedRate;
+            attendanceRate = (present / attendanceRes.length) * 100;
           });
         }
 
-        // 3. Fetch live assignments & submissions to calculate exact pending tasks count
-        final List<dynamic> assignmentsRes = await Supabase.instance.client
+        // 4. Fetch pending assignments
+        final List<dynamic> assignmentsRes = await supabase
             .from('assignments')
             .select()
-            .eq('class_name', className)
-            .eq('section', section);
+            .eq('class_name', cName)
+            .eq('section', sec);
 
-        final List<dynamic> submissionsRes = await Supabase.instance.client
+        final List<dynamic> submissionsRes = await supabase
             .from('submissions')
             .select()
             .eq('student_id', studentId);
 
-        final pendingCountCalculated = assignmentsRes.length - submissionsRes.length;
-        if (mounted) {
+        setState(() {
+          pendingCount = (assignmentsRes.length - submissionsRes.length).clamp(0, 99);
+        });
+
+        // 5. Fetch Pending Fee
+        final List<dynamic> ledgerRes = await supabase
+            .from('fee_ledgers')
+            .select()
+            .eq('student_id', studentId);
+        
+        double balance = 0;
+        if (ledgerRes.isNotEmpty) {
+          for (var entry in ledgerRes) {
+            final amount = (entry['total_payable'] ?? entry['totalPayable'] ?? entry['amount'] ?? 0) as num;
+            final paid = (entry['total_paid'] ?? entry['totalPaid'] ?? entry['paid_amount'] ?? 0) as num;
+            balance += (amount.toDouble() - paid.toDouble());
+          }
+        }
+        setState(() {
+          pendingFee = balance.toInt().clamp(0, 999999);
+        });
+
+        // 6. Fetch Books Due
+        try {
+          final List<dynamic> booksRes = await supabase
+              .from('library_issues')
+              .select()
+              .eq('student_id', studentId)
+              .eq('status', 'ISSUED');
           setState(() {
-            pendingCount = pendingCountCalculated < 0 ? 0 : pendingCountCalculated;
+            booksDue = booksRes.length;
           });
+        } catch (_) {
+          // If library table doesn't exist, keep mock books due as 0
         }
       }
     } catch (e) {
-      // Fallback defaults preserved on exception
+      dev.log('Error loading student dashboard details: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 900;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: RefreshIndicator(
         onRefresh: _loadStudentData,
         color: AppColors.studentPrimary,
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(context)),
-            SliverPadding(
-              padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
-              sliver: SliverToBoxAdapter(
-                child: Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 1200),
-                    child: Column(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.all(24.r),
+          child: Center(
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 1200),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Profile Banner Section
+                  _buildProfileBanner(),
+                  SizedBox(height: 24.h),
+                  
+                  // Metrics Grid Row
+                  _buildMetricsRow(isDesktop),
+                  SizedBox(height: 24.h),
+                  
+                  // Bottom grid/stack
+                  if (isDesktop)
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildStats(context),
+                        Expanded(flex: 7, child: _buildSchoolCalendar()),
+                        SizedBox(width: 24.w),
+                        Expanded(flex: 4, child: _buildUpcomingEvents()),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        _buildSchoolCalendar(),
                         SizedBox(height: 24.h),
-                        const SectionTitle(title: 'Quick Actions'),
-                        SizedBox(height: 12.h),
-                        _buildQuickActions(context),
-                        SizedBox(height: 24.h),
-                        
-                        // ── ACADEMIC MODULE ──────────────────────────────────────────
-                        const SectionTitle(title: '📚 Academic'),
-                        SizedBox(height: 12.h),
-                        _buildSection(context, [
-                          _mod('My Schedule',           'Today: 5 classes',        '📅', const Color(0xFF3B82F6), ScheduleScreen(theme: widget.theme, role: 'student')),
-                          _mod('Study Materials',       '24 new PDFs available',   '📚', const Color(0xFF6366F1), const StudyMaterialsScreen()),
-                          _mod('Assignments',           '$pendingCount pending task${pendingCount == 1 ? "" : "s"}', '📝', const Color(0xFFF97316), const AssignmentsScreen()),
-                          _mod('Quiz & Assessments',    'Physics quiz: Live now!', '🧠', const Color(0xFFEC4899), const QuizScreen()),
-                          _mod('Exam Schedule',         'Finals: June 10-20',      '📋', const Color(0xFFF59E0B), const ExamScheduleScreen()),
-                          _mod('Results & Grade Card',  'Latest: Physics 88/100',  '🏆', const Color(0xFF8B5CF6), const ResultsScreen()),
-                          _mod('Exam Terms',            'Term-wise report cards',  '🗓️', const Color(0xFF8B5CF6), ExamTermsScreen(theme: widget.theme)),
-                          _mod('Official Report Card',  'Download official PDF',   '🎓', const Color(0xFFEC4899), ExamReportCardScreen(theme: widget.theme)),
-                          _mod('Attendance & Leave',    '${attendanceRate.toStringAsFixed(0)}% this month',          '✅', const Color(0xFF10B981), const AttendanceScreen()),
-                          _mod('Academic Calendar',     'Upcoming events & dates', '🗓️', const Color(0xFF0EA5E9), const AcademicCalendarScreen()),
-                        ]),
-                        SizedBox(height: 20.h),
-
-                        // ── COMMUNICATION MODULE ─────────────────────────────────────
-                        const SectionTitle(title: '💬 Communication'),
-                        SizedBox(height: 12.h),
-                        _buildSection(context, [
-                          _mod('Announcements',         '3 new announcements',     '📢', const Color(0xFFD97706), AnnouncementsScreen(theme: widget.theme)),
-                          _mod('Message Teachers',      '2 unread messages',       '💬', const Color(0xFF8B5CF6), MessagesScreen(theme: widget.theme)),
-                        ]),
-                        SizedBox(height: 20.h),
-
-                        // ── PROFILE & ACCOUNT ────────────────────────────────────────
-                        const SectionTitle(title: '👤 Profile & Account'),
-                        SizedBox(height: 12.h),
-                        _buildSection(context, [
-                          _mod('View / Update Profile', 'Manage personal details', '👤', const Color(0xFF3B82F6), ProfileScreen(role: 'student', theme: widget.theme)),
-                          _mod('Settings & Security',   'Notifications, password', '⚙️', const Color(0xFF64748B), SettingsScreen(role: 'student', theme: widget.theme)),
-                        ]),
-                        SizedBox(height: 20.h),
-
-                        // ── OTHER FEATURES ───────────────────────────────────────────
-                        const SectionTitle(title: '⚡ Other Features'),
-                        SizedBox(height: 12.h),
-                        _buildSection(context, [
-                          _mod('Library',               'Explore books & journals', '📖', const Color(0xFF6366F1), LibraryScreen(theme: widget.theme)),
-                          _mod('Library Overdue',       'View overdue & fines',     '⚠️', const Color(0xFFEF4444), LibraryOverdueScreen(theme: widget.theme)),
-                          _mod('Download Documents',    'Admit card, certificates', '📁', const Color(0xFF64748B), const DocumentsScreen()),
-                          _mod('Fee Details',           'View breakdown & pay online', '🧾', const Color(0xFF7C3AED), FeeLedgerScreen(theme: widget.theme)),
-                        ]),
-                        SizedBox(height: 20.h),
+                        _buildUpcomingEvents(),
                       ],
                     ),
-                  ),
-                ),
+                  SizedBox(height: 40.h),
+                ],
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Map<String, dynamic> _mod(String title, String desc, String emoji, Color color, Widget screen) =>
-      {'title': title, 'desc': desc, 'emoji': emoji, 'color': color, 'screen': screen};
-
-  Widget _buildSection(BuildContext context, List<Map<String, dynamic>> modules) {
-    return Column(
-      children: modules.map((m) => FeatureCard(
-        title: m['title'] as String,
-        desc: m['desc'] as String,
-        emoji: m['emoji'] as String,
-        color: m['color'] as Color,
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => m['screen'] as Widget)).then((_) => _loadStudentData()),
-      )).toList(),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
+  // ── PROFILE BANNER WIDGET ──────────────────────────────────────────────────
+  Widget _buildProfileBanner() {
     return Container(
-      decoration: BoxDecoration(gradient: widget.theme.gradient),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 28.h),
-          child: Row(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16.r,
+            offset: Offset(0, 4.h),
+          )
+        ],
+      ),
+      padding: EdgeInsets.all(24.r),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Banner Top Profile details
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Container(
+                width: 60.w,
+                height: 60.w,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
+                ),
+                child: Icon(Icons.school_rounded, color: const Color(0xFF0284C7), size: 28.sp),
+              ),
+              SizedBox(width: 16.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Good Morning 👋', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.7), letterSpacing: 0.5)),
+                    Row(
+                      children: [
+                        Text(
+                          studentName,
+                          style: GoogleFonts.inter(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Text(
+                            'ACTIVE',
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF15803D),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     SizedBox(height: 4.h),
-                    Text(studentName, style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: Colors.white)),
-                    SizedBox(height: 6.h),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8.r)),
-                      child: Text(studentClassInfo, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'student', theme: widget.theme))),
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 52.w, height: 52.h,
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(16.r), border: Border.all(color: Colors.white.withValues(alpha: 0.4), width: 2.w)),
-                      child: Icon(Icons.person_rounded, color: Colors.white, size: 28.sp),
-                    ),
-                    Positioned(top: -2, right: -2,
-                      child: Container(
-                        width: 18.w, height: 18.h,
-                        decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2.w)),
-                        child: Center(child: Text('3', style: GoogleFonts.inter(fontSize: 8.sp, fontWeight: FontWeight.w900, color: Colors.white))),
+                    Text(
+                      'ADM: $admissionNo  •  $className - $sectionName',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textLight,
                       ),
                     ),
                   ],
@@ -340,46 +374,385 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  // ── METRICS GRID ROW WIDGET ────────────────────────────────────────────────
+  Widget _buildMetricsRow(bool isDesktop) {
+    return GridView.count(
+      crossAxisCount: isDesktop ? 4 : 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 16.w,
+      mainAxisSpacing: 16.h,
+      childAspectRatio: isDesktop ? 1.7 : 1.35,
+      children: [
+        // Card 1: Attendance
+        _metricCard(
+          title: 'ATTENDANCE',
+          value: '${attendanceRate.toStringAsFixed(0)}%',
+          leftBorderColor: const Color(0xFF3B82F6),
+          child: Padding(
+            padding: EdgeInsets.only(top: 8.h),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4.r),
+              child: LinearProgressIndicator(
+                value: attendanceRate / 100.0,
+                backgroundColor: const Color(0xFFEFF6FF),
+                color: const Color(0xFF3B82F6),
+                minHeight: 6.h,
+              ),
+            ),
+          ),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
+        ),
+        // Card 2: Pending Fee
+        _metricCard(
+          title: 'PENDING FEE',
+          value: '₹$pendingFee',
+          leftBorderColor: const Color(0xFFEF4444),
+          child: Padding(
+            padding: EdgeInsets.only(top: 4.h),
+            child: Text(
+              pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
+              style: GoogleFonts.inter(
+                fontSize: 11.sp,
+                color: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                fontWeight: FontWeight.w700,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
+        ),
+        // Card 3: Books Due
+        _metricCard(
+          title: 'BOOKS DUE',
+          value: booksDue.toString(),
+          leftBorderColor: const Color(0xFF6366F1),
+          child: Padding(
+            padding: EdgeInsets.only(top: 4.h),
+            child: Text(
+              booksDue > 0 ? 'Return overdue books' : 'No overdue books',
+              style: GoogleFonts.inter(
+                fontSize: 11.sp,
+                color: AppColors.textLight,
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
+        ),
+        // Card 4: Results
+        _metricCard(
+          title: 'RESULTS',
+          value: 'View Report',
+          leftBorderColor: const Color(0xFF8B5CF6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Academic performance',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.sp,
+                    color: AppColors.textLight,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+              SizedBox(width: 4.w),
+              Icon(Icons.arrow_forward_rounded, color: const Color(0xFF8B5CF6), size: 16.sp),
+            ],
+          ),
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+        ),
+      ],
+    );
+  }
+
+  Widget _metricCard({
+    required String title,
+    required String value,
+    required Color leftBorderColor,
+    required Widget child,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10.r, offset: Offset(0, 4.h)),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20.r),
+          child: Container(
+            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 6.w))),
+            padding: EdgeInsets.all(18.r),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.8),
+                ),
+                SizedBox(height: 6.h),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    value,
+                    style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                  ),
+                ),
+                child,
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStats(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 900;
-    return GridView.count(
-      crossAxisCount: isDesktop ? 4 : 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: isDesktop ? 1.4 : 1.15,
-      children: [
-        InfoCard(title: 'Attendance', value: '${attendanceRate.toStringAsFixed(0)}%', icon: Icons.check_circle_rounded, iconColor: const Color(0xFF10B981), bgColor: const Color(0xFFECFDF5), trend: 'Calculated live'),
-        InfoCard(title: 'Pending Tasks', value: pendingCount.toString().padLeft(2, '0'), icon: Icons.access_time_rounded, iconColor: const Color(0xFFF59E0B), bgColor: const Color(0xFFFFFBEB), trend: 'Assignments pending'),
-        const InfoCard(title: 'Fee Status', value: 'Paid', icon: Icons.credit_card_rounded, iconColor: AppColors.studentPrimary, bgColor: AppColors.studentLight, trend: 'Up to date'),
-        const InfoCard(title: 'Avg. Grade', value: 'A+', icon: Icons.star_rounded, iconColor: Color(0xFF8B5CF6), bgColor: Color(0xFFF5F3FF), trend: 'Top 5%'),
-      ],
+  // ── SCHOOL CALENDAR CARD WIDGET ────────────────────────────────────────────
+  Widget _buildSchoolCalendar() {
+    final daysInMonth = DateUtils.getDaysInMonth(_selectedMonth.year, _selectedMonth.month);
+    final firstDayOffset = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday % 7;
+    final totalCells = daysInMonth + firstDayOffset;
+    final monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][_selectedMonth.month - 1];
+
+    return Container(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '📅 School Calendar',
+                      style: GoogleFonts.inter(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textDark,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Academic schedule & events',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        color: AppColors.textLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.chevron_left_rounded, size: 22.sp, color: AppColors.textMedium),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+                      });
+                    },
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    '$monthName ${_selectedMonth.year}',
+                    style: GoogleFonts.inter(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textDark,
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  IconButton(
+                    icon: Icon(Icons.chevron_right_rounded, size: 22.sp, color: AppColors.textMedium),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: 20.h),
+          
+          // Days Header (Sun - Sat)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) {
+              return Expanded(
+                child: Center(
+                  child: Text(
+                    d,
+                    style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textLight),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          SizedBox(height: 12.h),
+          
+          // Calendar Grid
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 8, crossAxisSpacing: 8),
+            itemCount: totalCells,
+            itemBuilder: (context, index) {
+              if (index < firstDayOffset) return const SizedBox.shrink();
+              final dayVal = index - firstDayOffset + 1;
+              final cellDate = DateTime(_selectedMonth.year, _selectedMonth.month, dayVal);
+              final isSelected = cellDate.year == _selectedDay.year && cellDate.month == _selectedDay.month && cellDate.day == _selectedDay.day;
+              
+              // Hardcoded event for visual match with "Thursday 4th June 2026"
+              final isJune4_2026 = cellDate.year == 2026 && cellDate.month == 6 && cellDate.day == 4;
+
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedDay = cellDate;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  decoration: BoxDecoration(
+                    color: isJune4_2026 || isSelected ? widget.theme.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12.r),
+                    border: isSelected && !isJune4_2026 ? Border.all(color: widget.theme.primary, width: 2.w) : null,
+                  ),
+                  child: Center(
+                    child: Text(
+                      dayVal.toString(),
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: isJune4_2026 || isSelected ? FontWeight.w900 : FontWeight.w700,
+                        color: isJune4_2026 || isSelected ? Colors.white : AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width > 900;
-    final actions = [
-      {'label': 'My Schedule',  'icon': Icons.calendar_today_rounded,  'color': const Color(0xFF3B82F6), 'screen': ScheduleScreen(theme: widget.theme, role: 'student')},
-      {'label': 'Library',      'icon': Icons.menu_book_rounded,        'color': const Color(0xFF6366F1), 'screen': LibraryScreen(theme: widget.theme)},
-      {'label': 'Fee Details',  'icon': Icons.credit_card_rounded,      'color': const Color(0xFF059669), 'screen': FeeLedgerScreen(theme: widget.theme)},
-      {'label': 'Announcements','icon': Icons.campaign_rounded,         'color': const Color(0xFFF97316), 'screen': AnnouncementsScreen(theme: widget.theme)},
-      {'label': 'Report Card',  'icon': Icons.analytics_rounded,        'color': const Color(0xFFEC4899), 'screen': ExamReportCardScreen(theme: widget.theme)},
-      {'label': 'Exam Terms',   'icon': Icons.assessment_rounded,       'color': const Color(0xFF8B5CF6), 'screen': ExamTermsScreen(theme: widget.theme)},
-      {'label': 'Assignments',  'icon': Icons.description_rounded,      'color': const Color(0xFFF97316), 'screen': const AssignmentsScreen()},
-      {'label': 'Settings',     'icon': Icons.settings_rounded,         'color': const Color(0xFF64748B), 'screen': SettingsScreen(role: 'student', theme: widget.theme)},
-    ];
-    return GridView.count(
-      crossAxisCount: isDesktop ? 8 : 4, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: isDesktop ? 1.4 : 0.95,
-      children: actions.map((a) => QuickBtn(
-        label: a['label'] as String,
-        icon: a['icon'] as IconData,
-        color: a['color'] as Color,
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => a['screen'] as Widget)).then((_) => _loadStudentData()),
-      )).toList(),
+  // ── UPCOMING EVENTS WIDGET ─────────────────────────────────────────────────
+  Widget _buildUpcomingEvents() {
+    return Container(
+      padding: EdgeInsets.all(24.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A), // Dark themed slate card
+        borderRadius: BorderRadius.circular(24.r),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16.r, offset: Offset(0, 8.h)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.event_note_rounded, color: widget.theme.primary, size: 20.sp),
+              SizedBox(width: 8.w),
+              Text(
+                'Upcoming Events',
+                style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: Colors.white),
+              ),
+            ],
+          ),
+          SizedBox(height: 2.h),
+          Text(
+            'School activities & schedule',
+            style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w600),
+          ),
+          SizedBox(height: 40.h),
+          
+          // Chatbot speech bubble "HI PRIYA! HOW CAN I HELP?" representation
+          Center(
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.r),
+                  topRight: Radius.circular(20.r),
+                  bottomRight: Radius.circular(20.r),
+                ),
+              ),
+              child: Text(
+                'HI ${studentName.toUpperCase()}!\nHOW CAN I HELP?',
+                style: GoogleFonts.outfit(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 0.8,
+                  height: 1.4,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+          SizedBox(height: 30.h),
+          
+          // Small prompt hint decoration
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(14.r),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.lightbulb_outline_rounded, color: widget.theme.primary, size: 16.sp),
+                SizedBox(width: 8.w),
+                Expanded(
+                  child: Text(
+                    'Try asking me about assignments, fees, or exam schedules!',
+                    style: GoogleFonts.inter(fontSize: 10.5.sp, color: Colors.white.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

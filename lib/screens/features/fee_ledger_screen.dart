@@ -33,22 +33,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
   String _studentName = 'Alex Rivera';
   String _studentId = '';
 
-  // Mock fee heads
-  final List<Map<String, dynamic>> _mockFeeHeads = [
-    {'name': 'Tuition Fee', 'amount': 45000.0, 'paid': 45000.0, 'status': 'PAID'},
-    {'name': 'Laboratory Fee', 'amount': 8000.0, 'paid': 8000.0, 'status': 'PAID'},
-    {'name': 'Library & Digital Access', 'amount': 3500.0, 'paid': 2000.0, 'status': 'PARTIAL'},
-    {'name': 'Sports & Activities', 'amount': 5000.0, 'paid': 0.0, 'status': 'UNPAID'},
-    {'name': 'Technology Fee', 'amount': 4000.0, 'paid': 4000.0, 'status': 'PAID'},
-    {'name': 'Annual Development Fund', 'amount': 6500.0, 'paid': 0.0, 'status': 'UNPAID'},
-  ];
 
-  // Mock payment history
-  final List<Map<String, dynamic>> _mockPaymentHistory = [
-    {'date': '2026-05-15', 'amount': 25000.0, 'method': 'UPI', 'receipt': 'RCT-78451290', 'status': 'SUCCESS'},
-    {'date': '2026-04-10', 'amount': 20000.0, 'method': 'Net Banking', 'receipt': 'RCT-65320148', 'status': 'SUCCESS'},
-    {'date': '2026-03-05', 'amount': 14000.0, 'method': 'Card', 'receipt': 'RCT-42198756', 'status': 'SUCCESS'},
-  ];
 
   @override
   void initState() {
@@ -108,7 +93,9 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
           _totalFee = totalFee;
           _totalPaid = totalPaid;
         } else {
-          _loadMockFeeHeads();
+          _feeHeads = [];
+          _totalFee = 0;
+          _totalPaid = 0;
         }
 
         // 2. Fetch payment history
@@ -131,19 +118,23 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
             };
           }).toList();
         } else {
-          _paymentHistory = _mockPaymentHistory;
+          _paymentHistory = [];
         }
 
         setState(() {});
         return;
       }
 
-      // No student ID available → load mock
-      _loadMockFeeHeads();
-      _paymentHistory = _mockPaymentHistory;
+      // No student ID available → set empty
+      _feeHeads = [];
+      _totalFee = 0;
+      _totalPaid = 0;
+      _paymentHistory = [];
     } catch (e) {
-      _loadMockFeeHeads();
-      _paymentHistory = _mockPaymentHistory;
+      _feeHeads = [];
+      _totalFee = 0;
+      _totalPaid = 0;
+      _paymentHistory = [];
       debugPrint('Error loading fee ledger: $e');
     } finally {
       if (mounted) {
@@ -154,15 +145,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     }
   }
 
-  void _loadMockFeeHeads() {
-    _feeHeads = _mockFeeHeads;
-    _totalFee = 0;
-    _totalPaid = 0;
-    for (var h in _feeHeads) {
-      _totalFee += h['amount'] as double;
-      _totalPaid += h['paid'] as double;
-    }
-  }
+
 
   String _formatDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty) return 'N/A';
@@ -194,6 +177,51 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     return '₹${parts.join('')}';
   }
 
+  Widget _buildEmptyStateCard() {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.symmetric(vertical: 24.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 48.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '₹',
+            style: GoogleFonts.inter(
+              fontSize: 64.sp,
+              fontWeight: FontWeight.w200,
+              color: Colors.grey.shade400,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No fee records found',
+            style: GoogleFonts.inter(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textDark,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            "Fee structures haven't been assigned to your account yet.",
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13.sp,
+              color: AppColors.textLight,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -201,8 +229,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
       body: Column(
         children: [
           PageHeader(
-            title: 'Fee Ledger',
-            subtitle: 'Academic Year 2025-26',
+            title: 'My Fees',
+            subtitle: 'View your fee status and payment history',
             theme: widget.theme,
           ),
 
@@ -218,79 +246,83 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // ── TOP SUMMARY CARD ──
-                          _buildSummaryCard(),
-                          SizedBox(height: 20.h),
+                          if (_feeHeads.isEmpty) ...[
+                            _buildEmptyStateCard(),
+                          ] else ...[
+                            // ── TOP SUMMARY CARD ──
+                            _buildSummaryCard(),
+                            SizedBox(height: 20.h),
 
-                          // ── FEE HEADS ──
-                          const SectionTitle(title: '📋 Fee Breakdown'),
-                          SizedBox(height: 12.h),
-                          _buildFeeHeadsList(),
-                          SizedBox(height: 24.h),
+                            // ── FEE HEADS ──
+                            const SectionTitle(title: '📋 Fee Structure'),
+                            SizedBox(height: 12.h),
+                            _buildFeeHeadsList(),
+                            SizedBox(height: 24.h),
 
-                          // ── PAYMENT HISTORY ──
-                          const SectionTitle(title: '💳 Payment History'),
-                          SizedBox(height: 12.h),
-                          _buildPaymentHistoryList(),
-                          SizedBox(height: 24.h),
+                            // ── PAYMENT HISTORY ──
+                            const SectionTitle(title: '💳 Payment History'),
+                            SizedBox(height: 12.h),
+                            _buildPaymentHistoryList(),
+                            SizedBox(height: 24.h),
 
-                          // ── PAY NOW BUTTON ──
-                          if (_balance > 0) ...[
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: widget.theme.primary,
-                                  padding: EdgeInsets.symmetric(vertical: 18.h),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
-                                  elevation: 4,
-                                  shadowColor: widget.theme.primary.withValues(alpha: 0.4),
-                                ),
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => FeePaymentScreen(
-                                        theme: widget.theme,
-                                        outstandingAmount: _balance,
+                            // ── PAY NOW BUTTON ──
+                            if (_balance > 0) ...[
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: widget.theme.primary,
+                                    padding: EdgeInsets.symmetric(vertical: 18.h),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+                                    elevation: 4,
+                                    shadowColor: widget.theme.primary.withValues(alpha: 0.4),
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => FeePaymentScreen(
+                                          theme: widget.theme,
+                                          outstandingAmount: _balance,
+                                        ),
                                       ),
-                                    ),
-                                  ).then((_) => _loadLedgerData());
-                                },
+                                    ).then((_) => _loadLedgerData());
+                                  },
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.payment_rounded, color: Colors.white, size: 22.sp),
+                                      SizedBox(width: 10.w),
+                                      Text(
+                                        'Pay Now • ${_formatCurrency(_balance)}',
+                                        style: GoogleFonts.inter(fontSize: 17.sp, fontWeight: FontWeight.w900, color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ] else ...[
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(18.r),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(18.r),
+                                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                                ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.payment_rounded, color: Colors.white, size: 22.sp),
+                                    Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 22.sp),
                                     SizedBox(width: 10.w),
                                     Text(
-                                      'Pay Now • ${_formatCurrency(_balance)}',
-                                      style: GoogleFonts.inter(fontSize: 17.sp, fontWeight: FontWeight.w900, color: Colors.white),
+                                      'All Fees Cleared! No Balance Due',
+                                      style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                          ] else ...[
-                            Container(
-                              width: double.infinity,
-                              padding: EdgeInsets.all(18.r),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFECFDF5),
-                                borderRadius: BorderRadius.circular(18.r),
-                                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 22.sp),
-                                  SizedBox(width: 10.w),
-                                  Text(
-                                    'All Fees Cleared! No Balance Due',
-                                    style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
-                                  ),
-                                ],
-                              ),
-                            ),
+                            ],
                           ],
 
                           SizedBox(height: 40.h),
