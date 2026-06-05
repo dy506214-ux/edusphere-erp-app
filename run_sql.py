@@ -3,7 +3,7 @@ import sys
 
 def main():
     # Connecting using Supabase Seoul connection pooler
-    db_uri = "postgresql://postgres.xernedkpgdrvjokokdoa:akshitsha84@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres"
+    db_uri = "postgresql://postgres.bstevdkjqjzaglayicdg:akshitsha84@aws-1-ap-south-1.pooler.supabase.com:6543/postgres"
     print("Connecting to Supabase Seoul connection pooler...")
     try:
         conn = psycopg2.connect(db_uri)

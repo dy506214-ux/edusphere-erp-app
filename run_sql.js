@@ -2,7 +2,7 @@ const { Client } = require('pg');
 const fs = require('fs');
 
 async function main() {
-  const dbUri = "postgresql://postgres.xernedkpgdrvjokokdoa:akshitsha84@aws-1-ap-northeast-2.pooler.supabase.com:5432/postgres";
+  const dbUri = "postgresql://postgres.bstevdkjqjzaglayicdg:akshitsha84@aws-1-ap-south-1.pooler.supabase.com:5432/postgres";
   console.log("Connecting to Supabase PostgreSQL over Node.js...");
   const client = new Client({
     connectionString: dbUri,

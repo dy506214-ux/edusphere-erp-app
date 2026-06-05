@@ -14,6 +14,15 @@ async function clearDB() {
             }
         }
     }
+    
+    try {
+        console.log('Clearing auth.users...');
+        await prisma.$executeRawUnsafe('DELETE FROM auth.users CASCADE;');
+        console.log('Cleared auth.users');
+    } catch (error) {
+        console.log('Error clearing auth.users:', error.message);
+    }
+
     console.log('Database cleared!');
 }
 clearDB().catch(console.error).finally(() => prisma.$disconnect());

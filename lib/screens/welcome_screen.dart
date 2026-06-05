@@ -50,41 +50,61 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         try {
           if (role == 'teacher') {
             final data = await Supabase.instance.client
-                .from('teachers')
-                .select()
-                .eq('email', email)
+                .from('Teacher')
+                .select('id, employeeId, joiningDate, qualification, specialization, User(firstName, lastName, email, phone)')
+                .eq('userId', user.id)
                 .single();
 
-            await prefs.setString('teacher_name', data['name'] as String? ?? 'Emma Johnson');
+            final userMap = data['User'] as Map? ?? {};
+            final fullName = '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'.trim();
+            final emailVal = userMap['email'] ?? email;
+            final phoneVal = userMap['phone'] ?? '';
+            final qualVal = data['qualification'] ?? '';
+            final specVal = data['specialization'] ?? '';
+            final joinVal = data['joiningDate'] ?? '';
+            final empIdVal = data['employeeId'] ?? '';
+
+            await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
             await prefs.setString('teacher_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
-            await prefs.setString('teacher_design', data['designation'] as String? ?? 'Senior Teacher');
-            await prefs.setString('teacher_dept', data['department'] as String? ?? 'Academics');
-            await prefs.setString('teacher_email', data['email'] as String? ?? email);
-            await prefs.setString('teacher_mobile', data['phone'] as String? ?? '');
-            await prefs.setString('teacher_joining', data['joining_date'] as String? ?? '');
-            await prefs.setString('teacher_emp_id', 'TCH${(data['id'] as String).substring(0, 4).toUpperCase()}');
+            await prefs.setString('teacher_design', specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
+            await prefs.setString('teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
+            await prefs.setString('teacher_email', emailVal);
+            await prefs.setString('teacher_mobile', phoneVal);
+            await prefs.setString('teacher_joining', joinVal.toString().split(' ')[0].split('T')[0]);
+            await prefs.setString('teacher_emp_id', empIdVal);
             
-            await prefs.setString('${role}_name', data['name'] as String? ?? 'Emma Johnson');
-            await prefs.setString('${role}_email', data['email'] as String? ?? email);
+            await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
+            await prefs.setString('${role}_email', emailVal);
           } else if (role == 'student') {
             final data = await Supabase.instance.client
-                .from('students')
-                .select()
-                .eq('email', email)
+                .from('Student')
+                .select('id, admissionNumber, currentClassId, sectionId, rollNumber, User(firstName, lastName, email, phone, dateOfBirth, gender, address), Class(name), Section(name)')
+                .eq('userId', user.id)
                 .single();
 
+            final userMap = data['User'] as Map? ?? {};
+            final classMap = data['Class'] as Map? ?? {};
+            final sectionMap = data['Section'] as Map? ?? {};
+            final fullName = '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'.trim();
+            final emailVal = userMap['email'] ?? email;
+            final phoneVal = userMap['phone'] ?? '';
+            final classVal = classMap['name'] ?? 'Class 1';
+            final sectionVal = sectionMap['name'] ?? 'A';
+            final rollVal = data['rollNumber'] ?? '24';
+            final admVal = data['admissionNumber'] ?? '';
+
             await prefs.setString('student_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
-            await prefs.setString('student_name', data['name'] as String? ?? 'Alex Rivera');
-            await prefs.setString('student_email', data['email'] as String? ?? email);
-            await prefs.setString('student_class', data['class_name'] as String? ?? 'Grade 12');
-            await prefs.setString('student_section', data['section'] as String? ?? 'A');
-            await prefs.setString('student_roll', (data['roll_no'] ?? 24).toString());
-            await prefs.setString('student_guardian', data['guardian_name'] as String? ?? '');
-            await prefs.setString('student_phone', data['phone'] as String? ?? '');
-            await prefs.setString('student_admission', data['admission_date'] as String? ?? '');
+            await prefs.setString('student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+            await prefs.setString('student_email', emailVal);
+            await prefs.setString('student_class', classVal);
+            await prefs.setString('student_section', sectionVal);
+            await prefs.setString('student_roll', rollVal.toString());
+            await prefs.setString('student_guardian', '—');
+            await prefs.setString('student_phone', phoneVal);
+            await prefs.setString('student_admission', data['joiningDate']?.toString().split(' ')[0].split('T')[0] ?? '');
             
-            await prefs.setString('${role}_name', data['name'] as String? ?? 'Alex Rivera');
-            await prefs.setString('${role}_email', data['email'] as String? ?? email);
+            await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+            await prefs.setString('${role}_email', emailVal);
           }
         } catch (e) {
           final name = user.userMetadata?['name'] as String? ?? 'EduSphere User';
