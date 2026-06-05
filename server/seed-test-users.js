@@ -48,7 +48,7 @@ const testUsers = [
   {
     email: 'eduspheretransportmanager@gmail.com',
     password: 'transportmanager123',
-    role: 'TRANSPORT_MANAGER',
+    role: 'STAFF',
     firstName: 'Test',
     lastName: 'Transport Manager',
     phone: '1234567895'
@@ -86,8 +86,7 @@ async function seedTestUsers() {
             role: userData.role,
             firstName: userData.firstName,
             lastName: userData.lastName,
-            phone: userData.phone,
-            status: 'ACTIVE'
+            phone: userData.phone
           }
         });
 

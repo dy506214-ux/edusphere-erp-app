@@ -10,6 +10,15 @@ import '../theme/colors.dart';
 import 'features/exam_schedule_screen.dart';
 import 'features/exam_terms_screen.dart';
 import 'features/exam_report_card_screen.dart';
+import 'features/exam_marks_entry_screen.dart';
+import 'features/teacher_more_screen.dart';
+import 'main_screen.dart';
+import 'welcome_screen.dart';
+import 'profile_screen.dart';
+import 'community_screen.dart';
+import 'features/create_assignment_screen.dart';
+import 'features/schedule_screen.dart';
+import 'features/announcements_screen.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Academic Screen — supports student Academic Overview & teacher Academic Management
@@ -35,6 +44,15 @@ class AcademicScreen extends StatefulWidget {
 class _AcademicScreenState extends State<AcademicScreen> {
   // ── Teacher/Management State ──
   int _activeTab = 0; // 0 = Classes, 1 = Subjects, 2 = Sections, 3 = Exams & Results
+
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _showFabMenu = true;
+  String _userName = 'Emma Johnson';
+  String _userRole = 'teacher';
+  String _subjectSearchQuery = '';
+  String _sectionSearchQuery = '';
+
+  // ── Database Lists ──
   List<Map<String, dynamic>> _classesList = [];
   List<Map<String, dynamic>> _subjectsList = [];
   List<Map<String, dynamic>> _sectionsList = [];
@@ -168,10 +186,22 @@ class _AcademicScreenState extends State<AcademicScreen> {
   Future<void> _loadLocalData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      _userName = prefs.getString('teacher_name') ?? prefs.getString('student_name') ?? 'Emma Johnson';
+      _userRole = prefs.getString('user_role') ?? 'teacher';
       
       final classesJson = prefs.getString('academic_classes_list');
       if (classesJson != null) {
         _classesList = List<Map<String, dynamic>>.from(json.decode(classesJson));
+      }
+      
+      if (_classesList.isEmpty) {
+        _classesList = List.generate(10, (i) => {
+          'name': 'Grade ${i + 1}',
+          'level': '${i + 1}',
+          'academic_year': '—',
+          'class_teacher': '—',
+          'students': 0,
+        });
       }
       
       final subjectsJson = prefs.getString('academic_subjects_list');
@@ -179,9 +209,58 @@ class _AcademicScreenState extends State<AcademicScreen> {
         _subjectsList = List<Map<String, dynamic>>.from(json.decode(subjectsJson));
       }
 
+      if (_subjectsList.isEmpty) {
+        final defaultSubjects = [
+          {'name': 'Mathematics', 'code': 'MAT-1'},
+          {'name': 'Science', 'code': 'SCI-1'},
+          {'name': 'English', 'code': 'ENG-1'},
+          {'name': 'Social Studies', 'code': 'SOC-1'},
+          {'name': 'Hindi', 'code': 'HIN-1'},
+          {'name': 'Computer', 'code': 'COM-1'},
+          {'name': 'Mathematics', 'code': 'MAT-2'},
+          {'name': 'Science', 'code': 'SCI-2'},
+          {'name': 'English', 'code': 'ENG-2'},
+          {'name': 'Social Studies', 'code': 'SOC-2'},
+          {'name': 'Hindi', 'code': 'HIN-2'},
+          {'name': 'Computer', 'code': 'COM-2'},
+        ];
+        _subjectsList = defaultSubjects.map((s) => {
+          'name': s['name'],
+          'code': s['code'],
+          'class': '—',
+          'teacher': '—',
+          'description': '-',
+        }).toList();
+      }
+
       final sectionsJson = prefs.getString('academic_sections_list');
       if (sectionsJson != null) {
         _sectionsList = List<Map<String, dynamic>>.from(json.decode(sectionsJson));
+      }
+
+      if (_sectionsList.isEmpty) {
+        final List<Map<String, dynamic>> defaultSections = [];
+        for (int gradeNum = 1; gradeNum <= 4; gradeNum++) {
+          defaultSections.add({
+            'name': 'Section A',
+            'class': 'Grade $gradeNum',
+            'max_students': 40,
+            'students': 0,
+          });
+          defaultSections.add({
+            'name': 'Section B',
+            'class': 'Grade $gradeNum',
+            'max_students': 40,
+            'students': 0,
+          });
+          defaultSections.add({
+            'name': 'Section C',
+            'class': 'Grade $gradeNum',
+            'max_students': 40,
+            'students': 0,
+          });
+        }
+        _sectionsList = defaultSections;
       }
 
       if (mounted) setState(() {});
@@ -1048,18 +1127,18 @@ class _AcademicScreenState extends State<AcademicScreen> {
   // ═════════════════════════════════════════════════════════════════════════
   Widget _buildTeacherManagementUI() {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
+      drawer: _buildDrawer(),
       appBar: widget.showAppBar
           ? AppBar(
               backgroundColor: Colors.white,
               elevation: 0,
               iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: Navigator.canPop(context)
-                  ? const BackButton(color: Color(0xFF0F172A))
-                  : IconButton(
-                      icon: Icon(Icons.menu, size: 28.sp),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                    ),
+              leading: IconButton(
+                icon: Icon(Icons.menu, size: 28.sp),
+                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+              ),
               title: Text(
                 'EduSphere',
                 style: GoogleFonts.outfit(
@@ -1070,10 +1149,20 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
+                  icon: Icon(Icons.notifications_none_rounded, size: 26.sp),
                   onPressed: () {},
                 ),
-                SizedBox(width: 8.w),
+                Container(
+                  margin: EdgeInsets.only(right: 16.w, top: 8.h, bottom: 8.h),
+                  padding: EdgeInsets.all(8.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE0F2FE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text('AS', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0284C7))),
+                  ),
+                ),
               ],
             )
           : null,
@@ -1093,31 +1182,40 @@ class _AcademicScreenState extends State<AcademicScreen> {
         ),
       ),
       floatingActionButton: _activeTab < 3
-          ? FloatingActionButton(
-              onPressed: _activeTab == 0
-                  ? _showAddClassDialog
-                  : _activeTab == 1
-                      ? _showAddSubjectDialog
-                      : _showAddSectionDialog,
-              backgroundColor: widget.theme.primary,
-              child: const Icon(Icons.add, color: Colors.white),
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (_showFabMenu) _buildFabMenu(),
+                SizedBox(width: 12.w),
+                FloatingActionButton(
+                  heroTag: null,
+                  onPressed: () => setState(() => _showFabMenu = !_showFabMenu),
+                  backgroundColor: const Color(0xFF0D7DDC),
+                  elevation: 4,
+                  shape: const CircleBorder(),
+                  child: _buildFabIcon(),
+                ),
+              ],
             )
           : null,
+      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
   Widget _buildManagementHeader() {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 16.h),
       child: Row(
         children: [
           if (!widget.showAppBar) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
               onPressed: widget.onBack ?? () => Navigator.pop(context),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
-            SizedBox(width: 8.w),
+            SizedBox(width: 12.w),
           ],
           Expanded(
             child: Column(
@@ -1126,25 +1224,22 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 Text(
                   'Academic Management',
                   style: GoogleFonts.outfit(
-                    fontSize: 20.sp,
+                    fontSize: 22.sp,
                     fontWeight: FontWeight.w800,
                     color: const Color(0xFF0F172A),
+                    letterSpacing: -0.5,
                   ),
                 ),
-                SizedBox(height: 2.h),
+                SizedBox(height: 4.h),
                 Text(
                   'Manage classes, subjects, and sections',
                   style: GoogleFonts.inter(
-                    fontSize: 11.sp,
+                    fontSize: 13.sp,
                     color: const Color(0xFF64748B),
                   ),
                 ),
               ],
             ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)),
-            onPressed: () {},
           ),
         ],
       ),
@@ -1158,14 +1253,22 @@ class _AcademicScreenState extends State<AcademicScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.symmetric(horizontal: 12.w),
+  Widget _buildTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+      child: Container(
+        padding: EdgeInsets.all(4.r),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(100.r),
+        ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             _buildTabSelector(0, 'Classes'),
-            SizedBox(width: 6.w),
             _buildTabSelector(1, 'Subjects'),
-            SizedBox(width: 6.w),
             _buildTabSelector(2, 'Sections'),
-            SizedBox(width: 6.w),
             _buildTabSelector(3, 'Exams & Results'),
           ],
         ),
@@ -1177,23 +1280,31 @@ class _AcademicScreenState extends State<AcademicScreen> {
     final isSelected = _activeTab == index;
     return GestureDetector(
       onTap: () => setState(() => _activeTab = index),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(
-            color: isSelected ? const Color(0xFFBFDBFE) : Colors.transparent,
-          ),
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(100.r),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+          border: isSelected
+              ? Border.all(color: const Color(0xFFE2EBF5), width: 1)
+              : Border.all(color: Colors.transparent, width: 1),
         ),
         child: Text(
           label,
-          maxLines: 1,
-          softWrap: false,
           style: GoogleFonts.inter(
             fontSize: 11.sp,
-            fontWeight: FontWeight.w700,
-            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF475569),
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
           ),
         ),
       ),
@@ -1217,144 +1328,351 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
   // ── Teacher classes listing ──
   Widget _buildClassesTab() {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Classes', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                SizedBox(height: 4.h),
+                Text('Manage class/grade levels', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          _classesList.isEmpty
+              ? _buildEmptyState('No classes found. Create one to get started.', _showAddClassDialog)
+              : _buildCustomClassesTable(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomClassesTable() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Classes', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
-        Text('Manage class/grade levels', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-        SizedBox(height: 16.h),
-        _classesList.isEmpty
-            ? _buildEmptyState('No classes found. Create one to get started.', _showAddClassDialog)
-            : _buildClassesTable(),
+        // Header Row
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(flex: 3, child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(flex: 2, child: _buildTableHeaderCell('Level', TextAlign.center)),
+              Expanded(flex: 3, child: _buildTableHeaderCell('Academic Year', TextAlign.center)),
+              Expanded(flex: 4, child: _buildTableHeaderCell('Class Teacher', TextAlign.center)),
+              Expanded(flex: 3, child: _buildTableHeaderCell('Students', TextAlign.center)),
+            ],
+          ),
+        ),
+        // Data Rows
+        ..._classesList.asMap().entries.map((entry) {
+          final c = entry.value;
+          return _ClassesRowItem(
+            name: c['name']?.toString() ?? '',
+            level: c['level']?.toString() ?? '',
+            academicYear: c['academic_year']?.toString() ?? '—',
+            classTeacher: c['class_teacher']?.toString() ?? '—',
+            students: c['students']?.toString() ?? '0',
+            isHoveredDemo: c['name'] == 'Grade 5', // Hover effect to match screenshot
+          );
+        }),
+        SizedBox(height: 12.h),
       ],
     );
   }
 
-  Widget _buildClassesTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Level')),
-            DataColumn(label: Text('Academic Year')),
-            DataColumn(label: Text('Class Teacher')),
-            DataColumn(label: Text('Students')),
-          ],
-          rows: _classesList.map((c) {
-            return DataRow(cells: [
-              DataCell(Text(c['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
-              DataCell(Text(c['level']?.toString() ?? '')),
-              DataCell(Text(c['academic_year']?.toString() ?? '')),
-              DataCell(Text(c['class_teacher']?.toString() ?? '')),
-              DataCell(Text(c['students']?.toString() ?? '0')),
-            ]);
-          }).toList(),
-        ),
+  Widget _buildTableHeaderCell(String text, [TextAlign align = TextAlign.left]) {
+    return Text(
+      text,
+      textAlign: align,
+      style: GoogleFonts.inter(
+        fontSize: 11.sp,
+        fontWeight: FontWeight.w600,
+        color: const Color(0xFF64748B),
       ),
     );
   }
 
   // ── Teacher subjects listing ──
   Widget _buildSubjectsTab() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Subjects', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
-        Text('Manage academic subjects', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-        SizedBox(height: 16.h),
-        _subjectsList.isEmpty
-            ? _buildEmptyState('No subjects found. Create one to get started.', _showAddSubjectDialog)
-            : _buildSubjectsTable(),
-      ],
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Subjects', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                SizedBox(height: 4.h),
+                Text('Manage academic subjects', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          
+          // Search Bar
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: _buildSubjectsSearchBar(),
+          ),
+          SizedBox(height: 16.h),
+
+          _subjectsList.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.only(bottom: 20.h),
+                  child: _buildEmptyState('No subjects found. Create one to get started.', _showAddSubjectDialog),
+                )
+              : _buildCustomSubjectsTable(),
+        ],
+      ),
     );
   }
 
-  Widget _buildSubjectsTable() {
+  Widget _buildSubjectsSearchBar() {
     return Container(
+      height: 44.h,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(10.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Code')),
-            DataColumn(label: Text('Class')),
-            DataColumn(label: Text('Teacher')),
-            DataColumn(label: Text('Description')),
-          ],
-          rows: _subjectsList.map((s) {
-            return DataRow(cells: [
-              DataCell(Text(s['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
-              DataCell(Text(s['code']?.toString() ?? '')),
-              DataCell(Text(s['class']?.toString() ?? '')),
-              DataCell(Text(s['teacher']?.toString() ?? '')),
-              DataCell(Text(s['description']?.toString() ?? '', overflow: TextOverflow.ellipsis)),
-            ]);
-          }).toList(),
-        ),
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      child: Row(
+        children: [
+          Icon(Icons.search, size: 20.sp, color: const Color(0xFF94A3B8)),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: TextField(
+              onChanged: (val) {
+                setState(() {
+                  _subjectSearchQuery = val;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search subjects...',
+                hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+              ),
+              style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F172A)),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Teacher sections listing ──
   Widget _buildSectionsTab() {
+  Widget _buildCustomSubjectsTable() {
+    final filteredList = _subjectsList.where((s) {
+      final name = s['name']?.toString().toLowerCase() ?? '';
+      final code = s['code']?.toString().toLowerCase() ?? '';
+      final query = _subjectSearchQuery.toLowerCase();
+      return name.contains(query) || code.contains(query);
+    }).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Sections', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
-        Text('Manage class sections/divisions', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-        SizedBox(height: 16.h),
-        _sectionsList.isEmpty
-            ? _buildEmptyState('No sections found. Create one to get started.', _showAddSectionDialog)
-            : _buildSectionsTable(),
+        // Header Row
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(flex: 4, child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(flex: 2, child: _buildTableHeaderCell('Code', TextAlign.center)),
+              Expanded(flex: 2, child: _buildTableHeaderCell('Class', TextAlign.center)),
+              Expanded(flex: 2, child: _buildTableHeaderCell('Teacher', TextAlign.center)),
+              Expanded(flex: 2, child: _buildTableHeaderCell('Description', TextAlign.center)),
+              Expanded(flex: 1, child: const SizedBox.shrink()), // Space for trailing chevron
+            ],
+          ),
+        ),
+        // Data Rows
+        ...filteredList.map((s) {
+          return _SubjectsRowItem(
+            name: s['name']?.toString() ?? '',
+            code: s['code']?.toString() ?? '',
+            className: s['class']?.toString() ?? '—',
+            teacher: s['teacher']?.toString() ?? '—',
+            description: s['description']?.toString() ?? '-',
+          );
+        }),
+        SizedBox(height: 12.h),
       ],
     );
   }
 
-  Widget _buildSectionsTable() {
+  // ═════════════════════════════════════════════════════════════════════════
+  // SECTIONS TAB
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildSectionsTab() {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12.r),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sections', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                SizedBox(height: 4.h),
+                Text('Manage class sections/divisions', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+              ],
+            ),
+          ),
+          
+          // Search Bar
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 20.w),
+            child: _buildSectionsSearchBar(),
+          ),
+          SizedBox(height: 16.h),
+
+          _sectionsList.isEmpty
+              ? Padding(
+                  padding: EdgeInsets.only(bottom: 20.h),
+                  child: _buildEmptyState('No sections found. Create one to get started.', _showAddSectionDialog),
+                )
+              : _buildCustomSectionsTable(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionsSearchBar() {
+    return Container(
+      height: 44.h,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
-          columns: const [
-            DataColumn(label: Text('Name')),
-            DataColumn(label: Text('Class')),
-            DataColumn(label: Text('Max Students')),
-            DataColumn(label: Text('Students')),
-          ],
-          rows: _sectionsList.map((s) {
-            return DataRow(cells: [
-              DataCell(Text(s['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600))),
-              DataCell(Text(s['class']?.toString() ?? '')),
-              DataCell(Text(s['max_students']?.toString() ?? '40')),
-              DataCell(Text(s['students']?.toString() ?? '0')),
-            ]);
-          }).toList(),
-        ),
+      padding: EdgeInsets.symmetric(horizontal: 12.w),
+      child: Row(
+        children: [
+          Icon(Icons.search, size: 20.sp, color: const Color(0xFF94A3B8)),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: TextField(
+              onChanged: (val) {
+                setState(() {
+                  _sectionSearchQuery = val;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search sections...',
+                hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 10.h),
+              ),
+              style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F172A)),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   // ── Teacher exams listing ──
+  Widget _buildCustomSectionsTable() {
+    final filteredList = _sectionsList.where((s) {
+      final name = s['name']?.toString().toLowerCase() ?? '';
+      final className = s['class']?.toString().toLowerCase() ?? '';
+      final query = _sectionSearchQuery.toLowerCase();
+      return name.contains(query) || className.contains(query);
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header Row
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(flex: 4, child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(flex: 3, child: _buildTableHeaderCell('Class', TextAlign.center)),
+              Expanded(flex: 3, child: _buildTableHeaderCell('Max Students', TextAlign.center)),
+              Expanded(flex: 3, child: _buildTableHeaderCell('Students', TextAlign.center)),
+              Expanded(flex: 1, child: const SizedBox.shrink()), // Space for trailing chevron
+            ],
+          ),
+        ),
+        // Data Rows
+        ...filteredList.map((s) {
+          return _SectionsRowItem(
+            name: s['name']?.toString() ?? '',
+            className: s['class']?.toString() ?? '—',
+            maxStudents: s['max_students']?.toString() ?? '40',
+            students: s['students']?.toString() ?? '0',
+          );
+        }),
+        SizedBox(height: 12.h),
+      ],
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // EXAMS & RESULTS TAB
+  // ═════════════════════════════════════════════════════════════════════════
   Widget _buildExamsTab() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1704,6 +2022,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
     );
   }
 
+  // ═════════════════════════════════════════════════════════════════════════
+  // EMPTY STATE HELPER
+  // ═════════════════════════════════════════════════════════════════════════
+  // ═════════════════════════════════════════════════════════════════════════
+  // EMPTY STATE HELPER
+  // ═════════════════════════════════════════════════════════════════════════
   Widget _buildEmptyState(String text, VoidCallback onCreate) {
     return Container(
       width: double.infinity,
@@ -1736,4 +2060,1279 @@ class _AcademicScreenState extends State<AcademicScreen> {
       ),
     );
   }
+
+  Widget _buildFabIcon() {
+    if (_activeTab == 0) {
+      return Icon(Icons.person_add_rounded, color: const Color(0xFFFFD700), size: 28.sp);
+    } else if (_activeTab == 1) {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: 2.w),
+            child: Icon(Icons.menu_book_rounded, color: Colors.white, size: 20.sp),
+          ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: EdgeInsets.all(1.r),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0D7DDC),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.add, color: const Color(0xFFFFD700), size: 10.sp),
+            ),
+          ),
+        ],
+      );
+    } else {
+      return Icon(Icons.group_add_rounded, color: const Color(0xFFFFD700), size: 28.sp);
+    }
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // FAB POPUP MENU
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildFabMenu() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.help_outline_rounded, size: 20.sp, color: const Color(0xFF64748B)),
+          SizedBox(height: 6.h),
+          Text(
+            'HELP',
+            style: GoogleFonts.inter(
+              fontSize: 10.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            'ARJUNIT',
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            'CCAV',
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF64748B),
+            ),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            'BONNI',
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0D7DDC),
+            ),
+          ),
+          SizedBox(height: 10.h),
+          Text(
+            'HELP?',
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0D7DDC),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // BOTTOM NAVIGATION BAR
+  // ═════════════════════════════════════════════════════════════════════════
+  Widget _buildBottomNavigationBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 15,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.h),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildBottomNavItem(
+                icon: Icons.grid_view_outlined,
+                label: 'Dashboard',
+                isSelected: false,
+                onTap: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => MainScreen(role: _userRole, initialIndex: 0)),
+                    (r) => false,
+                  );
+                },
+              ),
+              _buildBottomNavItem(
+                icon: Icons.menu_book_outlined,
+                label: 'Academic',
+                isSelected: true,
+                onTap: () {},
+              ),
+              _buildBottomNavItem(
+                icon: Icons.assignment_outlined,
+                label: 'Examinations',
+                isSelected: false,
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                },
+              ),
+              _buildBottomNavItem(
+                icon: Icons.edit_note_rounded,
+                label: 'Marks Entry',
+                isSelected: false,
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: widget.theme)));
+                },
+              ),
+              _buildBottomNavItem(
+                icon: Icons.more_vert_rounded,
+                label: 'More',
+                isSelected: false,
+                onTap: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => TeacherMoreScreen(theme: widget.theme, onNavigate: (i) {})));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required IconData icon,
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final activeColor = const Color(0xFF0D7DDC);
+    final inactiveColor = const Color(0xFF94A3B8);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8.r),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? activeColor : inactiveColor,
+              size: 24.sp,
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10.sp,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? activeColor : inactiveColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // ACADEMIC DRAWER IMPLEMENTATION
+  // ═════════════════════════════════════════════════════════════════════════
+  String _drawerActiveLabel = 'Academic';
+
+  String _getDrawerInitials(String name) {
+    try {
+      final parts = name.trim().split(RegExp(r'\s+'));
+      if (parts.length >= 2) {
+        return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        return parts[0][0].toUpperCase();
+      }
+    } catch (_) {}
+    return 'U';
+  }
+
+  Widget _buildDrawer() {
+    final initials = _getDrawerInitials(_userName);
+    const activeBlue = Color(0xFF0D7DDC);
+    const inactiveIcon = Color(0xFF4A6FA5);
+    const inactiveText = Color(0xFF35526B);
+
+    return Drawer(
+      backgroundColor: Colors.white,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Logo / Brand ──
+            Padding(
+              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
+              child: Text(
+                'EduSphere',
+                style: GoogleFonts.inter(
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F172A),
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ),
+            Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
+            SizedBox(height: 8.h),
+
+            // ── Menu Items ──
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+                child: Column(
+                  children: _userRole == 'teacher'
+                      ? [
+                          _drawerItem(
+                            icon: Icons.grid_view_rounded,
+                            label: 'Dashboard',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 0)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Academic Calendar',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 1)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.people_outline_rounded,
+                            label: 'Students',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 2)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.calendar_today_outlined,
+                            label: 'Attendance',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 3)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.check_box_outlined,
+                            label: 'Assignments',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAssignmentScreen()));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.menu_book_outlined,
+                            label: 'Academic',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.description_outlined,
+                            label: 'Examinations',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.assignment_turned_in_outlined,
+                            label: 'Marks Entry',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: widget.theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.access_time_rounded,
+                            label: 'My Schedule',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: widget.theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.notifications_none_rounded,
+                            label: 'Announcements',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: widget.theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.group_outlined,
+                            label: 'Community',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => CommunityScreen(theme: widget.theme, showAppBar: true, onBack: () => Navigator.pop(context)),
+                              ));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.person_outline_rounded,
+                            label: 'My Profile',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: widget.theme)));
+                            },
+                          ),
+                        ]
+                      : [
+                          _drawerItem(
+                            icon: Icons.dashboard_rounded,
+                            label: 'Dashboard',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 0)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Academic Calendar',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 1)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.checklist_rounded,
+                            label: 'Assignments',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 2)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.school_rounded,
+                            label: 'Academic',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.attach_money_rounded,
+                            label: 'Fees',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 4)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.directions_bus_rounded,
+                            label: 'Transport',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 5)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.notifications_none_rounded,
+                            label: 'Announcements',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 6)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.group_outlined,
+                            label: 'Community',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 7)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.room_service_outlined,
+                            label: 'Services',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 8)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.person_rounded,
+                            label: 'My Profile',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.pushAndRemoveUntil(
+                                context,
+                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 9)),
+                                (r) => false,
+                              );
+                            },
+                          ),
+                        ],
+                ),
+              ),
+            ),
+
+            // ── Divider + Logout ──
+            Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
+            _drawerItem(
+              icon: Icons.logout_rounded,
+              label: 'Logout',
+              activeBlue: activeBlue,
+              inactiveIcon: const Color(0xFF4A6FA5),
+              inactiveText: const Color(0xFF35526B),
+              forceInactive: true,
+              onTap: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
+              },
+            ),
+
+            // ── Profile Card ──
+            Container(
+              margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF4F7FB),
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: const Color(0xFFE2EBF5), width: 1),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 19.r,
+                    backgroundColor: activeBlue.withValues(alpha: 0.15),
+                    child: Text(
+                      initials,
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w800,
+                        color: activeBlue,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _userName,
+                          style: GoogleFonts.inter(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        SizedBox(height: 1.h),
+                        Text(
+                          _userRole.toUpperCase(),
+                          style: GoogleFonts.inter(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w700,
+                            color: activeBlue,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required Color activeBlue,
+    required Color inactiveIcon,
+    required Color inactiveText,
+    required VoidCallback onTap,
+    bool forceInactive = false,
+  }) {
+    final isActive = !forceInactive && _drawerActiveLabel == label;
+    return _PremiumDrawerItem(
+      icon: icon,
+      label: label,
+      isActive: isActive,
+      activeBlue: activeBlue,
+      inactiveIcon: inactiveIcon,
+      inactiveText: inactiveText,
+      onTap: onTap,
+    );
+  }
 }
+
+class _ClassesRowItem extends StatefulWidget {
+  final String name;
+  final String level;
+  final String academicYear;
+  final String classTeacher;
+  final String students;
+  final bool isHoveredDemo;
+
+  const _ClassesRowItem({
+    required this.name,
+    required this.level,
+    required this.academicYear,
+    required this.classTeacher,
+    required this.students,
+    this.isHoveredDemo = false,
+  });
+
+  @override
+  State<_ClassesRowItem> createState() => _ClassesRowItemState();
+}
+
+class _ClassesRowItemState extends State<_ClassesRowItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: _isHovered || widget.isHoveredDemo ? const Color(0xFFF8FAFC) : Colors.white,
+          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.name,
+                textAlign: TextAlign.left,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.level,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.academicYear,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 4,
+              child: Text(
+                widget.classTeacher,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.students,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PREMIUM DRAWER ITEM — hover-aware blue pill
+// ═══════════════════════════════════════════════════════════════
+class _PremiumDrawerItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final Color activeBlue;
+  final Color inactiveIcon;
+  final Color inactiveText;
+  final VoidCallback onTap;
+
+  const _PremiumDrawerItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.activeBlue,
+    required this.inactiveIcon,
+    required this.inactiveText,
+    required this.onTap,
+  });
+
+  @override
+  State<_PremiumDrawerItem> createState() => _PremiumDrawerItemState();
+}
+
+class _PremiumDrawerItemState extends State<_PremiumDrawerItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showBlue = widget.isActive || _isHovered;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 1.5.h),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: showBlue
+                ? widget.activeBlue
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14.r),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14.r),
+            child: InkWell(
+              onTap: widget.onTap,
+              onHighlightChanged: (highlighted) {
+                if (highlighted != _isHovered) {
+                  setState(() => _isHovered = highlighted);
+                }
+              },
+              borderRadius: BorderRadius.circular(14.r),
+              splashColor: Colors.white.withValues(alpha: 0.15),
+              highlightColor: Colors.transparent,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+                child: Row(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, anim) =>
+                          FadeTransition(opacity: anim, child: child),
+                      child: Icon(
+                        widget.icon,
+                        key: ValueKey('${widget.label}-$showBlue'),
+                        color: showBlue ? Colors.white : widget.inactiveIcon,
+                        size: 20.sp,
+                      ),
+                    ),
+                    SizedBox(width: 14.w),
+                    Expanded(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: GoogleFonts.inter(
+                          fontSize: 15.sp,
+                          fontWeight: showBlue
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: showBlue ? Colors.white : widget.inactiveText,
+                        ),
+                        child: Text(widget.label),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SUBJECTS ROW ITEM WIDGET
+// ═══════════════════════════════════════════════════════════════
+class _SubjectsRowItem extends StatefulWidget {
+  final String name;
+  final String code;
+  final String className;
+  final String teacher;
+  final String description;
+
+  const _SubjectsRowItem({
+    required this.name,
+    required this.code,
+    required this.className,
+    required this.teacher,
+    required this.description,
+  });
+
+  @override
+  State<_SubjectsRowItem> createState() => _SubjectsRowItemState();
+}
+
+class _SubjectsRowItemState extends State<_SubjectsRowItem> {
+  bool _isHovered = false;
+
+  Widget _buildSubjectAvatar(String name) {
+    final cleanName = name.trim().toLowerCase();
+    if (cleanName.contains('math')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFEFF6FF),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'π',
+            style: GoogleFonts.inter(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF2563EB),
+            ),
+          ),
+        ),
+      );
+    } else if (cleanName.contains('science')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF0FDF4),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.science_outlined,
+            size: 16.sp,
+            color: const Color(0xFF16A34A),
+          ),
+        ),
+      );
+    } else if (cleanName.contains('english')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFF7ED),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.menu_book_outlined,
+            size: 16.sp,
+            color: const Color(0xFFEA580C),
+          ),
+        ),
+      );
+    } else if (cleanName.contains('social') || cleanName.contains('history') || cleanName.contains('geography')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFAF5FF),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.public_rounded,
+            size: 16.sp,
+            color: const Color(0xFF9333EA),
+          ),
+        ),
+      );
+    } else if (cleanName.contains('hindi') || cleanName.contains('sanskrit')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFFBEB),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            'वे',
+            style: GoogleFonts.inter(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFFD97706),
+            ),
+          ),
+        ),
+      );
+    } else if (cleanName.contains('computer') || cleanName.contains('tech') || cleanName.contains('coding')) {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFEFF6FF),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.computer_rounded,
+            size: 16.sp,
+            color: const Color(0xFF2563EB),
+          ),
+        ),
+      );
+    } else {
+      return Container(
+        width: 32.r,
+        height: 32.r,
+        decoration: const BoxDecoration(
+          color: Color(0xFFF1F5F9),
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(
+            Icons.book_rounded,
+            size: 16.sp,
+            color: const Color(0xFF64748B),
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFFF8FAFC) : Colors.white,
+          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  _buildSubjectAvatar(widget.name),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      widget.name,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.code,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.className,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.teacher,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                widget.description,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16.sp,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SECTIONS ROW ITEM WIDGET
+// ═══════════════════════════════════════════════════════════════
+class _SectionsRowItem extends StatefulWidget {
+  final String name;
+  final String className;
+  final String maxStudents;
+  final String students;
+
+  const _SectionsRowItem({
+    required this.name,
+    required this.className,
+    required this.maxStudents,
+    required this.students,
+  });
+
+  @override
+  State<_SectionsRowItem> createState() => _SectionsRowItemState();
+}
+
+class _SectionsRowItemState extends State<_SectionsRowItem> {
+  bool _isHovered = false;
+
+  Widget _buildSectionAvatar(String name) {
+    String letter = 'A';
+    try {
+      final parts = name.trim().split(RegExp(r'\s+'));
+      if (parts.isNotEmpty) {
+        final lastPart = parts.last;
+        if (lastPart.isNotEmpty) {
+          letter = lastPart[0].toUpperCase();
+        }
+      }
+    } catch (_) {}
+
+    Color bgColor;
+    Color textColor;
+
+    if (letter == 'A') {
+      bgColor = const Color(0xFFFAF5FF); // light purple
+      textColor = const Color(0xFF9333EA); // purple
+    } else if (letter == 'B') {
+      bgColor = const Color(0xFFEFF6FF); // light blue
+      textColor = const Color(0xFF2563EB); // blue
+    } else if (letter == 'C') {
+      bgColor = const Color(0xFFF0FDF4); // light green
+      textColor = const Color(0xFF16A34A); // green
+    } else {
+      bgColor = const Color(0xFFFFF7ED); // light orange
+      textColor = const Color(0xFFEA580C); // orange
+    }
+
+    return Container(
+      width: 32.r,
+      height: 32.r,
+      decoration: BoxDecoration(
+        color: bgColor,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          letter,
+          style: GoogleFonts.inter(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w700,
+            color: textColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: _isHovered ? const Color(0xFFF8FAFC) : Colors.white,
+          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 4,
+              child: Row(
+                children: [
+                  _buildSectionAvatar(widget.name),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      widget.name,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.className,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.maxStudents,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                widget.students,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  size: 16.sp,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

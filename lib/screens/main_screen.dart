@@ -9,6 +9,7 @@ import '../widgets/common_widgets.dart';
 import 'dashboards/student_dashboard.dart';
 import 'dashboards/teacher_dashboard.dart';
 import 'messages_screen.dart';
+import 'community_screen.dart';
 import 'profile_screen.dart';
 import 'welcome_screen.dart';
 import 'academic_screen.dart';
@@ -30,17 +31,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MainScreen extends StatefulWidget {
   final String role;
-  const MainScreen({super.key, required this.role});
+  final int initialIndex;
+  const MainScreen({super.key, required this.role, this.initialIndex = 0});
   @override
   State<MainScreen> createState() => _MainScreenState();
 }
 
 class _MainScreenState extends State<MainScreen> {
   String _userName = 'Alex Rivera';
+  int _idx = 0;
 
   @override
   void initState() {
     super.initState();
+    _idx = widget.initialIndex;
     _loadUserName();
     _initSocketConnection();
   }
@@ -128,7 +132,6 @@ class _MainScreenState extends State<MainScreen> {
     });
   }
   final _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _idx = 0;
 
   RoleTheme get _theme => roleThemes[widget.role]!;
 
@@ -207,6 +210,9 @@ class _MainScreenState extends State<MainScreen> {
               theme: _theme,
               role: 'student',
               isActive: _idx == 7,
+            AnnouncementsScreen(theme: _theme),
+            CommunityScreen(
+              theme: _theme,
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
@@ -270,7 +276,13 @@ class _MainScreenState extends State<MainScreen> {
                   _NavItem(icon: Icons.home_rounded, label: 'Home', selected: _idx == 0, color: _theme.primary, onTap: () => setState(() => _idx = 0)),
                   if (widget.role == 'student')
                     _NavItem(icon: Icons.school_rounded, label: 'Academic', selected: _idx == 3, color: _theme.primary, onTap: () => setState(() => _idx = 3)),
-                  _NavItem(icon: Icons.chat_bubble_rounded, label: 'Messages', selected: _idx == (widget.role == 'student' ? 7 : 2), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 7 : 2)),
+                  _NavItem(
+                    icon: widget.role == 'student' ? Icons.group_outlined : Icons.chat_bubble_rounded,
+                    label: widget.role == 'student' ? 'Community' : 'Messages',
+                    selected: _idx == (widget.role == 'student' ? 7 : 2),
+                    color: _theme.primary,
+                    onTap: () => setState(() => _idx = widget.role == 'student' ? 7 : 2),
+                  ),
                   _NavItem(icon: Icons.person_rounded, label: 'My Profile', selected: _idx == (widget.role == 'student' ? 9 : 3), color: _theme.primary, onTap: () => setState(() => _idx = widget.role == 'student' ? 9 : 3)),
                 ],
               ],
@@ -381,6 +393,9 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
+  // ── Drawer active item tracker ──
+  String _drawerActiveLabel = 'Dashboard';
+
   String _getDrawerInitials(String name) {
     try {
       final parts = name.trim().split(RegExp(r'\s+'));
@@ -394,38 +409,40 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildDrawer() {
+    final initials = _getDrawerInitials(_userName);
+    const activeBlue = Color(0xFF0D7DDC);
+    const inactiveIcon = Color(0xFF4A6FA5);
+    const inactiveText = Color(0xFF35526B);
+
     return Drawer(
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(0),
-          bottomRight: Radius.circular(0),
-        ),
-      ),
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Logo / Brand ──
             Padding(
-              padding: EdgeInsets.fromLTRB(24.w, 20.h, 24.w, 16.h),
+              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
               child: Text(
                 'EduSphere',
                 style: GoogleFonts.inter(
-                  fontSize: 22.sp,
+                  fontSize: 20.sp,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F172A),
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.3,
                 ),
               ),
             ),
-            Divider(height: 1.h, color: const Color(0xFFE2E8F0)),
+            Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
+            SizedBox(height: 8.h),
 
-            // Menu Items
+            // ── Menu Items ──
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: EdgeInsets.symmetric(vertical: 12.h),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
                 child: Column(
                   children: widget.role == 'teacher'
                       ? [
@@ -525,45 +542,221 @@ class _MainScreenState extends State<MainScreen> {
                             Navigator.pop(context);
                             setState(() => _idx = 9);
                           }, selected: _idx == 9),
+                          _drawerItem(
+                            icon: Icons.grid_view_rounded,
+                            label: 'Dashboard',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() { _drawerActiveLabel = 'Dashboard'; _idx = 0; });
+                              Navigator.pop(context);
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Academic Calendar',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() { _drawerActiveLabel = 'Academic Calendar'; _idx = 1; });
+                              Navigator.pop(context);
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.people_outline_rounded,
+                            label: 'Students',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() { _drawerActiveLabel = 'Students'; _idx = 2; });
+                              Navigator.pop(context);
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.calendar_today_outlined,
+                            label: 'Attendance',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'Attendance');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherAttendanceScreen()));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.check_box_outlined,
+                            label: 'Assignments',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'Assignments');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAssignmentScreen()));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.menu_book_outlined,
+                            label: 'Academic',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'Academic');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.description_outlined,
+                            label: 'Examinations',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () async {
+                              setState(() => _drawerActiveLabel = 'Examinations');
+                              Navigator.pop(context);
+                              final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                              if (res is int && mounted) { setState(() => _idx = res); }
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.assignment_turned_in_outlined,
+                            label: 'Marks Entry',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () async {
+                              setState(() => _drawerActiveLabel = 'Marks Entry');
+                              Navigator.pop(context);
+                              final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: _theme)));
+                              if (res is int && mounted) { setState(() => _idx = res); }
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.access_time_rounded,
+                            label: 'My Schedule',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'My Schedule');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: _theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.notifications_none_rounded,
+                            label: 'Announcements',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'Announcements');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: _theme)));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.group_outlined,
+                            label: 'Community',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () {
+                              setState(() => _drawerActiveLabel = 'Community');
+                              Navigator.pop(context);
+                              Navigator.push(context, MaterialPageRoute(
+                                builder: (_) => CommunityScreen(theme: _theme, showAppBar: true, onBack: () => Navigator.pop(context)),
+                              ));
+                            },
+                          ),
+                          _drawerItem(
+                            icon: Icons.person_outline_rounded,
+                            label: 'My Profile',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () async {
+                              setState(() => _drawerActiveLabel = 'My Profile');
+                              Navigator.pop(context);
+                              final res = await Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: _theme)));
+                              if (res is int && mounted) { setState(() => _idx = res); }
+                            },
+                          ),
+                        ]
+                      : [
+                          _drawerItem(icon: Icons.dashboard_rounded, label: 'Dashboard', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Dashboard'; _idx = 0; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.calendar_month_outlined, label: 'Academic Calendar', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Academic Calendar'; _idx = 1; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.checklist_rounded, label: 'Assignments', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Assignments'; _idx = 2; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.school_rounded, label: 'Academic', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Academic'; _idx = 3; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.attach_money_rounded, label: 'Fees', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Fees'; _idx = 4; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.directions_bus_rounded, label: 'Transport', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Transport'; _idx = 5; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.notifications_none_rounded, label: 'Announcements', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Announcements'; _idx = 6; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.group_outlined, label: 'Community', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Community'; _idx = 7; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.room_service_outlined, label: 'Services', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'Services'; _idx = 8; }); Navigator.pop(context); }),
+                          _drawerItem(icon: Icons.person_rounded, label: 'My Profile', activeBlue: activeBlue, inactiveIcon: inactiveIcon, inactiveText: inactiveText,
+                            onTap: () { setState(() { _drawerActiveLabel = 'My Profile'; _idx = 9; }); Navigator.pop(context); }),
                         ],
                 ),
               ),
             ),
 
-            // Divider + Logout
-            Divider(height: 1.h, color: const Color(0xFFE2E8F0)),
-            _buildDrawerItem(Icons.logout_rounded, 'Logout', () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                (route) => false,
-              );
-            }),
+            // ── Divider + Logout ──
+            Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
+            _drawerItem(
+              icon: Icons.logout_rounded,
+              label: 'Logout',
+              activeBlue: activeBlue,
+              inactiveIcon: const Color(0xFF4A6FA5),
+              inactiveText: const Color(0xFF35526B),
+              forceInactive: true,
+              onTap: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                  (route) => false,
+                );
+              },
+            ),
 
-            // Profile Card
+            // ── Profile Card ──
             Container(
-              margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                color: const Color(0xFFF4F7FB),
+                borderRadius: BorderRadius.circular(14.r),
+                border: Border.all(color: const Color(0xFFE2EBF5), width: 1),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 20.r,
-                    backgroundColor: _theme.primary.withValues(alpha: 0.1),
+                    radius: 19.r,
+                    backgroundColor: activeBlue.withValues(alpha: 0.15),
                     child: Text(
-                      _getDrawerInitials(_userName),
+                      initials,
                       style: GoogleFonts.inter(
                         fontSize: 13.sp,
                         fontWeight: FontWeight.w800,
-                        color: _theme.primary,
+                        color: activeBlue,
                       ),
                     ),
                   ),
-                  SizedBox(width: 12.w),
+                  SizedBox(width: 10.w),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,21 +764,21 @@ class _MainScreenState extends State<MainScreen> {
                         Text(
                           _userName,
                           style: GoogleFonts.inter(
-                            fontSize: 14.sp,
+                            fontSize: 13.sp,
                             fontWeight: FontWeight.w700,
                             color: const Color(0xFF0F172A),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: 2.h),
+                        SizedBox(height: 1.h),
                         Text(
-                          'TEACHER',
+                          widget.role.toUpperCase(),
                           style: GoogleFonts.inter(
                             fontSize: 10.sp,
-                            fontWeight: FontWeight.w800,
-                            color: _theme.primary,
-                            letterSpacing: 0.5,
+                            fontWeight: FontWeight.w700,
+                            color: activeBlue,
+                            letterSpacing: 0.8,
                           ),
                         ),
                       ],
@@ -627,8 +820,128 @@ class _MainScreenState extends State<MainScreen> {
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     color: selected ? activeColor : const Color(0xFF1E293B),
                   ),
+  /// Premium drawer item — delegates to _PremiumDrawerItem for hover tracking
+  Widget _drawerItem({
+    required IconData icon,
+    required String label,
+    required Color activeBlue,
+    required Color inactiveIcon,
+    required Color inactiveText,
+    required VoidCallback onTap,
+    bool forceInactive = false,
+  }) {
+    final isActive = !forceInactive && _drawerActiveLabel == label;
+    return _PremiumDrawerItem(
+      icon: icon,
+      label: label,
+      isActive: isActive,
+      activeBlue: activeBlue,
+      inactiveIcon: inactiveIcon,
+      inactiveText: inactiveText,
+      onTap: onTap,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PREMIUM DRAWER ITEM — hover-aware blue pill
+// ═══════════════════════════════════════════════════════════════
+
+class _PremiumDrawerItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final Color activeBlue;
+  final Color inactiveIcon;
+  final Color inactiveText;
+  final VoidCallback onTap;
+
+  const _PremiumDrawerItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.activeBlue,
+    required this.inactiveIcon,
+    required this.inactiveText,
+    required this.onTap,
+  });
+
+  @override
+  State<_PremiumDrawerItem> createState() => _PremiumDrawerItemState();
+}
+
+class _PremiumDrawerItemState extends State<_PremiumDrawerItem> {
+  bool _isHovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final showBlue = widget.isActive || _isHovered;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 1.5.h),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _isHovered = true),
+        onExit: (_) => setState(() => _isHovered = false),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeInOut,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: showBlue
+                ? widget.activeBlue
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14.r),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14.r),
+            child: InkWell(
+              onTap: widget.onTap,
+              onHighlightChanged: (highlighted) {
+                // Also light up on touch press (mobile)
+                if (highlighted != _isHovered) {
+                  setState(() => _isHovered = highlighted);
+                }
+              },
+              borderRadius: BorderRadius.circular(14.r),
+              splashColor: Colors.white.withValues(alpha: 0.15),
+              highlightColor: Colors.transparent,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 11.h),
+                child: Row(
+                  children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, anim) =>
+                          FadeTransition(opacity: anim, child: child),
+                      child: Icon(
+                        widget.icon,
+                        key: ValueKey('${widget.label}-$showBlue'),
+                        color: showBlue ? Colors.white : widget.inactiveIcon,
+                        size: 20.sp,
+                      ),
+                    ),
+                    SizedBox(width: 14.w),
+                    Expanded(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: GoogleFonts.inter(
+                          fontSize: 15.sp,
+                          fontWeight: showBlue
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                          color: showBlue ? Colors.white : widget.inactiveText,
+                        ),
+                        child: Text(
+                          widget.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

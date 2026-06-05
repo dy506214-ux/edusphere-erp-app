@@ -3,34 +3,45 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:intl/intl.dart' as intl;
 
 class ExamScheduleScreen extends StatefulWidget {
-  const ExamScheduleScreen({super.key});
+  final VoidCallback? onOpenDrawer;
+  final bool showAppBar;
+  final ValueChanged<int>? onNavigate;
+
+  const ExamScheduleScreen({
+    super.key,
+    this.onOpenDrawer,
+    this.showAppBar = true,
+    this.onNavigate,
+  });
 
   @override
   State<ExamScheduleScreen> createState() => _ExamScheduleScreenState();
 }
 
 class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
-  // ── Database State ──
   List<Map<String, dynamic>> _exams = [];
-  
-  // ── Filters & Search ──
+  bool _isLoading = true;
+  String _teacherName = 'Arjun Singh';
+
   String _searchQuery = '';
   String _selectedYear = 'All Years';
   String _selectedClass = 'All Classes';
   String _selectedTerm = 'All Terms';
 
-  // ── Chat Assistant State ──
   bool _isChatOpen = false;
   bool _showAssistantBubble = true;
   final List<Map<String, String>> _chatMessages = [];
   final _chatInputCtrl = TextEditingController();
+  final _chatScrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _loadTeacherName();
     _loadExams();
     _initChat();
   }
@@ -38,293 +49,263 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   @override
   void dispose() {
     _chatInputCtrl.dispose();
+    _chatScrollCtrl.dispose();
     super.dispose();
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // DATABASE HELPER (LOCAL STORAGE)
-  // ═════════════════════════════════════════════════════════════════════════
+  // ─────────────────────────────────────────────────────────
+  // DATA
+  // ─────────────────────────────────────────────────────────
 
-  Future<void> _loadExams() async {
+  Future<void> _loadTeacherName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name =
+        prefs.getString('teacher_name') ?? prefs.getString('user_name');
+    if (name != null && name.isNotEmpty && mounted) {
+      setState(() => _teacherName = name);
+    }
+  }
+
+  String _getInitials(String name) {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? raw = prefs.getString('examinations_schedule_list');
-      if (raw != null) {
-        final List<dynamic> decoded = json.decode(raw);
-        setState(() {
-          _exams = List<Map<String, dynamic>>.from(decoded);
-        });
-      } else {
-        // Seed default exams
-        final List<Map<String, dynamic>> defaultExams = [
-          {
-            'subject': 'Physics',
-            'class': 'Class 10',
-            'term': 'Final Term',
-            'academic_year': '2026-2027',
-            'date': '2026-06-10',
-            'time': '10:00 AM',
-            'room': 'Hall A',
-            'duration': '3 hrs',
-            'syllabus': 'Ch 1-8'
-          },
-          {
-            'subject': 'Mathematics',
-            'class': 'Class 10',
-            'term': 'Final Term',
-            'academic_year': '2026-2027',
-            'date': '2026-06-12',
-            'time': '10:00 AM',
-            'room': 'Hall B',
-            'duration': '3 hrs',
-            'syllabus': 'Ch 1-10'
-          },
-          {
-            'subject': 'Chemistry',
-            'class': 'Class 10',
-            'term': 'Final Term',
-            'academic_year': '2026-2027',
-            'date': '2026-06-14',
-            'time': '02:00 PM',
-            'room': 'Hall A',
-            'duration': '3 hrs',
-            'syllabus': 'Ch 1-7'
-          },
-          {
-            'subject': 'English',
-            'class': 'Class 10',
-            'term': 'Final Term',
-            'academic_year': '2026-2027',
-            'date': '2026-06-16',
-            'time': '10:00 AM',
-            'room': 'Hall C',
-            'duration': '2 hrs',
-            'syllabus': 'Full Syllabus'
-          },
-          {
-            'subject': 'Computer Sc.',
-            'class': 'Class 10',
-            'term': 'Final Term',
-            'academic_year': '2026-2027',
-            'date': '2026-06-18',
-            'time': '10:00 AM',
-            'room': 'Lab 501',
-            'duration': '3 hrs',
-            'syllabus': 'Ch 1-9'
-          },
-        ];
-        setState(() {
-          _exams = defaultExams;
-        });
-        await prefs.setString('examinations_schedule_list', json.encode(defaultExams));
+      final parts = name.trim().split(RegExp(r'\s+'));
+      if (parts.length >= 2) {
+        return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      }
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
+        return parts[0].substring(0, math.min(2, parts[0].length)).toUpperCase();
       }
     } catch (_) {}
+    return 'AS';
+  }
+
+  String _getFirstName(String name) {
+    try {
+      final parts = name.trim().split(RegExp(r'\s+'));
+      if (parts.isNotEmpty) return parts[0].toUpperCase();
+    } catch (_) {}
+    return 'ARJUN';
+  }
+
+  List<Map<String, dynamic>> _seedExams() => [
+        {
+          'name': 'Half Yearly Examination',
+          'class': 'Grade 1',
+          'term': '-',
+          'start_date': '19/06/2026',
+          'status': 'Published',
+          'subject': 'All Subjects',
+          'time': '10:00 AM',
+          'room': 'Hall A',
+          'duration': '3 hrs',
+          'syllabus': 'Full Syllabus',
+          'academic_year': '2026-2027',
+        },
+      ];
+
+  Future<void> _loadExams() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('examinations_schedule_list');
+      if (raw != null) {
+        final decoded = json.decode(raw) as List<dynamic>;
+        final list = decoded
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        setState(() => _exams = list.isNotEmpty ? list : _seedExams());
+      } else {
+        final seed = _seedExams();
+        await prefs.setString(
+            'examinations_schedule_list', json.encode(seed));
+        setState(() => _exams = seed);
+      }
+    } catch (_) {
+      setState(() => _exams = _seedExams());
+    }
+    if (mounted) setState(() => _isLoading = false);
   }
 
   Future<void> _saveExams() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('examinations_schedule_list', json.encode(_exams));
-    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('examinations_schedule_list', json.encode(_exams));
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // INTERACTIVE ASSISTANT HELPER
-  // ═════════════════════════════════════════════════════════════════════════
+  List<Map<String, dynamic>> get _filteredExams {
+    return _exams.where((e) {
+      final name = (e['name'] as String? ??
+              e['subject'] as String? ??
+              '')
+          .toLowerCase();
+      if (!name.contains(_searchQuery.toLowerCase())) { return false; }
+      if (_selectedYear != 'All Years' &&
+          e['academic_year'] != _selectedYear) { return false; }
+      if (_selectedClass != 'All Classes' &&
+          e['class'] != _selectedClass) { return false; }
+      if (_selectedTerm != 'All Terms' &&
+          e['term'] != _selectedTerm) { return false; }
+      return true;
+    }).toList();
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // CHAT
+  // ─────────────────────────────────────────────────────────
 
   void _initChat() {
     _chatMessages.add({
       'sender': 'bot',
-      'text': 'Hello! I am Vikram, your Academic Assistant. How can I help you today?'
+      'text':
+          'Hello! I am your Academic Assistant. How can I help you today?',
     });
   }
 
-  void _toggleChat() {
-    setState(() {
-      _isChatOpen = !_isChatOpen;
-      if (_isChatOpen) {
-        _showAssistantBubble = false;
-      }
-    });
-  }
+  void _toggleChat() => setState(() {
+        _isChatOpen = !_isChatOpen;
+        if (_isChatOpen) _showAssistantBubble = false;
+      });
 
-  void _handleSendChatMessage() {
+  void _handleSendMessage() {
     final text = _chatInputCtrl.text.trim();
     if (text.isEmpty) return;
-
     _chatInputCtrl.clear();
-    setState(() {
-      _chatMessages.add({'sender': 'user', 'text': text});
-    });
-
-    String reply = '';
-    final query = text.toLowerCase();
-
-    if (query.contains('exam') || query.contains('schedule')) {
-      reply = 'You can view the full Exam Schedule in the section below. You can also filter by Class, Term, or Academic Year.';
-    } else if (query.contains('physics')) {
-      reply = 'The Physics exam is scheduled for June 10, 2026, at 10:00 AM in Hall A. Syllabus covers Chapters 1-8.';
-    } else if (query.contains('math') || query.contains('mathematics')) {
-      reply = 'The Mathematics exam is on June 12, 2026, at 10:00 AM in Hall B. Syllabus covers Chapters 1-10.';
-    } else if (query.contains('chemistry')) {
-      reply = 'The Chemistry exam is on June 14, 2026, at 02:00 PM in Hall A. Syllabus covers Chapters 1-7.';
-    } else if (query.contains('english')) {
-      reply = 'The English exam is on June 16, 2026, at 10:00 AM in Hall C. Syllabus covers Full Syllabus.';
-    } else if (query.contains('computer') || query.contains('cs')) {
-      reply = 'The Computer Science exam is on June 18, 2026, at 10:00 AM in Lab 501. Syllabus covers Chapters 1-9.';
+    setState(
+        () => _chatMessages.add({'sender': 'user', 'text': text}));
+    final q = text.toLowerCase();
+    String reply;
+    if (q.contains('exam') || q.contains('schedule')) {
+      reply =
+          'You can view the full exam schedule in the section below. Use filters to narrow by Class, Term, or Academic Year.';
+    } else if (q.contains('total') || q.contains('how many')) {
+      reply = 'There are ${_exams.length} exam(s) scheduled.';
     } else {
-      reply = "Hi! I am Vikram. I can answer questions about exam dates, syllabus, and room details. Try asking: 'When is the Physics exam?'";
+      reply =
+          "I can help with exam dates, status, and room details. Try asking: 'How many exams are scheduled?'";
     }
-
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) {
-        setState(() {
-          _chatMessages.add({'sender': 'bot', 'text': reply});
+        setState(
+            () => _chatMessages.add({'sender': 'bot', 'text': reply}));
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_chatScrollCtrl.hasClients) {
+            _chatScrollCtrl.animateTo(
+              _chatScrollCtrl.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
         });
       }
     });
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // ACTIONS
-  // ═════════════════════════════════════════════════════════════════════════
-
-  void _onNavTap(int index) {
-    if (index == 3) return; // Already on examinations
-    Navigator.pop(context, index);
-  }
-
-  void _deleteExam(int index) {
-    setState(() {
-      _exams.removeAt(index);
-    });
-    _saveExams();
-  }
+  // ─────────────────────────────────────────────────────────
+  // CREATE / EDIT
+  // ─────────────────────────────────────────────────────────
 
   void _showCreateExamDialog() {
-    final subjectCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final dateCtrl =
+        TextEditingController(text: intl.DateFormat('dd/MM/yyyy').format(DateTime.now().add(const Duration(days: 14))));
     final roomCtrl = TextEditingController();
     final syllabusCtrl = TextEditingController();
     final durationCtrl = TextEditingController(text: '3 hrs');
     final timeCtrl = TextEditingController(text: '10:00 AM');
-    
-    String selectedClass = 'Class 10';
-    String selectedTerm = 'Final Term';
-    DateTime selectedDate = DateTime.now();
+    String selectedClass = 'Grade 1';
+    String selectedTerm = '-';
+    String selectedStatus = 'Published';
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateDialog) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          title: Text('Create Exam', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        builder: (context, setD) => AlertDialog(
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16.r)),
+          title: Text('Schedule Exam',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: subjectCtrl,
-                  decoration: _dialogFieldDecoration('Subject Name', 'e.g. Physics'),
-                ),
-                SizedBox(height: 12.h),
-                
-                // Date picker
-                InkWell(
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2024),
-                      lastDate: DateTime(2028),
-                    );
-                    if (picked != null) {
-                      setStateDialog(() => selectedDate = picked);
-                    }
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400),
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Date: ${intl.DateFormat('yyyy-MM-dd').format(selectedDate)}',
-                          style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500),
-                        ),
-                        const Icon(Icons.calendar_today, size: 18),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: 12.h),
-
-                TextField(
-                  controller: timeCtrl,
-                  decoration: _dialogFieldDecoration('Time', 'e.g. 10:00 AM'),
-                ),
-                SizedBox(height: 12.h),
-
+                _dialogField(nameCtrl, 'Exam Name', 'e.g. Half Yearly'),
+                SizedBox(height: 10.h),
+                _dialogField(dateCtrl, 'Start Date', 'dd/MM/yyyy'),
+                SizedBox(height: 10.h),
+                _dialogField(timeCtrl, 'Time', '10:00 AM'),
+                SizedBox(height: 10.h),
                 DropdownButtonFormField<String>(
                   initialValue: selectedClass,
-                  decoration: _dialogFieldDecoration('Class', ''),
-                  items: ['Class 10', 'Class 11', 'Class 12'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setStateDialog(() => selectedClass = v!),
+                  decoration: _dec('Class'),
+                  items: ['Grade 1', 'Grade 2', 'Grade 3', 'Class 10', 'Class 11', 'Class 12']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setD(() => selectedClass = v!),
                 ),
-                SizedBox(height: 12.h),
-
+                SizedBox(height: 10.h),
                 DropdownButtonFormField<String>(
                   initialValue: selectedTerm,
-                  decoration: _dialogFieldDecoration('Term', ''),
-                  items: ['Term 1', 'Term 2', 'Final Term'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
-                  onChanged: (v) => setStateDialog(() => selectedTerm = v!),
+                  decoration: _dec('Term'),
+                  items: ['-', 'Term 1', 'Term 2', 'Final Term']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setD(() => selectedTerm = v!),
                 ),
-                SizedBox(height: 12.h),
-
-                TextField(
-                  controller: roomCtrl,
-                  decoration: _dialogFieldDecoration('Room', 'e.g. Hall A'),
+                SizedBox(height: 10.h),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedStatus,
+                  decoration: _dec('Status'),
+                  items: ['Published', 'Draft', 'Upcoming']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (v) => setD(() => selectedStatus = v!),
                 ),
-                SizedBox(height: 12.h),
-
-                TextField(
-                  controller: durationCtrl,
-                  decoration: _dialogFieldDecoration('Duration', 'e.g. 3 hrs'),
-                ),
-                SizedBox(height: 12.h),
-
-                TextField(
-                  controller: syllabusCtrl,
-                  decoration: _dialogFieldDecoration('Syllabus', 'e.g. Ch 1-8'),
-                ),
+                SizedBox(height: 10.h),
+                _dialogField(roomCtrl, 'Room / Hall', 'e.g. Hall A'),
+                SizedBox(height: 10.h),
+                _dialogField(durationCtrl, 'Duration', 'e.g. 3 hrs'),
+                SizedBox(height: 10.h),
+                _dialogField(syllabusCtrl, 'Syllabus', 'e.g. Ch 1-8'),
               ],
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3B82F6)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB)),
               onPressed: () {
-                if (subjectCtrl.text.trim().isEmpty) return;
+                if (nameCtrl.text.trim().isEmpty) return;
                 setState(() {
-                  _exams.add({
-                    'subject': subjectCtrl.text.trim(),
+                  _exams.insert(0, {
+                    'name': nameCtrl.text.trim(),
                     'class': selectedClass,
                     'term': selectedTerm,
-                    'academic_year': '2026-2027',
-                    'date': intl.DateFormat('yyyy-MM-dd').format(selectedDate),
+                    'start_date': dateCtrl.text.trim(),
+                    'status': selectedStatus,
                     'time': timeCtrl.text.trim(),
                     'room': roomCtrl.text.trim(),
                     'duration': durationCtrl.text.trim(),
                     'syllabus': syllabusCtrl.text.trim(),
+                    'academic_year': '2026-2027',
+                    'subject': 'All Subjects',
                   });
                 });
                 _saveExams();
                 Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text('Exam scheduled!',
+                      style: GoogleFonts.inter()),
+                  backgroundColor: const Color(0xFF2563EB),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r)),
+                ));
               },
-              child: const Text('Create', style: TextStyle(color: Colors.white)),
+              child: const Text('Create',
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -332,103 +313,194 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  InputDecoration _dialogFieldDecoration(String label, String hint) {
+  TextField _dialogField(
+      TextEditingController ctrl, String label, String hint) {
+    return TextField(
+      controller: ctrl,
+      decoration: _dec(label, hint: hint),
+    );
+  }
+
+  InputDecoration _dec(String label, {String hint = ''}) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
       labelStyle: GoogleFonts.inter(fontSize: 12.sp),
-      contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
+      contentPadding:
+          EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10.r)),
     );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // BUILD METHODS
-  // ═════════════════════════════════════════════════════════════════════════
+  void _showExamActions(Map<String, dynamic> exam) {
+    final idx = _exams.indexOf(exam);
+    showModalBottomSheet(
+      context: context,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.all(20.r),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40.w,
+              height: 4.h,
+              margin: EdgeInsets.only(bottom: 16.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFCBD5E1),
+                borderRadius: BorderRadius.circular(4.r),
+              ),
+            ),
+            Text(
+              exam['name'] as String? ?? 'Exam',
+              style: GoogleFonts.outfit(
+                  fontSize: 16.sp, fontWeight: FontWeight.w800),
+            ),
+            SizedBox(height: 16.h),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined,
+                  color: Color(0xFF2563EB)),
+              title: Text('Edit Exam',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(ctx);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded,
+                  color: Color(0xFFEF4444)),
+              title: Text('Delete Exam',
+                  style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFEF4444))),
+              onTap: () {
+                setState(() => _exams.removeAt(idx));
+                _saveExams();
+                Navigator.pop(ctx);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onNavTap(int index) {
+    if (index == 3) return;
+    if (widget.onNavigate != null) {
+      widget.onNavigate!(index);
+    } else {
+      Navigator.pop(context, index);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // BUILD
+  // ─────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final initials = _getInitials(_teacherName);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: Navigator.canPop(context)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
-                onPressed: () => Navigator.pop(context),
-              )
-            : IconButton(
-                icon: const Icon(Icons.menu, color: Color(0xFF0F172A)),
-                onPressed: () {},
+      appBar: widget.showAppBar
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              shadowColor: Colors.transparent,
+              surfaceTintColor: Colors.transparent,
+              leading: Navigator.canPop(context)
+                  ? IconButton(
+                      icon: const Icon(Icons.arrow_back,
+                          color: Color(0xFF0F172A)),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.menu,
+                          color: Color(0xFF0F172A)),
+                      onPressed: widget.onOpenDrawer ?? () {},
+                    ),
+              title: Text(
+                'EduSphere',
+                style: GoogleFonts.outfit(
+                  fontSize: 22.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
               ),
-        title: Text(
-          'EduSphere',
-          style: GoogleFonts.outfit(
-            fontSize: 22.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF0F172A)),
-            onPressed: () {},
-          ),
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF0F172A)),
-                onPressed: () {},
-              ),
-              Positioned(
-                right: 4,
-                top: 4,
-                child: Container(
-                  padding: EdgeInsets.all(4.r),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEF4444),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Text(
-                    '3',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 8.sp,
-                      fontWeight: FontWeight.bold,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_none_outlined,
+                      color: Color(0xFF0F172A)),
+                  onPressed: () {},
+                ),
+                Padding(
+                  padding: EdgeInsets.only(right: 16.w, left: 4.w),
+                  child: Center(
+                    child: CircleAvatar(
+                      radius: 16.r,
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      child: Text(
+                        initials,
+                        style: GoogleFonts.inter(
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF2563EB),
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(width: 8.w),
-        ],
-      ),
+              ],
+            )
+          : null,
       body: Stack(
         children: [
-          // Content Scroll View
           Positioned.fill(
             child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+              physics: const BouncingScrollPhysics(),
+              padding:
+                  EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 100.h),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeaderCard(),
-                  SizedBox(height: 16.h),
+                  // Page heading
+                  Text(
+                    'Examinations',
+                    style: GoogleFonts.outfit(
+                      fontSize: 26.sp,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Manage exams, schedules, and results',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+
+                  // Charts row
                   _buildChartsRow(),
                   SizedBox(height: 16.h),
+
+                  // Schedule card
                   _buildScheduleCard(),
-                  SizedBox(height: 90.h), // space for assistant overlap
                 ],
               ),
             ),
           ),
 
-          // Assistant Overlay
-          _buildAssistantFloatingButtons(),
+          // Chat bubble + FAB
+          _buildAssistantOverlay(),
 
-          // Chat Window Overlay
+          // Chat window
           if (_isChatOpen) _buildChatWindow(),
         ],
       ),
@@ -436,77 +508,25 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  Widget _buildHeaderCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFDBEAFE)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: EdgeInsets.all(8.r),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF3B82F6),
-                    borderRadius: BorderRadius.circular(10.r),
-                  ),
-                  child: const Icon(Icons.description_rounded, color: Colors.white, size: 24),
-                ),
-                SizedBox(height: 12.h),
-                Text(
-                  'Examinations',
-                  style: GoogleFonts.outfit(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF1E293B),
-                  ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  'Manage exams, schedules, and results',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    color: const Color(0xFF64748B),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(width: 8.w),
-          Image.asset(
-            'assets/images/exam_illustration.png',
-            width: 100.w,
-            height: 100.h,
-            fit: BoxFit.contain,
-            errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.assignment_outlined, size: 80, color: Colors.blue);
-            },
-          ),
-        ],
-      ),
-    );
-  }
+  // ─────────────────────────────────────────────────────────
+  // CHARTS ROW
+  // ─────────────────────────────────────────────────────────
 
   Widget _buildChartsRow() {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildSubjectPerformanceCard()),
+        Expanded(child: _buildRadarCard()),
         SizedBox(width: 12.w),
-        Expanded(child: _buildAverageScoreTrendCard()),
+        Expanded(child: _buildLineChartCard()),
       ],
     );
   }
 
-  Widget _buildSubjectPerformanceCard() {
+  /// Left card — Spider / Radar chart
+  Widget _buildRadarCard() {
     return Container(
-      padding: EdgeInsets.all(16.r),
+      padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
@@ -515,46 +535,66 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Subject Performance',
-            style: GoogleFonts.outfit(
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            'Average marks distribution across subjects',
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          SizedBox(height: 16.h),
-          SizedBox(
-            height: 80.h,
-            child: Center(
-              child: _exams.isEmpty
-                  ? CustomPaint(
-                      size: Size(64.w, 64.h),
-                      painter: DonutChartPainter(isData: false),
-                    )
-                  : CustomPaint(
-                      size: Size(64.w, 64.h),
-                      painter: DonutChartPainter(isData: true),
-                    ),
-            ),
-          ),
-          SizedBox(height: 8.h),
-          Center(
-            child: Text(
-              _exams.isEmpty ? 'No data available\nfor visualization' : 'No data available\nfor visualization',
-              style: GoogleFonts.inter(
-                fontSize: 9.sp,
-                color: const Color(0xFF94A3B8),
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.r),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEDE9FE),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(Icons.bar_chart_rounded,
+                    size: 16.sp, color: const Color(0xFF7C3AED)),
               ),
-              textAlign: TextAlign.center,
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Subject Performance',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Average marks distribution\nacross subjects',
+                      style: GoogleFonts.inter(
+                        fontSize: 8.5.sp,
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            height: 170.h,
+            child: CustomPaint(
+              size: Size(double.infinity, 170.h),
+              painter: _RadarChartPainter(
+                labels: const [
+                  'Hindi',
+                  'English',
+                  'Science',
+                  'Mathematics',
+                  'Social Studies',
+                ],
+                values: const [0.85, 0.78, 0.70, 0.65, 0.72],
+                fillColor:
+                    const Color(0xFFEC4899).withValues(alpha: 0.3),
+                strokeColor: const Color(0xFFEC4899),
+                gridColor: const Color(0xFFE2E8F0),
+                labelStyle: GoogleFonts.inter(
+                  fontSize: 8.sp,
+                  color: const Color(0xFF475569),
+                ),
+              ),
             ),
           ),
         ],
@@ -562,9 +602,10 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  Widget _buildAverageScoreTrendCard() {
+  /// Right card — Line chart
+  Widget _buildLineChartCard() {
     return Container(
-      padding: EdgeInsets.all(16.r),
+      padding: EdgeInsets.all(14.r),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
@@ -573,70 +614,98 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Average Score Trend',
-            style: GoogleFonts.outfit(
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          SizedBox(height: 2.h),
-          Text(
-            'Class average performance over time',
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          SizedBox(height: 16.h),
-          SizedBox(
-            height: 80.h,
-            child: Center(
-              child: _exams.isEmpty
-                  ? CustomPaint(
-                      size: Size(110.w, 64.h),
-                      painter: LineChartPainter(isData: false),
-                    )
-                  : CustomPaint(
-                      size: Size(110.w, 64.h),
-                      painter: LineChartPainter(isData: true),
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(8.r),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(Icons.trending_up_rounded,
+                    size: 16.sp, color: const Color(0xFF059669)),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Average Score Trend',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
                     ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'Class average performance\nover time',
+                      style: GoogleFonts.inter(
+                        fontSize: 8.5.sp,
+                        color: const Color(0xFF2563EB),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            height: 150.h,
+            child: CustomPaint(
+              size: Size(double.infinity, 150.h),
+              painter: _LineChartPainter(
+                yLabels: const ['100', '75', '50', '25', '0'],
+                xLabels: const [
+                  "May'01", "May'07", "May'13", "May'19", "May'25"
+                ],
+                dataPoints: const [0.80, 0.79, 0.82, 0.80, 0.83],
+                lineColor: const Color(0xFF2563EB),
+                gridColor: const Color(0xFFE2E8F0),
+                labelStyle: GoogleFonts.inter(
+                  fontSize: 7.sp,
+                  color: const Color(0xFF94A3B8),
+                ),
+              ),
             ),
           ),
           SizedBox(height: 8.h),
-          Center(
-            child: Text(
-              _exams.isEmpty ? 'No data available\nfor visualization' : 'No data available\nfor visualization',
-              style: GoogleFonts.inter(
-                fontSize: 9.sp,
-                color: const Color(0xFF94A3B8),
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8.w,
+                height: 8.w,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF2563EB),
+                  shape: BoxShape.circle,
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
+              SizedBox(width: 4.w),
+              Text(
+                'average',
+                style: GoogleFonts.inter(
+                  fontSize: 9.sp,
+                  color: const Color(0xFF475569),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────
+  // SCHEDULE CARD (Table layout)
+  // ─────────────────────────────────────────────────────────
 
   Widget _buildScheduleCard() {
-    final filtered = _exams.where((e) {
-      final subject = e['subject']?.toLowerCase() ?? '';
-      final search = _searchQuery.toLowerCase();
-      if (!subject.contains(search)) return false;
-
-      final year = e['academic_year'] ?? '2026-2027';
-      if (_selectedYear != 'All Years' && year != _selectedYear) return false;
-
-      final cls = e['class'] ?? 'Class 10';
-      if (_selectedClass != 'All Classes' && cls != _selectedClass) return false;
-
-      final term = e['term'] ?? 'Final Term';
-      if (_selectedTerm != 'All Terms' && term != _selectedTerm) return false;
-
-      return true;
-    }).toList();
+    final filtered = _filteredExams;
 
     return Container(
       width: double.infinity,
@@ -646,124 +715,148 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       padding: EdgeInsets.all(16.r),
-      child: Stack(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Card header
+          Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Examination Schedule',
-                          style: GoogleFonts.outfit(
-                            fontSize: 15.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          'View and manage all scheduled examinations',
-                          style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Text(
-                      '${filtered.length} Total',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2563EB),
+              Container(
+                padding: EdgeInsets.all(8.r),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(Icons.calendar_month_rounded,
+                    size: 20.sp, color: const Color(0xFF2563EB)),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Examination Schedule',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16.h),
-              
-              // Search Input
-              TextField(
-                onChanged: (val) => setState(() => _searchQuery = val),
-                decoration: InputDecoration(
-                  hintText: 'Search exams by name...',
-                  hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-                  filled: true,
-                  fillColor: Colors.white,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.r),
-                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.r),
-                    borderSide: const BorderSide(color: Color(0xFF3B82F6)),
-                  ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      'View and manage all scheduled examinations (${filtered.length} total)',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SizedBox(height: 12.h),
-
-              // Filters Row
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final isNarrow = constraints.maxWidth < 340;
-                  if (isNarrow) {
-                    return Column(
-                      children: [
-                        _buildFilterDropdown('Academic Year', _selectedYear, ['All Years', '2026-2027', '2025-2026'], (v) => setState(() => _selectedYear = v!)),
-                        SizedBox(height: 8.h),
-                        _buildFilterDropdown('Class', _selectedClass, ['All Classes', 'Class 10', 'Class 11', 'Class 12'], (v) => setState(() => _selectedClass = v!)),
-                        SizedBox(height: 8.h),
-                        _buildFilterDropdown('Term', _selectedTerm, ['All Terms', 'Term 1', 'Term 2', 'Final Term'], (v) => setState(() => _selectedTerm = v!)),
-                      ],
-                    );
-                  }
-                  return Row(
-                    children: [
-                      Expanded(child: _buildFilterDropdown('Academic Year', _selectedYear, ['All Years', '2026-2027', '2025-2026'], (v) => setState(() => _selectedYear = v!))),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _buildFilterDropdown('Class', _selectedClass, ['All Classes', 'Class 10', 'Class 11', 'Class 12'], (v) => setState(() => _selectedClass = v!))),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _buildFilterDropdown('Term', _selectedTerm, ['All Terms', 'Term 1', 'Term 2', 'Final Term'], (v) => setState(() => _selectedTerm = v!))),
-                    ],
-                  );
-                },
+              // Add button
+              GestureDetector(
+                onTap: _showCreateExamDialog,
+                child: Container(
+                  padding: EdgeInsets.all(6.r),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Icon(Icons.add_rounded,
+                      color: Colors.white, size: 18.sp),
+                ),
               ),
-              SizedBox(height: 20.h),
-
-              // List/Empty state
-              filtered.isEmpty ? _buildEmptyExamsState() : _buildExamsList(filtered),
             ],
           ),
-          
-          // FAB aligned in bottom-right of the card
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: FloatingActionButton(
-              mini: true,
-              backgroundColor: const Color(0xFF3B82F6),
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-              onPressed: _showCreateExamDialog,
-              child: const Icon(Icons.add, color: Colors.white),
+          SizedBox(height: 20.h),
+
+          // Search label
+          Text(
+            'Search',
+            style: GoogleFonts.inter(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF334155),
             ),
           ),
+          SizedBox(height: 8.h),
+
+          // Search field
+          TextField(
+            onChanged: (val) => setState(() => _searchQuery = val),
+            style: GoogleFonts.inter(
+                fontSize: 13.sp, color: const Color(0xFF0F172A)),
+            decoration: InputDecoration(
+              hintText: 'Search exams by name...',
+              hintStyle: GoogleFonts.inter(
+                  fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+              prefixIcon: const Icon(Icons.search_rounded,
+                  color: Color(0xFF94A3B8)),
+              contentPadding: EdgeInsets.symmetric(
+                  horizontal: 14.w, vertical: 12.h),
+              filled: true,
+              fillColor: Colors.white,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.r),
+                borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.r),
+                borderSide: const BorderSide(
+                    color: Color(0xFF3B82F6), width: 1.5),
+              ),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // Filters
+          Row(
+            children: [
+              Expanded(
+                child: _buildFilterDropdown(
+                  'Academic Year',
+                  _selectedYear,
+                  ['All Years', '2026-2027', '2025-2026'],
+                  (v) => setState(() => _selectedYear = v!),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _buildFilterDropdown(
+                  'Class',
+                  _selectedClass,
+                  ['All Classes', 'Grade 1', 'Grade 2', 'Grade 3',
+                    'Class 10', 'Class 11', 'Class 12'],
+                  (v) => setState(() => _selectedClass = v!),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Expanded(
+                child: _buildFilterDropdown(
+                  'Term',
+                  _selectedTerm,
+                  ['All Terms', '-', 'Term 1', 'Term 2', 'Final Term'],
+                  (v) => setState(() => _selectedTerm = v!),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+
+          // Table
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: CircularProgressIndicator(
+                    color: Color(0xFF2563EB)),
+              ),
+            )
+          else if (filtered.isEmpty)
+            _buildEmptyState()
+          else
+            _buildExamTable(filtered),
         ],
       ),
     );
@@ -798,10 +891,17 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: currentValue,
-              icon: Icon(Icons.keyboard_arrow_down_rounded, color: const Color(0xFF64748B), size: 18.sp),
+              icon: Icon(Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xFF64748B), size: 16.sp),
               isExpanded: true,
-              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF1E293B), fontWeight: FontWeight.w600),
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  color: const Color(0xFF1E293B),
+                  fontWeight: FontWeight.w600),
+              items: items
+                  .map((e) =>
+                      DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
               onChanged: onChanged,
             ),
           ),
@@ -810,188 +910,219 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  Widget _buildEmptyExamsState() {
+  Widget _buildEmptyState() {
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 32.h),
       child: Column(
         children: [
-          Container(
-            padding: EdgeInsets.all(16.r),
-            decoration: const BoxDecoration(
-              color: Color(0xFFF1F5F9),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.calendar_today_rounded, size: 36.sp, color: const Color(0xFF94A3B8)),
-          ),
-          SizedBox(height: 12.h),
-          Text(
-            'No exams found',
-            style: GoogleFonts.outfit(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          SizedBox(height: 4.h),
-          Text(
-            'Get started by creating your first exam',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              color: const Color(0xFF64748B),
-            ),
-          ),
-          SizedBox(height: 24.h), // space for overlapping FAB
+          Icon(Icons.calendar_today_rounded,
+              size: 48.sp, color: const Color(0xFFCBD5E1)),
+          SizedBox(height: 16.h),
+          Text('No exams found',
+              style: GoogleFonts.outfit(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A))),
+          SizedBox(height: 6.h),
+          Text('Get started by creating your first exam',
+              style: GoogleFonts.inter(
+                  fontSize: 11.sp, color: const Color(0xFF64748B))),
+          SizedBox(height: 24.h),
         ],
       ),
     );
   }
 
-  Widget _buildExamsList(List<Map<String, dynamic>> list) {
+  /// Table matching the image: Exam Name | Class | Term | Start Date | Status | Actions
+  Widget _buildExamTable(List<Map<String, dynamic>> list) {
     return Column(
       children: [
-        ...list.map((e) {
-          final idx = _exams.indexOf(e);
-          final subject = e['subject'] ?? '';
-          final dateStr = e['date'] ?? '';
-          final timeStr = e['time'] ?? '';
-          final room = e['room'] ?? '';
-          final duration = e['duration'] ?? '';
-          final syllabus = e['syllabus'] ?? '';
-          final className = e['class'] ?? '';
+        // Header row
+        Container(
+          padding:
+              EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(10.r),
+              topRight: Radius.circular(10.r),
+            ),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text('Exam Name',
+                    style: _headerStyle()),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('Class', style: _headerStyle()),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text('Term', style: _headerStyle()),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('Start Date', style: _headerStyle()),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text('Status', style: _headerStyle()),
+              ),
+              SizedBox(
+                width: 32.w,
+                child: Text('Actions', style: _headerStyle()),
+              ),
+            ],
+          ),
+        ),
 
-          String dateVal = '10';
-          String monthVal = 'June';
-          
-          try {
-            final parsedDate = DateTime.parse(dateStr);
-            final formatterDate = intl.DateFormat('d');
-            final formatterMonth = intl.DateFormat('MMM');
-            
-            dateVal = formatterDate.format(parsedDate);
-            monthVal = formatterMonth.format(parsedDate);
-          } catch (_) {
-            if (dateStr.contains('-')) {
-              final parts = dateStr.split('-');
-              if (parts.length == 3) {
-                dateVal = parts[2];
-                final m = int.tryParse(parts[1]) ?? 6;
-                final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                monthVal = months[m - 1];
-              }
-            }
-          }
+        // Data rows
+        ...list.asMap().entries.map((entry) {
+          final e = entry.value;
+          final isLast = entry.key == list.length - 1;
+          final status = e['status'] as String? ?? 'Published';
+          final isPublished = status == 'Published';
+          final statusColor = isPublished
+              ? const Color(0xFF059669)
+              : status == 'Draft'
+                  ? const Color(0xFF64748B)
+                  : const Color(0xFF0284C7);
+          final statusBg = isPublished
+              ? const Color(0xFFD1FAE5)
+              : status == 'Draft'
+                  ? const Color(0xFFF1F5F9)
+                  : const Color(0xFFE0F2FE);
 
           return Container(
-            margin: EdgeInsets.only(bottom: 12.h),
-            padding: EdgeInsets.all(12.r),
+            padding: EdgeInsets.symmetric(
+                horizontal: 12.w, vertical: 12.h),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              border: Border(
+                left: const BorderSide(color: Color(0xFFE2E8F0)),
+                right: const BorderSide(color: Color(0xFFE2E8F0)),
+                bottom: BorderSide(
+                  color: isLast
+                      ? const Color(0xFFE2E8F0)
+                      : const Color(0xFFF1F5F9),
+                ),
+              ),
+              borderRadius: isLast
+                  ? BorderRadius.only(
+                      bottomLeft: Radius.circular(10.r),
+                      bottomRight: Radius.circular(10.r),
+                    )
+                  : null,
             ),
             child: Row(
               children: [
-                // Date Widget
-                Container(
-                  width: 50.w,
-                  height: 54.h,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(12.r),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        dateVal,
-                        style: GoogleFonts.inter(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF2563EB),
-                        ),
-                      ),
-                      Text(
-                        monthVal.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(width: 12.w),
-
-                // Details Column
+                // Exam Name
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            subject,
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A),
-                              fontSize: 14.sp,
-                            ),
-                          ),
-                          SizedBox(width: 6.w),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF1F5F9),
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              className,
-                              style: GoogleFonts.inter(
-                                fontSize: 9.sp,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF475569),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 3.h),
-                      Text(
-                        '$timeStr • Room: $room • $duration',
-                        style: GoogleFonts.inter(
-                          fontSize: 11.sp,
-                          color: const Color(0xFF475569),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      SizedBox(height: 3.h),
-                      Text(
-                        'Syllabus: $syllabus',
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  flex: 5,
+                  child: Text(
+                    e['name'] as String? ??
+                        e['subject'] as String? ??
+                        'Untitled',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-
-                // Delete Action
-                IconButton(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444)),
-                  onPressed: () => _deleteExam(idx),
+                // Class
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    e['class'] as String? ?? '-',
+                    style: _cellStyle(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Term
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    e['term'] as String? ?? '-',
+                    style: _cellStyle(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Start Date
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    e['start_date'] as String? ??
+                        e['date'] as String? ??
+                        '-',
+                    style: _cellStyle(),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Status badge
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 6.w, vertical: 3.h),
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Text(
+                      status,
+                      style: GoogleFonts.inter(
+                        fontSize: 9.sp,
+                        fontWeight: FontWeight.w700,
+                        color: statusColor,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                // Actions
+                SizedBox(
+                  width: 32.w,
+                  child: GestureDetector(
+                    onTap: () => _showExamActions(e),
+                    child: Icon(
+                      Icons.more_vert_rounded,
+                      color: const Color(0xFF64748B),
+                      size: 18.sp,
+                    ),
+                  ),
                 ),
               ],
             ),
           );
         }),
-        SizedBox(height: 24.h), // spacing offset
       ],
     );
   }
 
-  Widget _buildAssistantFloatingButtons() {
+  TextStyle _headerStyle() => GoogleFonts.inter(
+        fontSize: 10.sp,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF475569),
+      );
+
+  TextStyle _cellStyle() => GoogleFonts.inter(
+        fontSize: 10.sp,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF334155),
+      );
+
+  // ─────────────────────────────────────────────────────────
+  // ASSISTANT
+  // ─────────────────────────────────────────────────────────
+
+  Widget _buildAssistantOverlay() {
     return Positioned(
       right: 16.w,
       bottom: 16.h,
@@ -999,12 +1130,14 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (_showAssistantBubble)
+          if (_showAssistantBubble && !_isChatOpen)
             GestureDetector(
               onTap: _toggleChat,
               child: Container(
-                margin: EdgeInsets.only(bottom: 8.h, right: 8.w),
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                margin:
+                    EdgeInsets.only(bottom: 8.h, right: 8.w),
+                padding: EdgeInsets.symmetric(
+                    horizontal: 12.w, vertical: 10.h),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -1014,52 +1147,50 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
                   ],
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircleAvatar(
-                      radius: 14.r,
-                      backgroundColor: Colors.blue.shade100,
-                      child: const Text('👨‍🏫', style: TextStyle(fontSize: 12)),
+                    Text(
+                      'HI ${_getFirstName(_teacherName)}!',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F172A),
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                    SizedBox(width: 8.w),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Hi Vikram!',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.bold,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        Text(
-                          'How can I help?',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            color: const Color(0xFF2563EB),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
+                    Text(
+                      'HOW CAN I HELP?',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF2563EB),
+                        letterSpacing: 0.3,
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
           FloatingActionButton(
-            heroTag: 'chatbot_fab',
+            heroTag: 'exam_chatbot_fab',
             backgroundColor: const Color(0xFF2563EB),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28.r)),
             onPressed: _toggleChat,
-            child: const Icon(Icons.assistant_navigation, color: Colors.white),
+            child: Icon(
+              _isChatOpen
+                  ? Icons.close_rounded
+                  : Icons.assistant_navigation,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
@@ -1074,12 +1205,14 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       height: 380.h,
       child: Card(
         elevation: 12,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        shadowColor: Colors.black.withValues(alpha: 0.15),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r)),
         child: Column(
           children: [
-            // Chat Header
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(
+                  horizontal: 16.w, vertical: 12.h),
               decoration: BoxDecoration(
                 color: const Color(0xFF2563EB),
                 borderRadius: BorderRadius.only(
@@ -1088,64 +1221,79 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 ),
               ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 14.r,
-                        backgroundColor: Colors.white,
-                        child: const Icon(Icons.assistant_rounded, color: Color(0xFF2563EB), size: 16),
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'Vikram Assistant',
-                        style: GoogleFonts.outfit(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
+                  CircleAvatar(
+                    radius: 14.r,
+                    backgroundColor:
+                        Colors.white.withValues(alpha: 0.2),
+                    child: const Icon(Icons.assistant_rounded,
+                        color: Colors.white, size: 16),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white, size: 18),
-                    onPressed: _toggleChat,
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'Academic Assistant',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _toggleChat,
+                    child: const Icon(Icons.close,
+                        color: Colors.white, size: 18),
                   ),
                 ],
               ),
             ),
-
-            // Messages Container
             Expanded(
               child: Container(
                 color: const Color(0xFFF8FAFC),
                 child: ListView.builder(
+                  controller: _chatScrollCtrl,
                   padding: EdgeInsets.all(12.r),
                   itemCount: _chatMessages.length,
                   itemBuilder: (ctx, i) {
                     final msg = _chatMessages[i];
                     final isUser = msg['sender'] == 'user';
                     return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      alignment: isUser
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
                       child: Container(
+                        constraints:
+                            BoxConstraints(maxWidth: 220.w),
                         margin: EdgeInsets.only(bottom: 8.h),
-                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12.w, vertical: 8.h),
                         decoration: BoxDecoration(
-                          color: isUser ? const Color(0xFF2563EB) : Colors.white,
+                          color: isUser
+                              ? const Color(0xFF2563EB)
+                              : Colors.white,
                           borderRadius: BorderRadius.only(
                             topLeft: Radius.circular(12.r),
                             topRight: Radius.circular(12.r),
-                            bottomLeft: isUser ? Radius.circular(12.r) : Radius.zero,
-                            bottomRight: isUser ? Radius.zero : Radius.circular(12.r),
+                            bottomLeft: isUser
+                                ? Radius.circular(12.r)
+                                : Radius.zero,
+                            bottomRight: isUser
+                                ? Radius.zero
+                                : Radius.circular(12.r),
                           ),
-                          border: isUser ? null : Border.all(color: const Color(0xFFE2E8F0)),
+                          border: isUser
+                              ? null
+                              : Border.all(
+                                  color: const Color(0xFFE2E8F0)),
                         ),
                         child: Text(
                           msg['text'] ?? '',
                           style: GoogleFonts.inter(
                             fontSize: 12.sp,
-                            color: isUser ? Colors.white : const Color(0xFF0F172A),
+                            color: isUser
+                                ? Colors.white
+                                : const Color(0xFF0F172A),
                           ),
                         ),
                       ),
@@ -1154,32 +1302,36 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 ),
               ),
             ),
-
-            // Chat Input Panel
             Container(
-              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
+              padding: EdgeInsets.symmetric(
+                  horizontal: 8.w, vertical: 6.h),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+                border:
+                    Border(top: BorderSide(color: Color(0xFFE2E8F0))),
               ),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _chatInputCtrl,
-                      onSubmitted: (_) => _handleSendChatMessage(),
+                      onSubmitted: (_) => _handleSendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Type your message...',
-                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
+                        hintStyle: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            color: const Color(0xFF94A3B8)),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 8.w),
                       ),
                       style: GoogleFonts.inter(fontSize: 12.sp),
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.send_rounded, color: Color(0xFF2563EB)),
-                    onPressed: _handleSendChatMessage,
+                    icon: const Icon(Icons.send_rounded,
+                        color: Color(0xFF2563EB)),
+                    onPressed: _handleSendMessage,
                   ),
                 ],
               ),
@@ -1189,6 +1341,10 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       ),
     );
   }
+
+  // ─────────────────────────────────────────────────────────
+  // BOTTOM NAV
+  // ─────────────────────────────────────────────────────────
 
   Widget _buildBottomNav() {
     return Container(
@@ -1204,7 +1360,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       ),
       child: SafeArea(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
+          padding: EdgeInsets.symmetric(
+              horizontal: 8.w, vertical: 8.h),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -1216,8 +1373,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 onTap: () => _onNavTap(0),
               ),
               _NavItem(
-                icon: Icons.calendar_today_rounded,
-                label: 'Calendar',
+                icon: Icons.calendar_month_rounded,
+                label: 'Academic\nCalendar',
                 selected: false,
                 color: const Color(0xFF2563EB),
                 onTap: () => _onNavTap(1),
@@ -1237,11 +1394,18 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 onTap: () => _onNavTap(3),
               ),
               _NavItem(
+                icon: Icons.check_box_outlined,
+                label: 'Assignments',
+                selected: false,
+                color: const Color(0xFF2563EB),
+                onTap: () => _onNavTap(4),
+              ),
+              _NavItem(
                 icon: Icons.more_horiz_rounded,
                 label: 'More',
                 selected: false,
                 color: const Color(0xFF2563EB),
-                onTap: () => _onNavTap(4),
+                onTap: () => _onNavTap(5),
               ),
             ],
           ),
@@ -1251,154 +1415,234 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   }
 }
 
-// ═════════════════════════════════════════════════════════════════════════
-// SUPPORTING WIDGETS & PAINTERS
-// ═════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// RADAR CHART PAINTER
+// ═══════════════════════════════════════════════════════════
 
-class DonutChartPainter extends CustomPainter {
-  final bool isData;
-  DonutChartPainter({required this.isData});
+class _RadarChartPainter extends CustomPainter {
+  final List<String> labels;
+  final List<double> values; // 0.0 – 1.0
+  final Color fillColor;
+  final Color strokeColor;
+  final Color gridColor;
+  final TextStyle labelStyle;
+
+  _RadarChartPainter({
+    required this.labels,
+    required this.values,
+    required this.fillColor,
+    required this.strokeColor,
+    required this.gridColor,
+    required this.labelStyle,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    // Leave margin for labels
+    const labelMargin = 22.0;
+    final maxRadius = math.min(cx, cy) - labelMargin;
+    final n = labels.length;
+    const rings = 4;
 
-    if (!isData) {
-      final paintBg = Paint()
-        ..color = const Color(0xFFF1F5F9)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, radius, paintBg);
+    // Draw grid rings
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0;
 
-      final paintOutline = Paint()
-        ..color = const Color(0xFFE2E8F0)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8.w;
-      canvas.drawCircle(center, radius - 4.w, paintOutline);
-
-      final paintInner = Paint()..color = Colors.white;
-      canvas.drawCircle(center, radius / 2, paintInner);
-    } else {
-      final rect = Rect.fromCircle(center: center, radius: radius - 4.w);
-      final strokePaint = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 8.w
-        ..strokeCap = StrokeCap.round;
-
-      final colors = [
-        const Color(0xFF3B82F6),
-        const Color(0xFF10B981),
-        const Color(0xFFF59E0B),
-        const Color(0xFF8B5CF6),
-        const Color(0xFFEF4444),
-      ];
-
-      double startAngle = -3.14 / 2;
-      final sweepAngles = [3.14 * 0.6, 3.14 * 0.5, 3.14 * 0.4, 3.14 * 0.3, 3.14 * 0.2];
-
-      for (int i = 0; i < colors.length; i++) {
-        strokePaint.color = colors[i];
-        canvas.drawArc(rect, startAngle, sweepAngles[i], false, strokePaint);
-        startAngle += sweepAngles[i] + 0.05;
+    for (int r = 1; r <= rings; r++) {
+      final radius = maxRadius * r / rings;
+      final path = Path();
+      for (int i = 0; i < n; i++) {
+        final angle = 2 * math.pi * i / n - math.pi / 2;
+        final x = cx + radius * math.cos(angle);
+        final y = cy + radius * math.sin(angle);
+        if (i == 0) {
+          path.moveTo(x, y);
+        } else {
+          path.lineTo(x, y);
+        }
       }
+      path.close();
+      canvas.drawPath(path, gridPaint);
+    }
 
-      canvas.drawCircle(center, radius / 2, Paint()..color = Colors.white);
+    // Draw axis lines
+    for (int i = 0; i < n; i++) {
+      final angle = 2 * math.pi * i / n - math.pi / 2;
+      canvas.drawLine(
+        Offset(cx, cy),
+        Offset(cx + maxRadius * math.cos(angle),
+            cy + maxRadius * math.sin(angle)),
+        gridPaint,
+      );
+    }
+
+    // Draw data polygon
+    final dataPath = Path();
+    for (int i = 0; i < n; i++) {
+      final angle = 2 * math.pi * i / n - math.pi / 2;
+      final r = maxRadius * (i < values.length ? values[i] : 0.5);
+      final x = cx + r * math.cos(angle);
+      final y = cy + r * math.sin(angle);
+      if (i == 0) {
+        dataPath.moveTo(x, y);
+      } else {
+        dataPath.lineTo(x, y);
+      }
+    }
+    dataPath.close();
+
+    canvas.drawPath(
+        dataPath, Paint()..color = fillColor..style = PaintingStyle.fill);
+    canvas.drawPath(
+        dataPath,
+        Paint()
+          ..color = strokeColor
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.5);
+
+    // Draw dots at vertices
+    final dotPaint = Paint()..color = strokeColor;
+    for (int i = 0; i < n; i++) {
+      final angle = 2 * math.pi * i / n - math.pi / 2;
+      final r = maxRadius * (i < values.length ? values[i] : 0.5);
+      canvas.drawCircle(
+        Offset(cx + r * math.cos(angle), cy + r * math.sin(angle)),
+        3.0,
+        dotPaint,
+      );
+    }
+
+    // Draw labels
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    for (int i = 0; i < n; i++) {
+      final angle = 2 * math.pi * i / n - math.pi / 2;
+      final labelR = maxRadius + labelMargin - 4;
+      final lx = cx + labelR * math.cos(angle);
+      final ly = cy + labelR * math.sin(angle);
+
+      tp.text = TextSpan(text: labels[i], style: labelStyle);
+      tp.layout();
+      tp.paint(
+        canvas,
+        Offset(lx - tp.width / 2, ly - tp.height / 2),
+      );
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _RadarChartPainter old) => true;
 }
 
-class LineChartPainter extends CustomPainter {
-  final bool isData;
-  LineChartPainter({required this.isData});
+// ═══════════════════════════════════════════════════════════
+// LINE CHART PAINTER
+// ═══════════════════════════════════════════════════════════
+
+class _LineChartPainter extends CustomPainter {
+  final List<String> yLabels;
+  final List<String> xLabels;
+  final List<double> dataPoints; // 0.0 – 1.0 (fraction of Y range)
+  final Color lineColor;
+  final Color gridColor;
+  final TextStyle labelStyle;
+
+  _LineChartPainter({
+    required this.yLabels,
+    required this.xLabels,
+    required this.dataPoints,
+    required this.lineColor,
+    required this.gridColor,
+    required this.labelStyle,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paintGrid = Paint()
-      ..color = const Color(0xFFF1F5F9)
-      ..strokeWidth = 1.h;
+    const leftPad = 28.0;
+    const bottomPad = 18.0;
+    const topPad = 6.0;
+    final chartW = size.width - leftPad;
+    final chartH = size.height - bottomPad - topPad;
 
-    for (double y = 0; y <= size.height; y += size.height / 3) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paintGrid);
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+
+    // Draw horizontal grid lines + Y labels
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1.0;
+
+    for (int i = 0; i < yLabels.length; i++) {
+      final frac = i / (yLabels.length - 1);
+      final y = topPad + frac * chartH;
+
+      canvas.drawLine(
+          Offset(leftPad, y), Offset(size.width, y), gridPaint);
+
+      tp.text = TextSpan(text: yLabels[i], style: labelStyle);
+      tp.layout();
+      tp.paint(
+          canvas, Offset(0, y - tp.height / 2));
     }
 
-    if (!isData) {
-      final path = Path();
-      path.moveTo(0, size.height * 0.7);
-      path.quadraticBezierTo(
-        size.width * 0.25, size.height * 0.6,
-        size.width * 0.5, size.height * 0.75,
-      );
-      path.quadraticBezierTo(
-        size.width * 0.75, size.height * 0.9,
-        size.width, size.height * 0.65,
-      );
+    // Draw X labels
+    for (int i = 0; i < xLabels.length; i++) {
+      final frac = i / (xLabels.length - 1);
+      final x = leftPad + frac * chartW;
 
-      final paintLine = Paint()
-        ..color = const Color(0xFFCBD5E1)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.w;
+      tp.text = TextSpan(text: xLabels[i], style: labelStyle);
+      tp.layout();
+      tp.paint(canvas,
+          Offset(x - tp.width / 2, topPad + chartH + 4));
+    }
 
-      canvas.drawPath(path, paintLine);
-    } else {
-      final path = Path();
-      path.moveTo(0, size.height * 0.6);
-      path.lineTo(size.width * 0.2, size.height * 0.4);
-      path.lineTo(size.width * 0.4, size.height * 0.7);
-      path.lineTo(size.width * 0.6, size.height * 0.35);
-      path.lineTo(size.width * 0.8, size.height * 0.5);
-      path.lineTo(size.width, size.height * 0.2);
+    if (dataPoints.isEmpty) return;
 
-      final paintLine = Paint()
-        ..color = const Color(0xFF3B82F6)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.w
-        ..strokeCap = StrokeCap.round;
+    // Compute actual pixel points
+    final pts = <Offset>[];
+    for (int i = 0; i < dataPoints.length; i++) {
+      final frac = i / (dataPoints.length - 1);
+      final x = leftPad + frac * chartW;
+      // dataPoints are 0.0–1.0 representing fraction of 100
+      // But y-axis is inverted (top=high)
+      final y = topPad + (1.0 - dataPoints[i]) * chartH;
+      pts.add(Offset(x, y));
+    }
 
-      final fillPath = Path.from(path);
-      fillPath.lineTo(size.width, size.height);
-      fillPath.lineTo(0, size.height);
-      fillPath.close();
+    // Draw line
+    final linePaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-      final paintFill = Paint()
-        ..shader = LinearGradient(
-          colors: [
-            const Color(0xFF3B82F6).withValues(alpha: 0.2),
-            const Color(0xFF3B82F6).withValues(alpha: 0.0),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+    for (int i = 1; i < pts.length; i++) {
+      final prev = pts[i - 1];
+      final curr = pts[i];
+      final mid = (prev.dx + curr.dx) / 2;
+      path.cubicTo(mid, prev.dy, mid, curr.dy, curr.dx, curr.dy);
+    }
+    canvas.drawPath(path, linePaint);
 
-      canvas.drawPath(fillPath, paintFill);
-      canvas.drawPath(path, paintLine);
-
-      final paintDot = Paint()
-        ..color = const Color(0xFF2563EB)
-        ..style = PaintingStyle.fill;
-      final paintDotBg = Paint()..color = Colors.white;
-
-      final points = [
-        Offset(0, size.height * 0.6),
-        Offset(size.width * 0.2, size.height * 0.4),
-        Offset(size.width * 0.4, size.height * 0.7),
-        Offset(size.width * 0.6, size.height * 0.35),
-        Offset(size.width * 0.8, size.height * 0.5),
-        Offset(size.width, size.height * 0.2),
-      ];
-
-      for (var pt in points) {
-        canvas.drawCircle(pt, 4.r, paintDot);
-        canvas.drawCircle(pt, 2.r, paintDotBg);
-      }
+    // Draw dots
+    final dotFill = Paint()..color = lineColor;
+    final dotBg = Paint()..color = Colors.white;
+    for (final pt in pts) {
+      canvas.drawCircle(pt, 4.0, dotFill);
+      canvas.drawCircle(pt, 2.0, dotBg);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _LineChartPainter old) => true;
 }
+
+// ═══════════════════════════════════════════════════════════
+// NAV ITEM
+// ═══════════════════════════════════════════════════════════
 
 class _NavItem extends StatelessWidget {
   final IconData icon;
@@ -1422,23 +1666,33 @@ class _NavItem extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 8.h),
+          padding:
+              EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
           decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16.r),
+            color: selected
+                ? color.withValues(alpha: 0.1)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(12.r),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: selected ? color : const Color(0xFF94A3B8), size: 24.sp),
+              Icon(
+                icon,
+                color: selected ? color : const Color(0xFF94A3B8),
+                size: 22.sp,
+              ),
               SizedBox(height: 2.h),
               Text(
                 label,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                maxLines: 2,
                 style: GoogleFonts.inter(
-                  fontSize: 10.sp,
+                  fontSize: 9.sp,
                   fontWeight: FontWeight.w700,
-                  color: selected ? color : const Color(0xFF94A3B8),
+                  color:
+                      selected ? color : const Color(0xFF94A3B8),
                 ),
               ),
             ],
@@ -1448,4 +1702,3 @@ class _NavItem extends StatelessWidget {
     );
   }
 }
-
