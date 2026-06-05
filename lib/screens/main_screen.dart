@@ -193,14 +193,19 @@ class _MainScreenState extends State<MainScreen> {
             const AssignmentsScreen(),
             AcademicScreen(
               theme: _theme,
+              role: 'student',
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
             ),
             FeeLedgerScreen(theme: _theme),
             TransportScreen(theme: _theme),
-            AnnouncementsScreen(theme: _theme),
+            AnnouncementsScreen(
+              theme: _theme,
+              role: 'student',
+            ),
             MessagesScreen(
               theme: _theme,
+              role: 'student',
               isActive: _idx == 7,
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
@@ -427,15 +432,15 @@ class _MainScreenState extends State<MainScreen> {
                           _buildDrawerItem(Icons.grid_view_rounded, 'Dashboard', () {
                             Navigator.pop(context);
                             setState(() => _idx = 0);
-                          }),
+                          }, selected: _idx == 0),
                           _buildDrawerItem(Icons.calendar_month_outlined, 'Academic Calendar', () {
                             Navigator.pop(context);
                             setState(() => _idx = 1);
-                          }),
+                          }, selected: _idx == 1),
                            _buildDrawerItem(Icons.people_outline_rounded, 'Students', () {
                             Navigator.pop(context);
                             setState(() => _idx = 2);
-                          }),
+                          }, selected: _idx == 2),
                            _buildDrawerItem(Icons.calendar_today_outlined, 'Attendance', () {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => const TeacherAttendanceScreen()));
@@ -446,7 +451,7 @@ class _MainScreenState extends State<MainScreen> {
                           }),
                           _buildDrawerItem(Icons.menu_book_outlined, 'Academic', () {
                             Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme)));
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => AcademicScreen(theme: _theme, role: 'teacher')));
                           }),
                           _buildDrawerItem(Icons.description_outlined, 'Examinations', () async {
                             Navigator.pop(context);
@@ -466,13 +471,13 @@ class _MainScreenState extends State<MainScreen> {
                             Navigator.pop(context);
                             Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: _theme)));
                           }),
-                          _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
-                            Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: _theme)));
-                          }),
+                           _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
+                             Navigator.pop(context);
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: _theme, role: 'teacher')));
+                           }),
                           _buildDrawerItem(Icons.group_outlined, 'Community', () {
                             Navigator.pop(context);
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => MessagesScreen(theme: _theme, isActive: true)));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => MessagesScreen(theme: _theme, isActive: true, role: 'teacher')));
                           }),
                           _buildDrawerItem(Icons.person_outline_rounded, 'My Profile', () {
                             Navigator.pop(context);
@@ -483,43 +488,43 @@ class _MainScreenState extends State<MainScreen> {
                           _buildDrawerItem(Icons.dashboard_rounded, 'Dashboard', () {
                             Navigator.pop(context);
                             setState(() => _idx = 0);
-                          }),
+                          }, selected: _idx == 0),
                           _buildDrawerItem(Icons.calendar_month_outlined, 'Academic Calendar', () {
                             Navigator.pop(context);
                             setState(() => _idx = 1);
-                          }),
+                          }, selected: _idx == 1),
                           _buildDrawerItem(Icons.checklist_rounded, 'Assignments', () {
                             Navigator.pop(context);
                             setState(() => _idx = 2);
-                          }),
+                          }, selected: _idx == 2),
                           _buildDrawerItem(Icons.school_rounded, 'Academic', () {
                             Navigator.pop(context);
                             setState(() => _idx = 3);
-                          }),
+                          }, selected: _idx == 3),
                           _buildDrawerItem(Icons.attach_money_rounded, 'Fees', () {
                             Navigator.pop(context);
                             setState(() => _idx = 4);
-                          }),
+                          }, selected: _idx == 4),
                           _buildDrawerItem(Icons.directions_bus_rounded, 'Transport', () {
                             Navigator.pop(context);
                             setState(() => _idx = 5);
-                          }),
+                          }, selected: _idx == 5),
                           _buildDrawerItem(Icons.notifications_none_rounded, 'Announcements', () {
                             Navigator.pop(context);
                             setState(() => _idx = 6);
-                          }),
+                          }, selected: _idx == 6),
                           _buildDrawerItem(Icons.group_outlined, 'Community', () {
                             Navigator.pop(context);
                             setState(() => _idx = 7);
-                          }),
+                          }, selected: _idx == 7),
                           _buildDrawerItem(Icons.room_service_outlined, 'Services', () {
                             Navigator.pop(context);
                             setState(() => _idx = 8);
-                          }),
+                          }, selected: _idx == 8),
                           _buildDrawerItem(Icons.person_rounded, 'My Profile', () {
                             Navigator.pop(context);
                             setState(() => _idx = 9);
-                          }),
+                          }, selected: _idx == 9),
                         ],
                 ),
               ),
@@ -595,9 +600,14 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildDrawerItem(IconData icon, String label, VoidCallback onTap, {bool selected = false}) {
+    final activeColor = _theme.primary;
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 12.w, vertical: 2.h),
+      decoration: BoxDecoration(
+        color: selected ? activeColor.withValues(alpha: 0.1) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12.r),
+      ),
       child: Material(
         color: Colors.transparent,
         borderRadius: BorderRadius.circular(12.r),
@@ -608,14 +618,14 @@ class _MainScreenState extends State<MainScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
             child: Row(
               children: [
-                Icon(icon, color: const Color(0xFF475569), size: 22.sp),
+                Icon(icon, color: selected ? activeColor : const Color(0xFF475569), size: 22.sp),
                 SizedBox(width: 16.w),
                 Text(
                   label,
                   style: GoogleFonts.inter(
                     fontSize: 14.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFF1E293B),
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: selected ? activeColor : const Color(0xFF1E293B),
                   ),
                 ),
               ],

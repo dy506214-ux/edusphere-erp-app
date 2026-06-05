@@ -123,7 +123,7 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => AcademicScreen(theme: widget.theme),
+                          builder: (_) => AcademicScreen(theme: widget.theme, role: 'teacher'),
                         ),
                       ),
                     ),
@@ -171,7 +171,7 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => AnnouncementsScreen(theme: widget.theme),
+                          builder: (_) => AnnouncementsScreen(theme: widget.theme, role: 'teacher'),
                         ),
                       ),
                     ),

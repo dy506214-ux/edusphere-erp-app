@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -21,11 +20,12 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
   String _studentEmailStr = 'alex.rivera@edusmart.edu';
   String _studentIdStr = '';
-  String _studentNameStr = 'Alex Rivera';
   String _classNameStr = 'Grade 12';
   String _sectionStr = 'A';
 
   final List<Map<String, dynamic>> _assignments = [];
+  String _selectedSubject = 'All';
+  final List<String> _subjects = ['All', 'Hindi', 'English', 'Math', 'Science', 'Computer'];
 
   RealtimeChannel? _assignmentsChannel;
   Timer? _assignmentsPollTimer;
@@ -107,12 +107,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
-      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name');
       if (savedEmail != null) {
         _studentEmailStr = savedEmail;
-      }
-      if (savedName != null) {
-        _studentNameStr = savedName;
       }
 
       // 1. Fetch student info
@@ -124,7 +120,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
       if (userRes != null) {
         final userId = userRes['id'] as String;
-        _studentNameStr = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
         
         final studentRes = await Supabase.instance.client
             .from('Student')
@@ -253,196 +248,613 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     }
   }
 
+  List<Map<String, dynamic>> _getFilteredAssignments() {
+    return _assignments.where((a) {
+      if (_selectedSubject == 'All') return true;
+      final String sub = (a['subject'] as String).toLowerCase();
+      final String sel = _selectedSubject.toLowerCase();
+      if (sel == 'math') {
+        return sub.contains('math');
+      }
+      return sub.contains(sel);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final filtered = _getFilteredAssignments();
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF3F8FC),
       body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            // Header matching React Client style
-            Padding(
-              padding: EdgeInsets.fromLTRB(24.r, 24.r, 24.r, 8.r),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Top Header Card with Clipboard and custom 3D illustration
+                Padding(
+                  padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 12.h),
+                  child: _buildHeaderCard(),
+                ),
+
+                // Subject Tabs Category Filter
+                _buildSubjectTabs(),
+
+                // Assignments List Content
+                Expanded(
+                  child: _isLoading
+                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7DF7)))
+                      : RefreshIndicator(
+                          onRefresh: () => _loadAssignmentsData(showLoading: true),
+                          color: const Color(0xFF2E7DF7),
+                          child: filtered.isEmpty
+                              ? _buildEmptyState()
+                              : ListView.builder(
+                                  padding: EdgeInsets.only(bottom: 100.h),
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    return _buildAssignmentCard(filtered[index]);
+                                  },
+                                ),
+                        ),
+                ),
+              ],
+            ),
+
+            // Quick Submit FAB
+            Positioned(
+              right: 24.w,
+              bottom: 24.h,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'My Assignments',
-                    style: GoogleFonts.inter(
-                      fontSize: 28.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
+                  GestureDetector(
+                    onTap: _showQuickSubmitDialog,
+                    child: Container(
+                      width: 54.w,
+                      height: 54.w,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2E7DF7),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF2E7DF7).withValues(alpha: 0.35),
+                            blurRadius: 14.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ],
+                      ),
+                      child: Icon(Icons.add, color: Colors.white, size: 28.sp),
                     ),
                   ),
-                  SizedBox(height: 4.h),
+                  SizedBox(height: 6.h),
                   Text(
-                    'View and submit your classwork • $_studentNameStr',
+                    'Quick Submit',
                     style: GoogleFonts.inter(
-                      fontSize: 14.sp,
-                      color: const Color(0xFF64748B),
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
                     ),
                   ),
                 ],
               ),
             ),
-            
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.studentPrimary))
-                  : RefreshIndicator(
-                      onRefresh: () => _loadAssignmentsData(showLoading: true),
-                      color: AppColors.studentPrimary,
-                      child: ListView(
-                        padding: EdgeInsets.all(24.r),
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        children: [
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16.r),
-                              border: Border.all(color: AppColors.border),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.02),
-                                  blurRadius: 16.r,
-                                  offset: Offset(0, 4.h),
-                                ),
-                              ],
-                            ),
-                            padding: EdgeInsets.all(24.r),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Academic Assignments',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 16.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textDark,
-                                  ),
-                                ),
-                                SizedBox(height: 4.h),
-                                Text(
-                                  'Click on an assignment to submit your work or view grades.',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12.sp,
-                                    color: AppColors.textMedium,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-                                SizedBox(height: 24.h),
-                                
-                                if (_assignments.isEmpty)
-                                  CustomPaint(
-                                    painter: DashedRectPainter(
-                                      color: const Color(0xFFCBD5E1),
-                                      radius: 12.r,
-                                    ),
-                                    child: Container(
-                                      width: double.infinity,
-                                      padding: EdgeInsets.symmetric(vertical: 48.h),
-                                      child: Column(
-                                        children: [
-                                          Icon(
-                                            Icons.description_outlined,
-                                            color: const Color(0xFFCBD5E1),
-                                            size: 48.r,
-                                          ),
-                                          SizedBox(height: 16.h),
-                                          Text(
-                                            'No assignments found for your class.',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 14.sp,
-                                              fontWeight: FontWeight.w600,
-                                              color: AppColors.textMedium,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  ListView.separated(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: _assignments.length,
-                                    separatorBuilder: (_, __) => const Divider(height: 20, color: AppColors.border),
-                                    itemBuilder: (_, index) {
-                                      final a = _assignments[index];
-                                      final bool isSubmitted = a['isSubmitted'] as bool;
-                                      final bool isUrgent = a['urgent'] as bool;
-                                      
-                                      return ListTile(
-                                        contentPadding: EdgeInsets.zero,
-                                        leading: Container(
-                                          width: 44.r,
-                                          height: 44.r,
-                                          decoration: BoxDecoration(
-                                            color: isSubmitted
-                                                ? const Color(0xFFDCFCE7)
-                                                : (isUrgent ? const Color(0xFFFFE4E6) : const Color(0xFFEFF6FF)),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.assignment_outlined,
-                                            color: isSubmitted
-                                                ? const Color(0xFF15803D)
-                                                : (isUrgent ? const Color(0xFFE11D48) : const Color(0xFF1A6FDB)),
-                                            size: 20.r,
-                                          ),
-                                        ),
-                                        title: Text(
-                                          a['title'] as String,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 14.sp,
-                                            fontWeight: FontWeight.w700,
-                                            color: AppColors.textDark,
-                                          ),
-                                        ),
-                                        subtitle: Padding(
-                                          padding: EdgeInsets.only(top: 4.h),
-                                          child: Text(
-                                            '${a['subject']} • ${isSubmitted ? 'Submitted' : 'Due: ${a['due']}'}',
-                                            style: GoogleFonts.inter(
-                                              fontSize: 12.sp,
-                                              color: AppColors.textMedium,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                        trailing: Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                                          decoration: BoxDecoration(
-                                            color: isSubmitted 
-                                                ? const Color(0xFFDCFCE7) 
-                                                : (isUrgent ? const Color(0xFFFFE4E6) : const Color(0xFFF1F5F9)),
-                                            borderRadius: BorderRadius.circular(12.r),
-                                          ),
-                                          child: Text(
-                                            isSubmitted 
-                                                ? (a['grade'] == 'Pending' ? 'Submitted' : a['grade'] as String)
-                                                : (isUrgent ? 'Due Today' : 'Pending'),
-                                            style: GoogleFonts.inter(
-                                              fontSize: 11.sp,
-                                              fontWeight: FontWeight.w700,
-                                              color: isSubmitted 
-                                                  ? const Color(0xFF15803D) 
-                                                  : (isUrgent ? const Color(0xFFE11D48) : const Color(0xFF64748B)),
-                                            ),
-                                          ),
-                                        ),
-                                        onTap: () => _showAssignmentDetails(a),
-                                      );
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E7DF7),
+        borderRadius: BorderRadius.circular(20.r),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E7DF7).withValues(alpha: 0.25),
+            blurRadius: 16.r,
+            offset: Offset(0, 6.h),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Clipboard Icon
+          Container(
+            width: 48.w,
+            height: 48.w,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(14.r),
+            ),
+            child: Icon(Icons.assignment_turned_in_rounded, color: Colors.white, size: 24.sp),
+          ),
+          SizedBox(width: 16.w),
+
+          // Texts
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Academic Assignments',
+                  style: GoogleFonts.inter(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'Click on an assignment to submit your work or view grades.',
+                  style: GoogleFonts.inter(
+                    fontSize: 11.5.sp,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 12.w),
+
+          // Custom 3D Illustration Drawing
+          _buildHeaderIllustration(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderIllustration() {
+    return SizedBox(
+      width: 70.w,
+      height: 60.h,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // White paper sheet behind
+          Positioned(
+            bottom: 12.h,
+            child: Transform.rotate(
+              angle: -0.15,
+              child: Container(
+                width: 32.w,
+                height: 38.h,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.95),
+                  borderRadius: BorderRadius.circular(4.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 2.r,
+                    )
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // White paper sheet in slot
+          Positioned(
+            bottom: 8.h,
+            child: Transform.rotate(
+              angle: 0.08,
+              child: Container(
+                width: 30.w,
+                height: 38.h,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 2.r,
+                    )
+                  ],
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(width: 12.w, height: 1.5.h, color: const Color(0xFF2E7DF7)),
+                      SizedBox(height: 2.h),
+                      Container(width: 18.w, height: 1.5.h, color: Colors.grey.shade300),
+                      SizedBox(height: 2.h),
+                      Container(width: 14.w, height: 1.5.h, color: Colors.grey.shade300),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Printer main body
+          Positioned(
+            bottom: 0,
+            child: Container(
+              width: 50.w,
+              height: 24.h,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6F0FF),
+                borderRadius: BorderRadius.circular(6.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4.r,
+                    offset: Offset(0, 2.h),
+                  )
+                ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Printer paper output slot
+                  Container(
+                    width: 38.w,
+                    height: 3.h,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A8A),
+                      borderRadius: BorderRadius.circular(1.r),
+                    ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Container(
+                        width: 3.w,
+                        height: 3.w,
+                        margin: EdgeInsets.only(right: 6.w),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          ),
+          // Yellow Pencil on side
+          Positioned(
+            right: 2.w,
+            bottom: 2.h,
+            child: Transform.rotate(
+              angle: 0.45,
+              child: Container(
+                width: 5.w,
+                height: 28.h,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFBBF24),
+                  borderRadius: BorderRadius.circular(1.r),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 5.w,
+                      height: 4.h,
+                      color: const Color(0xFFF472B6),
+                    ),
+                    const Spacer(),
+                    Container(
+                      width: 5.w,
+                      height: 3.h,
+                      color: Colors.black,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubjectTabs() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+      child: Row(
+        children: _subjects.map((sub) {
+          final isActive = _selectedSubject == sub;
+          return Padding(
+            padding: EdgeInsets.only(right: 10.w),
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedSubject = sub;
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFF2E7DF7) : Colors.white,
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(
+                    color: isActive ? Colors.transparent : const Color(0xFFE2EAF4),
+                    width: 1.w,
+                  ),
+                  boxShadow: [
+                    if (isActive)
+                      BoxShadow(
+                        color: const Color(0xFF2E7DF7).withValues(alpha: 0.2),
+                        blurRadius: 8.r,
+                        offset: Offset(0, 3.h),
+                      ),
+                  ],
+                ),
+                child: Text(
+                  sub,
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5.sp,
+                    fontWeight: FontWeight.w700,
+                    color: isActive ? Colors.white : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildAssignmentCard(Map<String, dynamic> a) {
+    final bool isSubmitted = a['isSubmitted'] as bool;
+    final bool isUrgent = a['urgent'] as bool;
+    final String subject = a['subject'] as String? ?? 'General';
+    final String grade = a['grade'] as String? ?? 'Pending';
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h, left: 24.w, right: 24.w),
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: const Color(0xFFE9F0F8), width: 1.5.w),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFE2EAF4).withValues(alpha: 0.3),
+            blurRadius: 16.r,
+            offset: Offset(0, 6.h),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Tags Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Subject Capsule Tag
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8.r),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Text(
+                  subject.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF475569),
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+
+              // Submission Status Capsule Tag
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: isSubmitted
+                      ? const Color(0xFFEFF6FF)
+                      : (isUrgent ? const Color(0xFFFFE4E6) : const Color(0xFFF8FAFC)),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  isSubmitted
+                      ? "Submitted"
+                      : (isUrgent ? "Due Today" : "Pending"),
+                  style: GoogleFonts.inter(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                    color: isSubmitted
+                        ? const Color(0xFF2563EB)
+                        : (isUrgent ? const Color(0xFFE11D48) : const Color(0xFF64748B)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 14.h),
+
+          // Assignment Title
+          Text(
+            a['title'] as String,
+            style: GoogleFonts.inter(
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F172A),
+            ),
+          ),
+          SizedBox(height: 4.h),
+
+          // Assignment Description
+          Text(
+            a['description'] as String,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.inter(
+              fontSize: 12.5.sp,
+              color: const Color(0xFF475569),
+              height: 1.3,
+            ),
+          ),
+          SizedBox(height: 16.h),
+
+          // Meta Info Row
+          Row(
+            children: [
+              Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF64748B)),
+              SizedBox(width: 6.w),
+              Text(
+                'Due: ${a['due']}',
+                style: GoogleFonts.inter(
+                  fontSize: 11.5.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.person_outline_rounded, size: 16.sp, color: const Color(0xFF94A3B8)),
+            ],
+          ),
+          SizedBox(height: 18.h),
+
+          // Bottom Action/Status Bar
+          if (isSubmitted) ...[
+            if (grade == 'Pending')
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.access_time_rounded, color: const Color(0xFF2563EB), size: 16.sp),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Awaiting Grade',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF2563EB),
                       ),
                     ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 16.sp),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Graded: $grade (${a['score']})',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+              )
+          ] else
+            GestureDetector(
+              onTap: () => _showAssignmentDetails(a),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2E7DF7),
+                  borderRadius: BorderRadius.circular(12.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2E7DF7).withValues(alpha: 0.15),
+                      blurRadius: 10.r,
+                      offset: Offset(0, 3.h),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.cloud_upload_outlined, color: Colors.white, size: 16.sp),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Submit Assignment',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Container(
+        margin: EdgeInsets.all(24.r),
+        padding: EdgeInsets.symmetric(vertical: 48.h, horizontal: 24.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: const Color(0xFFE9F0F8), width: 1.5.w),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(16.r),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.assignment_outlined,
+                color: const Color(0xFF94A3B8),
+                size: 44.sp,
+              ),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'No assignments found',
+              style: GoogleFonts.inter(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'No tasks matched the selected subject filter.',
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                color: const Color(0xFF64748B),
+              ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -473,7 +885,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -483,7 +894,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 18.sp,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
+                          color: const Color(0xFF0F172A),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -509,7 +920,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.studentPrimary,
+                          color: const Color(0xFF2E7DF7),
                         ),
                       ),
                     ),
@@ -519,20 +930,19 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       style: GoogleFonts.inter(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w600,
-                        color: isUrgent ? const Color(0xFFE11D48) : AppColors.textMedium,
+                        color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFF64748B),
                       ),
                     ),
                   ],
                 ),
                 SizedBox(height: 20.h),
                 
-                // Description
                 Text(
                   'Instructions',
                   style: GoogleFonts.inter(
                     fontSize: 13.sp,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
+                    color: const Color(0xFF0F172A),
                   ),
                 ),
                 SizedBox(height: 6.h),
@@ -542,7 +952,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8FAFC),
                     borderRadius: BorderRadius.circular(12.r),
-                    border: Border.all(color: AppColors.border),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
                   child: Text(
                     (a['description'] as String).isNotEmpty
@@ -550,21 +960,20 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         : 'No specific instructions provided.',
                     style: GoogleFonts.inter(
                       fontSize: 13.sp,
-                      color: AppColors.textDark,
+                      color: const Color(0xFF0F172A),
                       height: 1.4,
                     ),
                   ),
                 ),
                 SizedBox(height: 24.h),
 
-                // Submission Section
                 if (isSubmitted) ...[
                   Text(
                     'Your Submission',
                     style: GoogleFonts.inter(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
+                      color: const Color(0xFF0F172A),
                     ),
                   ),
                   SizedBox(height: 8.h),
@@ -645,7 +1054,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                     style: GoogleFonts.inter(
                       fontSize: 13.sp,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
+                      color: const Color(0xFF0F172A),
                     ),
                   ),
                   SizedBox(height: 8.h),
@@ -677,7 +1086,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                             children: [
                               Icon(
                                 Icons.cloud_upload_outlined,
-                                color: AppColors.studentPrimary,
+                                color: const Color(0xFF2E7DF7),
                                 size: 32.sp,
                               ),
                               SizedBox(height: 8.h),
@@ -686,7 +1095,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                                 style: GoogleFonts.inter(
                                   fontSize: 13.sp,
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.studentPrimary,
+                                  color: const Color(0xFF2E7DF7),
                                 ),
                               ),
                               SizedBox(height: 2.h),
@@ -694,7 +1103,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                                 'PDF, DOC, ZIP up to 50MB',
                                 style: GoogleFonts.inter(
                                   fontSize: 11.sp,
-                                  color: AppColors.textLight,
+                                  color: const Color(0xFF94A3B8),
                                 ),
                               ),
                             ],
@@ -708,32 +1117,32 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFFF1F5F9),
                         borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: AppColors.border),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.insert_drive_file_outlined, color: AppColors.studentPrimary, size: 24.sp),
+                          Icon(Icons.insert_drive_file_outlined, color: const Color(0xFF2E7DF7), size: 24.sp),
                           SizedBox(width: 12.w),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  selectedFile!.name,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textDark,
+                                  Text(
+                                    selectedFile!.name,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFF0F172A),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
                                 SizedBox(height: 2.h),
                                 Text(
                                   '${(selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
                                   style: GoogleFonts.inter(
                                     fontSize: 11.sp,
-                                    color: AppColors.textMedium,
+                                    color: const Color(0xFF64748B),
                                   ),
                                 ),
                               ],
@@ -751,10 +1160,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       ),
                     ),
                   SizedBox(height: 24.h),
-                  LoadingButton(
-                    label: isSubmitting ? 'Submitting...' : 'Submit Assignment',
-                    color: selectedFile == null || isSubmitting ? Colors.grey.shade400 : AppColors.studentPrimary,
-                    onPressed: () async {
+                  GestureDetector(
+                    onTap: () async {
                       if (selectedFile == null || isSubmitting) return;
                       setModalState(() {
                         isSubmitting = true;
@@ -774,7 +1181,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         
                         if (context.mounted) {
                           showToast(context, 'Successfully submitted ${a['title']}!');
-                          Navigator.pop(context); // Close bottom sheet
+                          Navigator.pop(context);
                         }
                         _loadAssignmentsData(showLoading: true);
                       } catch (e) {
@@ -787,6 +1194,314 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         });
                       }
                     },
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      decoration: BoxDecoration(
+                        color: selectedFile == null || isSubmitting ? Colors.grey.shade400 : const Color(0xFF2E7DF7),
+                        borderRadius: BorderRadius.circular(14.r),
+                      ),
+                      child: Center(
+                        child: Text(
+                          isSubmitting ? 'Submitting...' : 'Submit Assignment',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showQuickSubmitDialog() {
+    final pending = _assignments.where((a) => !(a['isSubmitted'] as bool)).toList();
+    Map<String, dynamic>? selectedAssignment;
+    PlatformFile? selectedFile;
+    bool isSubmitting = false;
+
+    if (pending.isNotEmpty) {
+      selectedAssignment = pending.first;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            padding: EdgeInsets.fromLTRB(24.r, 24.r, 24.r, 24.r + MediaQuery.of(context).viewInsets.bottom),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '⚡ Quick Submit',
+                      style: GoogleFonts.inter(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16.h),
+
+                if (pending.isEmpty) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: 36.h),
+                    child: Column(
+                      children: [
+                        Icon(Icons.check_circle_outline_rounded, color: const Color(0xFF10B981), size: 48.sp),
+                        SizedBox(height: 12.h),
+                        Text(
+                          'No pending assignments!',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF0F172A),
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          'All tasks have been submitted successfully.',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else ...[
+                  Text(
+                    'Select Assignment',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+
+                  // Assignment Selector Dropdown
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 14.w),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12.r),
+                      border: Border.all(color: const Color(0xFFE2EAF4)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<Map<String, dynamic>>(
+                        value: selectedAssignment,
+                        isExpanded: true,
+                        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                        style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F172A), fontWeight: FontWeight.w600),
+                        items: pending.map((a) {
+                          return DropdownMenuItem<Map<String, dynamic>>(
+                            value: a,
+                            child: Text('[${a['subject']}] ${a['title']}'),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          setModalState(() {
+                            selectedAssignment = val;
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 20.h),
+
+                  // Upload Section
+                  Text(
+                    'Upload File',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  if (selectedFile == null)
+                    GestureDetector(
+                      onTap: () async {
+                        try {
+                          final result = await FilePicker.platform.pickFiles();
+                          if (result != null && result.files.isNotEmpty) {
+                            setModalState(() {
+                              selectedFile = result.files.first;
+                            });
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            showToast(context, 'Error picking file: $e');
+                          }
+                        }
+                      },
+                      child: CustomPaint(
+                        painter: DashedRectPainter(
+                          color: const Color(0xFFCBD5E1),
+                          radius: 12.r,
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(vertical: 24.h),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.cloud_upload_outlined,
+                                color: const Color(0xFF2E7DF7),
+                                size: 32.sp,
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Tap to select a file',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF2E7DF7),
+                                ),
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                'PDF, DOC, ZIP up to 50MB',
+                                style: GoogleFonts.inter(
+                                  fontSize: 11.sp,
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: EdgeInsets.all(12.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.insert_drive_file_outlined, color: const Color(0xFF2E7DF7), size: 24.sp),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedFile!.name,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  '${(selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.sp,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              setModalState(() {
+                                selectedFile = null;
+                              });
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                          ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(height: 24.h),
+
+                  // Submit Button
+                  GestureDetector(
+                    onTap: () async {
+                      if (selectedAssignment == null || selectedFile == null || isSubmitting) return;
+                      setModalState(() {
+                        isSubmitting = true;
+                      });
+                      try {
+                        await Supabase.instance.client
+                            .from('AssignmentSubmission')
+                            .upsert({
+                              'assignmentId': selectedAssignment!['id'],
+                              'studentId': _studentIdStr,
+                              'filePath': selectedFile!.name,
+                              'status': 'SUBMITTED',
+                              'grade': 'Pending',
+                              'feedback': null,
+                              'submittedAt': DateTime.now().toUtc().toIso8601String(),
+                            }, onConflict: 'assignmentId,studentId');
+                        
+                        if (context.mounted) {
+                          showToast(context, 'Successfully submitted ${selectedAssignment!['title']}!');
+                          Navigator.pop(context);
+                        }
+                        _loadAssignmentsData(showLoading: true);
+                      } catch (e) {
+                        if (context.mounted) {
+                          showToast(context, 'Error submitting: $e');
+                        }
+                      } finally {
+                        setModalState(() {
+                          isSubmitting = false;
+                        });
+                      }
+                    },
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 14.h),
+                      decoration: BoxDecoration(
+                        color: selectedFile == null || isSubmitting ? Colors.grey.shade400 : const Color(0xFF2E7DF7),
+                        borderRadius: BorderRadius.circular(14.r),
+                      ),
+                      child: Center(
+                        child: Text(
+                          isSubmitting ? 'Submitting...' : 'Submit Assignment',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ],

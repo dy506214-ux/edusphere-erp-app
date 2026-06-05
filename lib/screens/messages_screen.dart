@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
@@ -11,12 +12,114 @@ import '../theme/colors.dart';
 import '../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
+class CommunityCommentModel {
+  final String id;
+  final String authorName;
+  final String authorRole;
+  final String content;
+  final String timeAgo;
+
+  CommunityCommentModel({
+    required this.id,
+    required this.authorName,
+    required this.authorRole,
+    required this.content,
+    required this.timeAgo,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'authorName': authorName,
+        'authorRole': authorRole,
+        'content': content,
+        'timeAgo': timeAgo,
+      };
+
+  factory CommunityCommentModel.fromJson(Map<String, dynamic> json) =>
+      CommunityCommentModel(
+        id: json['id'] as String,
+        authorName: json['authorName'] as String,
+        authorRole: json['authorRole'] as String,
+        content: json['content'] as String,
+        timeAgo: json['timeAgo'] as String,
+      );
+}
+
+class CommunityPostModel {
+  final String id;
+  final String authorName;
+  final String authorRole;
+  final String timeAgo;
+  final String category; // 'SAMPLE' | 'EVENT' | 'ANNOUNCEMENT' | 'UPDATE'
+  final String content;
+  int likes;
+  int insightfuls;
+  int commentsCount;
+  bool userLiked;
+  bool userInsightful;
+  List<CommunityCommentModel> comments;
+
+  CommunityPostModel({
+    required this.id,
+    required this.authorName,
+    required this.authorRole,
+    required this.timeAgo,
+    required this.category,
+    required this.content,
+    required this.likes,
+    required this.insightfuls,
+    required this.commentsCount,
+    this.userLiked = false,
+    this.userInsightful = false,
+    required this.comments,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'authorName': authorName,
+        'authorRole': authorRole,
+        'timeAgo': timeAgo,
+        'category': category,
+        'content': content,
+        'likes': likes,
+        'insightfuls': insightfuls,
+        'commentsCount': commentsCount,
+        'userLiked': userLiked,
+        'userInsightful': userInsightful,
+        'comments': comments.map((c) => c.toJson()).toList(),
+      };
+
+  factory CommunityPostModel.fromJson(Map<String, dynamic> json) {
+    var commentsList = <CommunityCommentModel>[];
+    if (json['comments'] != null) {
+      commentsList = (json['comments'] as List)
+          .map((e) => CommunityCommentModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return CommunityPostModel(
+      id: json['id'] as String? ?? '',
+      authorName: json['authorName'] as String? ?? '',
+      authorRole: json['authorRole'] as String? ?? '',
+      timeAgo: json['timeAgo'] as String? ?? 'Just now',
+      category: json['category'] as String? ?? 'SAMPLE',
+      content: json['content'] as String? ?? '',
+      likes: json['likes'] as int? ?? 0,
+      insightfuls: json['insightfuls'] as int? ?? 0,
+      commentsCount: json['commentsCount'] as int? ?? 0,
+      userLiked: json['userLiked'] as bool? ?? false,
+      userInsightful: json['userInsightful'] as bool? ?? false,
+      comments: commentsList,
+    );
+  }
+}
+
 class MessagesScreen extends StatefulWidget {
   final RoleTheme theme;
   final bool isActive;
   final VoidCallback? onBack;
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final String role;
 
   const MessagesScreen({
     super.key,
@@ -25,6 +128,7 @@ class MessagesScreen extends StatefulWidget {
     this.onBack,
     this.showAppBar = true,
     this.onOpenDrawer,
+    this.role = 'student',
   });
 
   @override
@@ -67,6 +171,19 @@ class _MessagesScreenState extends State<MessagesScreen> {
   // Periodic polling timer for robust real-time database synchronization
   Timer? _pollTimer;
 
+  // --- Community Redesign State ---
+  String _currentSubTab = 'community';
+  List<CommunityPostModel> _communityPosts = [];
+  bool _isLoadingCommunity = true;
+  String _communityFilter = 'All';
+  String _firstName = 'Kavya';
+
+  // Chatbot State
+  bool _isChatOpen = false;
+  final List<Map<String, String>> _chatMessages = [];
+  final _chatInputCtrl = TextEditingController();
+  final ScrollController _chatScrollCtrl = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -81,6 +198,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
     // Load actual users and connect real-time Supabase chat stream
     _initializeRealTimeUsers();
+    
+    // Load student name and community feed
+    _loadStudentFirstName();
+    _loadCommunityPosts();
   }
 
   @override
@@ -93,7 +214,192 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _searchCtrl.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
+    _chatInputCtrl.dispose();
+    _chatScrollCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadStudentFirstName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Singh';
+      if (mounted) {
+        setState(() {
+          _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
+          _initChat();
+        });
+      }
+    } catch (_) {
+      _initChat();
+    }
+  }
+
+  void _initChat() {
+    _chatMessages.clear();
+    _chatMessages.add({
+      'sender': 'bot',
+      'text': 'Hi $_firstName! I am Priya, your School Assistant. How can I help you in the Community today?'
+    });
+  }
+
+  void _toggleChat() {
+    setState(() {
+      _isChatOpen = !_isChatOpen;
+    });
+    if (_isChatOpen) {
+      _scrollToChatBottom();
+    }
+  }
+
+  void _scrollToChatBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _loadCommunityPosts() async {
+    setState(() => _isLoadingCommunity = true);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      String? raw = prefs.getString('local_community_posts_list_v3');
+      if (raw == null) {
+        // Prepopulate with reference image posts
+        final defaultPosts = [
+          CommunityPostModel(
+            id: 'post_1',
+            authorName: 'Priya Sharma',
+            authorRole: 'Teacher',
+            timeAgo: '2 hours ago',
+            category: 'SAMPLE',
+            content: "Don't forget! The upcoming event reminder. I'd love your thoughts.",
+            likes: 0,
+            insightfuls: 0,
+            commentsCount: 1,
+            comments: [
+              CommunityCommentModel(
+                id: 'c_1_1',
+                authorName: 'Anjali Das',
+                authorRole: 'Student',
+                content: "Looking forward to it, ma'am!",
+                timeAgo: '1 hour ago',
+              )
+            ],
+          ),
+          CommunityPostModel(
+            id: 'post_2',
+            authorName: 'Sneha Yadav',
+            authorRole: 'Student',
+            timeAgo: '3 hours ago',
+            category: 'SAMPLE',
+            content: "Excited for the upcoming event! Invitation. I'd love your thoughts.",
+            likes: 7,
+            insightfuls: 0,
+            commentsCount: 3,
+            userLiked: false,
+            comments: [
+              CommunityCommentModel(
+                id: 'c_2_1',
+                authorName: 'Kavya Gupta',
+                authorRole: 'Student',
+                content: "Me too! Let's go together.",
+                timeAgo: '2 hours ago',
+              ),
+              CommunityCommentModel(
+                id: 'c_2_2',
+                authorName: 'Arnav Desai',
+                authorRole: 'Member',
+                content: "Sounds fun!",
+                timeAgo: '1 hour ago',
+              ),
+              CommunityCommentModel(
+                id: 'c_2_3',
+                authorName: 'Rohan Sharma',
+                authorRole: 'Student',
+                content: "Count me in!",
+                timeAgo: '30 mins ago',
+              )
+            ],
+          ),
+          CommunityPostModel(
+            id: 'post_3',
+            authorName: 'Arnav Desai',
+            authorRole: 'Member',
+            timeAgo: '5 hours ago',
+            category: 'EVENT',
+            content: "Excited for the upcoming event! Invitation. I'd love your thoughts.",
+            likes: 0,
+            insightfuls: 3,
+            commentsCount: 2,
+            userInsightful: false,
+            comments: [
+              CommunityCommentModel(
+                id: 'c_3_1',
+                authorName: 'Priya Sharma',
+                authorRole: 'Teacher',
+                content: "Great initiative, Arnav!",
+                timeAgo: '4 hours ago',
+              ),
+              CommunityCommentModel(
+                id: 'c_3_2',
+                authorName: 'Sneha Yadav',
+                authorRole: 'Student',
+                content: "I will join as well.",
+                timeAgo: '3 hours ago',
+              )
+            ],
+          ),
+          CommunityPostModel(
+            id: 'post_4',
+            authorName: 'Kavya Gupta',
+            authorRole: 'Student',
+            timeAgo: '5 hours ago',
+            category: 'EVENT',
+            content: "Don't forget! The upcoming event reminder. I'd love your thoughts.",
+            likes: 0,
+            insightfuls: 0,
+            commentsCount: 2,
+            comments: [
+              CommunityCommentModel(
+                id: 'c_4_1',
+                authorName: 'Sneha Yadav',
+                authorRole: 'Student',
+                content: "Thanks for the reminder, Kavya!",
+                timeAgo: '4 hours ago',
+              ),
+              CommunityCommentModel(
+                id: 'c_4_2',
+                authorName: 'Amit Patel',
+                authorRole: 'Student',
+                content: "Already marked on my calendar.",
+                timeAgo: '2 hours ago',
+              )
+            ],
+          ),
+        ];
+        final String encoded = json.encode(defaultPosts.map((e) => e.toJson()).toList());
+        await prefs.setString('local_community_posts_list_v3', encoded);
+        raw = encoded;
+      }
+      final List<dynamic> decoded = json.decode(raw);
+      setState(() {
+        _communityPosts = decoded.map((e) => CommunityPostModel.fromJson(e as Map<String, dynamic>)).toList();
+      });
+    } catch (_) {}
+    setState(() => _isLoadingCommunity = false);
+  }
+
+  Future<void> _saveCommunityPosts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String encoded = json.encode(_communityPosts.map((e) => e.toJson()).toList());
+      await prefs.setString('local_community_posts_list_v3', encoded);
+    } catch (_) {}
   }
 
   @override
@@ -757,6 +1063,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _listView(BuildContext context) {
+    if (widget.role == 'student') {
+      return _buildStudentListView();
+    }
+
+    // Original teacher _listView
     // Filter chats based on search query
     final filteredChats = _chats.where((c) {
       if (_searchQuery.isNotEmpty && !c.name.toLowerCase().contains(_searchQuery.toLowerCase()) && !c.preview.toLowerCase().contains(_searchQuery.toLowerCase())) {
@@ -1006,6 +1317,1680 @@ class _MessagesScreenState extends State<MessagesScreen> {
         child: const Icon(Icons.message_rounded, color: Colors.white),
       ),
     );
+  }
+
+  // --- Student Layout Helpers ---
+
+  Widget _buildStudentListView() {
+    final bool isDesktop = MediaQuery.of(context).size.width > 900;
+    Widget bodyContent;
+    if (_currentSubTab == 'community') {
+      bodyContent = _buildCommunityFeedContent();
+    } else {
+      bodyContent = _buildDirectChatsContent();
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      appBar: widget.showAppBar && _currentSubTab == 'chats' && _isSearching
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchQuery = '';
+                  });
+                },
+              ),
+              title: TextField(
+                style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 16.sp),
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search...',
+                  hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 16.sp),
+                  border: InputBorder.none,
+                ),
+                onChanged: (val) {
+                  setState(() {
+                    _searchQuery = val;
+                  });
+                },
+              ),
+            )
+          : (widget.showAppBar
+              ? AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+                  leading: Navigator.canPop(context)
+                      ? const BackButton(color: Color(0xFF0F172A))
+                      : IconButton(
+                          icon: Icon(Icons.menu, size: 28.sp),
+                          onPressed: widget.onOpenDrawer ?? () => Scaffold.of(context).openDrawer(),
+                        ),
+                  title: Text(
+                    'EduSphere',
+                    style: GoogleFonts.outfit(
+                      fontSize: 22.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  actions: [
+                    if (_currentSubTab == 'chats')
+                      IconButton(
+                        icon: Icon(Icons.search_rounded, size: 28.sp),
+                        onPressed: () {
+                          setState(() {
+                            _isSearching = true;
+                          });
+                        },
+                      ),
+                    IconButton(
+                      icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
+                      onPressed: () {},
+                    ),
+                    SizedBox(width: 8.w),
+                  ],
+                )
+              : null),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Column(
+              children: [
+                _buildStudentSubTabSelector(),
+                Expanded(child: bodyContent),
+              ],
+            ),
+            if (_currentSubTab == 'community') ...[
+              if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
+              _buildAssistantFAB(isDesktop),
+              if (_isChatOpen) _buildChatWindow(isDesktop),
+            ],
+          ],
+        ),
+      ),
+      floatingActionButton: _currentSubTab == 'chats'
+          ? FloatingActionButton(
+              onPressed: () => _showNewMessageModal(context),
+              backgroundColor: const Color(0xFF1A6FDB),
+              elevation: 6.r,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              child: const Icon(Icons.message_rounded, color: Colors.white),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildStudentSubTabSelector() {
+    return Container(
+      margin: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 12.h),
+      padding: EdgeInsets.all(4.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F5),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        children: [
+          _buildSubTabItem('community', 'Community Feed'),
+          _buildSubTabItem('chats', 'Direct Chats'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubTabItem(String value, String label) {
+    final bool isSel = _currentSubTab == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _currentSubTab = value;
+          });
+        },
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: isSel ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10.r),
+            boxShadow: isSel
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ]
+                : null,
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13.sp,
+              fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
+              color: isSel ? const Color(0xFF0F2547) : const Color(0xFF868E96),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommunityFeedContent() {
+    final filteredPosts = _communityPosts.where((post) {
+      if (_communityFilter == 'All') return true;
+      if (_communityFilter == 'Announcements') return post.category == 'ANNOUNCEMENT' || post.category == 'SAMPLE';
+      if (_communityFilter == 'Updates') return post.category == 'UPDATE';
+      if (_communityFilter == 'Event') return post.category == 'EVENT';
+      return true;
+    }).toList();
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.groups_outlined,
+                    size: 28.sp,
+                    color: const Color(0xFF1A6FDB),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    'Community',
+                    style: GoogleFonts.outfit(
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0F2547),
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A6FDB),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                  elevation: 0,
+                ),
+                onPressed: _openCreatePostSheet,
+                icon: const Icon(Icons.add, size: 16),
+                label: Text(
+                  'Create Post',
+                  style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            'Connect, share, and collaborate with your school community',
+            style: GoogleFonts.inter(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF6B7A90),
+            ),
+          ),
+          SizedBox(height: 20.h),
+          _buildCommunityStatsRow(),
+          SizedBox(height: 20.h),
+          _buildCommunityFilters(),
+          SizedBox(height: 16.h),
+          _isLoadingCommunity
+              ? SizedBox(
+                  height: 200.h,
+                  child: const Center(child: CircularProgressIndicator(color: Color(0xFF1A6FDB))),
+                )
+              : filteredPosts.isEmpty
+                  ? _buildCommunityEmptyState()
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredPosts.length,
+                      itemBuilder: (ctx, idx) {
+                        return _buildPostCard(filteredPosts[idx]);
+                      },
+                    ),
+          SizedBox(height: 80.h),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCommunityStatsRow() {
+    int postsCount = 56 + (_communityPosts.length - 4);
+    int repliesCount = 25;
+    for (var post in _communityPosts) {
+      repliesCount += post.comments.length;
+    }
+    repliesCount -= 8;
+    if (repliesCount < 25) repliesCount = 25;
+
+    return Row(
+      children: [
+        _buildStatCard(
+          icon: Icons.groups_outlined,
+          value: '$postsCount',
+          label: 'Total Posts',
+        ),
+        SizedBox(width: 8.w),
+        _buildStatCard(
+          icon: Icons.chat_bubble_outline_rounded,
+          value: '$repliesCount',
+          label: 'Total Replies',
+        ),
+        SizedBox(width: 8.w),
+        _buildStatCard(
+          icon: Icons.forum_outlined,
+          value: '8',
+          label: 'Comments',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String value,
+    required String label,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.01),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFF1A6FDB), size: 24.sp),
+            SizedBox(height: 8.h),
+            Text(
+              value,
+              style: GoogleFonts.outfit(
+                fontSize: 22.sp,
+                fontWeight: FontWeight.w900,
+                color: const Color(0xFF0F2547),
+              ),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF868E96),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCommunityFilters() {
+    final filters = ['All', 'Announcements', 'Updates', 'Event', 'More'];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
+      child: Row(
+        children: filters.map((f) {
+          final bool isSel = _communityFilter == f;
+          IconData? icon;
+          if (f == 'All') icon = Icons.groups_outlined;
+          if (f == 'Announcements') icon = Icons.notifications_none_rounded;
+          if (f == 'Updates') icon = Icons.history_rounded;
+          if (f == 'Event') icon = Icons.calendar_today_outlined;
+          if (f == 'More') icon = Icons.keyboard_arrow_down_rounded;
+
+          return GestureDetector(
+            onTap: () {
+              if (f != 'More') {
+                setState(() {
+                  _communityFilter = f;
+                });
+              }
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: 8.w),
+              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+              decoration: BoxDecoration(
+                color: isSel ? const Color(0xFF1A6FDB) : Colors.white,
+                borderRadius: BorderRadius.circular(20.r),
+                border: Border.all(
+                  color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFE2EAF4),
+                  width: 1.w,
+                ),
+              ),
+              child: Row(
+                children: [
+                  if (icon != null && f != 'More') ...[
+                    Icon(
+                      icon,
+                      size: 14.sp,
+                      color: isSel ? Colors.white : const Color(0xFF868E96),
+                    ),
+                    SizedBox(width: 6.w),
+                  ],
+                  Text(
+                    f,
+                    style: GoogleFonts.inter(
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w700,
+                      color: isSel ? Colors.white : const Color(0xFF6B7A90),
+                    ),
+                  ),
+                  if (f == 'More') ...[
+                    SizedBox(width: 4.w),
+                    Icon(
+                      icon,
+                      size: 16.sp,
+                      color: const Color(0xFF6B7A90),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildCommunityEmptyState() {
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 40.h),
+        child: Column(
+          children: [
+            Icon(Icons.forum_outlined, size: 48.sp, color: const Color(0xFF868E96)),
+            SizedBox(height: 12.h),
+            Text(
+              'No posts found',
+              style: GoogleFonts.inter(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF6B7A90),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPostCard(CommunityPostModel post) {
+    final String initials = post.authorName.isNotEmpty
+        ? post.authorName.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
+        : '?';
+
+    return Container(
+      padding: EdgeInsets.all(20.r),
+      margin: EdgeInsets.only(bottom: 16.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: const Color(0xFFE2EAF4), width: 1.w),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44.w,
+                height: 44.w,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F1FB),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF1A6FDB),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post.authorName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F2547),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Row(
+                      children: [
+                        Text(
+                          post.authorRole,
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF868E96),
+                          ),
+                        ),
+                        Text(
+                          '  •  ${post.timeAgo}',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF868E96),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F3F5),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Text(
+                  post.category.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 9.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF495057),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+              Icon(
+                Icons.more_horiz_rounded,
+                color: const Color(0xFF1A6FDB),
+                size: 20.sp,
+              ),
+            ],
+          ),
+          SizedBox(height: 14.h),
+          Text(
+            post.content,
+            style: GoogleFonts.inter(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF495057),
+              height: 1.5,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  _buildReactionButton(post),
+                  if (post.likes > 0 || post.insightfuls > 0) ...[
+                    SizedBox(width: 8.w),
+                    Text(
+                      '🔥',
+                      style: TextStyle(fontSize: 14.sp),
+                    ),
+                  ],
+                ],
+              ),
+              GestureDetector(
+                onTap: () => _openCommentsSheet(post),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 16.sp,
+                      color: const Color(0xFF868E96),
+                    ),
+                    SizedBox(width: 6.w),
+                    Text(
+                      'Comments',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF868E96),
+                      ),
+                    ),
+                    SizedBox(width: 10.w),
+                    Icon(
+                      Icons.cached_rounded,
+                      size: 16.sp,
+                      color: const Color(0xFF868E96),
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '${post.comments.length}',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF868E96),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactionButton(CommunityPostModel post) {
+    final bool hasLikes = post.likes > 0;
+    final bool hasInsightfuls = post.insightfuls > 0;
+    final bool isReactedStyle = hasLikes || hasInsightfuls;
+
+    String label = 'React';
+    IconData icon = Icons.thumb_up_rounded;
+
+    if (hasInsightfuls) {
+      label = 'Insightful ${post.insightfuls}';
+      icon = Icons.lightbulb_rounded;
+    } else if (hasLikes) {
+      label = 'Like ${post.likes}';
+      icon = Icons.thumb_up_rounded;
+    }
+
+    final Color textColor = isReactedStyle ? const Color(0xFF1A6FDB) : const Color(0xFF495057);
+    final Color borderColor = isReactedStyle ? const Color(0xFF1A6FDB).withValues(alpha: 0.5) : const Color(0xFFE2EAF4);
+    final Color bgColor = isReactedStyle ? const Color(0xFFE8F1FB) : Colors.white;
+
+    return GestureDetector(
+      onTap: () => _handleReactionTap(post),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: borderColor, width: 1.w),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 14.sp,
+              color: const Color(0xFFF1A80A), // Beautiful yellow/amber color as in reference image
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _handleReactionTap(CommunityPostModel post) {
+    if (post.userLiked || post.userInsightful) {
+      setState(() {
+        if (post.userLiked) {
+          post.likes--;
+          post.userLiked = false;
+        } else if (post.userInsightful) {
+          post.insightfuls--;
+          post.userInsightful = false;
+        }
+      });
+      _saveCommunityPosts();
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: EdgeInsets.all(24.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'React to this post',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0F2547),
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          setState(() {
+                            post.likes++;
+                            post.userLiked = true;
+                          });
+                          _saveCommunityPosts();
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F1FB),
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFF1A6FDB)),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.thumb_up_rounded, color: const Color(0xFFF1A80A), size: 28.sp),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Like',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1A6FDB),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          setState(() {
+                            post.insightfuls++;
+                            post.userInsightful = true;
+                          });
+                          _saveCommunityPosts();
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF1E6),
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFFE8590C)),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.lightbulb_rounded, color: const Color(0xFFF1A80A), size: 28.sp),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Insightful',
+                                style: GoogleFonts.inter(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFFE8590C),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openCreatePostSheet() {
+    final contentCtrl = TextEditingController();
+    String selectedCategory = 'SAMPLE';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.symmetric(vertical: 12.h),
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Create New Post',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0F2547),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Color(0xFFCBD5E1)),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Category',
+                            style: GoogleFonts.inter(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          Row(
+                            children: ['SAMPLE', 'EVENT', 'ANNOUNCEMENT', 'UPDATE'].map((cat) {
+                              final bool isSel = selectedCategory == cat;
+                              return Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 2.w),
+                                  child: GestureDetector(
+                                    onTap: () => setModalState(() => selectedCategory = cat),
+                                    child: Container(
+                                      padding: EdgeInsets.symmetric(vertical: 10.h),
+                                      decoration: BoxDecoration(
+                                        color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFF1F3F5),
+                                        borderRadius: BorderRadius.circular(10.r),
+                                      ),
+                                      child: Text(
+                                        cat,
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 9.sp,
+                                          fontWeight: FontWeight.w800,
+                                          color: isSel ? Colors.white : const Color(0xFF495057),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                          SizedBox(height: 20.h),
+                          Text(
+                            'What is on your mind?',
+                            style: GoogleFonts.inter(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                          SizedBox(height: 8.h),
+                          TextField(
+                            controller: contentCtrl,
+                            maxLines: 6,
+                            decoration: InputDecoration(
+                              hintText: 'Write your post content here...',
+                              hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.sp),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFFE2EAF4)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(color: Color(0xFF1A6FDB), width: 1.5),
+                              ),
+                            ),
+                            style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF495057)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SafeArea(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.r),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 48.h,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A6FDB),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                          ),
+                          onPressed: () {
+                            if (contentCtrl.text.trim().isEmpty) {
+                              showToast(context, 'Please enter some content');
+                              return;
+                            }
+                            final newPost = CommunityPostModel(
+                              id: 'post_${DateTime.now().millisecondsSinceEpoch}',
+                              authorName: '$_firstName Gupta',
+                              authorRole: 'Student',
+                              timeAgo: 'Just now',
+                              category: selectedCategory,
+                              content: contentCtrl.text.trim(),
+                              likes: 0,
+                              insightfuls: 0,
+                              commentsCount: 0,
+                              comments: [],
+                            );
+                            setState(() {
+                              _communityPosts.insert(0, newPost);
+                            });
+                            _saveCommunityPosts();
+                            Navigator.pop(ctx);
+                            showToast(context, '🎉 Post published successfully!');
+                          },
+                          child: Text(
+                            'Publish Post',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _openCommentsSheet(CommunityPostModel post) {
+    final commentCtrl = TextEditingController();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.symmetric(vertical: 12.h),
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFCBD5E1),
+                      borderRadius: BorderRadius.circular(2.r),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Replies (${post.comments.length})',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18.sp,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0F2547),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Color(0xFFCBD5E1)),
+                  Expanded(
+                    child: post.comments.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No comments yet. Be the first to reply!',
+                              style: GoogleFonts.inter(
+                                fontSize: 13.sp,
+                                color: const Color(0xFF868E96),
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                            itemCount: post.comments.length,
+                            itemBuilder: (ctx, idx) {
+                              final comment = post.comments[idx];
+                              final String initials = comment.authorName.isNotEmpty
+                                  ? comment.authorName.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
+                                  : '?';
+                              return Container(
+                                margin: EdgeInsets.only(bottom: 16.h),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      width: 36.w,
+                                      height: 36.w,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFF1F3F5),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          initials,
+                                          style: GoogleFonts.outfit(
+                                            fontSize: 12.sp,
+                                            fontWeight: FontWeight.w900,
+                                            color: const Color(0xFF495057),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 12.w),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                comment.authorName,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 13.sp,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: const Color(0xFF0F2547),
+                                                ),
+                                              ),
+                                              SizedBox(width: 6.w),
+                                              Text(
+                                                '${comment.authorRole} • ${comment.timeAgo}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10.sp,
+                                                  color: const Color(0xFF868E96),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          SizedBox(height: 4.h),
+                                          Text(
+                                            comment.content,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 12.5.sp,
+                                              color: const Color(0xFF495057),
+                                              height: 1.4,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  SafeArea(
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        border: Border(top: BorderSide(color: Color(0xFFE9F0F8))),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: commentCtrl,
+                              decoration: InputDecoration(
+                                hintText: 'Write a reply...',
+                                hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
+                                border: InputBorder.none,
+                              ),
+                              style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547)),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () {
+                              if (commentCtrl.text.trim().isEmpty) return;
+                              final newComment = CommunityCommentModel(
+                                id: 'c_${DateTime.now().millisecondsSinceEpoch}',
+                                authorName: '$_firstName Gupta',
+                                authorRole: 'Student',
+                                content: commentCtrl.text.trim(),
+                                timeAgo: 'Just now',
+                              );
+                              setState(() {
+                                post.comments.add(newComment);
+                              });
+                              _saveCommunityPosts();
+                              setModalState(() {});
+                              commentCtrl.clear();
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(8.r),
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF1A6FDB),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.send_rounded,
+                                color: Colors.white,
+                                size: 16.sp,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDirectChatsContent() {
+    final filteredChats = _chats.where((c) {
+      if (_searchQuery.isNotEmpty && !c.name.toLowerCase().contains(_searchQuery.toLowerCase()) && !c.preview.toLowerCase().contains(_searchQuery.toLowerCase())) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    return Column(
+      children: [
+        if (!widget.showAppBar) _buildInlineSearchBar(),
+        Expanded(
+          child: filteredChats.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble_outline_rounded, size: 60.sp, color: AppColors.textLight),
+                      SizedBox(height: 12.h),
+                      Text(
+                        'No conversations found',
+                        style: GoogleFonts.inter(color: AppColors.textMedium, fontSize: 15.sp, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.symmetric(vertical: 8.h),
+                  itemCount: filteredChats.length,
+                  itemBuilder: (_, i) {
+                    final c = filteredChats[i];
+                    final latestMsg = c.messages.isNotEmpty ? c.messages.last.text : c.preview;
+                    final latestTime = c.messages.isNotEmpty ? c.messages.last.time : c.time;
+                    final isOutgoing = c.messages.isNotEmpty && c.messages.last.from == 'me';
+
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _openChat(c),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                          decoration: const BoxDecoration(
+                            border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE), width: 0.8)),
+                          ),
+                          child: Row(
+                            children: [
+                              Stack(
+                                children: [
+                                  Container(
+                                    width: 54.w,
+                                    height: 54.h,
+                                    decoration: BoxDecoration(
+                                      color: widget.theme.light,
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: widget.theme.primary.withValues(alpha: 0.2), width: 1.w),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                                        style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 20.sp,
+                                          color: widget.theme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  if (c.online)
+                                    Positioned(
+                                      bottom: 1.h,
+                                      right: 1.w,
+                                      child: Container(
+                                        width: 13.w,
+                                        height: 13.h,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF25D366),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 2.w),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              SizedBox(width: 14.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: GoogleFonts.inter(
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 15.sp,
+                                            color: AppColors.textDark,
+                                          ),
+                                        ),
+                                        Text(
+                                          latestTime,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 11.sp,
+                                            color: c.unread > 0 ? const Color(0xFF25D366) : AppColors.textLight,
+                                            fontWeight: c.unread > 0 ? FontWeight.bold : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 5.h),
+                                    Row(
+                                      children: [
+                                        if (isOutgoing) ...[
+                                          Icon(
+                                            Icons.done_all_rounded,
+                                            size: 16.sp,
+                                            color: c.messages.last.isSeen ? const Color(0xFF34B7F1) : AppColors.textLight,
+                                          ),
+                                          SizedBox(width: 4.w),
+                                        ],
+                                        Expanded(
+                                          child: Text(
+                                            latestMsg,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 13.sp,
+                                              color: c.unread > 0 ? AppColors.textDark : AppColors.textMedium,
+                                              fontWeight: c.unread > 0 ? FontWeight.w700 : FontWeight.w400,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (c.unread > 0) ...[
+                                          SizedBox(width: 8.w),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 4.h),
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFF25D366),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            constraints: BoxConstraints(minWidth: 20.w, minHeight: 20.h),
+                                            child: Center(
+                                              child: Text(
+                                                '${c.unread}',
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 10.sp,
+                                                  fontWeight: FontWeight.w900,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssistantSpeechBubble(bool isDesktop) {
+    return Positioned(
+      right: isDesktop ? 90.w : 84.w,
+      bottom: isDesktop ? 30.h : 24.h,
+      child: GestureDetector(
+        onTap: _toggleChat,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'HI',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F2547),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                '${_firstName.toUpperCase()}!',
+                style: GoogleFonts.outfit(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'HOW',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'CAN I',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'HELP?',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantFAB(bool isDesktop) {
+    return Positioned(
+      right: 24.w,
+      bottom: isDesktop ? 24.h : 18.h,
+      child: GestureDetector(
+        onTap: _toggleChat,
+        child: Container(
+          width: 52.w,
+          height: 52.w,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A6FDB),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1A6FDB).withValues(alpha: 0.35),
+                blurRadius: 12.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_rounded,
+                  color: Colors.white,
+                  size: 24.sp,
+                ),
+                Positioned(
+                  right: -4.w,
+                  top: -4.h,
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: Colors.yellow,
+                    size: 16.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatWindow(bool isDesktop) {
+    return Positioned(
+      right: isDesktop ? 24.w : 16.w,
+      left: isDesktop ? null : 16.w,
+      bottom: isDesktop ? 90.h : 84.h,
+      height: 420.h,
+      width: isDesktop ? 340.w : null,
+      child: Card(
+        elevation: 12,
+        shadowColor: Colors.black.withValues(alpha: 0.15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A6FDB),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.r),
+                  topRight: Radius.circular(20.r),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6.r),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 16.sp,
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      Text(
+                        'Priya - Community AI',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: Colors.white, size: 20.sp),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _toggleChat,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                color: const Color(0xFFF8FAFC),
+                child: ListView.builder(
+                  controller: _chatScrollCtrl,
+                  padding: EdgeInsets.all(16.r),
+                  itemCount: _chatMessages.length,
+                  itemBuilder: (ctx, i) {
+                    final msg = _chatMessages[i];
+                    final isUser = msg['sender'] == 'user';
+                    return Align(
+                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: 10.h),
+                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                        decoration: BoxDecoration(
+                          color: isUser ? const Color(0xFF1A6FDB) : Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(16.r),
+                            topRight: Radius.circular(16.r),
+                            bottomLeft: isUser ? Radius.circular(16.r) : Radius.zero,
+                            bottomRight: isUser ? Radius.zero : Radius.circular(16.r),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4.r,
+                              offset: Offset(0, 2.h),
+                            )
+                          ],
+                          border: isUser ? null : Border.all(color: const Color(0xFFE9F0F8)),
+                        ),
+                        child: Text(
+                          msg['text'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5.sp,
+                            height: 1.3,
+                            color: isUser ? Colors.white : const Color(0xFF0F2547),
+                            fontWeight: isUser ? FontWeight.w500 : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Container(
+              color: const Color(0xFFF8FAFC),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+              child: Row(
+                children: [
+                  _buildChatQuickChip('Creating Posts', () {
+                    _chatInputCtrl.text = 'How to create posts?';
+                    _handleSendChatMsg();
+                  }),
+                  _buildChatQuickChip('Reactions Help', () {
+                    _chatInputCtrl.text = 'Explain reactions';
+                    _handleSendChatMsg();
+                  }),
+                  _buildChatQuickChip('Comments Help', () {
+                    _chatInputCtrl.text = 'How to reply to a post?';
+                    _handleSendChatMsg();
+                  }),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE9F0F8))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _chatInputCtrl,
+                      onSubmitted: (_) => _handleSendChatMsg(),
+                      decoration: InputDecoration(
+                        hintText: 'Ask about community feed...',
+                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
+                      ),
+                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _handleSendChatMsg,
+                    child: Container(
+                      padding: EdgeInsets.all(8.r),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1A6FDB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 16.sp,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatQuickChip(String label, VoidCallback onTap) {
+    return Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 6.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 9.5.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A6FDB),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSendChatMsg() {
+    final text = _chatInputCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    _chatInputCtrl.clear();
+    setState(() {
+      _chatMessages.add({'sender': 'user', 'text': text});
+    });
+    _scrollToChatBottom();
+
+    String reply = '';
+    final query = text.toLowerCase();
+
+    if (query.contains('post') || query.contains('publish') || query.contains('write')) {
+      reply = 'To publish a post in the community feed, click the "+ Create Post" button at the top right, select a category (SAMPLE, EVENT, ANNOUNCEMENT, UPDATE), enter your content, and hit Publish!';
+    } else if (query.contains('react') || query.contains('like') || query.contains('insightful') || query.contains('fire')) {
+      reply = 'You can react to posts by tapping the React button on any card. Tap it to toggle between Liked and Insightful reactions. Reaction milestones are marked with a fire 🔥 emoji!';
+    } else if (query.contains('comment') || query.contains('reply')) {
+      reply = 'To read comments or write a reply, tap the "Comments" label at the bottom of any post card. This opens a dedicated bottom sheet for replies.';
+    } else if (query.contains('help') || query.contains('hi') || query.contains('hello')) {
+      reply = 'Hi $_firstName! I am Priya, your School Assistant. I can guide you on using the Community feed, reactions, creating posts, and comments!';
+    } else {
+      reply = 'I am not sure about that. Try asking about "creating posts", "reactions", or "comments" for details!';
+    }
+
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        setState(() {
+          _chatMessages.add({
+            'sender': 'bot',
+            'text': reply,
+          });
+        });
+        _scrollToChatBottom();
+      }
+    });
   }
 
 

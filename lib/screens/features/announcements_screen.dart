@@ -45,12 +45,14 @@ class AnnouncementsScreen extends StatefulWidget {
   final RoleTheme theme;
   final VoidCallback? onOpenDrawer;
   final bool showAppBar;
+  final String role;
 
   const AnnouncementsScreen({
     super.key,
     required this.theme,
     this.onOpenDrawer,
     this.showAppBar = true,
+    this.role = 'student',
   });
 
   @override
@@ -60,11 +62,70 @@ class AnnouncementsScreen extends StatefulWidget {
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   List<AnnouncementModel> _announcements = [];
   bool _isLoading = true;
+  String _firstName = 'Kavya';
+
+  // Chatbot State
+  bool _isChatOpen = false;
+  final List<Map<String, String>> _chatMessages = [];
+  final _chatInputCtrl = TextEditingController();
+  final ScrollController _chatScrollCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    _loadStudentFirstName();
     _loadAnnouncements();
+  }
+
+  @override
+  void dispose() {
+    _chatInputCtrl.dispose();
+    _chatScrollCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStudentFirstName() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Singh';
+      if (mounted) {
+        setState(() {
+          _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
+          _initChat();
+        });
+      }
+    } catch (_) {
+      _initChat();
+    }
+  }
+
+  void _initChat() {
+    _chatMessages.clear();
+    _chatMessages.add({
+      'sender': 'bot',
+      'text': 'Hi $_firstName! I am Priya, your School Assistant. How can I help you today?'
+    });
+  }
+
+  void _toggleChat() {
+    setState(() {
+      _isChatOpen = !_isChatOpen;
+    });
+    if (_isChatOpen) {
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   // --- Load Announcements ---
@@ -72,13 +133,26 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String? rawList = prefs.getString('local_announcements_list');
-      if (rawList != null) {
-        final List<dynamic> decoded = json.decode(rawList);
-        setState(() {
-          _announcements = decoded.map((e) => AnnouncementModel.fromJson(e as Map<String, dynamic>)).toList();
-        });
+      String? rawList = prefs.getString('local_announcements_list');
+      if (rawList == null) {
+        // Prepopulate with default sports day 2023 notice
+        final defaultAnn = AnnouncementModel(
+          id: 'default_sports_day_2023',
+          title: 'Annual Sports Day 2023',
+          content: 'The Annual Sports Day will be held next month. Please submit your names to your class teachers.',
+          priority: 'NORMAL',
+          audience: 'ALL',
+          date: '6/5/2026',
+        );
+        final List<AnnouncementModel> defaults = [defaultAnn];
+        final String encoded = json.encode(defaults.map((e) => e.toJson()).toList());
+        await prefs.setString('local_announcements_list', encoded);
+        rawList = encoded;
       }
+      final List<dynamic> decoded = json.decode(rawList);
+      setState(() {
+        _announcements = decoded.map((e) => AnnouncementModel.fromJson(e as Map<String, dynamic>)).toList();
+      });
     } catch (_) {}
     setState(() => _isLoading = false);
   }
@@ -433,6 +507,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.role == 'student') {
+      return _buildStudentLayout();
+    }
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: widget.showAppBar
@@ -524,6 +601,667 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         child: const Icon(Icons.campaign_rounded, color: Colors.white),
       ),
     );
+  }
+
+  // --- Student Layout Helpers ---
+
+  Widget _buildStudentLayout() {
+    final bool isDesktop = MediaQuery.of(context).size.width > 900;
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: widget.showAppBar && Navigator.canPop(context)
+          ? AppBar(
+              backgroundColor: Colors.white,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+              leading: const BackButton(color: Color(0xFF0F172A)),
+              title: Text(
+                'EduSphere',
+                style: GoogleFonts.outfit(
+                  fontSize: 22.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+            )
+          : null,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF3F8FC), Color(0xFFFCFDFE)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: Stack(
+            children: [
+              // Scrollable notices content
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Back button row if can pop and no app bar
+                    if (Navigator.canPop(context) && !widget.showAppBar) ...[
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 36.w,
+                          height: 36.w,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10.r),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 6.r,
+                              )
+                            ],
+                          ),
+                          child: Icon(Icons.arrow_back_ios_new_rounded,
+                              color: const Color(0xFF0D233A), size: 16.sp),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                    ],
+
+                    // Notices & Announcements Title Row
+                    _buildStudentHeader(),
+                    SizedBox(height: 24.h),
+
+                    // Notice list
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: CircularProgressIndicator(
+                                  color: Color(0xFF1A6FDB)))
+                          : _announcements.isEmpty
+                              ? _buildStudentEmptyState()
+                              : _buildStudentAnnouncementsList(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Floating Assistant Speech Bubble & FAB Group
+              if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
+              _buildAssistantFAB(isDesktop),
+
+              // Chatbot overlay window
+              if (_isChatOpen) _buildChatWindow(isDesktop),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentHeader() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 48.w,
+          height: 48.w,
+          decoration: const BoxDecoration(
+            color: Color(0xFFE8F1FB), // soft blue background
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Icon(
+              Icons.notifications_none_rounded,
+              color: const Color(0xFF1A6FDB), // blue bell icon
+              size: 24.sp,
+            ),
+          ),
+        ),
+        SizedBox(width: 16.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Notices & Announcements',
+                style: GoogleFonts.outfit(
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547),
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                'Stay updated with the latest school news.',
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6B7A90),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStudentEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: EdgeInsets.all(24.r),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F1FB),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.notifications_off_outlined,
+              size: 48.sp,
+              color: const Color(0xFF1A6FDB),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No notices available',
+            style: GoogleFonts.outfit(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F2547),
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            'Check back later for any updates.',
+            style: GoogleFonts.inter(
+              fontSize: 12.sp,
+              color: const Color(0xFF6B7A90),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentAnnouncementsList() {
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      itemCount: _announcements.length,
+      itemBuilder: (context, index) {
+        final ann = _announcements[index];
+        return Container(
+          padding: EdgeInsets.all(20.r),
+          margin: EdgeInsets.only(bottom: 16.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2EAF4), width: 1.w),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Priority & Audience tags row
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1E6), // peach/orange background
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Text(
+                      ann.priority.toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFFE8590C), // dark orange text
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F3F5), // grey background
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Text(
+                      _formatAudience(ann.audience),
+                      style: GoogleFonts.inter(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF495057), // dark grey text
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 14.h),
+              Text(
+                ann.title,
+                style: GoogleFonts.outfit(
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547), // bold navy text
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Row(
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 14.sp,
+                    color: const Color(0xFF868E96),
+                  ),
+                  SizedBox(width: 6.w),
+                  Text(
+                    ann.date,
+                    style: GoogleFonts.inter(
+                      fontSize: 11.5.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF868E96),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                ann.content,
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF495057),
+                  height: 1.5,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAssistantSpeechBubble(bool isDesktop) {
+    return Positioned(
+      right: isDesktop ? 90.w : 84.w,
+      bottom: isDesktop ? 30.h : 24.h,
+      child: GestureDetector(
+        onTap: _toggleChat,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'HI',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F2547),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                '${_firstName.toUpperCase()}!',
+                style: GoogleFonts.outfit(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'HOW',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'CAN I',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+              Text(
+                'HELP?',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF1A6FDB),
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssistantFAB(bool isDesktop) {
+    return Positioned(
+      right: 24.w,
+      bottom: isDesktop ? 24.h : 18.h,
+      child: GestureDetector(
+        onTap: _toggleChat,
+        child: Container(
+          width: 52.w,
+          height: 52.w,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A6FDB),
+            borderRadius: BorderRadius.circular(16.r),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1A6FDB).withValues(alpha: 0.35),
+                blurRadius: 12.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
+          ),
+          child: Center(
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Icon(
+                  Icons.chat_bubble_rounded,
+                  color: Colors.white,
+                  size: 24.sp,
+                ),
+                Positioned(
+                  right: -4.w,
+                  top: -4.h,
+                  child: Icon(
+                    Icons.add_rounded,
+                    color: Colors.yellow,
+                    size: 16.sp,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatWindow(bool isDesktop) {
+    return Positioned(
+      right: isDesktop ? 24.w : 16.w,
+      left: isDesktop ? null : 16.w,
+      bottom: isDesktop ? 90.h : 84.h,
+      height: 420.h,
+      width: isDesktop ? 340.w : null,
+      child: Card(
+        elevation: 12,
+        shadowColor: Colors.black.withValues(alpha: 0.15),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        child: Column(
+          children: [
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A6FDB),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.r),
+                  topRight: Radius.circular(20.r),
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(6.r),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 16.sp,
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      Text(
+                        'Priya - School Assistant',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded, color: Colors.white, size: 20.sp),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: _toggleChat,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Container(
+                color: const Color(0xFFF8FAFC),
+                child: ListView.builder(
+                  controller: _chatScrollCtrl,
+                  padding: EdgeInsets.all(16.r),
+                  itemCount: _chatMessages.length,
+                  itemBuilder: (ctx, i) {
+                    final msg = _chatMessages[i];
+                    final isUser = msg['sender'] == 'user';
+                    return Align(
+                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: EdgeInsets.only(bottom: 10.h),
+                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                        decoration: BoxDecoration(
+                          color: isUser ? const Color(0xFF1A6FDB) : Colors.white,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(16.r),
+                            topRight: Radius.circular(16.r),
+                            bottomLeft: isUser ? Radius.circular(16.r) : Radius.zero,
+                            bottomRight: isUser ? Radius.zero : Radius.circular(16.r),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4.r,
+                              offset: Offset(0, 2.h),
+                            )
+                          ],
+                          border: isUser ? null : Border.all(color: const Color(0xFFE9F0F8)),
+                        ),
+                        child: Text(
+                          msg['text'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.5.sp,
+                            height: 1.3,
+                            color: isUser ? Colors.white : const Color(0xFF0F2547),
+                            fontWeight: isUser ? FontWeight.w500 : FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            Container(
+              color: const Color(0xFFF8FAFC),
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+              child: Row(
+                children: [
+                  _buildQuickChip('Sports Day Info', () {
+                    _chatInputCtrl.text = 'Tell me about Sports Day';
+                    _handleSendChatMessage();
+                  }),
+                  _buildQuickChip('Latest Notice', () {
+                    _chatInputCtrl.text = 'What is the latest notice?';
+                    _handleSendChatMessage();
+                  }),
+                  _buildQuickChip('General Help', () {
+                    _chatInputCtrl.text = 'Help';
+                    _handleSendChatMessage();
+                  }),
+                ],
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(top: BorderSide(color: Color(0xFFE9F0F8))),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _chatInputCtrl,
+                      onSubmitted: (_) => _handleSendChatMessage(),
+                      decoration: InputDecoration(
+                        hintText: 'Ask about notices, events...',
+                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
+                      ),
+                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: _handleSendChatMessage,
+                    child: Container(
+                      padding: EdgeInsets.all(8.r),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF1A6FDB),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 16.sp,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickChip(String label, VoidCallback onTap) {
+    return Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 4.w),
+        child: GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 6.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 9.5.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A6FDB),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSendChatMessage() {
+    final text = _chatInputCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    _chatInputCtrl.clear();
+    setState(() {
+      _chatMessages.add({'sender': 'user', 'text': text});
+    });
+    _scrollToBottom();
+
+    String reply = '';
+    final query = text.toLowerCase();
+
+    if (query.contains('sports') || query.contains('game') || query.contains('play') || query.contains('event')) {
+      reply = 'The Annual Sports Day 2023 is scheduled for 6/5/2026. Students interested in participating should submit their names to their class teachers by the end of this week!';
+    } else if (query.contains('notice') || query.contains('announcement') || query.contains('latest') || query.contains('news')) {
+      if (_announcements.isNotEmpty) {
+        reply = 'The latest notice is "${_announcements.first.title}": ${_announcements.first.content}';
+      } else {
+        reply = 'There are no active notices or announcements at the moment. Keep checking this space for updates!';
+      }
+    } else if (query.contains('help') || query.contains('hi') || query.contains('hello')) {
+      reply = 'Hi $_firstName! I can help you with notices, school events, and announcements. Just ask me about "sports day" or "latest notices"!';
+    } else {
+      reply = 'I am not sure about that. Try asking about "Annual Sports Day" or "latest notices" for more information!';
+    }
+
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      if (mounted) {
+        setState(() {
+          _chatMessages.add({
+            'sender': 'bot',
+            'text': reply,
+          });
+        });
+        _scrollToBottom();
+      }
+    });
+  }
+
+  String _formatAudience(String audience) {
+    if (audience.toUpperCase() == 'ALL') {
+      return 'STUDENT, TEACHER, PARENT';
+    } else if (audience.toUpperCase() == 'STUDENTS') {
+      return 'STUDENT';
+    } else if (audience.toUpperCase() == 'TEACHERS') {
+      return 'TEACHER';
+    }
+    return audience.toUpperCase();
   }
 
   // --- UI Component: Banner Card ---
