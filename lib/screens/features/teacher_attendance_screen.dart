@@ -28,12 +28,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   int _activeTab = 0;
 
   // ── Filters ──
-  String _userType = 'Students';
   String? _selectedClass;
   String _selectedSection = 'All Sections';
   DateTime _selectedDate = DateTime.now();
 
-  final List<String> _userTypes = ['Students', 'Teachers'];
   final List<String> _classes = [
     'Class 1',
     'Class 2',
@@ -180,9 +178,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           statusMap[sId] = localStatus;
         }
       } else {
-        for (var s in studentList) {
-          statusMap[s['id']] = 'P';
-        }
+        // No default attendance, teacher must mark explicitly
       }
 
       if (mounted) {
@@ -200,9 +196,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         setState(() {
           _students = _getDemoStudents();
           _attendanceStatus = {};
-          for (var s in _students) {
-            _attendanceStatus[s['id']] = 'P';
-          }
+          // No default attendance
           _slotCreated = true;
           _isAlreadySubmitted = false;
           _isLoading = false;
@@ -261,7 +255,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       final records = <Map<String, dynamic>>[];
       for (var student in _students) {
         final studentId = student['id'];
-        final statusLocal = _attendanceStatus[studentId] ?? 'P';
+        final statusLocal = _attendanceStatus[studentId];
+        
+        if (statusLocal == null) {
+          throw 'Please mark attendance for all students or use Quick Actions.';
+        }
+
         String statusEnum = 'PRESENT';
         if (statusLocal == 'A') statusEnum = 'ABSENT';
         if (statusLocal == 'L') statusEnum = 'LATE';
@@ -511,22 +510,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           ),
         ),
       ),
-      floatingActionButton: _activeTab == 0
-          ? FloatingActionButton(
-              onPressed: _createSlot,
-              backgroundColor: AppColors.teacherPrimary,
-              elevation: 6,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r)),
-              child: Icon(
-                _slotCreated
-                    ? Icons.refresh_rounded
-                    : Icons.add_task_rounded,
-                color: Colors.white,
-                size: 24.sp,
-              ),
-            )
-          : null,
     );
   }
 
@@ -621,11 +604,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         SizedBox(height: 16.h),
 
         // ── Today's Attendance Overview ──
-        _buildTodayOverview(),
+        if (_slotCreated && _isAlreadySubmitted) ...[
+          _buildTodayOverview(),
+          SizedBox(height: 16.h),
+        ],
 
         // ── Student List (if slot created) ──
         if (_slotCreated && _students.isNotEmpty) ...[
-          SizedBox(height: 16.h),
           _buildQuickActions(),
           SizedBox(height: 16.h),
           _buildStudentAttendanceList(),
@@ -674,20 +659,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           ),
           SizedBox(height: 20.h),
 
-          // ── User Type ──
-          _buildFieldLabel('User Type'),
-          SizedBox(height: 6.h),
-          _buildDropdown(
-            icon: Icons.person_outline_rounded,
-            value: _userType,
-            items: _userTypes,
-            onChanged: (val) {
-              if (val != null) {
-                setState(() => _userType = val);
-              }
-            },
-          ),
-          SizedBox(height: 16.h),
 
           // ── Class ──
           _buildFieldLabel('Class'),
@@ -759,6 +730,36 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   Icon(Icons.calendar_month_rounded,
                       size: 20.sp, color: const Color(0xFF94A3B8)),
                 ],
+              ),
+            ),
+          ),
+          SizedBox(height: 20.h),
+
+          // ── Create Slot Button ──
+          SizedBox(
+            width: double.infinity,
+            height: 48.h,
+            child: ElevatedButton.icon(
+              onPressed: _createSlot,
+              icon: Icon(
+                _slotCreated ? Icons.refresh_rounded : Icons.add_task_rounded,
+                size: 20.sp,
+                color: Colors.white,
+              ),
+              label: Text(
+                _slotCreated ? 'Refresh Slot' : 'Create Slot',
+                style: GoogleFonts.inter(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.teacherPrimary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                ),
+                elevation: 0,
               ),
             ),
           ),
@@ -1189,7 +1190,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             itemBuilder: (context, index) {
               final student = _students[index];
               final studentId = student['id'];
-              final status = _attendanceStatus[studentId] ?? 'P';
+              final status = _attendanceStatus[studentId];
 
               return Padding(
                 padding: EdgeInsets.symmetric(
@@ -1279,7 +1280,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   }
 
   Widget _buildStatusBtn(
-      String btnStatus, String currentStatus, Color color, String studentId) {
+      String btnStatus, String? currentStatus, Color color, String studentId) {
     final isSelected = currentStatus == btnStatus;
     return InkWell(
       onTap: () {
