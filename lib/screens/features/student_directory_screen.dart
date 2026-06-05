@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
@@ -48,26 +49,76 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   int _currentPage = 1;
   final int _rowsPerPage = 10;
   String _searchQuery = '';
+  bool _isLoading = false;
+  List<StudentRecord> _allStudents = [];
 
-  // In-memory list matching the screenshot entries + more for pagination
-  final List<StudentRecord> _allStudents = [
-    const StudentRecord(admissionNo: 'ADM240001', name: 'Priya Singh', className: 'Class 1 - A', email: 'student1@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240002', name: 'Anjali Das', className: 'Class 1 - A', email: 'student2@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240003', name: 'Sneha Mair', className: 'Class 1 - A', email: 'student3@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240004', name: 'Arjun Reddy', className: 'Class 1 - A', email: 'student4@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240005', name: 'Ankit Gupta', className: 'Class 1 - A', email: 'student5@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240006', name: 'Deepak Yadav', className: 'Class 1 - A', email: 'student6@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240007', name: 'Riya Nair', className: 'Class 1 - A', email: 'student7@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240008', name: 'Karan Mishra', className: 'Class 1 - A', email: 'student8@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240009', name: 'Deepika Sharma', className: 'Class 1 - A', email: 'student9@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240010', name: 'Sanjay Mulchandani', className: 'Class 1 - A', email: 'student10@demoschool.com', status: 'ACTIVE'),
-    // Extra entries to support page 2, 3, etc.
-    const StudentRecord(admissionNo: 'ADM240011', name: 'Rahul Verma', className: 'Class 2 - B', email: 'student11@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240012', name: 'Kiran Patel', className: 'Class 2 - B', email: 'student12@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240013', name: 'Neha Gupta', className: 'Class 3 - A', email: 'student13@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240014', name: 'Aman Sharma', className: 'Class 3 - B', email: 'student14@demoschool.com', status: 'ACTIVE'),
-    const StudentRecord(admissionNo: 'ADM240015', name: 'Pooja Joshi', className: 'Class 4 - A', email: 'student15@demoschool.com', status: 'ACTIVE'),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _fetchStudents();
+  }
+
+  Future<void> _fetchStudents() async {
+    setState(() => _isLoading = true);
+    try {
+      final response = await Supabase.instance.client
+          .from('Student')
+          .select('id, admissionNumber, currentClassId, status, User(firstName, lastName, email), Class(name)');
+
+      final List<StudentRecord> loadedStudents = [];
+      for (var item in response) {
+        final user = item['User'] as Map?;
+        final classData = item['Class'] as Map?;
+        final firstName = user?['firstName'] ?? '';
+        final lastName = user?['lastName'] ?? '';
+        final fullName = '$firstName $lastName'.trim();
+        final className = classData?['name'] ?? 'Class 1';
+
+        loadedStudents.add(StudentRecord(
+          admissionNo: item['admissionNumber'] ?? '',
+          name: fullName.isNotEmpty ? fullName : 'Unknown',
+          className: className,
+          email: user?['email'] ?? '',
+          status: item['status'] ?? 'ACTIVE',
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _allStudents = loadedStudents;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching students: $e');
+      if (mounted) {
+        setState(() {
+          _allStudents = _getDemoStudents();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  List<StudentRecord> _getDemoStudents() {
+    return [
+      const StudentRecord(admissionNo: 'ADM240001', name: 'Priya Singh', className: 'Class 1 - A', email: 'student1@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240002', name: 'Anjali Das', className: 'Class 1 - A', email: 'student2@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240003', name: 'Sneha Mair', className: 'Class 1 - A', email: 'student3@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240004', name: 'Arjun Reddy', className: 'Class 1 - A', email: 'student4@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240005', name: 'Ankit Gupta', className: 'Class 1 - A', email: 'student5@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240006', name: 'Deepak Yadav', className: 'Class 1 - A', email: 'student6@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240007', name: 'Riya Nair', className: 'Class 1 - A', email: 'student7@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240008', name: 'Karan Mishra', className: 'Class 1 - A', email: 'student8@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240009', name: 'Deepika Sharma', className: 'Class 1 - A', email: 'student9@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240010', name: 'Sanjay Mulchandani', className: 'Class 1 - A', email: 'student10@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240011', name: 'Rahul Verma', className: 'Class 2 - B', email: 'student11@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240012', name: 'Kiran Patel', className: 'Class 2 - B', email: 'student12@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240013', name: 'Neha Gupta', className: 'Class 3 - A', email: 'student13@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240014', name: 'Aman Sharma', className: 'Class 3 - B', email: 'student14@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(admissionNo: 'ADM240015', name: 'Pooja Joshi', className: 'Class 4 - A', email: 'student15@demoschool.com', status: 'ACTIVE'),
+    ];
+  }
 
   @override
   void dispose() {
@@ -369,7 +420,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           ),
 
           // Student Rows
-          if (paginated.isEmpty)
+          if (_isLoading)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 32.h),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  color: Color(0xFF0066CC),
+                ),
+              ),
+            )
+          else if (paginated.isEmpty)
             Padding(
               padding: EdgeInsets.symmetric(vertical: 32.h),
               child: Center(
