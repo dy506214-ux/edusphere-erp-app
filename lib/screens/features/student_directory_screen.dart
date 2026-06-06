@@ -260,6 +260,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         onPressed: _showAddStudentDialog,
         backgroundColor: const Color(0xFF0066CC),
         elevation: 4,
