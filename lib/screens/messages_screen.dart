@@ -267,123 +267,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
     setState(() => _isLoadingCommunity = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      String? raw = prefs.getString('local_community_posts_list_v3');
+      String? raw = prefs.getString('local_community_posts_list_v4');
       if (raw == null) {
-        // Prepopulate with reference image posts
-        final defaultPosts = [
-          CommunityPostModel(
-            id: 'post_1',
-            authorName: 'Priya Sharma',
-            authorRole: 'Teacher',
-            timeAgo: '2 hours ago',
-            category: 'SAMPLE',
-            content: "Don't forget! The upcoming event reminder. I'd love your thoughts.",
-            likes: 0,
-            insightfuls: 0,
-            commentsCount: 1,
-            comments: [
-              CommunityCommentModel(
-                id: 'c_1_1',
-                authorName: 'Anjali Das',
-                authorRole: 'Student',
-                content: "Looking forward to it, ma'am!",
-                timeAgo: '1 hour ago',
-              )
-            ],
-          ),
-          CommunityPostModel(
-            id: 'post_2',
-            authorName: 'Sneha Yadav',
-            authorRole: 'Student',
-            timeAgo: '3 hours ago',
-            category: 'SAMPLE',
-            content: "Excited for the upcoming event! Invitation. I'd love your thoughts.",
-            likes: 7,
-            insightfuls: 0,
-            commentsCount: 3,
-            userLiked: false,
-            comments: [
-              CommunityCommentModel(
-                id: 'c_2_1',
-                authorName: 'Kavya Gupta',
-                authorRole: 'Student',
-                content: "Me too! Let's go together.",
-                timeAgo: '2 hours ago',
-              ),
-              CommunityCommentModel(
-                id: 'c_2_2',
-                authorName: 'Arnav Desai',
-                authorRole: 'Member',
-                content: "Sounds fun!",
-                timeAgo: '1 hour ago',
-              ),
-              CommunityCommentModel(
-                id: 'c_2_3',
-                authorName: 'Rohan Sharma',
-                authorRole: 'Student',
-                content: "Count me in!",
-                timeAgo: '30 mins ago',
-              )
-            ],
-          ),
-          CommunityPostModel(
-            id: 'post_3',
-            authorName: 'Arnav Desai',
-            authorRole: 'Member',
-            timeAgo: '5 hours ago',
-            category: 'EVENT',
-            content: "Excited for the upcoming event! Invitation. I'd love your thoughts.",
-            likes: 0,
-            insightfuls: 3,
-            commentsCount: 2,
-            userInsightful: false,
-            comments: [
-              CommunityCommentModel(
-                id: 'c_3_1',
-                authorName: 'Priya Sharma',
-                authorRole: 'Teacher',
-                content: "Great initiative, Arnav!",
-                timeAgo: '4 hours ago',
-              ),
-              CommunityCommentModel(
-                id: 'c_3_2',
-                authorName: 'Sneha Yadav',
-                authorRole: 'Student',
-                content: "I will join as well.",
-                timeAgo: '3 hours ago',
-              )
-            ],
-          ),
-          CommunityPostModel(
-            id: 'post_4',
-            authorName: 'Kavya Gupta',
-            authorRole: 'Student',
-            timeAgo: '5 hours ago',
-            category: 'EVENT',
-            content: "Don't forget! The upcoming event reminder. I'd love your thoughts.",
-            likes: 0,
-            insightfuls: 0,
-            commentsCount: 2,
-            comments: [
-              CommunityCommentModel(
-                id: 'c_4_1',
-                authorName: 'Sneha Yadav',
-                authorRole: 'Student',
-                content: "Thanks for the reminder, Kavya!",
-                timeAgo: '4 hours ago',
-              ),
-              CommunityCommentModel(
-                id: 'c_4_2',
-                authorName: 'Amit Patel',
-                authorRole: 'Student',
-                content: "Already marked on my calendar.",
-                timeAgo: '2 hours ago',
-              )
-            ],
-          ),
-        ];
+        final defaultPosts = <CommunityPostModel>[];
         final String encoded = json.encode(defaultPosts.map((e) => e.toJson()).toList());
-        await prefs.setString('local_community_posts_list_v3', encoded);
+        await prefs.setString('local_community_posts_list_v4', encoded);
         raw = encoded;
       }
       final List<dynamic> decoded = json.decode(raw);
@@ -398,7 +286,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String encoded = json.encode(_communityPosts.map((e) => e.toJson()).toList());
-      await prefs.setString('local_community_posts_list_v3', encoded);
+      await prefs.setString('local_community_posts_list_v4', encoded);
     } catch (_) {}
   }
 
@@ -1323,56 +1211,27 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Widget _buildStudentListView() {
     final bool isDesktop = MediaQuery.of(context).size.width > 900;
-    Widget bodyContent;
-    if (_currentSubTab == 'community') {
-      bodyContent = _buildCommunityFeedContent();
-    } else {
-      bodyContent = _buildDirectChatsContent();
-    }
+    Widget bodyContent = _buildCommunityFeedContent();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: widget.showAppBar && _currentSubTab == 'chats' && _isSearching
+      appBar: widget.showAppBar
           ? AppBar(
               backgroundColor: Colors.white,
               elevation: 0,
               iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: IconButton(
-                icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0F172A)),
-                onPressed: () {
-                  setState(() {
-                    _isSearching = false;
-                    _searchQuery = '';
-                  });
-                },
-              ),
-              title: TextField(
-                style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 16.sp),
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search...',
-                  hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 16.sp),
-                  border: InputBorder.none,
-                ),
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
-              ),
-            )
-          : (widget.showAppBar
-              ? AppBar(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-                  leading: Navigator.canPop(context)
-                      ? const BackButton(color: Color(0xFF0F172A))
-                      : IconButton(
-                          icon: Icon(Icons.menu, size: 28.sp),
-                          onPressed: widget.onOpenDrawer ?? () => Scaffold.of(context).openDrawer(),
-                        ),
-                  title: Text(
+              leading: Navigator.canPop(context)
+                  ? const BackButton(color: Color(0xFF0F172A))
+                  : IconButton(
+                      icon: Icon(Icons.menu, size: 28.sp),
+                      onPressed: widget.onOpenDrawer ?? () => Scaffold.of(context).openDrawer(),
+                    ),
+              title: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.school, color: const Color(0xFF1A6FDB), size: 24.sp),
+                  SizedBox(width: 8.w),
+                  Text(
                     'EduSphere',
                     style: GoogleFonts.outfit(
                       fontSize: 22.sp,
@@ -1380,115 +1239,69 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       color: const Color(0xFF0F172A),
                     ),
                   ),
-                  actions: [
-                    if (_currentSubTab == 'chats')
-                      IconButton(
-                        icon: Icon(Icons.search_rounded, size: 28.sp),
-                        onPressed: () {
-                          setState(() {
-                            _isSearching = true;
-                          });
-                        },
+                ],
+              ),
+              centerTitle: true,
+              actions: [
+                IconButton(
+                  icon: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(Icons.notifications_none_rounded, size: 28.sp),
+                      Positioned(
+                        right: -2,
+                        top: -2,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '2',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
                       ),
-                    IconButton(
-                      icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
-                      onPressed: () {},
-                    ),
-                    SizedBox(width: 8.w),
-                  ],
-                )
-              : null),
+                    ],
+                  ),
+                  onPressed: () {},
+                ),
+                SizedBox(width: 8.w),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: Stack(
           children: [
             Column(
               children: [
-                _buildStudentSubTabSelector(),
                 Expanded(child: bodyContent),
               ],
             ),
-            if (_currentSubTab == 'community') ...[
-              if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
-              _buildAssistantFAB(isDesktop),
-              if (_isChatOpen) _buildChatWindow(isDesktop),
-            ],
+            if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
+            _buildAssistantFAB(isDesktop),
+            if (_isChatOpen) _buildChatWindow(isDesktop),
           ],
         ),
       ),
-      floatingActionButton: _currentSubTab == 'chats'
-          ? FloatingActionButton(
-              onPressed: () => _showNewMessageModal(context),
-              backgroundColor: const Color(0xFF1A6FDB),
-              elevation: 6.r,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-              child: const Icon(Icons.message_rounded, color: Colors.white),
-            )
-          : null,
-    );
-  }
-
-  Widget _buildStudentSubTabSelector() {
-    return Container(
-      margin: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 12.h),
-      padding: EdgeInsets.all(4.r),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F3F5),
-        borderRadius: BorderRadius.circular(12.r),
-      ),
-      child: Row(
-        children: [
-          _buildSubTabItem('community', 'Community Feed'),
-          _buildSubTabItem('chats', 'Direct Chats'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSubTabItem(String value, String label) {
-    final bool isSel = _currentSubTab == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () {
-          setState(() {
-            _currentSubTab = value;
-          });
-        },
-        child: Container(
-          padding: EdgeInsets.symmetric(vertical: 10.h),
-          decoration: BoxDecoration(
-            color: isSel ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10.r),
-            boxShadow: isSel
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ]
-                : null,
-          ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 13.sp,
-              fontWeight: isSel ? FontWeight.w800 : FontWeight.w600,
-              color: isSel ? const Color(0xFF0F2547) : const Color(0xFF868E96),
-            ),
-          ),
-        ),
-      ),
+      floatingActionButton: null,
     );
   }
 
   Widget _buildCommunityFeedContent() {
     final filteredPosts = _communityPosts.where((post) {
       if (_communityFilter == 'All') return true;
-      if (_communityFilter == 'Announcements') return post.category == 'ANNOUNCEMENT' || post.category == 'SAMPLE';
-      if (_communityFilter == 'Updates') return post.category == 'UPDATE';
-      if (_communityFilter == 'Event') return post.category == 'EVENT';
-      return true;
+      return post.category.trim().toLowerCase() == _communityFilter.trim().toLowerCase();
     }).toList();
 
     return SingleChildScrollView(
@@ -1571,32 +1384,43 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildCommunityStatsRow() {
-    int postsCount = 56 + (_communityPosts.length - 4);
-    int repliesCount = 25;
+    int postsCount = _communityPosts.length;
+    int postedToday = _communityPosts.where((post) {
+      final time = post.timeAgo.toLowerCase();
+      if (time.contains('day') && !time.contains('today') && !time.contains('hours ago') && !time.contains('mins ago')) {
+        return false;
+      }
+      return true;
+    }).length;
+    int commentsCount = 0;
     for (var post in _communityPosts) {
-      repliesCount += post.comments.length;
+      commentsCount += post.comments.length;
     }
-    repliesCount -= 8;
-    if (repliesCount < 25) repliesCount = 25;
 
     return Row(
       children: [
         _buildStatCard(
-          icon: Icons.groups_outlined,
+          icon: Icons.trending_up_rounded,
           value: '$postsCount',
           label: 'Total Posts',
+          iconColor: const Color(0xFF3B82F6),
+          bgColor: const Color(0xFFEFF6FF),
+        ),
+        SizedBox(width: 8.w),
+        _buildStatCard(
+          icon: Icons.autorenew_rounded,
+          value: '$postedToday',
+          label: 'Posted Today',
+          iconColor: const Color(0xFF10B981),
+          bgColor: const Color(0xFFECFDF5),
         ),
         SizedBox(width: 8.w),
         _buildStatCard(
           icon: Icons.chat_bubble_outline_rounded,
-          value: '$repliesCount',
-          label: 'Total Replies',
-        ),
-        SizedBox(width: 8.w),
-        _buildStatCard(
-          icon: Icons.forum_outlined,
-          value: '8',
+          value: '$commentsCount',
           label: 'Comments',
+          iconColor: const Color(0xFF8B5CF6),
+          bgColor: const Color(0xFFF5F3FF),
         ),
       ],
     );
@@ -1606,6 +1430,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
     required IconData icon,
     required String value,
     required String label,
+    required Color iconColor,
+    required Color bgColor,
   }) {
     return Expanded(
       child: Container(
@@ -1624,7 +1450,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
         child: Column(
           children: [
-            Icon(icon, color: const Color(0xFF1A6FDB), size: 24.sp),
+            Container(
+              padding: EdgeInsets.all(8.r),
+              decoration: BoxDecoration(
+                color: bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 20.sp),
+            ),
             SizedBox(height: 8.h),
             Text(
               value,
@@ -1650,46 +1483,37 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildCommunityFilters() {
-    final filters = ['All', 'Announcements', 'Updates', 'Event', 'More'];
+    final filters = ['All', 'General', 'Announcement', 'Question', 'Event', 'Poll', 'Resource'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       physics: const BouncingScrollPhysics(),
       child: Row(
         children: filters.map((f) {
           final bool isSel = _communityFilter == f;
-          IconData? icon;
-          if (f == 'All') icon = Icons.groups_outlined;
-          if (f == 'Announcements') icon = Icons.notifications_none_rounded;
-          if (f == 'Updates') icon = Icons.history_rounded;
-          if (f == 'Event') icon = Icons.calendar_today_outlined;
-          if (f == 'More') icon = Icons.keyboard_arrow_down_rounded;
-
           return GestureDetector(
             onTap: () {
-              if (f != 'More') {
-                setState(() {
-                  _communityFilter = f;
-                });
-              }
+              setState(() {
+                _communityFilter = f;
+              });
             },
             child: Container(
               margin: EdgeInsets.only(right: 8.w),
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               decoration: BoxDecoration(
                 color: isSel ? const Color(0xFF1A6FDB) : Colors.white,
                 borderRadius: BorderRadius.circular(20.r),
                 border: Border.all(
-                  color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFE2EAF4),
+                  color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFE2E8F0),
                   width: 1.w,
                 ),
               ),
               child: Row(
                 children: [
-                  if (icon != null && f != 'More') ...[
+                  if (f == 'All') ...[
                     Icon(
-                      icon,
+                      Icons.auto_awesome,
                       size: 14.sp,
-                      color: isSel ? Colors.white : const Color(0xFF868E96),
+                      color: isSel ? Colors.white : const Color(0xFFF59E0B),
                     ),
                     SizedBox(width: 6.w),
                   ],
@@ -1698,17 +1522,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     style: GoogleFonts.inter(
                       fontSize: 12.sp,
                       fontWeight: FontWeight.w700,
-                      color: isSel ? Colors.white : const Color(0xFF6B7A90),
+                      color: isSel ? Colors.white : const Color(0xFF475569),
                     ),
                   ),
-                  if (f == 'More') ...[
-                    SizedBox(width: 4.w),
-                    Icon(
-                      icon,
-                      size: 16.sp,
-                      color: const Color(0xFF6B7A90),
-                    ),
-                  ],
                 ],
               ),
             ),
@@ -1719,23 +1535,70 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildCommunityEmptyState() {
-    return Center(
-      child: Padding(
-        padding: EdgeInsets.symmetric(vertical: 40.h),
-        child: Column(
-          children: [
-            Icon(Icons.forum_outlined, size: 48.sp, color: const Color(0xFF868E96)),
-            SizedBox(height: 12.h),
-            Text(
-              'No posts found',
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 48.h),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 80.w,
+            height: 80.w,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEFF6FF),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.people_outline_rounded,
+              size: 40.sp,
+              color: const Color(0xFF1A6FDB),
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Text(
+            'No posts yet',
+            style: GoogleFonts.outfit(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF0F2547),
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 40.w),
+            child: Text(
+              'Be the first to start a conversation\nin this community!',
+              textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w500,
                 color: const Color(0xFF6B7A90),
+                height: 1.4,
               ),
             ),
-          ],
-        ),
+          ),
+          SizedBox(height: 24.h),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A6FDB),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 14.h),
+              elevation: 0,
+            ),
+            onPressed: _openCreatePostSheet,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: Text(
+              'Create Post',
+              style: GoogleFonts.inter(
+                fontWeight: FontWeight.w800,
+                fontSize: 14.sp,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2086,7 +1949,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   void _openCreatePostSheet() {
     final contentCtrl = TextEditingController();
-    String selectedCategory = 'SAMPLE';
+    String selectedCategory = 'General';
 
     showModalBottomSheet(
       context: context,
@@ -2148,29 +2011,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             ),
                           ),
                           SizedBox(height: 8.h),
-                          Row(
-                            children: ['SAMPLE', 'EVENT', 'ANNOUNCEMENT', 'UPDATE'].map((cat) {
+                          Wrap(
+                            spacing: 8.w,
+                            runSpacing: 8.h,
+                            children: ['General', 'Announcement', 'Question', 'Event', 'Poll', 'Resource'].map((cat) {
                               final bool isSel = selectedCategory == cat;
-                              return Expanded(
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 2.w),
-                                  child: GestureDetector(
-                                    onTap: () => setModalState(() => selectedCategory = cat),
-                                    child: Container(
-                                      padding: EdgeInsets.symmetric(vertical: 10.h),
-                                      decoration: BoxDecoration(
-                                        color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFF1F3F5),
-                                        borderRadius: BorderRadius.circular(10.r),
-                                      ),
-                                      child: Text(
-                                        cat,
-                                        textAlign: TextAlign.center,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 9.sp,
-                                          fontWeight: FontWeight.w800,
-                                          color: isSel ? Colors.white : const Color(0xFF495057),
-                                        ),
-                                      ),
+                              return GestureDetector(
+                                onTap: () => setModalState(() => selectedCategory = cat),
+                                child: Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                                  decoration: BoxDecoration(
+                                    color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFF1F3F5),
+                                    borderRadius: BorderRadius.circular(20.r),
+                                    border: Border.all(
+                                      color: isSel ? const Color(0xFF1A6FDB) : const Color(0xFFE2E8F0),
+                                      width: 1.w,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    cat,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12.sp,
+                                      fontWeight: FontWeight.w700,
+                                      color: isSel ? Colors.white : const Color(0xFF495057),
                                     ),
                                   ),
                                 ),

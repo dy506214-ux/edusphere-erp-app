@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 // ── Event model ──────────────────────────────────────────────────────────────
 enum EventType { holiday, event, exam, emergency, notice }
@@ -41,6 +43,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   late DateTime _focusedMonth;
   DateTime? _selectedDay;
   bool _isMonthView = true;
+  int _localNoticesCount = 1;
 
   // Events keyed by year-month-day
   final Map<String, List<CalendarEvent>> _events = {};
@@ -48,42 +51,88 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   @override
   void initState() {
     super.initState();
-    // Default to June 2026 as in the image
-    _focusedMonth = DateTime(2026, 6, 1);
-    _selectedDay = DateTime(2026, 6, 4);
+    final now = DateTime.now();
+    _focusedMonth = DateTime(now.year, now.month, 1);
+    _selectedDay = now;
     _loadEvents();
+    _loadLocalNoticesCount();
+  }
+
+  Future<void> _loadLocalNoticesCount() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawList = prefs.getString('local_announcements_list');
+      if (rawList != null) {
+        final List<dynamic> decoded = json.decode(rawList);
+        if (mounted) {
+          setState(() {
+            _localNoticesCount = decoded.length;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   void _loadEvents() {
+    final now = DateTime.now();
+    final y = now.year;
+    final m = now.month;
+
     // Adding events matching the 2nd image dots:
-    _events['2026-6-4']  = [const CalendarEvent('Project Presentation', EventType.event)];
-    _events['2026-6-5']  = [const CalendarEvent('Club Activity', EventType.event)];
-    _events['2026-6-11'] = [const CalendarEvent('Math Semester Exam', EventType.exam)];
-    _events['2026-6-12'] = [const CalendarEvent('Volleyball Match', EventType.event)];
-    _events['2026-6-16'] = [const CalendarEvent('Holiday - Youth Day', EventType.holiday)];
-    _events['2026-6-18'] = [const CalendarEvent('Seminar', EventType.event)];
-    _events['2026-6-19'] = [const CalendarEvent('Chemistry Lab Exam', EventType.exam)];
-    _events['2026-6-22'] = [const CalendarEvent('Power Failure Outage', EventType.emergency)];
-    _events['2026-6-25'] = [const CalendarEvent('Music Festival', EventType.event)];
-    _events['2026-6-29'] = [const CalendarEvent('Summer Break Begins', EventType.holiday)];
+    _events['$y-$m-4']  = [const CalendarEvent('Project Presentation', EventType.event)];
+    _events['$y-$m-5']  = [const CalendarEvent('Club Activity', EventType.event)];
+    _events['$y-$m-11'] = [const CalendarEvent('Math Semester Exam', EventType.exam)];
+    _events['$y-$m-12'] = [const CalendarEvent('Volleyball Match', EventType.event)];
+    _events['$y-$m-16'] = [const CalendarEvent('Holiday - Youth Day', EventType.holiday)];
+    _events['$y-$m-18'] = [const CalendarEvent('Seminar', EventType.event)];
+    _events['$y-$m-19'] = [const CalendarEvent('Chemistry Lab Exam', EventType.exam)];
+    _events['$y-$m-22'] = [const CalendarEvent('Power Failure Outage', EventType.emergency)];
+    _events['$y-$m-25'] = [const CalendarEvent('Music Festival', EventType.event)];
+    _events['$y-$m-29'] = [const CalendarEvent('Summer Break Begins', EventType.holiday)];
   }
 
   String _eventKey(int year, int month, int day) => '$year-$month-$day';
 
   int get _eventsToday {
-    return _events[_eventKey(2026, 6, 4)]?.length ?? 0;
+    final now = DateTime.now();
+    return _events[_eventKey(now.year, now.month, now.day)]?.length ?? 0;
   }
 
   int get _upcomingCount {
-    return 5; // Hardcoded to match the image requirements exactly
+    int count = 0;
+    final today = DateTime.now();
+    for (int i = 0; i < 7; i++) {
+      final date = today.add(Duration(days: i));
+      final key = _eventKey(date.year, date.month, date.day);
+      final dayEvents = _events[key];
+      if (dayEvents != null) {
+        count += dayEvents.length;
+      }
+    }
+    return count;
   }
 
   int get _holidaysThisMonth {
-    return 1; // Hardcoded to match the image requirements exactly
+    int count = 0;
+    final year = _focusedMonth.year;
+    final month = _focusedMonth.month;
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    for (int day = 1; day <= daysInMonth; day++) {
+      final key = _eventKey(year, month, day);
+      final dayEvents = _events[key];
+      if (dayEvents != null) {
+        for (var event in dayEvents) {
+          if (event.type == EventType.holiday) {
+            count++;
+          }
+        }
+      }
+    }
+    return count;
   }
 
   int get _noticesCount {
-    return 3; // Hardcoded to match the image requirements exactly
+    return _localNoticesCount;
   }
 
   void _goToPreviousMonth() {
@@ -100,8 +149,9 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   void _goToToday() {
     setState(() {
-      _focusedMonth = DateTime(2026, 6, 1);
-      _selectedDay = DateTime(2026, 6, 4);
+      final now = DateTime.now();
+      _focusedMonth = DateTime(now.year, now.month, 1);
+      _selectedDay = now;
     });
   }
 
@@ -199,7 +249,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                   Icon(Icons.calendar_month_rounded, size: 14.sp, color: const Color(0xFF1E6091)),
                   SizedBox(width: 4.w),
                   Text(
-                    'Thu, 4 Jun 2026',
+                    DateFormat('EEE, d MMM yyyy').format(DateTime.now()),
                     style: GoogleFonts.inter(
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w700,
@@ -390,7 +440,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                         return Expanded(child: SizedBox(height: 44.h));
                       }
 
-                      final isToday = day == 4 && month == 6 && year == 2026;
+                      final now = DateTime.now();
+                      final isToday = day == now.day && month == now.month && year == now.year;
                       final isSelected = _selectedDay != null &&
                           day == _selectedDay!.day &&
                           month == _selectedDay!.month &&
@@ -606,10 +657,10 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _bottomStat(Icons.calendar_today_rounded, '2', 'Events Today', const Color(0xFF3B82F6)),
-          _bottomStat(Icons.calendar_today_outlined, '5', 'Upcoming', const Color(0xFF10B981)),
-          _bottomStat(Icons.umbrella_rounded, '1', 'Holidays', const Color(0xFFF59E0B)),
-          _bottomStat(Icons.volume_up_outlined, '3', 'Notices', const Color(0xFF8B5CF6)),
+          _bottomStat(Icons.calendar_today_rounded, '$_eventsToday', 'Events Today', const Color(0xFF3B82F6)),
+          _bottomStat(Icons.calendar_today_outlined, '$_upcomingCount', 'Upcoming', const Color(0xFF10B981)),
+          _bottomStat(Icons.umbrella_rounded, '$_holidaysThisMonth', 'Holidays', const Color(0xFFF59E0B)),
+          _bottomStat(Icons.volume_up_outlined, '$_localNoticesCount', 'Notices', const Color(0xFF8B5CF6)),
         ],
       ),
     );

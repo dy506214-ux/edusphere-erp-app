@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -71,24 +72,81 @@ class _AcademicScreenState extends State<AcademicScreen> {
   double _attendanceRate = 100.0;
   bool _hasAttendanceData = false;
 
+  // ── Selected day for timetable ──
+  int _selectedTimetableDay = DateTime.now().weekday == 7 ? 1 : DateTime.now().weekday;
+
+  final Map<int, List<Map<String, dynamic>>> _mockTimetable = {
+    1: [ // Monday
+      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 201', 'type': 'CORE'},
+      {'subject': 'English', 'code': 'ENG-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 105', 'type': 'CORE'},
+      {'subject': 'Science', 'code': 'SCI-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Lab 402', 'type': 'CORE'},
+      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Room 102', 'type': 'CORE'},
+    ],
+    2: [ // Tuesday
+      {'subject': 'Science', 'code': 'SCI-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Lab 402', 'type': 'CORE'},
+      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 201', 'type': 'CORE'},
+      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 108', 'type': 'CORE'},
+      {'subject': 'Computer', 'code': 'COM-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
+    ],
+    3: [ // Wednesday
+      {'subject': 'English', 'code': 'ENG-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 105', 'type': 'CORE'},
+      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 102', 'type': 'CORE'},
+      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 201', 'type': 'CORE'},
+      {'subject': 'Science', 'code': 'SCI-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 402', 'type': 'CORE'},
+    ],
+    4: [ // Thursday
+      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 108', 'type': 'CORE'},
+      {'subject': 'Science', 'code': 'SCI-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Lab 402', 'type': 'CORE'},
+      {'subject': 'English', 'code': 'ENG-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 105', 'type': 'CORE'},
+      {'subject': 'Computer', 'code': 'COM-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
+    ],
+    5: [ // Friday
+      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 201', 'type': 'CORE'},
+      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 102', 'type': 'CORE'},
+      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 108', 'type': 'CORE'},
+      {'subject': 'English', 'code': 'ENG-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Room 105', 'type': 'CORE'},
+    ],
+    6: [ // Saturday
+      {'subject': 'Computer', 'code': 'COM-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
+      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 201', 'type': 'CORE'},
+    ],
+  };
+
+  RealtimeChannel? _realtimeChannel;
+  Timer? _realtimePollTimer;
+
   @override
   void initState() {
     super.initState();
     if (widget.role == 'student') {
       _loadStudentOverviewData();
+      _connectRealTime();
     } else {
       _loadLocalData();
     }
   }
 
+  @override
+  void dispose() {
+    _realtimePollTimer?.cancel();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
   // ═════════════════════════════════════════════════════════════════════════
   // STUDENT DATA LOADING
   // ═════════════════════════════════════════════════════════════════════════
-  Future<void> _loadStudentOverviewData() async {
+  Future<void> _loadStudentOverviewData({bool showLoading = true}) async {
     if (!mounted) return;
-    setState(() {
-      _isLoadingStudent = true;
-    });
+    if (showLoading) {
+      setState(() {
+        _isLoadingStudent = true;
+      });
+    }
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -178,6 +236,70 @@ class _AcademicScreenState extends State<AcademicScreen> {
         });
       }
     }
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_realtimeChannel != null) {
+        client.removeChannel(_realtimeChannel!);
+      }
+
+      dev.log('📡 Subscribing to Supabase Realtime changes for Academic Screen...', name: 'AcademicScreen');
+      _realtimeChannel = client.channel('public:academic_screen_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'AttendanceRecord',
+          callback: (payload) {
+            dev.log('🔥 Real-time attendance change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Subject',
+          callback: (payload) {
+            dev.log('🔥 Real-time subject change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'TimetableSlot',
+          callback: (payload) {
+            dev.log('🔥 Real-time timetable slot change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Student',
+          callback: (payload) {
+            dev.log('🔥 Real-time student profile change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        );
+
+      _realtimeChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Academic channel status: $status', name: 'AcademicScreen');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Academic subscription error: $error', name: 'AcademicScreen');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e', name: 'AcademicScreen');
+    }
+
+    // Polling fallback every 2 seconds for robust background sync
+    _realtimePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+      if (mounted && widget.role == 'student') {
+        _loadStudentOverviewData(showLoading: false);
+      }
+    });
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -294,20 +416,43 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   List<Map<String, dynamic>> _getTimetableSlots() {
+    // Filter database slots if available
     if (_timetableSlots.isNotEmpty) {
-      return _timetableSlots.map((slot) {
-        final subName = slot['subject']?['name'] ?? 'Class Slot';
-        return {
-          'title': '${_className.split(' ')[0]} • $subName',
-          'time': '${slot['startTime']} - ${slot['endTime']}',
-        };
+      final filtered = _timetableSlots.where((slot) {
+        final dayVal = slot['dayOfWeek'];
+        if (dayVal is int) {
+          return dayVal == _selectedTimetableDay;
+        } else if (dayVal is String) {
+          return int.tryParse(dayVal) == _selectedTimetableDay;
+        }
+        return false;
       }).toList();
+
+      if (filtered.isNotEmpty) {
+        return filtered.map((slot) {
+          final subName = slot['subject']?['name'] ?? 'Class Slot';
+          final subCode = slot['subject']?['code'] ?? 'N/A';
+          final room = slot['roomId'] ?? 'Room 101';
+          return {
+            'title': '${_className.split(' ')[0]} • $subName',
+            'time': '${slot['startTime']} - ${slot['endTime']}',
+            'subject': subName,
+            'code': subCode,
+            'room': room,
+          };
+        }).toList();
+      }
     }
-    return [
-      {'title': 'Grade 3 • Weekly Timetable', 'time': '9:00 AM - 10:00 AM'},
-      {'title': 'Grade 2 • Weekly Timetable', 'time': '10:15 AM - 11:15 AM'},
-      {'title': 'Grade 1 • Weekly Timetable', 'time': '1:00 PM - 2:00 PM'},
-    ];
+
+    // Fallback to mock data for the selected day
+    final mockList = _mockTimetable[_selectedTimetableDay] ?? [];
+    return mockList.map((slot) => {
+      'title': '${_className.split(' ')[0]} • ${slot['subject']}',
+      'time': slot['time'],
+      'subject': slot['subject'],
+      'code': slot['code'],
+      'room': slot['room'],
+    }).toList();
   }
 
   void _showAllSubjectsSheet() {
@@ -547,31 +692,37 @@ class _AcademicScreenState extends State<AcademicScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Academic Overview',
-              style: GoogleFonts.inter(
-                fontSize: 26.sp,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F2547),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Academic Overview',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 26.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547),
+                ),
               ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              _studentName.isNotEmpty
-                  ? 'Welcome, $_studentName'
-                  : 'Manage your academic journey',
-              style: GoogleFonts.inter(
-                fontSize: 13.5.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF6B7A90),
+              SizedBox(height: 4.h),
+              Text(
+                _studentName.isNotEmpty
+                    ? 'Welcome, $_studentName'
+                    : 'Manage your academic journey',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 13.5.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6B7A90),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-
+        SizedBox(width: 12.w),
         // Refresh Button
         GestureDetector(
           onTap: _loadStudentOverviewData,
@@ -589,6 +740,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ],
             ),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.refresh_rounded, color: const Color(0xFF0F2547), size: 16.sp),
                 SizedBox(width: 6.w),
@@ -784,31 +936,129 @@ class _AcademicScreenState extends State<AcademicScreen> {
           ),
           SizedBox(height: 20.h),
 
+          // Horizontal Day Selector
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [1, 2, 3, 4, 5, 6].map((dayNum) {
+                final Map<int, String> dayNames = {
+                  1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat'
+                };
+                final isSelected = _selectedTimetableDay == dayNum;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedTimetableDay = dayNum;
+                    });
+                  },
+                  child: Container(
+                    margin: EdgeInsets.only(right: 8.w),
+                    padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF0076F6) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Text(
+                      dayNames[dayNum]!,
+                      style: GoogleFonts.inter(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w800,
+                        color: isSelected ? Colors.white : const Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          SizedBox(height: 16.h),
+
           // Timetable Cards List
-          ...list.map((slot) => Container(
-            width: double.infinity,
-            margin: EdgeInsets.only(bottom: 12.h),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  slot['title'] as String,
-                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+          if (list.isEmpty)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 24.h),
+              child: Center(
+                child: Text(
+                  'No classes scheduled for today',
+                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF6B7A90)),
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  slot['time'] as String,
-                  style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          )),
+              ),
+            )
+          else
+            ...list.map((slot) => Container(
+              width: double.infinity,
+              margin: EdgeInsets.only(bottom: 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: const Color(0xFFE2EAF4)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: Text(
+                                slot['code'] ?? 'CORE',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF0076F6),
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                Icon(Icons.meeting_room_outlined, size: 12.sp, color: const Color(0xFF6B7A90)),
+                                SizedBox(width: 4.w),
+                                Text(
+                                  slot['room'] ?? 'Room 101',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF6B7A90),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 6.h),
+                        Text(
+                          slot['subject'] ?? 'Subject',
+                          style: GoogleFonts.inter(
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0F2547),
+                          ),
+                        ),
+                        SizedBox(height: 4.h),
+                        Text(
+                          slot['time'] ?? '',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.5.sp,
+                            color: const Color(0xFF6B7A90),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )),
           SizedBox(height: 12.h),
 
           // Bottom Action Button
@@ -978,7 +1228,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: _attendanceRecords.length.clamp(0, 5),
+              itemCount: _attendanceRecords.length,
               itemBuilder: (ctx, index) {
                 final record = _attendanceRecords[index];
                 final dateStr = record['date']?.toString() ?? '';

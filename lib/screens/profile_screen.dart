@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import 'welcome_screen.dart';
@@ -153,6 +154,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   List<Map<String, String>> _uploadedDocuments = [];
 
+  String _fatherName = 'Rajesh Sharma';
+  String _motherName = 'Priya Sharma';
+  String _guardianPhone = '+91 98765 43210';
+  final List<RealtimeChannel> _realtimeChannels = [];
+
   @override
   void initState() {
     super.initState();
@@ -160,7 +166,320 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _loadProfileData();
       _loadSessionData();
     } else if (widget.role == 'student') {
-      _loadStudentData();
+      _loadStudentDataFromSupabase();
+      _connectRealTimeSync();
+    }
+  }
+
+  @override
+  void dispose() {
+    for (var ch in _realtimeChannels) {
+      try {
+        Supabase.instance.client.removeChannel(ch);
+      } catch (_) {}
+    }
+    _nameCtrl.dispose();
+    _designCtrl.dispose();
+    _empIdCtrl.dispose();
+    _deptCtrl.dispose();
+    _expCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _addressCtrl.dispose();
+    _dobCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadStudentDataFromSupabase() async {
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) {
+        await _loadStudentData();
+        return;
+      }
+
+      final studentRes = await client
+          .from('Student')
+          .select('id, admissionNumber, rollNumber, joiningDate, medium, religion, caste, nationality, emergencyPhone, User(firstName, lastName, email, phone, dateOfBirth, gender, bloodGroup, address), Class(name), Section(name)')
+          .eq('userId', currentUser.id)
+          .maybeSingle();
+
+      if (studentRes != null) {
+        final userMap = studentRes['User'] as Map? ?? {};
+        final classMap = studentRes['Class'] as Map? ?? {};
+        final sectionMap = studentRes['Section'] as Map? ?? {};
+        
+        final String firstName = userMap['firstName'] as String? ?? '';
+        final String lastName = userMap['lastName'] as String? ?? '';
+        
+        setState(() {
+          _studentName = '$firstName $lastName'.trim();
+          if (_studentName.isEmpty) _studentName = 'Alex Rivera';
+          
+          _studentEmail = userMap['email'] as String? ?? currentUser.email ?? 'alex.rivera@edusmart.edu';
+          _admissionNo = studentRes['admissionNumber'] as String? ?? 'ADM-2026-024';
+          _studentClass = classMap['name'] as String? ?? 'Grade 12';
+          _section = sectionMap['name'] as String? ?? 'A';
+          _rollNo = studentRes['rollNumber']?.toString() ?? '24';
+          
+          _batch = '2024-25';
+          _medium = studentRes['medium'] as String? ?? 'ENGLISH';
+          
+          final joinDateStr = studentRes['joiningDate'] as String?;
+          if (joinDateStr != null) {
+            try {
+              final parsed = DateTime.parse(joinDateStr);
+              _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
+            } catch (_) {
+              _studentJoinedDate = '6/1/2024';
+            }
+          } else {
+            _studentJoinedDate = '6/1/2024';
+          }
+          
+          _emergencyInfo = studentRes['emergencyPhone'] as String? ?? 'UNSET';
+          if (_emergencyInfo.isEmpty) _emergencyInfo = 'UNSET';
+          
+          final rawGender = userMap['gender'] as String? ?? '—';
+          if (rawGender.toUpperCase() == 'MALE') {
+            _studentGender = 'Male';
+          } else if (rawGender.toUpperCase() == 'FEMALE') {
+            _studentGender = 'Female';
+          } else {
+            _studentGender = rawGender;
+          }
+          
+          final dobStr = userMap['dateOfBirth'] as String?;
+          if (dobStr != null) {
+            try {
+              final parsed = DateTime.parse(dobStr);
+              _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            } catch (_) {
+              _studentDob = dobStr;
+            }
+          } else {
+            _studentDob = '—';
+          }
+          
+          _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
+          _religion = studentRes['religion'] as String? ?? 'HINDU';
+          _casteGroup = studentRes['caste'] as String? ?? 'GENERAL';
+          _nationality = studentRes['nationality'] as String? ?? 'INDIAN';
+        });
+
+        final studentId = studentRes['id'] as String;
+
+        // Fetch Parent details dynamically via StudentParent
+        try {
+          final studentParentRes = await client
+              .from('StudentParent')
+              .select('parentId, relationship')
+              .eq('studentId', studentId);
+
+          if (studentParentRes != null && studentParentRes.isNotEmpty) {
+            String father = '—';
+            String mother = '—';
+            String guardianPhone = '—';
+            
+            for (var sp in studentParentRes) {
+              final parentId = sp['parentId'] as String?;
+              final rel = sp['relationship'] as String?;
+              if (parentId != null) {
+                final parentRes = await client
+                    .from('Parent')
+                    .select('firstName, lastName, phone')
+                    .eq('id', parentId)
+                    .maybeSingle();
+                
+                if (parentRes != null) {
+                  final pFullName = '${parentRes['firstName'] ?? ''} ${parentRes['lastName'] ?? ''}'.trim();
+                  final pPhone = parentRes['phone'] as String? ?? '—';
+                  if (rel == 'FATHER') {
+                    father = pFullName;
+                    if (guardianPhone == '—') guardianPhone = pPhone;
+                  } else if (rel == 'MOTHER') {
+                    mother = pFullName;
+                    if (guardianPhone == '—') guardianPhone = pPhone;
+                  } else {
+                    if (guardianPhone == '—') guardianPhone = pPhone;
+                  }
+                }
+              }
+            }
+            
+            setState(() {
+              _fatherName = father;
+              _motherName = mother;
+              _guardianPhone = guardianPhone;
+            });
+          }
+        } catch (e) {
+          debugPrint('Error fetching parents: $e');
+        }
+
+        // Fetch uploaded documents from StudentDocument
+        try {
+          final List<dynamic> docsRes = await client
+              .from('StudentDocument')
+              .select('documentName, uploadedAt')
+              .eq('studentId', studentId)
+              .order('uploadedAt', ascending: false);
+
+          if (docsRes != null) {
+            setState(() {
+              _uploadedDocuments = docsRes.map((d) {
+                final String docName = d['documentName'] as String? ?? 'Document.pdf';
+                final String? uploadDateStr = d['uploadedAt'] as String?;
+                String dateStr = '—';
+                if (uploadDateStr != null) {
+                  try {
+                    final parsed = DateTime.parse(uploadDateStr);
+                    dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
+                  } catch (_) {}
+                }
+                return {
+                  'name': docName,
+                  'date': dateStr,
+                };
+              }).toList();
+            });
+          }
+        } catch (e) {
+          debugPrint('Error fetching documents: $e');
+        }
+      } else {
+        await _loadStudentData();
+      }
+    } catch (e) {
+      debugPrint('Error loading student profile from Supabase: $e');
+      await _loadStudentData();
+    }
+  }
+
+  void _connectRealTimeSync() {
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) return;
+
+      for (var ch in _realtimeChannels) {
+        client.removeChannel(ch);
+      }
+      _realtimeChannels.clear();
+
+      final userChannel = client.channel('public:user_profile_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'User',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'id',
+              value: currentUser.id,
+            ),
+            callback: (_) {
+              if (mounted) {
+                _loadStudentDataFromSupabase();
+              }
+            },
+          );
+      userChannel.subscribe();
+      _realtimeChannels.add(userChannel);
+
+      final studentChannel = client.channel('public:student_profile_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Student',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'userId',
+              value: currentUser.id,
+            ),
+            callback: (_) {
+              if (mounted) {
+                _loadStudentDataFromSupabase();
+              }
+            },
+          );
+      studentChannel.subscribe();
+      _realtimeChannels.add(studentChannel);
+
+      final docChannel = client.channel('public:student_doc_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'StudentDocument',
+            callback: (_) {
+              if (mounted) {
+                _loadStudentDataFromSupabase();
+              }
+            },
+          );
+      docChannel.subscribe();
+      _realtimeChannels.add(docChannel);
+
+      final parentChannel = client.channel('public:student_parent_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'StudentParent',
+            callback: (_) {
+              if (mounted) {
+                _loadStudentDataFromSupabase();
+              }
+            },
+          );
+      parentChannel.subscribe();
+      _realtimeChannels.add(parentChannel);
+    } catch (e) {
+      debugPrint('⚠️ Error connecting Supabase Realtime in ProfileScreen: $e');
+    }
+  }
+
+  Future<void> _saveStudentDataToSupabase() async {
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) return;
+
+      final parts = _studentName.trim().split(RegExp(r'\s+'));
+      final String fName = parts.isNotEmpty ? parts[0] : '';
+      final String lName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
+
+      DateTime? dob;
+      if (_studentDob.isNotEmpty && _studentDob != '—') {
+        try {
+          final dobParts = _studentDob.split('/');
+          if (dobParts.length == 3) {
+            dob = DateTime(int.parse(dobParts[2]), int.parse(dobParts[1]), int.parse(dobParts[0]));
+          } else {
+            dob = DateTime.parse(_studentDob);
+          }
+        } catch (_) {}
+      }
+
+      await client.from('User').update({
+        'firstName': fName,
+        'lastName': lName,
+        'gender': _studentGender.toUpperCase().contains('FEMALE') ? 'FEMALE' : (_studentGender.toUpperCase().contains('MALE') ? 'MALE' : 'OTHER'),
+        'bloodGroup': _studentBloodGroup,
+        if (dob != null) 'dateOfBirth': dob.toIso8601String(),
+      }).eq('id', currentUser.id);
+
+      final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
+      if (studentIdRes != null) {
+        final studentId = studentIdRes['id'] as String;
+        await client.from('Student').update({
+          'rollNumber': _rollNo,
+          'caste': _casteGroup,
+          'religion': _religion,
+          'emergencyPhone': _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
+        }).eq('id', studentId);
+      }
+    } catch (e) {
+      debugPrint('Error saving student profile to Supabase: $e');
     }
   }
 
@@ -225,7 +544,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('student_uploaded_documents', encoded);
   }
 
-  void _simulateDocumentUpload() {
+  void _simulateDocumentUpload() async {
     final dummyDocs = [
       'Report_Card_G11.pdf',
       'Aadhar_Card_Copy.pdf',
@@ -244,27 +563,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
     _saveStudentData();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFF1A6FDB),
-        content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-      ),
-    );
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser != null) {
+        final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
+        if (studentIdRes != null) {
+          final studentId = studentIdRes['id'] as String;
+          await client.from('StudentDocument').insert({
+            'studentId': studentId,
+            'documentType': docName.split('.').last.toUpperCase(),
+            'documentName': docName,
+            'fileUrl': 'https://example.com/$docName',
+            'fileSize': 1024 * 102,
+            'mimeType': 'application/pdf',
+            'uploadedAt': now.toIso8601String(),
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error uploading document to Supabase: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF1A6FDB),
+          content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        ),
+      );
+    }
   }
 
-  void _removeDocument(int index) {
+  void _removeDocument(int index) async {
     final name = _uploadedDocuments[index]['name'];
     setState(() {
       _uploadedDocuments.removeAt(index);
     });
     _saveStudentData();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        backgroundColor: const Color(0xFFE03131),
-        content: Text('Document "$name" removed.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-      ),
-    );
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser != null) {
+        final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
+        if (studentIdRes != null) {
+          final studentId = studentIdRes['id'] as String;
+          await client.from('StudentDocument')
+              .delete()
+              .eq('studentId', studentId)
+              .eq('documentName', name ?? '');
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting document from Supabase: $e');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE03131),
+          content: Text('Document "$name" removed.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+        ),
+      );
+    }
   }
 
   void _openEditProfileSheet() {
@@ -380,6 +742,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _studentBloodGroup = bloodCtrl.text;
                         });
                         _saveStudentData();
+                        _saveStudentDataToSupabase();
                         Navigator.pop(ctx);
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -569,28 +932,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'My Profile',
-                            style: GoogleFonts.outfit(
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F2547),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'My Profile',
+                              style: GoogleFonts.outfit(
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF0F2547),
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 4.h),
-                          Text(
-                            'Manage your account and view your details',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF6B7A90),
+                            SizedBox(height: 4.h),
+                            Text(
+                              'Manage your account and view your details',
+                              style: GoogleFonts.inter(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF6B7A90),
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
+                      SizedBox(width: 8.w),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
@@ -701,46 +1069,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ],
                               ),
                               SizedBox(height: 6.h),
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 12.w,
+                                runSpacing: 6.h,
                                 children: [
-                                  Icon(Icons.school_outlined, size: 14.sp, color: const Color(0xFF868E96)),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    '$_studentClass - $_section',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11.5.sp,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF868E96),
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.school_outlined, size: 14.sp, color: const Color(0xFF868E96)),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        '$_studentClass - $_section',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11.5.sp,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF868E96),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 12.w),
-                                  Icon(Icons.badge_outlined, size: 14.sp, color: const Color(0xFF868E96)),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    'Roll No: $_rollNo',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11.5.sp,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF868E96),
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.badge_outlined, size: 14.sp, color: const Color(0xFF868E96)),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        'Roll No: $_rollNo',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11.5.sp,
+                                          fontWeight: FontWeight.w700,
+                                          color: const Color(0xFF868E96),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(width: 12.w),
-                                  Container(
-                                    width: 6.w,
-                                    height: 6.w,
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF2B8A3E),
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Text(
-                                    'Active Profile',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 11.sp,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF2B8A3E),
-                                    ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6.w,
+                                        height: 6.w,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF2B8A3E),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4.w),
+                                      Text(
+                                        'Active Profile',
+                                        style: GoogleFonts.inter(
+                                          fontSize: 11.sp,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF2B8A3E),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -994,11 +1378,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
           SizedBox(height: 16.h),
-          _buildDetailRow('Father', '—'),
+          _buildDetailRow('Father', _fatherName, showPhoneIcon: true),
           Divider(color: const Color(0xFFE2EAF4), height: 16.h),
-          _buildDetailRow('Mother', '—'),
+          _buildDetailRow('Mother', _motherName, showPhoneIcon: true),
           Divider(color: const Color(0xFFE2EAF4), height: 16.h),
-          _buildDetailRow('Guardian Phone', '—'),
+          _buildDetailRow('Guardian Phone', _guardianPhone),
           SizedBox(height: 16.h),
           Center(
             child: Text(
@@ -1015,7 +1399,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, {bool showPhoneIcon = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1027,13 +1411,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: const Color(0xFF868E96),
           ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F2547),
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F2547),
+              ),
+            ),
+            if (showPhoneIcon && value != '—') ...[
+              SizedBox(width: 8.w),
+              Icon(Icons.phone_outlined, size: 14.sp, color: const Color(0xFF1A6FDB)),
+            ],
+          ],
         ),
       ],
     );

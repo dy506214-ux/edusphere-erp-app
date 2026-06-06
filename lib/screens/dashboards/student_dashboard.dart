@@ -42,15 +42,71 @@ class _StudentDashboardState extends State<StudentDashboard> {
   int pendingCount = 0;
 
   // Calendar State
-  DateTime _selectedMonth = DateTime(2026, 6, 1);
-  DateTime _selectedDay = DateTime(2026, 6, 4);
+  late DateTime _selectedMonth;
+  late DateTime _selectedDay;
 
-  RealtimeChannel? _dashboardChannel;
+  RealtimeChannel? _dashboardChannel;Got dependencies!
+31 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Launching lib\main.dart on Chrome in debug mode...
+Waiting for connection from debug service on Chrome...             56.1s
+
+Flutter run key commands.
+r Hot reload.
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+Debug service listening on ws://127.0.0.1:55430/mUqj57_wM4o=/ws
+A Dart VM Service on Chrome is available at: http://127.0.0.1:55430/mUqj57_wM4o=
+The Flutter DevTools debugger and profiler on Chrome is available at:
+http://127.0.0.1:55430/mUqj57_wM4o=/devtools/?uri=ws://127.0.0.1:55430/mUqj57_wM4o=/ws
+Starting application from main method in: org-dartlang-app:/web_entrypoint.dart.
+supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
+
+Performing hot restart...                                        2,972ms
+Restarted application in 2,973ms.
+supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
+
+lib/screens/features/assignments_screen.dart:203:33: Error: Local variable 'isSubmitted' can't be referenced before it
+is declared.
+        final bool isOverdue = !isSubmitted && due != null && DateTime(due.year, due.month, due.day).isBefore(today);  
+                                ^^^^^^^^^^^
+lib/screens/features/assignments_screen.dart:210:20: Context: This is the declaration of the variable 'isSubmitted'.   
+        final bool isSubmitted = submissionsMap.containsKey(assId);
+                   ^^^^^^^^^^^
+lib/screens/features/assignments_screen.dart:203:33: Error: The getter 'isSubmitted' isn't defined for the type        
+'_AssignmentsScreenState'.
+ - '_AssignmentsScreenState' is from 'package:edusphere/screens/features/assignments_screen.dart'
+ ('lib/screens/features/assignments_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isSubmitted'.
+        final bool isOverdue = !isSubmitted && due != null && DateTime(due.year, due.month, due.day).isBefore(today);  
+                                ^^^^^^^^^^^
+lib/screens/features/assignments_screen.dart:232:26: Error: The getter 'isSubmitted' isn't defined for the type        
+'_AssignmentsScreenState'.
+ - '_AssignmentsScreenState' is from 'package:edusphere/screens/features/assignments_screen.dart'
+ ('lib/screens/features/assignments_screen.dart').
+Try correcting the name to the name of an existing getter, or defining a getter or field named 'isSubmitted'.
+          'isSubmitted': isSubmitted,
+                         ^^^^^^^^^^^
+lib/screens/features/assignments_screen.dart:728:44: Error: Member not found: 'w850'.
+                    fontWeight: FontWeight.w850,
+                                           ^^^^
+lib/screens/features/assignments_screen.dart:891:48: Error: Member not found: 'w850'.
+                        fontWeight: FontWeight.w850,
+                                               ^^^^
+Performing hot restart...                                        1,137ms
+Try again after fixing the above error(s).
+
   Timer? _dashboardPollTimer;
-
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
+    _selectedDay = now;
     _loadStudentData();
     _connectRealTime();
   }
@@ -859,8 +915,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
               final cellDate = DateTime(_selectedMonth.year, _selectedMonth.month, dayVal);
               final isSelected = cellDate.year == _selectedDay.year && cellDate.month == _selectedDay.month && cellDate.day == _selectedDay.day;
               
-              // Hardcoded event for visual match with "Thursday 4th June 2026"
-              final isJune4_2026 = cellDate.year == 2026 && cellDate.month == 6 && cellDate.day == 4;
+              final now = DateTime.now();
+              final isToday = cellDate.year == now.year && cellDate.month == now.month && cellDate.day == now.day;
 
               return GestureDetector(
                 onTap: () {
@@ -871,17 +927,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
-                    color: isJune4_2026 || isSelected ? widget.theme.primary : Colors.transparent,
+                    color: isSelected
+                        ? widget.theme.primary
+                        : (isToday ? widget.theme.primary.withValues(alpha: 0.15) : Colors.transparent),
                     borderRadius: BorderRadius.circular(12.r),
-                    border: isSelected && !isJune4_2026 ? Border.all(color: widget.theme.primary, width: 2.w) : null,
+                    border: isToday && !isSelected
+                        ? Border.all(color: widget.theme.primary, width: 1.5.w)
+                        : null,
                   ),
                   child: Center(
                     child: Text(
                       dayVal.toString(),
                       style: GoogleFonts.inter(
                         fontSize: 13.sp,
-                        fontWeight: isJune4_2026 || isSelected ? FontWeight.w900 : FontWeight.w700,
-                        color: isJune4_2026 || isSelected ? Colors.white : AppColors.textDark,
+                        fontWeight: isSelected || isToday ? FontWeight.w900 : FontWeight.w700,
+                        color: isSelected
+                            ? Colors.white
+                            : (isToday ? widget.theme.primary : AppColors.textDark),
                       ),
                     ),
                   ),

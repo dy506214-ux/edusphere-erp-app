@@ -10,7 +10,20 @@ import '../../widgets/common_widgets.dart';
 class FeePaymentScreen extends StatefulWidget {
   final RoleTheme theme;
   final double outstandingAmount;
-  const FeePaymentScreen({super.key, required this.theme, required this.outstandingAmount});
+  final String studentId;
+  final String feeStructureId;
+  final String ledgerId;
+  final String academicYearId;
+
+  const FeePaymentScreen({
+    super.key,
+    required this.theme,
+    required this.outstandingAmount,
+    required this.studentId,
+    required this.feeStructureId,
+    required this.ledgerId,
+    required this.academicYearId,
+  });
 
   @override
   State<FeePaymentScreen> createState() => _FeePaymentScreenState();
@@ -52,6 +65,13 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     _upiIdController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  String _generateUUID() {
+    final random = Random();
+    final hexDigits = '0123456789abcdef';
+    String genHex(int len) => List.generate(len, (_) => hexDigits[random.nextInt(16)]).join();
+    return '${genHex(8)}-${genHex(4)}-4${genHex(3)}-${hexDigits[8 + random.nextInt(4)]}${genHex(3)}-${genHex(12)}';
   }
 
   String _formatCurrency(double amount) {
@@ -106,23 +126,53 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     await Future.delayed(const Duration(seconds: 2));
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final studentId = prefs.getString('student_id') ?? Supabase.instance.client.auth.currentUser?.id ?? '';
+      final paymentId = _generateUUID();
+      final mode = _selectedMethod == 'UPI' ? 'UPI' : (_selectedMethod == 'Card' ? 'CARD' : 'NET_BANKING');
+      
+      // 1. Insert into FeePayment
+      await Supabase.instance.client.from('FeePayment').insert({
+        'id': paymentId,
+        'receiptNumber': _receiptNumber,
+        'studentId': widget.studentId,
+        'feeStructureId': widget.feeStructureId,
+        'ledgerId': widget.ledgerId,
+        'academicYearId': widget.academicYearId,
+        'amount': amount,
+        'discount': 0.0,
+        'penalty': 0.0,
+        'totalAmount': amount,
+        'paymentType': 'RECEIPT',
+        'paymentDate': DateTime.now().toIso8601String(),
+        'paymentMode': mode,
+        'transactionId': _transactionId,
+        'status': 'COMPLETED',
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
 
-      if (studentId.isNotEmpty) {
-        await Supabase.instance.client.from('fee_payments').insert({
-          'student_id': studentId,
-          'amount': amount,
-          'payment_method': _selectedMethod,
-          'receipt_number': _receiptNumber,
-          'transaction_id': _transactionId,
-          'status': 'SUCCESS',
-          'payment_date': DateTime.now().toIso8601String(),
-        });
+      // 2. Fetch and update StudentFeeLedger
+      final ledgerRes = await Supabase.instance.client
+          .from('StudentFeeLedger')
+          .select()
+          .eq('id', widget.ledgerId)
+          .maybeSingle();
+
+      if (ledgerRes != null) {
+        final double currentPaid = (ledgerRes['totalPaid'] ?? 0.0).toDouble();
+        final double totalPayable = (ledgerRes['totalPayable'] ?? 0.0).toDouble();
+        final double newPaid = currentPaid + amount;
+        final double newPending = (totalPayable - newPaid).clamp(0.0, double.infinity);
+        final String newStatus = newPending <= 0 ? 'PAID' : 'PARTIALLY_PAID';
+
+        await Supabase.instance.client.from('StudentFeeLedger').update({
+          'totalPaid': newPaid,
+          'totalPending': newPending,
+          'status': newStatus,
+          'updatedAt': DateTime.now().toIso8601String(),
+        }).eq('id', widget.ledgerId);
       }
     } catch (e) {
       debugPrint('Error recording payment: $e');
-      // Payment still "succeeds" for demo — we just log the error
     }
 
     if (mounted) {

@@ -3,7 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:developer' as dev;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
+import '../../widgets/common_widgets.dart';
 
 class AnnouncementModel {
   final String id;
@@ -64,6 +68,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   bool _isLoading = true;
   String _firstName = 'Kavya';
 
+  RealtimeChannel? _announcementsChannel;
+
   // Chatbot State
   bool _isChatOpen = false;
   final List<Map<String, String>> _chatMessages = [];
@@ -74,14 +80,76 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   void initState() {
     super.initState();
     _loadStudentFirstName();
-    _loadAnnouncements();
+    _loadAnnouncements(showLoading: true);
+    _connectRealTime();
   }
 
   @override
   void dispose() {
     _chatInputCtrl.dispose();
     _chatScrollCtrl.dispose();
+    if (_announcementsChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_announcementsChannel!);
+      } catch (_) {}
+    }
     super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_announcementsChannel != null) {
+        client.removeChannel(_announcementsChannel!);
+      }
+      
+      dev.log('📡 Subscribing to Supabase Realtime changes for Announcements Screen...', name: 'AnnouncementsScreen');
+      _announcementsChannel = client.channel('public:announcements_screen_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Announcement',
+          callback: (payload) {
+            dev.log('🔥 Real-time announcement event payload: $payload', name: 'AnnouncementsScreen');
+            if (mounted) {
+              _loadAnnouncements(showLoading: false);
+            }
+          },
+        );
+      
+      _announcementsChannel!.subscribe((status, [error]) {
+        dev.log('📡 Supabase Realtime Announcements channel status: $status', name: 'AnnouncementsScreen');
+        if (error != null) {
+          dev.log('❌ Supabase Realtime Announcements subscription error: $error', name: 'AnnouncementsScreen');
+        }
+      });
+    } catch (e) {
+      dev.log('⚠️ Error connecting Supabase Realtime Announcements channel: $e', name: 'AnnouncementsScreen');
+    }
+  }
+
+  IconData _getNoticeIcon(String title, String priority) {
+    final lower = title.toLowerCase();
+    if (lower.contains('sport') || lower.contains('game') || lower.contains('play')) {
+      return Icons.emoji_events_outlined;
+    } else if (lower.contains('exam') || lower.contains('test') || lower.contains('schedule') || lower.contains('calendar') || lower.contains('timetable')) {
+      return Icons.calendar_today_outlined;
+    } else {
+      return Icons.campaign_outlined;
+    }
+  }
+
+  Color _getNoticeColor(String priority, String title) {
+    if (priority.toUpperCase() == 'HIGH' || priority.toUpperCase() == 'URGENT') {
+      return const Color(0xFFEF4444); // Red
+    }
+    final lower = title.toLowerCase();
+    if (lower.contains('sport') || lower.contains('game')) {
+      return const Color(0xFF2563EB); // Blue
+    } else if (lower.contains('exam') || lower.contains('test') || lower.contains('schedule')) {
+      return const Color(0xFF10B981); // Green
+    }
+    return const Color(0xFF2563EB); // Default Blue
   }
 
   Future<void> _loadStudentFirstName() async {
@@ -129,66 +197,152 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   // --- Load Announcements ---
-  Future<void> _loadAnnouncements() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadAnnouncements({bool showLoading = true}) async {
+    if (showLoading) {
+      setState(() => _isLoading = true);
+    }
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? rawList = prefs.getString('local_announcements_list');
-      if (rawList == null) {
-        // Prepopulate with default sports day 2023 notice
-        final defaultAnn = AnnouncementModel(
-          id: 'default_sports_day_2023',
-          title: 'Annual Sports Day 2023',
-          content: 'The Annual Sports Day will be held next month. Please submit your names to your class teachers.',
-          priority: 'NORMAL',
-          audience: 'ALL',
-          date: '6/5/2026',
-        );
-        final List<AnnouncementModel> defaults = [defaultAnn];
-        final String encoded = json.encode(defaults.map((e) => e.toJson()).toList());
-        await prefs.setString('local_announcements_list', encoded);
-        rawList = encoded;
+      final client = Supabase.instance.client;
+      var res = await client.from('Announcement').select().order('createdAt', ascending: false);
+      var data = List<Map<String, dynamic>>.from(res);
+
+      if (data.isEmpty) {
+        // Seed default announcements to database to match mock data
+        final listToInsert = [
+          {
+            'id': 'ann-sports-day',
+            'title': 'Sports Day Announcement',
+            'content': 'Annual Sports Day will be held on 15th November 2025. All students are encouraged to participate.',
+            'targetAudience': ['STUDENT', 'PARENTS', 'TEACHERS'],
+            'classIds': [],
+            'priority': 'NORMAL',
+            'isPublished': true,
+            'publishedAt': DateTime(2025, 6, 5).toIso8601String(),
+            'createdBy': 'system',
+            'createdAt': DateTime(2025, 6, 5).toIso8601String(),
+            'updatedAt': DateTime(2025, 6, 5).toIso8601String(),
+          },
+          {
+            'id': 'ann-half-yearly-exams',
+            'title': 'Half Yearly Exams Schedule',
+            'content': 'Half Yearly Examinations will be held from 10th September to 20th September 2025. Admit card will be distributed next week.',
+            'targetAudience': ['STUDENT', 'PARENTS'],
+            'classIds': [],
+            'priority': 'NORMAL',
+            'isPublished': true,
+            'publishedAt': DateTime(2025, 6, 5).toIso8601String(),
+            'createdBy': 'system',
+            'createdAt': DateTime(2025, 6, 5).toIso8601String(),
+            'updatedAt': DateTime(2025, 6, 5).toIso8601String(),
+          },
+          {
+            'id': 'ann-welcome',
+            'title': 'Welcome to Academic Year 2025-26',
+            'content': 'We are pleased to welcome all students and parents to the new academic year. Classes begin on 1st April 2025.',
+            'targetAudience': ['STUDENT', 'PARENTS', 'STAFF', 'NEW'],
+            'classIds': [],
+            'priority': 'HIGH',
+            'isPublished': true,
+            'publishedAt': DateTime(2025, 5, 5).toIso8601String(),
+            'createdBy': 'system',
+            'createdAt': DateTime(2025, 5, 5).toIso8601String(),
+            'updatedAt': DateTime(2025, 5, 5).toIso8601String(),
+          }
+        ];
+
+        await client.from('Announcement').insert(listToInsert);
+        res = await client.from('Announcement').select().order('createdAt', ascending: false);
+        data = List<Map<String, dynamic>>.from(res);
       }
-      final List<dynamic> decoded = json.decode(rawList);
-      setState(() {
-        _announcements = decoded.map((e) => AnnouncementModel.fromJson(e as Map<String, dynamic>)).toList();
-      });
-    } catch (_) {}
-    setState(() => _isLoading = false);
+
+      if (mounted) {
+        setState(() {
+          _announcements = data.map((e) {
+            final List<dynamic> audRaw = e['targetAudience'] ?? [];
+            final List<String> aud = audRaw.map((e) => e.toString()).toList();
+            final String priorityStr = e['priority'] ?? 'NORMAL';
+
+            String formattedDate = '6/5/2025';
+            try {
+              final dateParsed = DateTime.parse(e['createdAt'] ?? e['publishedAt'] ?? DateTime.now().toIso8601String());
+              formattedDate = '${dateParsed.day}/${dateParsed.month}/${dateParsed.year}';
+            } catch (_) {}
+
+            return AnnouncementModel(
+              id: e['id'] as String,
+              title: e['title'] as String? ?? '',
+              content: e['content'] as String? ?? '',
+              priority: priorityStr,
+              audience: aud.isEmpty ? 'ALL' : aud.join(', '),
+              date: formattedDate,
+            );
+          }).toList();
+        });
+      }
+    } catch (e) {
+      dev.log('Error loading announcements from Supabase: $e', name: 'AnnouncementsScreen');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   // --- Save Announcements ---
   Future<void> _saveAnnouncements() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String encoded = json.encode(_announcements.map((e) => e.toJson()).toList());
-      await prefs.setString('local_announcements_list', encoded);
-    } catch (_) {}
+    // Kept for backwards compatibility
   }
 
   // --- Add Announcement ---
-  void _addAnnouncement(AnnouncementModel announcement) {
-    setState(() {
-      _announcements.insert(0, announcement);
-    });
-    _saveAnnouncements();
+  Future<void> _addAnnouncement(AnnouncementModel announcement) async {
+    try {
+      final client = Supabase.instance.client;
+      final List<String> audienceList = announcement.audience
+          .split(',')
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      await client.from('Announcement').insert({
+        'id': announcement.id,
+        'title': announcement.title,
+        'content': announcement.content,
+        'priority': announcement.priority,
+        'targetAudience': audienceList,
+        'classIds': [],
+        'isPublished': true,
+        'publishedAt': DateTime.now().toIso8601String(),
+        'createdBy': 'system',
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      _loadAnnouncements(showLoading: false);
+    } catch (e) {
+      dev.log('Error adding announcement to Supabase: $e', name: 'AnnouncementsScreen');
+    }
   }
 
   // --- Delete Announcement ---
-  void _deleteAnnouncement(String id) {
-    setState(() {
-      _announcements.removeWhere((element) => element.id == id);
-    });
-    _saveAnnouncements();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Announcement deleted', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-        backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
-        duration: const Duration(seconds: 1),
-      ),
-    );
+  Future<void> _deleteAnnouncement(String id) async {
+    try {
+      final client = Supabase.instance.client;
+      await client.from('Announcement').delete().eq('id', id);
+      _loadAnnouncements(showLoading: false);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Announcement deleted', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      dev.log('Error deleting announcement: $e', name: 'AnnouncementsScreen');
+    }
   }
 
   // --- Stats Computations ---
@@ -700,24 +854,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   Widget _buildStudentHeader() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Container(
-          width: 48.w,
-          height: 48.w,
-          decoration: const BoxDecoration(
-            color: Color(0xFFE8F1FB), // soft blue background
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: Icon(
-              Icons.notifications_none_rounded,
-              color: const Color(0xFF1A6FDB), // blue bell icon
-              size: 24.sp,
-            ),
-          ),
-        ),
-        SizedBox(width: 16.w),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -725,7 +863,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               Text(
                 'Notices & Announcements',
                 style: GoogleFonts.outfit(
-                  fontSize: 20.sp,
+                  fontSize: 22.sp,
                   fontWeight: FontWeight.w900,
                   color: const Color(0xFF0F2547),
                 ),
@@ -740,6 +878,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+        Container(
+          width: 44.w,
+          height: 44.w,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
+          ),
+          child: IconButton(
+            icon: Icon(Icons.filter_alt_outlined, color: const Color(0xFF1A6FDB), size: 20.sp),
+            onPressed: () {
+              // Simulating filter menu
+              showToast(context, 'Filtering announcements...');
+            },
           ),
         ),
       ],
@@ -791,13 +945,27 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       itemCount: _announcements.length,
       itemBuilder: (context, index) {
         final ann = _announcements[index];
+        final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
+        final color = _getNoticeColor(ann.priority, ann.title);
+        final icon = _getNoticeIcon(ann.title, ann.priority);
+
+        // Split audience into individual tags
+        final List<String> audienceTags = ann.audience
+            .split(',')
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
         return Container(
           padding: EdgeInsets.all(20.r),
           margin: EdgeInsets.only(bottom: 16.h),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: const Color(0xFFE2EAF4), width: 1.w),
+            borderRadius: BorderRadius.circular(24.r),
+            border: Border.all(
+              color: isHigh ? const Color(0xFFEF4444).withValues(alpha: 0.15) : const Color(0xFFE2EAF4),
+              width: isHigh ? 1.5.w : 1.w,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -806,81 +974,138 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               ),
             ],
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Priority & Audience tags row
+              // Colored dot next to circular icon container
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    width: 8.w,
+                    height: 8.w,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF1E6), // peach/orange background
-                      borderRadius: BorderRadius.circular(20.r),
-                    ),
-                    child: Text(
-                      ann.priority.toUpperCase(),
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFFE8590C), // dark orange text
-                      ),
+                      color: color,
+                      shape: BoxShape.circle,
                     ),
                   ),
                   SizedBox(width: 8.w),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    width: 40.w,
+                    height: 40.w,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF1F3F5), // grey background
-                      borderRadius: BorderRadius.circular(20.r),
+                      color: color.withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
                     ),
-                    child: Text(
-                      _formatAudience(ann.audience),
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF495057), // dark grey text
+                    child: Center(
+                      child: Icon(
+                        icon,
+                        color: color,
+                        size: 20.sp,
                       ),
                     ),
                   ),
                 ],
               ),
-              SizedBox(height: 14.h),
-              Text(
-                ann.title,
-                style: GoogleFonts.outfit(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547), // bold navy text
-                ),
-              ),
-              SizedBox(height: 8.h),
-              Row(
-                children: [
-                  Icon(
-                    Icons.calendar_today_outlined,
-                    size: 14.sp,
-                    color: const Color(0xFF868E96),
-                  ),
-                  SizedBox(width: 6.w),
-                  Text(
-                    ann.date,
-                    style: GoogleFonts.inter(
-                      fontSize: 11.5.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF868E96),
+              SizedBox(width: 16.w),
+              
+              // Text Content Column
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title & Priority Badge Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            ann.title,
+                            style: GoogleFonts.inter(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F172A),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFF1E6),
+                            borderRadius: BorderRadius.circular(16.r),
+                          ),
+                          child: Text(
+                            ann.priority.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 9.sp,
+                              fontWeight: FontWeight.w800,
+                              color: isHigh ? const Color(0xFFEF4444) : const Color(0xFFE8590C),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                ann.content,
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF495057),
-                  height: 1.5,
+                    SizedBox(height: 8.h),
+                    
+                    // Audience Tags Wrap
+                    Wrap(
+                      spacing: 6.w,
+                      runSpacing: 4.h,
+                      children: audienceTags.map((tag) {
+                        return Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(color: const Color(0xFFEFF2F6)),
+                          ),
+                          child: Text(
+                            tag == 'ALL' ? 'EVERYONE' : tag,
+                            style: GoogleFonts.inter(
+                              fontSize: 9.5.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF475569),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 12.h),
+                    
+                    // Date Row
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 13.sp,
+                          color: const Color(0xFF64748B),
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          ann.date,
+                          style: GoogleFonts.inter(
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF64748B),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 12.h),
+                    
+                    // Content/Description
+                    Text(
+                      ann.content,
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF475569),
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

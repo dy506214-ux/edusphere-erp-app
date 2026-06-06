@@ -67,6 +67,58 @@ class _ServicesScreenState extends State<ServicesScreen> {
   final _chatInputCtrl = TextEditingController();
   final ScrollController _chatScrollCtrl = ScrollController();
 
+  RealtimeChannel? _realtimeChannel;
+
+  void _connectRealTime(String userId) {
+    try {
+      final client = Supabase.instance.client;
+      if (_realtimeChannel != null) {
+        client.removeChannel(_realtimeChannel!);
+      }
+
+      _realtimeChannel = client.channel('public:services_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'ServiceRequest',
+            callback: (_) {
+              if (mounted) {
+                _loadTickets();
+              }
+            },
+          );
+
+      _realtimeChannel!.subscribe((status, [error]) {
+        if (error != null) {
+          debugPrint('❌ Supabase Realtime ServiceRequest error: $error');
+        }
+      });
+    } catch (e) {
+      debugPrint('⚠️ Error connecting Supabase Realtime: $e');
+    }
+  }
+
+  String _formatDate(String? createdAtStr) {
+    if (createdAtStr == null) return '6/5/2026';
+    try {
+      final parsed = DateTime.parse(createdAtStr);
+      return '${parsed.month}/${parsed.day}/${parsed.year}';
+    } catch (_) {
+      return '6/5/2026';
+    }
+  }
+
+  String _mapCategoryToRequestType(String category) {
+    final upper = category.toUpperCase();
+    if (upper == 'LEAVE' || upper == 'CERTIFICATE' || upper == 'COMPLAINT') {
+      return upper;
+    }
+    if (upper == 'ID_CARD') {
+      return 'ID_CARD';
+    }
+    return 'OTHER';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -80,6 +132,11 @@ class _ServicesScreenState extends State<ServicesScreen> {
     _descController.dispose();
     _chatInputCtrl.dispose();
     _chatScrollCtrl.dispose();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -123,112 +180,165 @@ class _ServicesScreenState extends State<ServicesScreen> {
   Future<void> _loadTickets() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final ticketsJson = prefs.getString('local_student_service_tickets_v1');
-      if (ticketsJson != null) {
-        final decoded = json.decode(ticketsJson) as List<dynamic>;
+      final client = Supabase.instance.client;
+      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+      
+      final userRes = await client
+          .from('User')
+          .select()
+          .eq('email', savedEmail)
+          .maybeSingle();
+
+      if (userRes == null) return;
+      final userId = userRes['id'] as String;
+
+      // Connect real-time subscription
+      _connectRealTime(userId);
+
+      // Query from database
+      final List<dynamic> dbRequests = await client
+          .from('ServiceRequest')
+          .select()
+          .eq('requesterId', userId)
+          .order('createdAt', ascending: false);
+
+      if (dbRequests.isNotEmpty) {
         setState(() {
-          _tickets = decoded.map((e) => ServiceTicketModel.fromJson(e as Map<String, dynamic>)).toList();
+          _tickets = dbRequests.map((req) {
+            final statusStr = req['status'] as String? ?? 'PENDING';
+            String displayStatus = 'PENDING';
+            if (statusStr == 'APPROVED' || statusStr == 'RESOLVED') {
+              displayStatus = 'APPROVED';
+            } else if (statusStr == 'REJECTED') {
+              displayStatus = 'REJECTED';
+            }
+            return ServiceTicketModel(
+              id: req['requestNumber'] as String? ?? req['id'] as String,
+              title: req['title'] as String? ?? 'Request',
+              category: req['type'] as String? ?? 'OTHER',
+              desc: req['description'] as String? ?? '',
+              status: displayStatus,
+              date: _formatDate(req['createdAt'] as String?),
+            );
+          }).toList();
         });
       } else {
-        // Mock initial tickets matching reference UI
+        // Prepopulate database with default mock tickets
         final defaultTickets = [
-          ServiceTicketModel(
-            id: 'SR-2026-1009',
-            title: 'Experience Certificate Request',
-            category: 'CERTIFICATE',
-            desc: 'Please issue my experience certificate.',
-            status: 'APPROVED',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1008',
-            title: 'Casual leave application',
-            category: 'LEAVE',
-            desc: 'I need 2 days leave for personal work.',
-            status: 'APPROVED',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1007',
-            title: 'Classroom AC not working',
-            category: 'COMPLAINT',
-            desc: 'The AC in Room 201 has stopped working since last week.',
-            status: 'REJECTED',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1006',
-            title: 'Classroom AC not working',
-            category: 'COMPLAINT',
-            desc: 'The AC in Room 201 has stopped working since last week.',
-            status: 'PENDING',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1005',
-            title: 'Classroom AC not working',
-            category: 'COMPLAINT',
-            desc: 'The AC in Room 201 has stopped working since last week.',
-            status: 'APPROVED',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1004',
-            title: 'Casual leave application',
-            category: 'LEAVE',
-            desc: 'I need 3 days leave for personal work.',
-            status: 'REJECTED',
-            date: '6/5/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1003',
-            title: 'Hostel Wi-Fi down',
-            category: 'HOSTEL',
-            desc: 'Wi-Fi in Wing B third floor is not working since yesterday.',
-            status: 'APPROVED',
-            date: '6/4/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1002',
-            title: 'Library card replacement',
-            category: 'LIBRARY',
-            desc: 'Lost library card during travel. Requesting replacement card.',
-            status: 'REJECTED',
-            date: '6/3/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1001',
-            title: 'Grade sheet discrepancy',
-            category: 'ACADEMIC',
-            desc: 'Math score showing incorrectly on portal.',
-            status: 'PENDING',
-            date: '6/2/2026',
-          ),
-          ServiceTicketModel(
-            id: 'SR-2026-1000',
-            title: 'Bus Route 12 Delay Issues',
-            category: 'TRANSPORT',
-            desc: 'The bus regularly arrives 10-15 minutes late at Sector-B stop.',
-            status: 'REJECTED',
-            date: '6/1/2026',
-          ),
+          {
+            'requestNumber': 'SR-2026-1009',
+            'requesterId': userId,
+            'title': 'Experience Certificate Request',
+            'description': 'Please issue my experience certificate.',
+            'type': 'CERTIFICATE',
+            'status': 'APPROVED',
+          },
+          {
+            'requestNumber': 'SR-2026-1008',
+            'requesterId': userId,
+            'title': 'Casual leave application',
+            'description': 'I need 2 days leave for personal work.',
+            'type': 'LEAVE',
+            'status': 'APPROVED',
+          },
+          {
+            'requestNumber': 'SR-2026-1007',
+            'requesterId': userId,
+            'title': 'Classroom AC not working',
+            'description': 'The AC in Room 201 has stopped working since last week.',
+            'type': 'COMPLAINT',
+            'status': 'REJECTED',
+          },
+          {
+            'requestNumber': 'SR-2026-1006',
+            'requesterId': userId,
+            'title': 'Classroom AC not working',
+            'description': 'The AC in Room 201 has stopped working since last week.',
+            'type': 'COMPLAINT',
+            'status': 'PENDING',
+          },
+          {
+            'requestNumber': 'SR-2026-1005',
+            'requesterId': userId,
+            'title': 'Classroom AC not working',
+            'description': 'The AC in Room 201 has stopped working since last week.',
+            'type': 'COMPLAINT',
+            'status': 'APPROVED',
+          },
+          {
+            'requestNumber': 'SR-2026-1004',
+            'requesterId': userId,
+            'title': 'Casual leave application',
+            'description': 'I need 3 days leave for personal work.',
+            'type': 'LEAVE',
+            'status': 'REJECTED',
+          },
+          {
+            'requestNumber': 'SR-2026-1003',
+            'requesterId': userId,
+            'title': 'Hostel Wi-Fi down',
+            'description': 'Wi-Fi in Wing B third floor is not working since yesterday.',
+            'type': 'OTHER',
+            'status': 'APPROVED',
+          },
+          {
+            'requestNumber': 'SR-2026-1002',
+            'requesterId': userId,
+            'title': 'Library card replacement',
+            'description': 'Lost library card during travel. Requesting replacement card.',
+            'type': 'OTHER',
+            'status': 'REJECTED',
+          },
+          {
+            'requestNumber': 'SR-2026-1001',
+            'requesterId': userId,
+            'title': 'Grade sheet discrepancy',
+            'description': 'Math score showing incorrectly on portal.',
+            'type': 'OTHER',
+            'status': 'PENDING',
+          },
+          {
+            'requestNumber': 'SR-2026-1000',
+            'requesterId': userId,
+            'title': 'Bus Route 12 Delay Issues',
+            'description': 'The bus regularly arrives 10-15 minutes late at Sector-B stop.',
+            'type': 'OTHER',
+            'status': 'REJECTED',
+          },
         ];
-
-        final String encoded = json.encode(defaultTickets.map((e) => e.toJson()).toList());
-        await prefs.setString('local_student_service_tickets_v1', encoded);
+        
+        await client.from('ServiceRequest').insert(defaultTickets);
+        
+        // Re-load
+        final List<dynamic> reloaded = await client
+            .from('ServiceRequest')
+            .select()
+            .eq('requesterId', userId)
+            .order('createdAt', ascending: false);
+            
         setState(() {
-          _tickets = defaultTickets;
+          _tickets = reloaded.map((req) {
+            final statusStr = req['status'] as String? ?? 'PENDING';
+            String displayStatus = 'PENDING';
+            if (statusStr == 'APPROVED' || statusStr == 'RESOLVED') {
+              displayStatus = 'APPROVED';
+            } else if (statusStr == 'REJECTED') {
+              displayStatus = 'REJECTED';
+            }
+            return ServiceTicketModel(
+              id: req['requestNumber'] as String? ?? req['id'] as String,
+              title: req['title'] as String? ?? 'Request',
+              category: req['type'] as String? ?? 'OTHER',
+              desc: req['description'] as String? ?? '',
+              status: displayStatus,
+              date: _formatDate(req['createdAt'] as String?),
+            );
+          }).toList();
         });
       }
-    } catch (_) {}
-  }
-
-  Future<void> _saveTickets() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String encoded = json.encode(_tickets.map((e) => e.toJson()).toList());
-      await prefs.setString('local_student_service_tickets_v1', encoded);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error loading tickets from database: $e');
+    }
   }
 
   void _submitTicket() {
@@ -237,34 +347,51 @@ class _ServicesScreenState extends State<ServicesScreen> {
         _loading = true;
       });
 
-      Future.delayed(const Duration(milliseconds: 600), () {
+      Future.delayed(const Duration(milliseconds: 600), () async {
         if (!mounted) return;
-        final now = DateTime.now();
-        final newTicket = ServiceTicketModel(
-          id: 'SR-2026-${(1010 + _tickets.length).toString()}',
-          title: _titleController.text,
-          category: _category,
-          desc: _descController.text,
-          status: 'PENDING',
-          date: '${now.month}/${now.day}/${now.year}',
-        );
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final client = Supabase.instance.client;
+          final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+          
+          final userRes = await client
+              .from('User')
+              .select()
+              .eq('email', savedEmail)
+              .maybeSingle();
 
-        setState(() {
-          _tickets.insert(0, newTicket);
-          _loading = false;
-        });
+          if (userRes != null) {
+            final userId = userRes['id'] as String;
+            final reqNumber = 'SR-${DateTime.now().year}-${1010 + _tickets.length}';
+            
+            await client.from('ServiceRequest').insert({
+              'requestNumber': reqNumber,
+              'requesterId': userId,
+              'title': _titleController.text.trim(),
+              'description': _descController.text.trim(),
+              'type': _mapCategoryToRequestType(_category),
+              'status': 'PENDING',
+            });
+          }
+        } catch (e) {
+          debugPrint('Error submitting ticket to database: $e');
+        }
 
-        _saveTickets();
-        _titleController.clear();
-        _descController.clear();
-        Navigator.pop(context); // Close bottom sheet
+        if (mounted) {
+          setState(() {
+            _loading = false;
+          });
+          _titleController.clear();
+          _descController.clear();
+          Navigator.pop(context); // Close bottom sheet
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF10B981),
-            content: Text('Support request raised successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-          ),
-        );
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF10B981),
+              content: Text('Support request raised successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            ),
+          );
+        }
       });
     }
   }
@@ -508,24 +635,31 @@ class _ServicesScreenState extends State<ServicesScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.contact_support_outlined,
-                            size: 28.sp,
-                            color: const Color(0xFF1A6FDB),
-                          ),
-                          SizedBox(width: 10.w),
-                          Text(
-                            'Requests & Services',
-                            style: GoogleFonts.outfit(
-                              fontSize: 24.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F2547),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.contact_support_outlined,
+                              size: 28.sp,
+                              color: const Color(0xFF1A6FDB),
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 10.w),
+                            Expanded(
+                              child: Text(
+                                'Requests & Services',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF0F2547),
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+                      SizedBox(width: 12.w),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1A6FDB),
