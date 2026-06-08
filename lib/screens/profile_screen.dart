@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../theme/colors.dart';
 import 'welcome_screen.dart';
@@ -153,6 +154,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _pushNotifications = true;
   bool _inAppNotifications = true;
 
+  bool _isUploadingDoc = false;
   List<Map<String, String>> _uploadedDocuments = [];
 
   String _fatherName = 'Rajesh Sharma';
@@ -564,53 +566,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _simulateDocumentUpload() async {
-    final dummyDocs = [
-      'Report_Card_G11.pdf',
-      'Aadhar_Card_Copy.pdf',
-      'Transfer_Certificate.pdf',
-      'Medical_Certificate.pdf',
-    ];
-    final String docName = dummyDocs[_uploadedDocuments.length % dummyDocs.length];
-    final now = DateTime.now();
-    final String dateStr = '${now.month}/${now.day}/${now.year}';
-
     setState(() {
-      _uploadedDocuments.add({
-        'name': docName,
-        'date': dateStr,
-      });
+      _isUploadingDoc = true;
     });
-    _saveStudentData();
 
     try {
-      final client = Supabase.instance.client;
-      final currentUser = client.auth.currentUser;
-      if (currentUser != null) {
-        final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
-        if (studentIdRes != null) {
-          final studentId = studentIdRes['id'] as String;
-          await client.from('StudentDocument').insert({
-            'studentId': studentId,
-            'documentType': docName.split('.').last.toUpperCase(),
-            'documentName': docName,
-            'fileUrl': 'https://example.com/$docName',
-            'fileSize': 1024 * 102,
-            'mimeType': 'application/pdf',
-            'uploadedAt': now.toIso8601String(),
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'],
+      );
+
+      if (result != null) {
+        final platformFile = result.files.single;
+        final String docName = platformFile.name;
+        final now = DateTime.now();
+        final String dateStr = '${now.month}/${now.day}/${now.year}';
+
+        setState(() {
+          _uploadedDocuments.add({
+            'name': docName,
+            'date': dateStr,
           });
+        });
+        _saveStudentData();
+
+        try {
+          final client = Supabase.instance.client;
+          final currentUser = client.auth.currentUser;
+          if (currentUser != null) {
+            final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
+            if (studentIdRes != null) {
+              final studentId = studentIdRes['id'] as String;
+              
+              // We simulate the file URL if we don't upload the actual bytes to Supabase Storage
+              final fileUrl = 'https://example.com/uploads/$docName';
+              
+              await client.from('StudentDocument').insert({
+                'studentId': studentId,
+                'documentType': docName.split('.').last.toUpperCase(),
+                'documentName': docName,
+                'fileUrl': fileUrl,
+                'fileSize': platformFile.size,
+                'mimeType': 'application/octet-stream',
+                'uploadedAt': now.toIso8601String(),
+              });
+            }
+          }
+        } catch (e) {
+          debugPrint('Error uploading document to Supabase DB: $e');
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFF1A6FDB),
+              content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            ),
+          );
         }
       }
     } catch (e) {
-      debugPrint('Error uploading document to Supabase: $e');
-    }
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFF1A6FDB),
-          content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-        ),
-      );
+      debugPrint('Error picking file: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingDoc = false;
+        });
+      }
     }
   }
 
@@ -1588,10 +1610,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                             elevation: 0,
                           ),
-                          onPressed: _simulateDocumentUpload,
-                          icon: const Icon(Icons.upload_file, size: 14),
+                          onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                          icon: _isUploadingDoc
+                              ? SizedBox(width: 14, height: 14, child: const CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.upload_file, size: 14),
                           label: Text(
-                            'Upload Document',
+                            _isUploadingDoc ? 'Uploading...' : 'Upload Document',
                             style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
                           ),
                         ),
@@ -1655,10 +1679,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                           elevation: 0,
                         ),
-                        onPressed: _simulateDocumentUpload,
-                        icon: const Icon(Icons.upload_file, size: 14),
+                        onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                        icon: _isUploadingDoc
+                            ? SizedBox(width: 14, height: 14, child: const CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.upload_file, size: 14),
                         label: Text(
-                          'Upload Document',
+                          _isUploadingDoc ? 'Uploading...' : 'Upload Document',
                           style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
                         ),
                       ),

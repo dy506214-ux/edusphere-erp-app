@@ -204,7 +204,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
         final List<dynamic> attendanceRes = await Supabase.instance.client
             .from('AttendanceRecord')
             .select()
-            .eq('studentId', _studentId);
+            .eq('studentId', _studentId)
+            .order('date', ascending: false);
 
         _attendanceRecords = List<Map<String, dynamic>>.from(attendanceRes);
         if (_attendanceRecords.isNotEmpty) {
@@ -279,6 +280,24 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Student',
           callback: (payload) {
             dev.log('🔥 Real-time student profile change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Class',
+          callback: (payload) {
+            dev.log('🔥 Real-time class change payload: $payload', name: 'AcademicScreen');
+            if (mounted) _loadStudentOverviewData(showLoading: false);
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Section',
+          callback: (payload) {
+            dev.log('🔥 Real-time section change payload: $payload', name: 'AcademicScreen');
             if (mounted) _loadStudentOverviewData(showLoading: false);
           },
         );
@@ -428,10 +447,20 @@ class _AcademicScreenState extends State<AcademicScreen> {
       }).toList();
 
       if (filtered.isNotEmpty) {
+        // Sort by period number
+        filtered.sort((a, b) {
+          final pa = a['period'] is int ? a['period'] as int : int.tryParse(a['period']?.toString() ?? '0') ?? 0;
+          final pb = b['period'] is int ? b['period'] as int : int.tryParse(b['period']?.toString() ?? '0') ?? 0;
+          return pa.compareTo(pb);
+        });
         return filtered.map((slot) {
           final subName = slot['subject']?['name'] ?? 'Class Slot';
           final subCode = slot['subject']?['code'] ?? 'N/A';
-          final room = slot['roomId'] ?? 'Room 101';
+          final roomId = slot['roomId'];
+          final period = slot['period'];
+          final room = (roomId != null && roomId.toString().isNotEmpty) 
+              ? roomId.toString()
+              : (period != null ? 'Period $period' : 'Classroom');
           return {
             'title': '${_className.split(' ')[0]} • $subName',
             'time': '${slot['startTime']} - ${slot['endTime']}',
@@ -1246,12 +1275,55 @@ class _AcademicScreenState extends State<AcademicScreen> {
               itemCount: _attendanceRecords.length,
               itemBuilder: (ctx, index) {
                 final record = _attendanceRecords[index];
-                final dateStr = record['date']?.toString() ?? '';
-                final status = record['status']?.toString() ?? 'PRESENT';
+                final rawDate = record['date']?.toString() ?? '';
+                final status = (record['status']?.toString() ?? 'PRESENT').toUpperCase();
+                
+                // Parse date safely - handle both ISO datetime and date-only strings
+                DateTime? parsedDate;
+                try {
+                  parsedDate = DateTime.parse(rawDate).toLocal();
+                } catch (_) {}
+                
+                final displayDate = parsedDate != null 
+                    ? intl.DateFormat('dd MMM yyyy').format(parsedDate)
+                    : rawDate;
+                final dayName = parsedDate != null 
+                    ? intl.DateFormat('EEEE').format(parsedDate)
+                    : '';
+                    
                 final checkIn = record['checkInTime'] != null 
-                    ? intl.DateFormat('hh:mm a').format(DateTime.parse(record['checkInTime']))
+                    ? intl.DateFormat('hh:mm a').format(DateTime.parse(record['checkInTime'].toString()).toLocal())
                     : '--:--';
-                final isPresent = status.toUpperCase().startsWith('P');
+                    
+                // Determine badge style based on status
+                Color badgeBg;
+                Color badgeText;
+                String badgeLabel;
+                if (status == 'PRESENT' || status == 'P') {
+                  badgeBg = const Color(0xFFECFDF5);
+                  badgeText = const Color(0xFF10B981);
+                  badgeLabel = 'Present';
+                } else if (status == 'ABSENT' || status == 'A') {
+                  badgeBg = const Color(0xFFFFE4E6);
+                  badgeText = const Color(0xFFEF4444);
+                  badgeLabel = 'Absent';
+                } else if (status == 'LATE') {
+                  badgeBg = const Color(0xFFFEF3C7);
+                  badgeText = const Color(0xFFD97706);
+                  badgeLabel = 'Late';
+                } else if (status == 'HALF_DAY') {
+                  badgeBg = const Color(0xFFEFF6FF);
+                  badgeText = const Color(0xFF3B82F6);
+                  badgeLabel = 'Half Day';
+                } else if (status == 'LEAVE') {
+                  badgeBg = const Color(0xFFF5F3FF);
+                  badgeText = const Color(0xFF7C3AED);
+                  badgeLabel = 'Leave';
+                } else {
+                  badgeBg = const Color(0xFFF1F5F9);
+                  badgeText = const Color(0xFF6B7A90);
+                  badgeLabel = status;
+                }
 
                 return Container(
                   padding: EdgeInsets.symmetric(vertical: 12.h),
@@ -1261,26 +1333,32 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(dateStr, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
-                          SizedBox(height: 2.h),
-                          Text('Check In: $checkIn', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90))),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(displayDate, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+                            SizedBox(height: 2.h),
+                            Text(
+                              dayName.isNotEmpty ? '$dayName  •  Check In: $checkIn' : 'Check In: $checkIn',
+                              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90)),
+                            ),
+                          ],
+                        ),
                       ),
+                      SizedBox(width: 8.w),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
                         decoration: BoxDecoration(
-                          color: isPresent ? const Color(0xFFECFDF5) : const Color(0xFFFFE4E6),
+                          color: badgeBg,
                           borderRadius: BorderRadius.circular(8.r),
                         ),
                         child: Text(
-                          isPresent ? 'Present' : 'Absent',
+                          badgeLabel,
                           style: GoogleFonts.inter(
                             fontSize: 11.sp,
                             fontWeight: FontWeight.w800,
-                            color: isPresent ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                            color: badgeText,
                           ),
                         ),
                       )

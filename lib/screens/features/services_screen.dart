@@ -169,7 +169,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
             }
             return ServiceTicketModel(
               id: req['requestNumber'] as String? ?? req['id'] as String,
-              title: req['title'] as String? ?? 'Request',
+              title: req['subject'] as String? ?? 'Request',
               category: req['type'] as String? ?? 'OTHER',
               desc: req['description'] as String? ?? '',
               status: displayStatus,
@@ -183,82 +183,102 @@ class _ServicesScreenState extends State<ServicesScreen> {
           {
             'requestNumber': 'SR-2026-1009',
             'requesterId': userId,
-            'title': 'Experience Certificate Request',
+            'subject': 'Experience Certificate Request',
             'description': 'Please issue my experience certificate.',
             'type': 'CERTIFICATE',
             'status': 'APPROVED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1008',
             'requesterId': userId,
-            'title': 'Casual leave application',
+            'subject': 'Casual leave application',
             'description': 'I need 2 days leave for personal work.',
             'type': 'LEAVE',
             'status': 'APPROVED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1007',
             'requesterId': userId,
-            'title': 'Classroom AC not working',
+            'subject': 'Classroom AC not working',
             'description': 'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'REJECTED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1006',
             'requesterId': userId,
-            'title': 'Classroom AC not working',
+            'subject': 'Classroom AC not working',
             'description': 'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'PENDING',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1005',
             'requesterId': userId,
-            'title': 'Classroom AC not working',
+            'subject': 'Classroom AC not working',
             'description': 'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'APPROVED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1004',
             'requesterId': userId,
-            'title': 'Casual leave application',
+            'subject': 'Casual leave application',
             'description': 'I need 3 days leave for personal work.',
             'type': 'LEAVE',
             'status': 'REJECTED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1003',
             'requesterId': userId,
-            'title': 'Hostel Wi-Fi down',
+            'subject': 'Hostel Wi-Fi down',
             'description': 'Wi-Fi in Wing B third floor is not working since yesterday.',
             'type': 'OTHER',
             'status': 'APPROVED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1002',
             'requesterId': userId,
-            'title': 'Library card replacement',
+            'subject': 'Library card replacement',
             'description': 'Lost library card during travel. Requesting replacement card.',
             'type': 'OTHER',
             'status': 'REJECTED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1001',
             'requesterId': userId,
-            'title': 'Grade sheet discrepancy',
+            'subject': 'Grade sheet discrepancy',
             'description': 'Math score showing incorrectly on portal.',
             'type': 'OTHER',
             'status': 'PENDING',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
           {
             'requestNumber': 'SR-2026-1000',
             'requesterId': userId,
-            'title': 'Bus Route 12 Delay Issues',
+            'subject': 'Bus Route 12 Delay Issues',
             'description': 'The bus regularly arrives 10-15 minutes late at Sector-B stop.',
             'type': 'OTHER',
             'status': 'REJECTED',
+            'priority': 'LOW',
+            'updatedAt': DateTime.now().toIso8601String(),
           },
         ];
         
@@ -282,7 +302,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
             }
             return ServiceTicketModel(
               id: req['requestNumber'] as String? ?? req['id'] as String,
-              title: req['title'] as String? ?? 'Request',
+              title: req['subject'] as String? ?? 'Request',
               category: req['type'] as String? ?? 'OTHER',
               desc: req['description'] as String? ?? '',
               status: displayStatus,
@@ -296,9 +316,9 @@ class _ServicesScreenState extends State<ServicesScreen> {
     }
   }
 
-  void _submitTicket() {
+  void _submitTicket(void Function(void Function()) setSheetState) {
     if (_formKey.currentState!.validate()) {
-      setState(() {
+      setSheetState(() {
         _loading = true;
       });
 
@@ -319,33 +339,60 @@ class _ServicesScreenState extends State<ServicesScreen> {
             final userId = userRes['id'] as String;
             final reqNumber = 'SR-${DateTime.now().year}-${1010 + _tickets.length}';
             
-            await client.from('ServiceRequest').insert({
+            final newReq = {
               'requestNumber': reqNumber,
               'requesterId': userId,
-              'title': _titleController.text.trim(),
+              'subject': _titleController.text.trim(),
               'description': _descController.text.trim(),
               'type': _mapCategoryToRequestType(_category),
               'status': 'PENDING',
-            });
+              'priority': 'LOW',
+              'updatedAt': DateTime.now().toIso8601String(),
+            };
+            
+            await client.from('ServiceRequest').insert(newReq);
+
+            if (mounted) {
+              setState(() {
+                _tickets.insert(0, ServiceTicketModel(
+                  id: reqNumber,
+                  title: newReq['subject'] as String,
+                  category: newReq['type'] as String,
+                  desc: newReq['description'] as String,
+                  status: 'PENDING',
+                  date: _formatDate(DateTime.now().toIso8601String()),
+                ));
+              });
+              setSheetState(() {
+                _loading = false;
+              });
+              _titleController.clear();
+              _descController.clear();
+              Navigator.pop(context); // Close bottom sheet
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  backgroundColor: const Color(0xFF10B981),
+                  content: Text('Support request raised successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                ),
+              );
+            }
+          } else {
+            throw Exception('User not found in database. Please log out and log in again.');
           }
         } catch (e) {
           debugPrint('Error submitting ticket to database: $e');
-        }
-
-        if (mounted) {
-          setState(() {
-            _loading = false;
-          });
-          _titleController.clear();
-          _descController.clear();
-          Navigator.pop(context); // Close bottom sheet
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              backgroundColor: const Color(0xFF10B981),
-              content: Text('Support request raised successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-            ),
-          );
+          if (mounted) {
+            setSheetState(() {
+              _loading = false;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: const Color(0xFFEF4444),
+                content: Text('Failed to submit request. Please HOT RESTART the app.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              ),
+            );
+          }
         }
       });
     }
@@ -461,7 +508,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             padding: EdgeInsets.symmetric(vertical: 16.h),
                             elevation: 0,
                           ),
-                          onPressed: _loading ? null : _submitTicket,
+                          onPressed: _loading ? null : () => _submitTicket(setSheetState),
                           child: _loading
                               ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                               : Text('Submit Request', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800)),

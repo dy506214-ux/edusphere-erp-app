@@ -100,13 +100,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
       final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
-      
-      if (savedEmail != null) {
-        _studentEmailStr = savedEmail;
-      }
-      if (savedName != null) {
-        _studentNameStr = savedName;
-      }
+      _studentEmailStr = savedEmail;
+      _studentNameStr = savedName;
 
       // Query database for student ID using User & Student mapping
       final userRes = await Supabase.instance.client

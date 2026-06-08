@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -320,7 +322,7 @@ class _TransportScreenState extends State<TransportScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'My Transport',
+                                'Transport Details',
                                 style: GoogleFonts.inter(
                                   fontSize: 24.sp,
                                   fontWeight: FontWeight.w900,
@@ -329,7 +331,7 @@ class _TransportScreenState extends State<TransportScreen> {
                               ),
                               SizedBox(height: 2.h),
                               Text(
-                                'View your assigned transport details and schedule.',
+                                'View your assigned vehicle, route information, and live location.',
                                 style: GoogleFonts.inter(
                                   fontSize: 13.sp,
                                   fontWeight: FontWeight.w500,
@@ -473,108 +475,303 @@ class _TransportScreenState extends State<TransportScreen> {
         ),
       );
     } else {
-      return Container(
-        width: double.infinity,
-        padding: EdgeInsets.all(24.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24.r),
-          border: Border.all(color: const Color(0xFFE9F0F8), width: 1.5.w),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFE2EAF4).withValues(alpha: 0.25),
-              blurRadius: 20.r,
-              offset: Offset(0, 8.h),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Allocation Summary Card
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 4.h),
+                )
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.map_outlined,
-                  color: const Color(0xFF0076F6),
-                  size: 24.sp,
+                Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Row(
+                    children: [
+                      Icon(Icons.map_outlined, color: const Color(0xFF0076F6), size: 20.sp),
+                      SizedBox(width: 10.w),
+                      Text(
+                        'Allocation Summary',
+                        style: GoogleFonts.inter(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF0F2547),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(width: 12.w),
-                Text(
-                  'Route Details',
-                  style: GoogleFonts.inter(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F2547),
+                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                _buildAllocationRow('ROUTE NAME', _routeName, Icons.navigation_outlined),
+                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                _buildAllocationRow('DESIGNATED STOP', _stopName, Icons.location_on_outlined),
+                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                _buildAllocationRow('SCHEDULED TIME', _arrivalTime, Icons.access_time),
+                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'STATUS',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF10B981),
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          SizedBox(height: 4.h),
+                          Text(
+                            'Active Enrollment',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF10B981),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        width: 10.w,
+                        height: 10.w,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF10B981),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            SizedBox(height: 24.h),
-            Text(
-              'Route Name',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B7A90),
-              ),
+          ),
+          SizedBox(height: 16.h),
+
+          // Guidelines Card
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 4.h),
+                )
+              ],
             ),
-            SizedBox(height: 6.h),
-            Text(
-              _routeName,
-              style: GoogleFonts.inter(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2547),
-              ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.warning_amber_rounded, color: const Color(0xFFF59E0B), size: 20.sp),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Guidelines',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF0F2547),
+                        ),
+                      ),
+                      SizedBox(height: 6.h),
+                      Text(
+                        'Students are advised to be at the pickup point at least 5 minutes before the scheduled arrival time.',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF475569),
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20.h),
-            Text(
-              'Pickup/Drop Stop',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B7A90),
-              ),
+          ),
+          SizedBox(height: 16.h),
+
+          // Live Tracking Map Card
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 4.h),
+                )
+              ],
             ),
-            SizedBox(height: 6.h),
-            Text(
-              _stopName,
-              style: GoogleFonts.inter(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2547),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.all(16.r),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_outlined, color: const Color(0xFF0076F6), size: 18.sp),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'Live Tracking Map',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFE2EAF4)),
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Text(
+                          'GPS Active',
+                          style: GoogleFonts.inter(
+                            fontSize: 10.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                Container(
+                  height: 300.h,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(16.r),
+                      bottomRight: Radius.circular(16.r),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(16.r),
+                      bottomRight: Radius.circular(16.r),
+                    ),
+                    child: Stack(
+                      children: [
+                        // Here we simulate the map image. Ideally you would use a real map widget or asset.
+                        // I'm using a placeholder pattern to mimic the map image.
+                        Positioned.fill(
+                          child: FlutterMap(
+                            options: const MapOptions(
+                              initialCenter: LatLng(28.7041, 77.1025),
+                              initialZoom: 14.0,
+                            ),
+                            children: [
+                              TileLayer(
+                                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                userAgentPackageName: 'com.example.app',
+                              ),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 16.h,
+                          right: 80.w,
+                          child: Container(
+                            width: 36.w,
+                            height: 36.w,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF10B981),
+                              shape: BoxShape.circle,
+                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                            ),
+                            child: Icon(Icons.directions_bus_filled_outlined, color: Colors.white, size: 20.sp),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(height: 20.h),
-            Text(
-              'Scheduled Arrival Time',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF6B7A90),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: const Color(0xFFE2EAF4), width: 1.w),
-              ),
-              child: Text(
-                _arrivalTime,
+          ),
+          SizedBox(height: 40.h),
+        ],
+      );
+    }
+  }
+
+  Widget _buildAllocationRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: EdgeInsets.all(16.r),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
                 style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w800,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF6B7A90),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                value.toLowerCase() == value ? value : value,
+                style: GoogleFonts.inter(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
                   color: const Color(0xFF0F2547),
                 ),
               ),
+            ],
+          ),
+          Container(
+            padding: EdgeInsets.all(8.r),
+            decoration: const BoxDecoration(
+              color: Color(0xFFF0F6FF),
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-      );
-    }
+            child: Icon(icon, color: const Color(0xFF0076F6), size: 16.sp),
+          ),
+        ],
+      ),
+    );
   }
 
 

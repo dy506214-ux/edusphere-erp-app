@@ -47,6 +47,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
   late DateTime _selectedMonth;
   late DateTime _selectedDay;
   List<dynamic> _calendarEvents = [];
+  List<dynamic> _upcomingEvents = [];
+  bool _upcomingEventsLoaded = false;
 
   RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
@@ -124,7 +126,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
           schema: 'public',
           table: 'SchoolCalendar',
           callback: (_) {
-            if (mounted) _loadCalendarEvents();
+            if (mounted) {
+              _loadCalendarEvents();
+              _loadUpcomingEvents();
+            }
           },
         );
       
@@ -396,8 +401,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
           dev.log('Error loading books due count: $e');
         }
 
-        // 7. Fetch Calendar Events
+        // 7. Fetch Calendar Events & Upcoming Events
         await _loadCalendarEvents();
+        await _loadUpcomingEvents();
       }
     } catch (e) {
       dev.log('Error loading student dashboard details: $e');
@@ -418,6 +424,37 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
     } catch (e) {
       dev.log('Error loading calendar events: $e');
+    }
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final now = DateTime.now();
+      // Fetch events from today onward (next 60 days)
+      final fromDate = DateTime(now.year, now.month, now.day);
+      final toDate = fromDate.add(const Duration(days: 60));
+      final fromStr = fromDate.toIso8601String();
+      final toStr = toDate.toIso8601String();
+
+      final List<dynamic> res = await supabase
+          .from('SchoolCalendar')
+          .select()
+          .gte('date', fromStr)
+          .lte('date', toStr)
+          .order('date', ascending: true)
+          .limit(10);
+
+      if (mounted) {
+        setState(() {
+          _upcomingEvents = res;
+          _upcomingEventsLoaded = true;
+        });
+      }
+      dev.log('📅 Loaded ${res.length} upcoming events', name: 'StudentDashboard');
+    } catch (e) {
+      dev.log('Error loading upcoming events: $e');
+      if (mounted) setState(() { _upcomingEventsLoaded = true; });
     }
   }
 
@@ -1074,45 +1111,52 @@ class _StudentDashboardState extends State<StudentDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(10.r),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F9FF),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Icon(
-                      Icons.calendar_today_rounded,
-                      color: const Color(0xFF0077D6),
-                      size: 20.sp,
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'School Calendar',
-                        style: GoogleFonts.inter(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.textDark,
-                        ),
+              Expanded(
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(10.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(12.r),
                       ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'Academic schedule & events',
-                        style: GoogleFonts.inter(
-                          fontSize: 11.sp,
-                          color: AppColors.textLight,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Icon(
+                        Icons.calendar_today_rounded,
+                        color: const Color(0xFF0077D6),
+                        size: 20.sp,
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    SizedBox(width: 12.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'School Calendar',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          SizedBox(height: 2.h),
+                          Text(
+                            'Academic schedule & events',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.inter(
+                              fontSize: 11.sp,
+                              color: AppColors.textLight,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              SizedBox(width: 8.w),
               Row(
                 children: [
                   IconButton(
@@ -1265,9 +1309,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
   // ── UPCOMING EVENTS WIDGET ─────────────────────────────────────────────────
   Widget _buildUpcomingEvents() {
     return Container(
-      padding: EdgeInsets.all(24.r),
+      padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A), // Dark themed slate card
+        color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(24.r),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16.r, offset: Offset(0, 8.h)),
@@ -1276,13 +1320,37 @@ class _StudentDashboardState extends State<StudentDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.event_note_rounded, color: widget.theme.primary, size: 20.sp),
-              SizedBox(width: 8.w),
-              Text(
-                'Upcoming Events',
-                style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: Colors.white),
+              Row(
+                children: [
+                  Icon(Icons.event_note_rounded, color: widget.theme.primary, size: 20.sp),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Upcoming Events',
+                    style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: Colors.white),
+                  ),
+                ],
+              ),
+              // Live indicator dot
+              Row(
+                children: [
+                  Container(
+                    width: 7.w,
+                    height: 7.w,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF22C55E),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  SizedBox(width: 4.w),
+                  Text(
+                    'LIVE',
+                    style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF22C55E)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1291,55 +1359,229 @@ class _StudentDashboardState extends State<StudentDashboard> {
             'School activities & schedule',
             style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w600),
           ),
-          SizedBox(height: 40.h),
-          
-          // Chatbot speech bubble "HI PRIYA! HOW CAN I HELP?" representation
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20.r),
-                  topRight: Radius.circular(20.r),
-                  bottomRight: Radius.circular(20.r),
-                ),
-              ),
-              child: Text(
-                'HI ${studentName.toUpperCase()}!\nHOW CAN I HELP?',
-                style: GoogleFonts.outfit(
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  letterSpacing: 0.8,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-          SizedBox(height: 30.h),
-          
-          // Small prompt hint decoration
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.05),
-              borderRadius: BorderRadius.circular(14.r),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.lightbulb_outline_rounded, color: widget.theme.primary, size: 16.sp),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: Text(
-                    'Try asking me about assignments, fees, or exam schedules!',
-                    style: GoogleFonts.inter(fontSize: 10.5.sp, color: Colors.white.withValues(alpha: 0.6), fontWeight: FontWeight.w600),
+          SizedBox(height: 16.h),
+
+          // Events content
+          if (!_upcomingEventsLoaded)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 20.h),
+                child: SizedBox(
+                  width: 22.w,
+                  height: 22.w,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    color: widget.theme.primary,
                   ),
                 ),
-              ],
+              ),
+            )
+          else if (_upcomingEvents.isEmpty)
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24.h),
+                child: Column(
+                  children: [
+                    Icon(Icons.event_busy_rounded, color: Colors.white.withValues(alpha: 0.25), size: 36.sp),
+                    SizedBox(height: 10.h),
+                    Text(
+                      'No upcoming events',
+                      style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Check back later for new events',
+                      style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.25), fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...(_upcomingEvents.map((event) {
+              final title = event['title']?.toString() ?? 'Event';
+              final description = event['description']?.toString() ?? '';
+              final type = (event['type']?.toString() ?? 'EVENT').toUpperCase();
+              final rawDate = event['date']?.toString() ?? '';
+              final location = event['location']?.toString();
+
+              // Parse date
+              DateTime? parsedDate;
+              try { parsedDate = DateTime.parse(rawDate).toLocal(); } catch (_) {}
+              final displayDate = parsedDate != null
+                  ? '${parsedDate.day} ${['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parsedDate.month]}'
+                  : rawDate.split('T')[0];
+              final dayName = parsedDate != null
+                  ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][parsedDate.weekday - 1]
+                  : '';
+
+              // Type-based color & icon
+              Color typeColor;
+              IconData typeIcon;
+              Color typeBg;
+              switch (type) {
+                case 'HOLIDAY':
+                  typeColor = const Color(0xFFEF4444);
+                  typeBg = const Color(0xFFEF4444).withValues(alpha: 0.15);
+                  typeIcon = Icons.beach_access_rounded;
+                  break;
+                case 'EXAM':
+                  typeColor = const Color(0xFFF59E0B);
+                  typeBg = const Color(0xFFF59E0B).withValues(alpha: 0.15);
+                  typeIcon = Icons.assignment_outlined;
+                  break;
+                case 'MEETING':
+                  typeColor = const Color(0xFF818CF8);
+                  typeBg = const Color(0xFF818CF8).withValues(alpha: 0.15);
+                  typeIcon = Icons.groups_2_outlined;
+                  break;
+                default: // EVENT, CULTURAL, etc.
+                  typeColor = widget.theme.primary;
+                  typeBg = widget.theme.primary.withValues(alpha: 0.15);
+                  typeIcon = Icons.celebration_rounded;
+              }
+
+              return Container(
+                margin: EdgeInsets.only(bottom: 10.h),
+                padding: EdgeInsets.all(14.r),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(14.r),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Date badge
+                    Container(
+                      width: 44.w,
+                      padding: EdgeInsets.symmetric(vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: typeBg,
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            parsedDate != null ? '${parsedDate.day}' : '—',
+                            style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: typeColor),
+                          ),
+                          Text(
+                            ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parsedDate?.month ?? 1],
+                            style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w700, color: typeColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    // Event info
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: Colors.white),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(width: 6.w),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+                                decoration: BoxDecoration(
+                                  color: typeBg,
+                                  borderRadius: BorderRadius.circular(6.r),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(typeIcon, size: 9.sp, color: typeColor),
+                                    SizedBox(width: 3.w),
+                                    Text(
+                                      type == 'EVENT' ? 'Event' : type[0] + type.substring(1).toLowerCase(),
+                                      style: GoogleFonts.inter(fontSize: 8.5.sp, fontWeight: FontWeight.w800, color: typeColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (description.isNotEmpty) ...[
+                            SizedBox(height: 3.h),
+                            Text(
+                              description,
+                              style: GoogleFonts.inter(fontSize: 10.5.sp, color: Colors.white.withValues(alpha: 0.55), fontWeight: FontWeight.w500),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                          SizedBox(height: 5.h),
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_outlined, size: 10.sp, color: Colors.white.withValues(alpha: 0.4)),
+                              SizedBox(width: 4.w),
+                              Text(
+                                '$dayName, $displayDate',
+                                style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white.withValues(alpha: 0.45), fontWeight: FontWeight.w600),
+                              ),
+                              if (location != null && location.isNotEmpty) ...[
+                                SizedBox(width: 8.w),
+                                Icon(Icons.place_outlined, size: 10.sp, color: Colors.white.withValues(alpha: 0.4)),
+                                SizedBox(width: 3.w),
+                                Expanded(
+                                  child: Text(
+                                    location,
+                                    style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white.withValues(alpha: 0.45), fontWeight: FontWeight.w600),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList()),
+
+          if (_upcomingEvents.isNotEmpty) ...[
+            SizedBox(height: 6.h),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(vertical: 11.h),
+                decoration: BoxDecoration(
+                  color: widget.theme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: widget.theme.primary.withValues(alpha: 0.25)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'View Full Calendar',
+                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: widget.theme.primary),
+                    ),
+                    SizedBox(width: 4.w),
+                    Icon(Icons.arrow_forward_ios_rounded, size: 10.sp, color: widget.theme.primary),
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );

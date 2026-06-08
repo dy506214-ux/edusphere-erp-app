@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+import 'dart:developer' as dev;
+import '../features/academic_calendar_screen.dart';
 import '../../theme/colors.dart';
 
 class TeacherDashboard extends StatefulWidget {
@@ -17,10 +21,72 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
+  List<dynamic> _upcomingEvents = [];
+  bool _upcomingEventsLoaded = false;
+  RealtimeChannel? _teacherDashChannel;
+  Timer? _teacherDashTimer;
+
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+    _loadUpcomingEvents();
+    _connectRealTime();
+  }
+
+  @override
+  void dispose() {
+    _teacherDashTimer?.cancel();
+    if (_teacherDashChannel != null) {
+      try { Supabase.instance.client.removeChannel(_teacherDashChannel!); } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      _teacherDashChannel = client.channel('public:teacher_dash_events')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'SchoolCalendar',
+          callback: (_) {
+            if (mounted) _loadUpcomingEvents();
+          },
+        );
+      _teacherDashChannel!.subscribe();
+    } catch (e) {
+      dev.log('Teacher dash realtime error: $e');
+    }
+    _teacherDashTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (mounted) _loadUpcomingEvents();
+    });
+  }
+
+  Future<void> _loadUpcomingEvents() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final now = DateTime.now();
+      final fromDate = DateTime(now.year, now.month, now.day);
+      final toDate = fromDate.add(const Duration(days: 60));
+      final List<dynamic> res = await supabase
+          .from('SchoolCalendar')
+          .select()
+          .gte('date', fromDate.toIso8601String())
+          .lte('date', toDate.toIso8601String())
+          .order('date', ascending: true)
+          .limit(8);
+      if (mounted) {
+        setState(() {
+          _upcomingEvents = res;
+          _upcomingEventsLoaded = true;
+        });
+      }
+    } catch (e) {
+      dev.log('Error loading teacher upcoming events: $e');
+      if (mounted) setState(() { _upcomingEventsLoaded = true; });
+    }
   }
 
   @override
@@ -398,10 +464,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         color: const Color(0xFF0B1120),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))
         ],
       ),
       child: Column(
@@ -409,25 +472,37 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         children: [
           Padding(
             padding: EdgeInsets.all(20.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.calendar_month_rounded,
-                        color: const Color(0xFF0EA5E9), size: 20.sp),
-                    SizedBox(width: 8.w),
-                    Text('Upcoming Events',
-                        style: GoogleFonts.outfit(
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month_rounded, color: const Color(0xFF0EA5E9), size: 20.sp),
+                        SizedBox(width: 8.w),
+                        Text('Upcoming Events',
+                            style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+                      ],
+                    ),
+                    SizedBox(height: 4.h),
+                    Text('School activities & schedule',
+                        style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8))),
                   ],
                 ),
-                SizedBox(height: 4.h),
-                Text('School activities & schedule',
-                    style: GoogleFonts.inter(
-                        fontSize: 12.sp, color: const Color(0xFF94A3B8))),
+                // Live indicator
+                Row(
+                  children: [
+                    Container(
+                      width: 7.w,
+                      height: 7.w,
+                      decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
+                    ),
+                    SizedBox(width: 4.w),
+                    Text('LIVE', style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF22C55E))),
+                  ],
+                ),
               ],
             ),
           ),
@@ -435,49 +510,144 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           Padding(
             padding: EdgeInsets.all(20.r),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: 16.h),
-                Center(
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(16.r),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1E293B),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.calendar_today_rounded,
-                            color: const Color(0xFF475569), size: 32.sp),
+                if (!_upcomingEventsLoaded)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20.h),
+                      child: SizedBox(
+                        width: 22.w, height: 22.w,
+                        child: const CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0EA5E9)),
                       ),
-                      SizedBox(height: 16.h),
-                      Text('No upcoming events scheduled',
-                          style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF94A3B8))),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 32.h),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F172A),
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('View Full Schedule',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF38BDF8))),
-                      SizedBox(width: 4.w),
-                      Icon(Icons.chevron_right,
-                          size: 16.sp, color: const Color(0xFF38BDF8)),
-                    ],
+                    ),
+                  )
+                else if (_upcomingEvents.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24.h),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(16.r),
+                            decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
+                            child: Icon(Icons.calendar_today_rounded, color: const Color(0xFF475569), size: 32.sp),
+                          ),
+                          SizedBox(height: 16.h),
+                          Text('No upcoming events scheduled',
+                              style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8))),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  ...(_upcomingEvents.map((event) {
+                    final title = event['title']?.toString() ?? 'Event';
+                    final description = event['description']?.toString() ?? '';
+                    final type = (event['type']?.toString() ?? 'EVENT').toUpperCase();
+                    final rawDate = event['date']?.toString() ?? '';
+
+                    DateTime? parsedDate;
+                    try { parsedDate = DateTime.parse(rawDate).toLocal(); } catch (_) {}
+                    final displayDate = parsedDate != null
+                        ? DateFormat('dd MMM').format(parsedDate)
+                        : rawDate.split('T')[0];
+                    final dayName = parsedDate != null
+                        ? DateFormat('EEE').format(parsedDate)
+                        : '';
+
+                    Color typeColor;
+                    IconData typeIcon;
+                    switch (type) {
+                      case 'HOLIDAY':
+                        typeColor = const Color(0xFFEF4444);
+                        typeIcon = Icons.beach_access_rounded;
+                        break;
+                      case 'EXAM':
+                        typeColor = const Color(0xFFF59E0B);
+                        typeIcon = Icons.assignment_outlined;
+                        break;
+                      case 'MEETING':
+                        typeColor = const Color(0xFF818CF8);
+                        typeIcon = Icons.groups_2_outlined;
+                        break;
+                      default:
+                        typeColor = const Color(0xFF0EA5E9);
+                        typeIcon = Icons.celebration_rounded;
+                    }
+
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 10.h),
+                      padding: EdgeInsets.all(12.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: typeColor.withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40.w,
+                            padding: EdgeInsets.symmetric(vertical: 6.h),
+                            decoration: BoxDecoration(
+                              color: typeColor.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(8.r),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(typeIcon, size: 14.sp, color: typeColor),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  parsedDate != null ? '${parsedDate.day}' : '--',
+                                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: typeColor),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(title,
+                                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.white),
+                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                                if (description.isNotEmpty) ...[
+                                  SizedBox(height: 2.h),
+                                  Text(description,
+                                      style: GoogleFonts.inter(fontSize: 10.5.sp, color: const Color(0xFF94A3B8)),
+                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                ],
+                                SizedBox(height: 3.h),
+                                Text('$dayName, $displayDate',
+                                    style: GoogleFonts.inter(fontSize: 10.sp, color: typeColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList()),
+
+                SizedBox(height: 12.h),
+                GestureDetector(
+                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen())),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text('View Full Schedule',
+                            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF38BDF8))),
+                        SizedBox(width: 4.w),
+                        Icon(Icons.chevron_right, size: 16.sp, color: const Color(0xFF38BDF8)),
+                      ],
+                    ),
                   ),
                 ),
               ],

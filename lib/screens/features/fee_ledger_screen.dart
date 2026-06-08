@@ -4,11 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
-import '../../widgets/common_widgets.dart';
 import 'fee_payment_screen.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'dart:math';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class FeeLedgerScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -34,6 +36,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
 
   // Student info
   String _studentId = '';
+  String _studentName = 'Student';
+  String _studentEmail = '';
   String _feeStructureId = '';
   String _ledgerId = '';
   String _academicYearId = '';
@@ -132,6 +136,19 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
         final currentUser = Supabase.instance.client.auth.currentUser;
         _studentId = currentUser?.id ?? '';
       }
+
+      // Load name and email for PDF
+      try {
+        final userRes = await Supabase.instance.client
+            .from('User')
+            .select('firstName, lastName, email')
+            .eq('id', _studentId)
+            .maybeSingle();
+        if (userRes != null) {
+          _studentName = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
+          _studentEmail = userRes['email'] as String? ?? '';
+        }
+      } catch (_) {}
 
       if (_studentId.isNotEmpty) {
         Map<String, dynamic>? studentProfile;
@@ -530,92 +547,291 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     );
   }
 
-  void _downloadStatement() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        double progress = 0.0;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            Timer(const Duration(milliseconds: 150), () {
-              if (progress < 1.0) {
-                setDialogState(() {
-                  progress += 0.08;
-                  if (progress > 1.0) progress = 1.0;
-                });
-              } else {
-                Navigator.pop(context);
-                showToast(this.context, 'Statement PDF downloaded successfully!');
-              }
-            });
+  Future<void> _downloadStatement() async {
+    // Show a loading snackbar
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text('Generating PDF receipt...', style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1A6FDB),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
 
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.r),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(24.r),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    try {
+      final pdf = pw.Document();
+      final now = DateTime.now();
+      final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final receiptNo = 'STMT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch % 100000}';
+
+      // Colors
+      final primaryBlue = PdfColor.fromHex('#1A6FDB');
+      final darkText = PdfColor.fromHex('#0F172A');
+      final lightGray = PdfColor.fromHex('#F8FAFC');
+      final borderGray = PdfColor.fromHex('#E2E8F0');
+      final greenColor = PdfColor.fromHex('#10B981');
+      final redColor = PdfColor.fromHex('#EF4444');
+
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context context) {
+            return [
+              // ── Header ──────────────────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.all(20),
+                decoration: pw.BoxDecoration(
+                  color: primaryBlue,
+                  borderRadius: pw.BorderRadius.circular(12),
+                ),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    Container(
-                      width: 56.w,
-                      height: 56.h,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFEFF6FF),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.downloading_rounded,
-                        color: Color(0xFF1A6FDB),
-                        size: 28,
-                      ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('EDUSPHERE',
+                            style: pw.TextStyle(
+                              fontSize: 22,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                            )),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Smart School ERP',
+                             style: const pw.TextStyle(fontSize: 11, color: PdfColors.white)),
+                      ],
                     ),
-                    SizedBox(height: 20.h),
-                    Text(
-                      'Generating Statement',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 16.sp,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-                    SizedBox(height: 8.h),
-                    Text(
-                      'Preparing your PDF document...',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12.sp,
-                        color: const Color(0xFF64748B),
-                      ),
-                    ),
-                    SizedBox(height: 20.h),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10.r),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 6.h,
-                        backgroundColor: const Color(0xFFF1F5F9),
-                        color: const Color(0xFF1A6FDB),
-                      ),
-                    ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      '${(progress * 100).toStringAsFixed(0)}%',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.sp,
-                        color: const Color(0xFF1A6FDB),
-                      ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text('FEE STATEMENT',
+                            style: pw.TextStyle(
+                              fontSize: 14,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                            )),
+                        pw.SizedBox(height: 4),
+                        pw.Text('Receipt #: $receiptNo',
+                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
+                        pw.Text('Date: $dateStr  $timeStr',
+                            style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
+                      ],
                     ),
                   ],
                 ),
               ),
-            );
+              pw.SizedBox(height: 20),
+
+              // ── Student Info ──────────────────────────────────
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: lightGray,
+                  borderRadius: pw.BorderRadius.circular(8),
+                  border: pw.Border.all(color: borderGray),
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('STUDENT DETAILS',
+                              style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
+                          pw.SizedBox(height: 6),
+                          pw.Text(_studentName.isNotEmpty ? _studentName : 'Student',
+                              style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: darkText)),
+                          if (_studentEmail.isNotEmpty)
+                            pw.Text(_studentEmail, style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                          pw.Text('Student ID: $_studentId',
+                              style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                        ],
+                      ),
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Text('FINANCIAL SUMMARY',
+                            style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
+                        pw.SizedBox(height: 6),
+                        pw.Text('Total Fee: ${_formatCurrency(_totalFee)}',
+                            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: darkText)),
+                        pw.Text('Total Paid: ${_formatCurrency(_totalPaid)}',
+                            style: pw.TextStyle(fontSize: 11, color: greenColor, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                            'Balance Due: ${_formatCurrency(_balance)}',
+                            style: pw.TextStyle(
+                              fontSize: 11,
+                              color: _balance > 0 ? redColor : greenColor,
+                              fontWeight: pw.FontWeight.bold,
+                            )),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.SizedBox(height: 20),
+
+              // ── Fee Breakdown Table ──────────────────────────
+              if (_feeHeads.isNotEmpty) ...[
+                pw.Text('FEE BREAKDOWN',
+                    style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: darkText)),
+                pw.SizedBox(height: 8),
+                pw.Table(
+                  border: pw.TableBorder.all(color: borderGray, width: 0.5),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: primaryBlue),
+                      children: [
+                        _pdfCell('Fee Head', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Total Amount', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Paid', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Due', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Status', isHeader: true, color: PdfColors.white),
+                      ],
+                    ),
+                    ..._feeHeads.map((head) {
+                      final amount = head['amount'] as double;
+                      final paid = head['paid'] as double;
+                      final due = amount - paid;
+                      final status = head['status'] as String;
+                      return pw.TableRow(
+                        children: [
+                          _pdfCell(head['name'] as String),
+                          _pdfCell(_formatCurrency(amount)),
+                          _pdfCell(_formatCurrency(paid), textColor: greenColor),
+                          _pdfCell(_formatCurrency(due), textColor: due > 0 ? redColor : greenColor),
+                          _pdfCell(status,
+                              textColor: status == 'PAID' ? greenColor : status == 'PARTIAL' ? PdfColor.fromHex('#F59E0B') : redColor),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+                pw.SizedBox(height: 20),
+              ],
+
+              // ── Payment History Table ────────────────────────
+              pw.Text('PAYMENT HISTORY',
+                  style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: darkText)),
+              pw.SizedBox(height: 8),
+              if (_paymentHistory.isEmpty)
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(16),
+                  decoration: pw.BoxDecoration(
+                    color: lightGray,
+                    borderRadius: pw.BorderRadius.circular(6),
+                    border: pw.Border.all(color: borderGray),
+                  ),
+                  child: pw.Center(
+                    child: pw.Text('No payment records found.',
+                        style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                  ),
+                )
+              else
+                pw.Table(
+                  border: pw.TableBorder.all(color: borderGray, width: 0.5),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: primaryBlue),
+                      children: [
+                        _pdfCell('Date', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Method', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Receipt No.', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Amount', isHeader: true, color: PdfColors.white),
+                        _pdfCell('Status', isHeader: true, color: PdfColors.white),
+                      ],
+                    ),
+                    ..._paymentHistory.map((p) {
+                      final status = (p['status'] as String? ?? 'SUCCESS').toUpperCase();
+                      return pw.TableRow(
+                        children: [
+                          _pdfCell(_formatDate(p['date'] as String?)),
+                          _pdfCell(p['method'] as String? ?? 'UPI'),
+                          _pdfCell(p['receipt'] as String? ?? '—'),
+                          _pdfCell(_formatCurrency(p['amount'] as double),
+                              textColor: greenColor),
+                          _pdfCell(status,
+                              textColor: status == 'SUCCESS' ? greenColor : redColor),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+              pw.SizedBox(height: 24),
+
+              // ── Footer ──────────────────────────────────────
+              pw.Divider(color: borderGray),
+              pw.SizedBox(height: 8),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('Generated by EduSphere • $dateStr $timeStr',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+                  pw.Text('This is a system-generated statement.',
+                      style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+                ],
+              ),
+            ];
           },
-        );
-      },
+        ),
+      );
+
+      // Generate PDF bytes
+      final pdfBytes = await pdf.save();
+      final fileName = 'FeeStatement_$receiptNo.pdf';
+
+      dev.log('✅ PDF generated: $fileName', name: 'FeeLedgerScreen');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      // Open native share/save dialog — user can save to Files, WhatsApp, Drive, etc.
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: fileName,
+      );
+
+    } catch (e) {
+      dev.log('❌ PDF generation error: $e', name: 'FeeLedgerScreen');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to generate PDF: $e',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  /// Helper: create a PDF table cell
+  pw.Widget _pdfCell(String text, {bool isHeader = false, PdfColor? color, PdfColor? textColor}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: isHeader ? 9 : 9,
+          fontWeight: isHeader ? pw.FontWeight.bold : pw.FontWeight.normal,
+          color: textColor ?? color ?? PdfColor.fromHex('#0F172A'),
+        ),
+      ),
     );
   }
 

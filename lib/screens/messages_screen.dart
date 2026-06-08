@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
@@ -58,6 +58,8 @@ class CommunityPostModel {
   bool userLiked;
   bool userInsightful;
   List<CommunityCommentModel> comments;
+  List<Map<String, dynamic>> pollOptions;
+  final DateTime? createdAt;
 
   CommunityPostModel({
     required this.id,
@@ -72,6 +74,8 @@ class CommunityPostModel {
     this.userLiked = false,
     this.userInsightful = false,
     required this.comments,
+    this.pollOptions = const [],
+    this.createdAt,
   });
 
   Map<String, dynamic> toJson() => {
@@ -87,6 +91,8 @@ class CommunityPostModel {
         'userLiked': userLiked,
         'userInsightful': userInsightful,
         'comments': comments.map((c) => c.toJson()).toList(),
+        'poll_options': pollOptions,
+        'created_at': createdAt?.toUtc().toIso8601String(),
       };
 
   factory CommunityPostModel.fromJson(Map<String, dynamic> json) {
@@ -96,19 +102,43 @@ class CommunityPostModel {
           .map((e) => CommunityCommentModel.fromJson(e as Map<String, dynamic>))
           .toList();
     }
+    var pollsList = <Map<String, dynamic>>[];
+    if (json['poll_options'] != null) {
+      pollsList = List<Map<String, dynamic>>.from(json['poll_options'] as List);
+    }
+    
+    // Parse created_at if available
+    DateTime? parsedDate;
+    String timeAgoStr = json['timeAgo'] as String? ?? 'Just now';
+    if (json['created_at'] != null) {
+      try {
+        parsedDate = DateTime.parse(json['created_at'] as String).toLocal();
+        final diff = DateTime.now().difference(parsedDate);
+        if (diff.inDays > 0) {
+          timeAgoStr = '${diff.inDays}d ago';
+        } else if (diff.inHours > 0) {
+          timeAgoStr = '${diff.inHours}h ago';
+        } else if (diff.inMinutes > 0) {
+          timeAgoStr = '${diff.inMinutes}m ago';
+        }
+      } catch (_) {}
+    }
+
     return CommunityPostModel(
       id: json['id'] as String? ?? '',
-      authorName: json['authorName'] as String? ?? '',
-      authorRole: json['authorRole'] as String? ?? '',
-      timeAgo: json['timeAgo'] as String? ?? 'Just now',
-      category: json['category'] as String? ?? 'SAMPLE',
+      authorName: json['author_name'] ?? json['authorName'] ?? 'Unknown',
+      authorRole: json['author_role'] ?? json['authorRole'] ?? 'Student',
+      timeAgo: timeAgoStr,
+      category: json['category'] as String? ?? 'General',
       content: json['content'] as String? ?? '',
       likes: json['likes'] as int? ?? 0,
       insightfuls: json['insightfuls'] as int? ?? 0,
-      commentsCount: json['commentsCount'] as int? ?? 0,
+      commentsCount: commentsList.length,
       userLiked: json['userLiked'] as bool? ?? false,
       userInsightful: json['userInsightful'] as bool? ?? false,
       comments: commentsList,
+      pollOptions: pollsList,
+      createdAt: parsedDate,
     );
   }
 }
@@ -167,6 +197,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   // Supabase realtime channel subscription
   RealtimeChannel? _messagesChannel;
+  RealtimeChannel? _communityChannel;
 
   // Periodic polling timer for robust real-time database synchronization
   Timer? _pollTimer;
@@ -204,6 +235,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
     if (_messagesChannel != null) {
       Supabase.instance.client.removeChannel(_messagesChannel!);
     }
+    if (_communityChannel != null) {
+      Supabase.instance.client.removeChannel(_communityChannel!);
+    }
     _msgCtrl.dispose();
     _searchCtrl.dispose();
     _scrollController.dispose();
@@ -226,27 +260,59 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _loadCommunityPosts() async {
     setState(() => _isLoadingCommunity = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      String? raw = prefs.getString('local_community_posts_list_v4');
-      if (raw == null) {
-        final defaultPosts = <CommunityPostModel>[];
-        final String encoded = json.encode(defaultPosts.map((e) => e.toJson()).toList());
-        await prefs.setString('local_community_posts_list_v4', encoded);
-        raw = encoded;
+      final res = await Supabase.instance.client
+          .from('CommunityPost')
+          .select()
+          .order('created_at', ascending: false);
+
+      final List<CommunityPostModel> loadedPosts = res
+          .map<CommunityPostModel>((e) => CommunityPostModel.fromJson(e))
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _communityPosts = loadedPosts;
+        });
       }
-      final List<dynamic> decoded = json.decode(raw);
-      setState(() {
-        _communityPosts = decoded.map((e) => CommunityPostModel.fromJson(e as Map<String, dynamic>)).toList();
-      });
-    } catch (_) {}
-    setState(() => _isLoadingCommunity = false);
+
+      // Set up realtime listener
+      _communityChannel = Supabase.instance.client
+          .channel('public:CommunityPost')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'CommunityPost',
+            callback: (payload) {
+              if (mounted) {
+                _refreshCommunityPostsSilently();
+              }
+            },
+          )
+          .subscribe();
+
+    } catch (e) {
+      dev.log('Error loading community posts: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingCommunity = false);
+      }
+    }
   }
 
-  Future<void> _saveCommunityPosts() async {
+  Future<void> _refreshCommunityPostsSilently() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final String encoded = json.encode(_communityPosts.map((e) => e.toJson()).toList());
-      await prefs.setString('local_community_posts_list_v4', encoded);
+      final res = await Supabase.instance.client
+          .from('CommunityPost')
+          .select()
+          .order('created_at', ascending: false);
+      
+      if (mounted) {
+        setState(() {
+          _communityPosts = res
+              .map<CommunityPostModel>((e) => CommunityPostModel.fromJson(e))
+              .toList();
+        });
+      }
     } catch (_) {}
   }
 
@@ -1560,6 +1626,85 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
+  Future<void> _handlePollVote(CommunityPostModel post, int optionIndex) async {
+    final updatedOptions = List<Map<String, dynamic>>.from(post.pollOptions);
+    updatedOptions[optionIndex]['votes'] = (updatedOptions[optionIndex]['votes'] ?? 0) + 1;
+
+    try {
+      await Supabase.instance.client
+          .from('CommunityPost')
+          .update({'poll_options': updatedOptions})
+          .eq('id', post.id);
+    } catch (e) {
+      dev.log('Error voting on poll: $e');
+    }
+  }
+
+  Widget _buildPollWidget(CommunityPostModel post) {
+    int totalVotes = post.pollOptions.fold(0, (sum, opt) => sum + (opt['votes'] as int? ?? 0));
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: post.pollOptions.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final opt = entry.value;
+        final int votes = opt['votes'] as int? ?? 0;
+        final double percentage = totalVotes == 0 ? 0 : (votes / totalVotes);
+        
+        return GestureDetector(
+          onTap: () => _handlePollVote(post, idx),
+          child: Container(
+            margin: EdgeInsets.only(top: 8.h),
+            height: 40.h,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F3F5),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Stack(
+              children: [
+                FractionallySizedBox(
+                  widthFactor: percentage,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1A6FDB).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12.w),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        opt['option'] as String? ?? '',
+                        style: GoogleFonts.inter(
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF0F2547),
+                        ),
+                      ),
+                      if (totalVotes > 0)
+                        Text(
+                          '${(percentage * 100).toStringAsFixed(0)}%',
+                          style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF1A6FDB),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildPostCard(CommunityPostModel post) {
     final String initials = post.authorName.isNotEmpty
         ? post.authorName.split(' ').map((n) => n[0]).take(2).join().toUpperCase()
@@ -1673,6 +1818,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
               height: 1.5,
             ),
           ),
+          if (post.category == 'Poll' && post.pollOptions.isNotEmpty) ...[
+            SizedBox(height: 12.h),
+            _buildPollWidget(post),
+          ],
           SizedBox(height: 16.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1784,7 +1933,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  void _handleReactionTap(CommunityPostModel post) {
+  void _handleReactionTap(CommunityPostModel post) async {
     if (post.userLiked || post.userInsightful) {
       setState(() {
         if (post.userLiked) {
@@ -1795,7 +1944,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
           post.userInsightful = false;
         }
       });
-      _saveCommunityPosts();
+      try {
+        await Supabase.instance.client.from('CommunityPost').update({
+          'likes': post.likes,
+          'insightfuls': post.insightfuls,
+        }).eq('id', post.id);
+      } catch (_) {}
       return;
     }
 
@@ -1827,13 +1981,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           Navigator.pop(ctx);
                           setState(() {
                             post.likes++;
                             post.userLiked = true;
                           });
-                          _saveCommunityPosts();
+                          try {
+                            await Supabase.instance.client.from('CommunityPost').update({
+                              'likes': post.likes,
+                            }).eq('id', post.id);
+                          } catch (_) {}
                         },
                         child: Container(
                           padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -1862,13 +2020,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
                     SizedBox(width: 16.w),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
+                        onTap: () async {
                           Navigator.pop(ctx);
                           setState(() {
                             post.insightfuls++;
                             post.userInsightful = true;
                           });
-                          _saveCommunityPosts();
+                          try {
+                            await Supabase.instance.client.from('CommunityPost').update({
+                              'insightfuls': post.insightfuls,
+                            }).eq('id', post.id);
+                          } catch (_) {}
                         },
                         child: Container(
                           padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -1904,9 +2066,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
+
   void _openCreatePostSheet() {
-    final contentCtrl = TextEditingController();
     String selectedCategory = 'General';
+    final contentCtrl = TextEditingController();
+    final List<TextEditingController> pollOptionCtrls = [
+      TextEditingController(),
+      TextEditingController()
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -1916,7 +2083,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
         return StatefulBuilder(
           builder: (ctx, setModalState) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.75,
+              height: MediaQuery.of(context).size.height * 0.85,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
@@ -2026,6 +2193,65 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             ),
                             style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF495057)),
                           ),
+                          if (selectedCategory == 'Poll') ...[
+                            SizedBox(height: 20.h),
+                            Text(
+                              'Poll Options',
+                              style: GoogleFonts.inter(
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w800,
+                                color: const Color(0xFF0F2547),
+                              ),
+                            ),
+                            SizedBox(height: 8.h),
+                            ...pollOptionCtrls.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final ctrl = entry.value;
+                              return Padding(
+                                padding: EdgeInsets.only(bottom: 8.h),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: ctrl,
+                                        decoration: InputDecoration(
+                                          hintText: 'Option ${idx + 1}',
+                                          hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.sp),
+                                          filled: true,
+                                          fillColor: const Color(0xFFF8FAFC),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(12.r),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                        ),
+                                        style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF495057)),
+                                      ),
+                                    ),
+                                    if (pollOptionCtrls.length > 2)
+                                      IconButton(
+                                        icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
+                                        onPressed: () {
+                                          setModalState(() {
+                                            pollOptionCtrls.removeAt(idx);
+                                          });
+                                        },
+                                      ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                            if (pollOptionCtrls.length < 5)
+                              TextButton.icon(
+                                onPressed: () {
+                                  setModalState(() {
+                                    pollOptionCtrls.add(TextEditingController());
+                                  });
+                                },
+                                icon: const Icon(Icons.add, size: 16),
+                                label: const Text('Add Option'),
+                              ),
+                          ],
                         ],
                       ),
                     ),
@@ -2041,29 +2267,54 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             backgroundColor: const Color(0xFF1A6FDB),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                           ),
-                          onPressed: () {
+                          onPressed: () async {
                             if (contentCtrl.text.trim().isEmpty) {
                               showToast(context, 'Please enter some content');
                               return;
                             }
-                            final newPost = CommunityPostModel(
-                              id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-                              authorName: '$_firstName Gupta',
-                              authorRole: 'Student',
-                              timeAgo: 'Just now',
-                              category: selectedCategory,
-                              content: contentCtrl.text.trim(),
-                              likes: 0,
-                              insightfuls: 0,
-                              commentsCount: 0,
-                              comments: [],
-                            );
-                            setState(() {
-                              _communityPosts.insert(0, newPost);
-                            });
-                            _saveCommunityPosts();
+                            List<Map<String, dynamic>> finalPollOptions = [];
+                            if (selectedCategory == 'Poll') {
+                              for (var ctrl in pollOptionCtrls) {
+                                if (ctrl.text.trim().isNotEmpty) {
+                                  finalPollOptions.add({
+                                    'option': ctrl.text.trim(),
+                                    'votes': 0,
+                                  });
+                                }
+                              }
+                              if (finalPollOptions.length < 2) {
+                                showToast(context, 'Please provide at least 2 poll options');
+                                return;
+                              }
+                            }
+
                             Navigator.pop(ctx);
-                            showToast(context, '🎉 Post published successfully!');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Publishing...')),
+                            );
+
+                            try {
+                              await Supabase.instance.client.from('CommunityPost').insert({
+                                'author_name': '$_firstName Gupta',
+                                'author_role': 'Student',
+                                'category': selectedCategory,
+                                'content': contentCtrl.text.trim(),
+                                'poll_options': finalPollOptions,
+                                'comments': [],
+                              });
+                              
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                showToast(context, '🎉 Post published successfully!');
+                                // Realtime listener will automatically fetch the new post!
+                              }
+                            } catch (e) {
+                              dev.log('Error creating post: $e');
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                showToast(context, 'Failed to publish post');
+                              }
+                            }
                           },
                           child: Text(
                             'Publish Post',
@@ -2240,7 +2491,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                             ),
                           ),
                           GestureDetector(
-                            onTap: () {
+                            onTap: () async {
                               if (commentCtrl.text.trim().isEmpty) return;
                               final newComment = CommunityCommentModel(
                                 id: 'c_${DateTime.now().millisecondsSinceEpoch}',
@@ -2252,8 +2503,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               setState(() {
                                 post.comments.add(newComment);
                               });
-                              _saveCommunityPosts();
                               setModalState(() {});
+                              
+                              try {
+                                await Supabase.instance.client.from('CommunityPost').update({
+                                  'comments': post.comments.map((c) => c.toJson()).toList(),
+                                }).eq('id', post.id);
+                              } catch (_) {}
+                              
                               commentCtrl.clear();
                             },
                             child: Container(
