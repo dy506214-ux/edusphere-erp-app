@@ -33,7 +33,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
   List<Map<String, dynamic>> _paymentHistory = [];
 
   // Student info
-  String _studentName = 'Alex Rivera';
   String _studentId = '';
   String _feeStructureId = '';
   String _ledgerId = '';
@@ -112,7 +111,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
 
   String _generateUUID() {
     final random = Random();
-    final hexDigits = '0123456789abcdef';
+    const hexDigits = '0123456789abcdef';
     String genHex(int len) => List.generate(len, (_) => hexDigits[random.nextInt(16)]).join();
     return '${genHex(8)}-${genHex(4)}-4${genHex(3)}-${hexDigits[8 + random.nextInt(4)]}${genHex(3)}-${genHex(12)}';
   }
@@ -126,7 +125,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      _studentName = prefs.getString('student_name') ?? 'Alex Rivera';
       _studentId = prefs.getString('student_id') ?? '';
 
       // Also try Supabase auth user id as fallback
@@ -143,13 +141,11 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
               .select('id, currentClassId, academicYearId')
               .eq('userId', _studentId)
               .maybeSingle();
-          if (studentProfile == null) {
-            studentProfile = await Supabase.instance.client
-                .from('Student')
-                .select('id, currentClassId, academicYearId')
-                .eq('id', _studentId)
-                .maybeSingle();
-          }
+          studentProfile ??= await Supabase.instance.client
+              .from('Student')
+              .select('id, currentClassId, academicYearId')
+              .eq('id', _studentId)
+              .maybeSingle();
           if (studentProfile != null) {
             _studentId = studentProfile['id'] as String;
             _academicYearId = studentProfile['academicYearId'] as String? ?? '';

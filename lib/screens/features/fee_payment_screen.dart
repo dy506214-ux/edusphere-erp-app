@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 
@@ -69,7 +68,7 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
 
   String _generateUUID() {
     final random = Random();
-    final hexDigits = '0123456789abcdef';
+    const hexDigits = '0123456789abcdef';
     String genHex(int len) => List.generate(len, (_) => hexDigits[random.nextInt(16)]).join();
     return '${genHex(8)}-${genHex(4)}-4${genHex(3)}-${hexDigits[8 + random.nextInt(4)]}${genHex(3)}-${genHex(12)}';
   }

@@ -1772,7 +1772,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               Expanded(flex: 2, child: _buildTableHeaderCell('Class', TextAlign.center)),
               Expanded(flex: 2, child: _buildTableHeaderCell('Teacher', TextAlign.center)),
               Expanded(flex: 2, child: _buildTableHeaderCell('Description', TextAlign.center)),
-              Expanded(flex: 1, child: const SizedBox.shrink()), // Space for trailing chevron
+              const Expanded(flex: 1, child: SizedBox.shrink()), // Space for trailing chevron
             ],
           ),
         ),
@@ -1901,7 +1901,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               Expanded(flex: 3, child: _buildTableHeaderCell('Class', TextAlign.center)),
               Expanded(flex: 3, child: _buildTableHeaderCell('Max Students', TextAlign.center)),
               Expanded(flex: 3, child: _buildTableHeaderCell('Students', TextAlign.center)),
-              Expanded(flex: 1, child: const SizedBox.shrink()), // Space for trailing chevron
+              const Expanded(flex: 1, child: SizedBox.shrink()), // Space for trailing chevron
             ],
           ),
         ),
@@ -2488,8 +2488,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
     required bool isSelected,
     required VoidCallback onTap,
   }) {
-    final activeColor = const Color(0xFF0D7DDC);
-    final inactiveColor = const Color(0xFF94A3B8);
+    const activeColor = Color(0xFF0D7DDC);
+    const inactiveColor = Color(0xFF94A3B8);
 
     return InkWell(
       onTap: onTap,
@@ -2522,7 +2522,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   // ═════════════════════════════════════════════════════════════════════════
   // ACADEMIC DRAWER IMPLEMENTATION
   // ═════════════════════════════════════════════════════════════════════════
-  String _drawerActiveLabel = 'Academic';
+  final String _drawerActiveLabel = 'Academic';
 
   String _getDrawerInitials(String name) {
     try {
@@ -2584,7 +2584,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 0)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 0)),
                                 (r) => false,
                               );
                             },
@@ -2599,7 +2599,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 1)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 1)),
                                 (r) => false,
                               );
                             },
@@ -2614,7 +2614,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 2)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 2)),
                                 (r) => false,
                               );
                             },
@@ -2629,7 +2629,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'teacher', initialIndex: 3)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 3)),
                                 (r) => false,
                               );
                             },
@@ -2726,7 +2726,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                         ]
                       : [
                           _drawerItem(
-                            icon: Icons.dashboard_rounded,
+                            icon: Icons.grid_view_rounded,
                             label: 'Dashboard',
                             activeBlue: activeBlue,
                             inactiveIcon: inactiveIcon,
@@ -2735,7 +2735,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 0)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 0)),
                                 (r) => false,
                               );
                             },
@@ -2750,7 +2750,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 1)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 1)),
                                 (r) => false,
                               );
                             },
@@ -2765,7 +2765,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 2)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 2)),
                                 (r) => false,
                               );
                             },
@@ -2790,7 +2790,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 4)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 4)),
                                 (r) => false,
                               );
                             },
@@ -2805,7 +2805,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 5)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 5)),
                                 (r) => false,
                               );
                             },
@@ -2820,7 +2820,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 6)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 6)),
                                 (r) => false,
                               );
                             },
@@ -2835,7 +2835,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 7)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 7)),
                                 (r) => false,
                               );
                             },
@@ -2850,7 +2850,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 8)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 8)),
                                 (r) => false,
                               );
                             },
@@ -2865,7 +2865,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => MainScreen(role: 'student', initialIndex: 9)),
+                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 9)),
                                 (r) => false,
                               );
                             },

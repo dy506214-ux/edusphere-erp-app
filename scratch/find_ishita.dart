@@ -9,24 +9,11 @@ void main() async {
   try {
     final List<dynamic> users = await supabase.from('User')
         .select('id, email, firstName, lastName, role')
-        .or('firstName.ilike.%tanvi%,lastName.ilike.%tanvi%');
+        .or('firstName.ilike.%ishita%,lastName.ilike.%ishita%,email.ilike.%ishita%');
         
-    print('Matching users:');
+    print('Matching users for Ishita:');
     for (var u in users) {
       print('User: id=${u['id']}, email=${u['email']}, name=${u['firstName']} ${u['lastName']}, role=${u['role']}');
-      
-      if (u['role'] == 'STUDENT') {
-        final studentRes = await supabase.from('Student').select('id').eq('userId', u['id']).maybeSingle();
-        if (studentRes != null) {
-          final studentId = studentRes['id'];
-          print('  Student ID: $studentId');
-          final List<dynamic> records = await supabase.from('AttendanceRecord').select().eq('studentId', studentId);
-          print('  Attendance records count: ${records.length}');
-          for (var r in records) {
-            print('    Date: ${r['date']}, Status: ${r['status']}');
-          }
-        }
-      }
     }
   } catch (e) {
     print('Error: $e');

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
+import 'package:intl/intl.dart' as intl;
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -29,10 +30,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   RealtimeChannel? _attendanceChannel;
   Timer? _attendancePollTimer;
+  late DateTime _selectedMonth;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
     _loadAttendanceData(showLoading: true);
     _connectRealTime();
   }
@@ -123,8 +127,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         if (studentRes != null) {
           _studentIdStr = studentRes['id'] as String;
 
-          // Query attendance records for this student
-          final attendanceRes = await Supabase.instance.client
+          final List<dynamic> attendanceRes = await Supabase.instance.client
               .from('AttendanceRecord')
               .select()
               .eq('studentId', _studentIdStr);
@@ -139,17 +142,16 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             
             try {
               final date = DateTime.parse(dateStr);
-              // We populate specifically for May 2026
-              if (date.month == 5 && date.year == 2026) {
+              if (date.month == _selectedMonth.month && date.year == _selectedMonth.year) {
                 dbCalData[date.day] = status;
+                
+                if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+                  dbPresent++;
+                } else if (status == 'ABSENT' || status == 'A') {
+                  dbAbsent++;
+                }
               }
             } catch (_) {}
-
-            if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
-              dbPresent++;
-            } else if (status == 'ABSENT' || status == 'A') {
-              dbAbsent++;
-            }
           }
 
           final totalClasses = dbPresent + dbAbsent;
@@ -171,50 +173,42 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  List<Map<String, dynamic>> _calculateSubjectAttendance(int present, int absent) {
+    const subjectNames = ['Physics', 'Mathematics', 'Chemistry', 'English', 'Computer Sc.'];
+    final List<Map<String, dynamic>> result = [];
+    
+    // Distribute present classes
+    List<int> presentDist = List.filled(5, present ~/ 5);
+    int remainingPresent = present % 5;
+    for (int i = 0; i < remainingPresent; i++) {
+      presentDist[i]++;
+    }
+    
+    // Distribute absent classes
+    List<int> absentDist = List.filled(5, absent ~/ 5);
+    int remainingAbsent = absent % 5;
+    for (int i = 0; i < remainingAbsent; i++) {
+      absentDist[(i + 2) % 5]++; 
+    }
+    
+    for (int i = 0; i < 5; i++) {
+      final p = presentDist[i];
+      final ab = absentDist[i];
+      final tot = p + ab;
+      final pct = tot > 0 ? ((p / tot) * 100).round() : 100;
+      result.add({
+        'name': subjectNames[i],
+        'present': p,
+        'total': tot,
+        'pct': pct,
+      });
+    }
+    return result;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalClassesForSubjectMath = (_presentCount * 0.22).round() + (_absentCount * 0.1).round();
-    final totalClassesForSubjectChem = (_presentCount * 0.18).round() + (_absentCount * 0.3).round();
-    final totalClassesForSubjectCS = (_presentCount * 0.19).round() + (_absentCount * 0.2).round();
-
-    final subjects = [
-      {
-        'name': 'Physics',
-        'present': (_presentCount * 0.2).round(),
-        'total': (_presentCount * 0.2).round() + (_absentCount * 0.2).round(),
-        'pct': _attendanceRate.round()
-      },
-      {
-        'name': 'Mathematics',
-        'present': (_presentCount * 0.22).round(),
-        'total': totalClassesForSubjectMath,
-        'pct': totalClassesForSubjectMath > 0 
-            ? ((_presentCount * 0.22).round() / totalClassesForSubjectMath * 100).round() 
-            : 100
-      },
-      {
-        'name': 'Chemistry',
-        'present': (_presentCount * 0.18).round(),
-        'total': totalClassesForSubjectChem,
-        'pct': totalClassesForSubjectChem > 0 
-            ? ((_presentCount * 0.18).round() / totalClassesForSubjectChem * 100).round() 
-            : 100
-      },
-      {
-        'name': 'English',
-        'present': (_presentCount * 0.21).round(),
-        'total': (_presentCount * 0.21).round(),
-        'pct': 100
-      },
-      {
-        'name': 'Computer Sc.',
-        'present': (_presentCount * 0.19).round(),
-        'total': totalClassesForSubjectCS,
-        'pct': totalClassesForSubjectCS > 0 
-            ? ((_presentCount * 0.19).round() / totalClassesForSubjectCS * 100).round() 
-            : 100
-      },
-    ];
+    final subjects = _calculateSubjectAttendance(_presentCount, _absentCount);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -275,32 +269,92 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('May 2026', style: GoogleFonts.inter(fontWeight: FontWeight.w900, color: AppColors.textDark, fontSize: 15.sp)),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    intl.DateFormat('MMMM yyyy').format(_selectedMonth),
+                                    style: GoogleFonts.inter(
+                                      fontWeight: FontWeight.w900,
+                                      color: AppColors.textDark,
+                                      fontSize: 15.sp,
+                                    ),
+                                  ),
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: const Icon(Icons.chevron_left, color: AppColors.textMedium),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+                                            _loadAttendanceData(showLoading: false);
+                                          });
+                                        },
+                                      ),
+                                      IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        icon: const Icon(Icons.chevron_right, color: AppColors.textMedium),
+                                        onPressed: () {
+                                          setState(() {
+                                            _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+                                            _loadAttendanceData(showLoading: false);
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                               SizedBox(height: 12.h),
                               Row(children: ['S','M','T','W','T','F','S'].map((d) => Expanded(
                                 child: Center(child: Text(d, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: AppColors.textLight))),
                               )).toList()),
                               SizedBox(height: 8.h),
-                              GridView.builder(
-                                shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 4, crossAxisSpacing: 4),
-                                itemCount: 31 + 5,
-                                itemBuilder: (_, i) {
-                                  if (i < 5) return const SizedBox();
-                                  final day = i - 4;
-                                  if (day > 31) return const SizedBox();
-                                  final status = _calData[day];
-                                  Color bg = AppColors.background;
-                                  Color fg = AppColors.textLight;
-                                  if (status == 'P' || status == 'Present' || status == 'PRESENT') { bg = AppColors.studentPrimary; fg = Colors.white; }
-                                  else if (status == 'A' || status == 'Absent' || status == 'ABSENT') { bg = Colors.red; fg = Colors.white; }
-                                  else if (status == 'L' || status == 'Late' || status == 'LATE' || status == 'HALF_DAY' || status == 'ON_LEAVE' || status == 'H') { bg = Colors.amber; fg = Colors.white; }
-                                  return Container(
-                                    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6.r)),
-                                    child: Center(child: Text('$day', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: fg))),
-                                  );
-                                },
-                              ),
+                              (() {
+                                final firstDayWeekday = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday;
+                                final emptyCells = firstDayWeekday % 7;
+                                final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 7,
+                                    mainAxisSpacing: 4,
+                                    crossAxisSpacing: 4,
+                                    childAspectRatio: 1.0,
+                                  ),
+                                  itemCount: daysInMonth + emptyCells,
+                                  itemBuilder: (_, i) {
+                                    if (i < emptyCells) return const SizedBox();
+                                    final day = i - emptyCells + 1;
+                                    if (day > daysInMonth) return const SizedBox();
+                                    final status = _calData[day];
+                                    Color bg = AppColors.background;
+                                    Color fg = AppColors.textLight;
+                                    if (status == 'P' || status == 'Present' || status == 'PRESENT') {
+                                      bg = AppColors.studentPrimary;
+                                      fg = Colors.white;
+                                    } else if (status == 'A' || status == 'Absent' || status == 'ABSENT') {
+                                      bg = Colors.red;
+                                      fg = Colors.white;
+                                    } else if (status == 'L' || status == 'Late' || status == 'LATE' || status == 'HALF_DAY' || status == 'ON_LEAVE' || status == 'H') {
+                                      bg = Colors.amber;
+                                      fg = Colors.white;
+                                    }
+                                    return Container(
+                                      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6.r)),
+                                      child: Center(
+                                        child: Text(
+                                          '$day',
+                                          style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: fg),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }()),
                               SizedBox(height: 12.h),
                               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                                 _legend(AppColors.studentPrimary, 'Present'),
@@ -324,18 +378,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                           child: Column(children: [
                             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               Text(s['name']! as String, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark)),
-                              Text('${s['pct']}%', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 15.sp,
-                                color: (s['pct'] as int) >= 90 ? const Color(0xFF10B981) : (s['pct'] as int) >= 75 ? AppColors.warning : Colors.red)),
+                              Text(
+                                (s['total'] as int) == 0 ? '—' : '${s['pct']}%',
+                                style: GoogleFonts.inter(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15.sp,
+                                  color: (s['total'] as int) == 0
+                                      ? Colors.grey.shade400
+                                      : ((s['pct'] as int) >= 90
+                                          ? const Color(0xFF10B981)
+                                          : ((s['pct'] as int) >= 75 ? AppColors.warning : Colors.red)),
+                                ),
+                              ),
                             ]),
                             SizedBox(height: 8.h),
                             ClipRRect(
                               borderRadius: BorderRadius.circular(4.r),
                               child: LinearProgressIndicator(
-                                value: (s['pct'] as int) / 100,
+                                value: (s['total'] as int) == 0 ? 0.0 : (s['pct'] as int) / 100,
                                 minHeight: 8,
                                 backgroundColor: AppColors.border,
                                 valueColor: AlwaysStoppedAnimation(
-                                  (s['pct'] as int) >= 90 ? const Color(0xFF10B981) : (s['pct'] as int) >= 75 ? AppColors.warning : Colors.red),
+                                  (s['total'] as int) == 0
+                                      ? Colors.grey.shade300
+                                      : ((s['pct'] as int) >= 90
+                                          ? const Color(0xFF10B981)
+                                          : ((s['pct'] as int) >= 75 ? AppColors.warning : Colors.red))),
                               ),
                             ),
                             SizedBox(height: 4.h),

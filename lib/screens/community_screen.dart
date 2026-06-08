@@ -716,7 +716,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 DropdownButtonFormField<String>(
-                  value: category,
+                  initialValue: category,
                   decoration: InputDecoration(
                     labelText: 'Category',
                     labelStyle: GoogleFonts.inter(fontSize: 12.sp),

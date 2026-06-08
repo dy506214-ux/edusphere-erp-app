@@ -45,61 +45,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   late DateTime _selectedMonth;
   late DateTime _selectedDay;
 
-  RealtimeChannel? _dashboardChannel;Got dependencies!
-31 packages have newer versions incompatible with dependency constraints.
-Try `flutter pub outdated` for more information.
-Launching lib\main.dart on Chrome in debug mode...
-Waiting for connection from debug service on Chrome...             56.1s
-
-Flutter run key commands.
-r Hot reload.
-R Hot restart.
-h List all available interactive commands.
-d Detach (terminate "flutter run" but leave application running).
-c Clear the screen
-q Quit (terminate the application on the device).
-
-Debug service listening on ws://127.0.0.1:55430/mUqj57_wM4o=/ws
-A Dart VM Service on Chrome is available at: http://127.0.0.1:55430/mUqj57_wM4o=
-The Flutter DevTools debugger and profiler on Chrome is available at:
-http://127.0.0.1:55430/mUqj57_wM4o=/devtools/?uri=ws://127.0.0.1:55430/mUqj57_wM4o=/ws
-Starting application from main method in: org-dartlang-app:/web_entrypoint.dart.
-supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
-
-Performing hot restart...                                        2,972ms
-Restarted application in 2,973ms.
-supabase.supabase_flutter: INFO: ***** Supabase init completed ***** 
-
-lib/screens/features/assignments_screen.dart:203:33: Error: Local variable 'isSubmitted' can't be referenced before it
-is declared.
-        final bool isOverdue = !isSubmitted && due != null && DateTime(due.year, due.month, due.day).isBefore(today);  
-                                ^^^^^^^^^^^
-lib/screens/features/assignments_screen.dart:210:20: Context: This is the declaration of the variable 'isSubmitted'.   
-        final bool isSubmitted = submissionsMap.containsKey(assId);
-                   ^^^^^^^^^^^
-lib/screens/features/assignments_screen.dart:203:33: Error: The getter 'isSubmitted' isn't defined for the type        
-'_AssignmentsScreenState'.
- - '_AssignmentsScreenState' is from 'package:edusphere/screens/features/assignments_screen.dart'
- ('lib/screens/features/assignments_screen.dart').
-Try correcting the name to the name of an existing getter, or defining a getter or field named 'isSubmitted'.
-        final bool isOverdue = !isSubmitted && due != null && DateTime(due.year, due.month, due.day).isBefore(today);  
-                                ^^^^^^^^^^^
-lib/screens/features/assignments_screen.dart:232:26: Error: The getter 'isSubmitted' isn't defined for the type        
-'_AssignmentsScreenState'.
- - '_AssignmentsScreenState' is from 'package:edusphere/screens/features/assignments_screen.dart'
- ('lib/screens/features/assignments_screen.dart').
-Try correcting the name to the name of an existing getter, or defining a getter or field named 'isSubmitted'.
-          'isSubmitted': isSubmitted,
-                         ^^^^^^^^^^^
-lib/screens/features/assignments_screen.dart:728:44: Error: Member not found: 'w850'.
-                    fontWeight: FontWeight.w850,
-                                           ^^^^
-lib/screens/features/assignments_screen.dart:891:48: Error: Member not found: 'w850'.
-                        fontWeight: FontWeight.w850,
-                                               ^^^^
-Performing hot restart...                                        1,137ms
-Try again after fixing the above error(s).
-
+  RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
   @override
   void initState() {
