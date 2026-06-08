@@ -18,8 +18,8 @@ class AttendanceScreen extends StatefulWidget {
 
 class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isLoading = true;
-  String _studentNameStr = 'Alex Rivera';
-  String _studentEmailStr = 'alex.rivera@edusmart.edu';
+  String _studentNameStr = 'Test Student';
+  String _studentEmailStr = 'eduspherestudent@gmail.com';
   String _studentIdStr = '';
   
   Map<int, String> _calData = {};
@@ -84,8 +84,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Attendance channel: $e', name: 'AttendanceScreen');
     }
     
-    // Polling fallback every 2 seconds
-    _attendancePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Polling fallback every 30 seconds
+    _attendancePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadAttendanceData(showLoading: false);
       }
@@ -98,8 +98,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
-      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name');
+      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
+      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
       
       if (savedEmail != null) {
         _studentEmailStr = savedEmail;
@@ -488,7 +488,10 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     if (record != null) {
                                       final status = record['status'] as String? ?? '';
                                       final checkInVal = record['checkInTime'];
+                                      final createdAtVal = record['createdAt']; // fallback
                                       final markedByVal = record['markedBy'] as String?;
+                                      final scannedByQR = record['scannedByQR'] == true;
+                                      final scannedByRFID = record['scannedByRFID'] == true;
                                       
                                       if (status == 'PRESENT' || status == 'P') {
                                         statusLabel = 'Present';
@@ -517,15 +520,25 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                         statusBorder = null;
                                       }
                                       
-                                      if (checkInVal != null) {
+                                      // Use checkInTime if available, else fall back to createdAt
+                                      final timeSource = checkInVal ?? createdAtVal;
+                                      if (timeSource != null) {
                                         try {
-                                          final parsedTime = DateTime.parse(checkInVal.toString());
+                                          final parsedTime = DateTime.parse(timeSource.toString());
                                           checkInStr = intl.DateFormat('hh:mm a').format(parsedTime.toLocal());
                                         } catch (_) {}
                                       }
                                       
-                                      if (markedByVal != null && markedByVal.isNotEmpty) {
+                                      // Marked By: show scan method or teacher
+                                      if (scannedByQR) {
+                                        markedByStr = 'QR Scan';
+                                      } else if (scannedByRFID) {
+                                        markedByStr = 'RFID';
+                                      } else if (markedByVal != null && markedByVal.isNotEmpty) {
+                                        // UUIDs are 36 chars — show 'Teacher' instead
                                         markedByStr = markedByVal.length > 20 ? 'Teacher' : markedByVal;
+                                      } else {
+                                        markedByStr = 'System';
                                       }
                                     } else {
                                       if (isWeekend) {

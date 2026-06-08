@@ -91,8 +91,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Assignments channel: $e', name: 'AssignmentsScreen');
     }
     
-    // Polling fallback every 2 seconds for robust silent updates
-    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Polling fallback every 30 seconds for robust silent updates
+    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadAssignmentsData(showLoading: false);
       }

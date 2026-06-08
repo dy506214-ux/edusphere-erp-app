@@ -5,6 +5,7 @@ import '../features/attendance_screen.dart';
 import '../features/results_screen.dart';
 import '../features/fee_ledger_screen.dart';
 import '../features/library_overdue_screen.dart';
+import '../features/academic_calendar_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
@@ -21,8 +22,8 @@ class StudentDashboard extends StatefulWidget {
 
 class _StudentDashboardState extends State<StudentDashboard> {
   // Student Profile Data
-  String studentName = 'Priya Singh';
-  String studentEmail = 'student1@demoschool.com';
+  String studentName = 'Test Student';
+  String studentEmail = 'eduspherestudent@gmail.com';
   String studentPhone = '—';
   String admissionNo = 'ADM240001';
   String className = 'Class 1';
@@ -36,7 +37,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
   String address = '—';
 
   // Metrics Data
-  double attendanceRate = 95.0;
+  double attendanceRate = 0.0;
+  bool _attendanceLoaded = false;
   int pendingFee = 0;
   int booksDue = 0;
   int pendingCount = 0;
@@ -44,6 +46,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   // Calendar State
   late DateTime _selectedMonth;
   late DateTime _selectedDay;
+  List<dynamic> _calendarEvents = [];
 
   RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
@@ -115,6 +118,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
           callback: (_) {
             if (mounted) _loadStudentData();
           },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'SchoolCalendar',
+          callback: (_) {
+            if (mounted) _loadCalendarEvents();
+          },
         );
       
       _dashboardChannel!.subscribe((status, [error]) {
@@ -127,8 +138,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
       dev.log('Error connecting realtime in dashboard: $e');
     }
     
-    // Polling fallback
-    _dashboardPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Polling fallback every 30 seconds
+    _dashboardPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadStudentData();
       }
@@ -139,8 +150,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     
-    final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'alex.rivera@edusmart.edu';
-    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Priya Singh';
+    final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
+    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
     
     setState(() {
       studentName = savedName;
@@ -270,24 +281,48 @@ class _StudentDashboardState extends State<StudentDashboard> {
           dev.log('Error loading student profile: $e');
         }
 
-        // 3. Fetch live attendance percentage from AttendanceRecord
+        // 3. Fetch live attendance percentage from AttendanceRecord (current month)
         try {
+          final now = DateTime.now();
+          final monthStart = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+          final nextMonth = now.month < 12
+              ? DateTime(now.year, now.month + 1, 1)
+              : DateTime(now.year + 1, 1, 1);
+          final monthEnd = '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}-01';
+
           final List<dynamic> attendanceRes = await supabase
               .from('AttendanceRecord')
               .select()
-              .eq('studentId', studentId);
+              .eq('studentId', studentId)
+              .gte('date', monthStart)
+              .lt('date', monthEnd);
 
-          if (attendanceRes.isNotEmpty && mounted) {
-            int present = 0;
-            for (var record in attendanceRes) {
-              final status = record['status'] as String? ?? '';
-              if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'LEAVE') {
-                present++;
+          if (mounted) {
+            if (attendanceRes.isNotEmpty) {
+              int present = 0;
+              int total = 0;
+              for (var record in attendanceRes) {
+                final status = record['status'] as String? ?? '';
+                if (status == 'PRESENT' || status == 'P') {
+                  present++;
+                  total++;
+                } else if (status == 'ABSENT' || status == 'A') {
+                  total++;
+                } else if (status == 'LATE' || status == 'HALF_DAY') {
+                  present++;
+                  total++;
+                }
               }
+              setState(() {
+                attendanceRate = total > 0 ? (present / total) * 100 : 100.0;
+                _attendanceLoaded = true;
+              });
+            } else {
+              setState(() {
+                attendanceRate = 100.0;
+                _attendanceLoaded = true;
+              });
             }
-            setState(() {
-              attendanceRate = (present / attendanceRes.length) * 100;
-            });
           }
         } catch (e) {
           dev.log('Error loading attendance percentage: $e');
@@ -360,10 +395,248 @@ class _StudentDashboardState extends State<StudentDashboard> {
         } catch (e) {
           dev.log('Error loading books due count: $e');
         }
+
+        // 7. Fetch Calendar Events
+        await _loadCalendarEvents();
       }
     } catch (e) {
       dev.log('Error loading student dashboard details: $e');
     }
+  }
+
+  Future<void> _loadCalendarEvents() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final List<dynamic> res = await supabase
+          .from('SchoolCalendar')
+          .select()
+          .order('date', ascending: true);
+      if (mounted) {
+        setState(() {
+          _calendarEvents = res;
+        });
+      }
+    } catch (e) {
+      dev.log('Error loading calendar events: $e');
+    }
+  }
+
+  List<dynamic> _getEventsForDay(DateTime date) {
+    return _calendarEvents.where((event) {
+      if (event['date'] == null) return false;
+      try {
+        final parsedDate = DateTime.parse(event['date'].toString()).toLocal();
+        return parsedDate.year == date.year &&
+            parsedDate.month == date.month &&
+            parsedDate.day == date.day;
+      } catch (e) {
+        return false;
+      }
+    }).toList();
+  }
+
+  Color? _getDateTextColor(DateTime date, bool isSelected, bool isToday) {
+    if (isSelected) return Colors.white;
+    final dayEvents = _getEventsForDay(date);
+    if (dayEvents.isEmpty) {
+      return isToday ? const Color(0xFF0077D6) : AppColors.textDark;
+    }
+    
+    // Prioritize holiday, then exam
+    final hasHoliday = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
+    if (hasHoliday) return const Color(0xFFEF4444);
+    
+    final hasExam = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
+    if (hasExam) return const Color(0xFFF59E0B);
+    
+    return AppColors.textDark;
+  }
+
+  Color? _getEventDotColor(List<dynamic> dayEvents) {
+    if (dayEvents.isEmpty) return null;
+    final hasHoliday = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
+    if (hasHoliday) return const Color(0xFFEF4444);
+    
+    final hasExam = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
+    if (hasExam) return const Color(0xFFF59E0B);
+    
+    return const Color(0xFF0077D6); // Default/Event blue dot
+  }
+
+  String _getMonthAbbreviation(int month) {
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    return months[month - 1];
+  }
+
+  Widget _buildDayEventsList(DateTime date) {
+    final dayEvents = _getEventsForDay(date);
+    if (dayEvents.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 24.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 40.sp,
+                color: Colors.grey.shade300,
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'No events scheduled',
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  color: Colors.grey.shade500,
+                  fontStyle: FontStyle.italic,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: dayEvents.length,
+      separatorBuilder: (_, __) => SizedBox(height: 12.h),
+      itemBuilder: (context, index) {
+        final event = dayEvents[index];
+        final type = event['type']?.toString().toUpperCase() ?? 'EVENT';
+        
+        Color accentColor;
+        switch (type) {
+          case 'HOLIDAY':
+            accentColor = const Color(0xFFEF4444);
+            break;
+          case 'EXAM':
+            accentColor = const Color(0xFFF59E0B);
+            break;
+          case 'EMERGENCY':
+            accentColor = const Color(0xFF8B5CF6);
+            break;
+          default:
+            accentColor = const Color(0xFF0077D6);
+        }
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12.r),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12.r),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    width: 5.w,
+                    color: accentColor,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.all(12.r),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  event['title'] ?? 'Academic Event',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 13.5.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                                decoration: BoxDecoration(
+                                  color: accentColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                ),
+                                child: Text(
+                                  type,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 9.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: accentColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (event['description'] != null && event['description'].toString().isNotEmpty) ...[
+                            SizedBox(height: 4.h),
+                            Text(
+                              event['description'],
+                              style: GoogleFonts.inter(
+                                fontSize: 11.sp,
+                                color: AppColors.textLight,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildViewScheduleButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          backgroundColor: const Color(0xFFF0F9FF),
+          foregroundColor: const Color(0xFF0077D6),
+          padding: EdgeInsets.symmetric(vertical: 14.h),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16.r),
+            side: const BorderSide(color: Color(0xFFE0F2FE)),
+          ),
+        ),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AcademicCalendarScreen(
+                onOpenDrawer: () {},
+                showAppBar: true,
+              ),
+            ),
+          );
+        },
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'View Full Academic Schedule',
+              style: GoogleFonts.inter(
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            SizedBox(width: 6.w),
+            Icon(Icons.chevron_right_rounded, size: 18.sp),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -604,108 +877,127 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   // ── METRICS GRID ROW WIDGET ────────────────────────────────────────────────
   Widget _buildMetricsRow(bool isDesktop) {
-    return GridView.count(
-      crossAxisCount: isDesktop ? 4 : 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16.w,
-      mainAxisSpacing: 16.h,
-      childAspectRatio: isDesktop ? 1.7 : 1.35,
-      children: [
-        // Card 1: Attendance
-        _metricCard(
-          title: 'ATTENDANCE',
-          value: '${attendanceRate.toStringAsFixed(0)}%',
-          leftBorderColor: const Color(0xFF3B82F6),
-          child: Padding(
-            padding: EdgeInsets.only(top: 8.h),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4.r),
-              child: LinearProgressIndicator(
-                value: attendanceRate / 100.0,
-                backgroundColor: const Color(0xFFEFF6FF),
-                color: const Color(0xFF3B82F6),
-                minHeight: 6.h,
-              ),
-            ),
-          ),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
-        ),
-        // Card 2: Pending Fee
-        _metricCard(
-          title: 'PENDING FEE',
-          value: '₹$pendingFee',
-          leftBorderColor: const Color(0xFFEF4444),
-          child: Padding(
-            padding: EdgeInsets.only(top: 4.h),
-            child: Text(
-              pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
-              style: GoogleFonts.inter(
-                fontSize: 11.sp,
-                color: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                fontWeight: FontWeight.w700,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
-        ),
-        // Card 3: Books Due
-        _metricCard(
-          title: 'BOOKS DUE',
-          value: booksDue.toString(),
-          leftBorderColor: const Color(0xFF6366F1),
-          child: Padding(
-            padding: EdgeInsets.only(top: 4.h),
-            child: Text(
-              booksDue > 0 ? 'Return overdue books' : 'No overdue books',
-              style: GoogleFonts.inter(
-                fontSize: 11.sp,
-                color: AppColors.textLight,
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-          ),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
-        ),
-        // Card 4: Results
-        _metricCard(
-          title: 'RESULTS',
-          value: 'View Report',
-          leftBorderColor: const Color(0xFF8B5CF6),
-          child: Row(
+    return isDesktop
+        ? Row(
             children: [
-              Expanded(
-                child: Text(
-                  'Academic performance',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    color: AppColors.textLight,
-                    fontWeight: FontWeight.w600,
+              Expanded(child: _metricCard(
+                title: 'ATTENDANCE',
+                value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
+                leftBorderColor: const Color(0xFF3B82F6),
+                subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
+                subtitleColor: AppColors.textLight,
+                trailing: Padding(
+                  padding: EdgeInsets.only(top: 6.h),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(4.r),
+                    child: LinearProgressIndicator(
+                      value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      color: const Color(0xFF3B82F6),
+                      minHeight: 5.h,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
-              ),
-              SizedBox(width: 4.w),
-              Icon(Icons.arrow_forward_rounded, color: const Color(0xFF8B5CF6), size: 16.sp),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
+              )),
+              SizedBox(width: 16.w),
+              Expanded(child: _metricCard(
+                title: 'PENDING FEE',
+                value: '₹$pendingFee',
+                leftBorderColor: const Color(0xFFEF4444),
+                subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
+                subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
+              )),
+              SizedBox(width: 16.w),
+              Expanded(child: _metricCard(
+                title: 'BOOKS DUE',
+                value: '$booksDue',
+                leftBorderColor: const Color(0xFF6366F1),
+                subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
+                subtitleColor: AppColors.textLight,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
+              )),
+              SizedBox(width: 16.w),
+              Expanded(child: _metricCard(
+                title: 'RESULTS',
+                value: 'View',
+                leftBorderColor: const Color(0xFF8B5CF6),
+                subtitle: 'Academic report',
+                subtitleColor: AppColors.textLight,
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+              )),
             ],
-          ),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
-        ),
-      ],
-    );
+          )
+        : Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: _metricCard(
+                    title: 'ATTENDANCE',
+                    value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
+                    leftBorderColor: const Color(0xFF3B82F6),
+                    subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
+                    subtitleColor: AppColors.textLight,
+                    trailing: Padding(
+                      padding: EdgeInsets.only(top: 6.h),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4.r),
+                        child: LinearProgressIndicator(
+                          value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          color: const Color(0xFF3B82F6),
+                          minHeight: 5.h,
+                        ),
+                      ),
+                    ),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
+                  )),
+                  SizedBox(width: 16.w),
+                  Expanded(child: _metricCard(
+                    title: 'PENDING FEE',
+                    value: '₹$pendingFee',
+                    leftBorderColor: const Color(0xFFEF4444),
+                    subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
+                    subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
+                  )),
+                ],
+              ),
+              SizedBox(height: 16.h),
+              Row(
+                children: [
+                  Expanded(child: _metricCard(
+                    title: 'BOOKS DUE',
+                    value: '$booksDue',
+                    leftBorderColor: const Color(0xFF6366F1),
+                    subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
+                    subtitleColor: AppColors.textLight,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
+                  )),
+                  SizedBox(width: 16.w),
+                  Expanded(child: _metricCard(
+                    title: 'RESULTS',
+                    value: 'Report',
+                    leftBorderColor: const Color(0xFF8B5CF6),
+                    subtitle: 'Academic perf...',
+                    subtitleColor: AppColors.textLight,
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+                  )),
+                ],
+              ),
+            ],
+          );
   }
 
   Widget _metricCard({
     required String title,
     required String value,
     required Color leftBorderColor,
-    required Widget child,
     required VoidCallback onTap,
+    String? subtitle,
+    Color? subtitleColor,
+    Widget? trailing,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -721,25 +1013,39 @@ class _StudentDashboardState extends State<StudentDashboard> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20.r),
           child: Container(
-            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 6.w))),
-            padding: EdgeInsets.all(18.r),
+            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 5.w))),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.8),
+                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.8),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 6.h),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    value,
-                    style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 10.sp,
+                      color: subtitleColor ?? AppColors.textLight,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                child,
+                ],
+                if (trailing != null) trailing,
               ],
             ),
           ),
@@ -768,33 +1074,45 @@ class _StudentDashboardState extends State<StudentDashboard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '📅 School Calendar',
-                      style: GoogleFonts.inter(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(10.r),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(12.r),
                     ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      'Academic schedule & events',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        color: AppColors.textLight,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Icon(
+                      Icons.calendar_today_rounded,
+                      color: const Color(0xFF0077D6),
+                      size: 20.sp,
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'School Calendar',
+                        style: GoogleFonts.inter(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'Academic schedule & events',
+                        style: GoogleFonts.inter(
+                          fontSize: 11.sp,
+                          color: AppColors.textLight,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              SizedBox(width: 12.w),
               Row(
                 children: [
                   IconButton(
@@ -811,7 +1129,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Text(
                     '$monthName ${_selectedMonth.year}',
                     style: GoogleFonts.inter(
-                      fontSize: 14.sp,
+                      fontSize: 13.5.sp,
                       fontWeight: FontWeight.w900,
                       color: AppColors.textDark,
                     ),
@@ -853,7 +1171,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7, mainAxisSpacing: 8, crossAxisSpacing: 8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              childAspectRatio: 1,
+            ),
             itemCount: totalCells,
             itemBuilder: (context, index) {
               if (index < firstDayOffset) return const SizedBox.shrink();
@@ -863,6 +1186,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
               
               final now = DateTime.now();
               final isToday = cellDate.year == now.year && cellDate.month == now.month && cellDate.day == now.day;
+
+              final dayEvents = _getEventsForDay(cellDate);
+              final dotColor = _getEventDotColor(dayEvents);
+              final textColor = _getDateTextColor(cellDate, isSelected, isToday);
 
               return GestureDetector(
                 onTap: () {
@@ -874,29 +1201,62 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   duration: const Duration(milliseconds: 150),
                   decoration: BoxDecoration(
                     color: isSelected
-                        ? widget.theme.primary
-                        : (isToday ? widget.theme.primary.withValues(alpha: 0.15) : Colors.transparent),
-                    borderRadius: BorderRadius.circular(12.r),
-                    border: isToday && !isSelected
-                        ? Border.all(color: widget.theme.primary, width: 1.5.w)
-                        : null,
+                        ? const Color(0xFF0077D6)
+                        : (isToday ? const Color(0xFF0077D6).withValues(alpha: 0.15) : Colors.transparent),
+                    shape: BoxShape.circle,
                   ),
-                  child: Center(
-                    child: Text(
-                      dayVal.toString(),
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: isSelected || isToday ? FontWeight.w900 : FontWeight.w700,
-                        color: isSelected
-                            ? Colors.white
-                            : (isToday ? widget.theme.primary : AppColors.textDark),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        dayVal.toString(),
+                        style: GoogleFonts.inter(
+                          fontSize: 13.sp,
+                          fontWeight: isSelected || isToday ? FontWeight.w900 : FontWeight.w700,
+                          color: textColor,
+                        ),
                       ),
-                    ),
+                      if (dotColor != null) ...[
+                        SizedBox(height: 2.h),
+                        Container(
+                          width: 5.r,
+                          height: 5.r,
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.white : dotColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ] else
+                        SizedBox(height: 7.r),
+                    ],
                   ),
                 ),
               );
             },
           ),
+          SizedBox(height: 20.h),
+          const Divider(color: AppColors.border, thickness: 1),
+          SizedBox(height: 16.h),
+          
+          // Header: EVENTS FOR X
+          Text(
+            'EVENTS FOR ${_selectedDay.day} ${_getMonthAbbreviation(_selectedDay.month)}',
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w800,
+              color: const Color(0xFF334155),
+              letterSpacing: 1.0,
+            ),
+          ),
+          SizedBox(height: 16.h),
+          
+          // Event list
+          _buildDayEventsList(_selectedDay),
+          
+          SizedBox(height: 24.h),
+          
+          // View Full Academic Schedule Button
+          _buildViewScheduleButton(),
         ],
       ),
     );

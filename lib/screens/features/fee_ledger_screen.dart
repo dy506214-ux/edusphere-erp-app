@@ -101,8 +101,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Fees channel: $e', name: 'FeeLedgerScreen');
     }
     
-    // Polling fallback every 2 seconds
-    _feePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
+    // Polling fallback
+    _feePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         _loadLedgerData(showLoading: false);
       }
