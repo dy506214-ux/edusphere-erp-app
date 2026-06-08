@@ -370,213 +370,227 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             ),
           ),
 
-          // Table Headers
-          Container(
-            color: const Color(0xFFF8FAFC),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: Text('Admission No.',
-                      style: GoogleFonts.inter(
-                          fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: Text('Name',
-                      style: GoogleFonts.inter(
-                          fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text('Class',
-                      style: GoogleFonts.inter(
-                          fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: Text('Email',
-                      style: GoogleFonts.inter(
-                          fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Center(
-                    child: Text('Status',
-                        style: GoogleFonts.inter(
-                            fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Center(
-                    child: Text('Actions',
-                        style: GoogleFonts.inter(
-                            fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // Student Rows
-          if (_isLoading)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 32.h),
-              child: const Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFF0066CC),
-                ),
-              ),
-            )
-          else if (paginated.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 32.h),
-              child: Center(
-                child: Text(
-                  'No students found',
-                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
-                ),
-              ),
-            )
-          else
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: paginated.length,
-              itemBuilder: (context, idx) {
-                final student = paginated[idx];
-                return Container(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-                  ),
-                  child: Row(
-                    children: [
-                      // Admission No
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          student.admissionNo,
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+          // Scrollable Table container
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 650.w,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Table Headers
+                  Container(
+                    color: const Color(0xFFF8FAFC),
+                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: Text('Admission No.',
+                              style: GoogleFonts.inter(
+                                  fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                        ),
+                        Expanded(
+                          flex: 5,
+                          child: Text('Name',
+                              style: GoogleFonts.inter(
+                                  fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Text('Class',
+                              style: GoogleFonts.inter(
+                                  fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                        ),
+                        Expanded(
+                          flex: 5,
+                          child: Text('Email',
+                              style: GoogleFonts.inter(
+                                  fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                        ),
+                        Expanded(
+                          flex: 3,
+                          child: Center(
+                            child: Text('Status',
+                                style: GoogleFonts.inter(
+                                    fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
                           ),
                         ),
+                        Expanded(
+                          flex: 2,
+                          child: Center(
+                            child: Text('Actions',
+                                style: GoogleFonts.inter(
+                                    fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Student Rows
+                  if (_isLoading)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32.h),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          color: Color(0xFF0066CC),
+                        ),
                       ),
-                      // Name + Avatar
-                      Expanded(
-                        flex: 5,
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 28.w,
-                              height: 28.h,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFEFF6FF),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
+                    )
+                  else if (paginated.isEmpty)
+                    Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32.h),
+                      child: Center(
+                        child: Text(
+                          'No students found',
+                          style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    )
+                  else
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: paginated.length,
+                      itemBuilder: (context, idx) {
+                        final student = paginated[idx];
+                        return Container(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                          decoration: const BoxDecoration(
+                            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                          ),
+                          child: Row(
+                            children: [
+                              // Admission No
+                              Expanded(
+                                flex: 3,
                                 child: Text(
-                                  student.initials,
+                                  student.admissionNo,
                                   style: GoogleFonts.inter(
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF1E6091),
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF0F172A),
                                   ),
                                 ),
                               ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Text(
-                                student.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF475569),
+                              // Name + Avatar
+                              Expanded(
+                                flex: 5,
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 28.w,
+                                      height: 28.h,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFFEFF6FF),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          student.initials,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF1E6091),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(width: 8.w),
+                                    Expanded(
+                                      child: Text(
+                                        student.name,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Class
-                      Expanded(
-                        flex: 3,
-                        child: Text(
-                          student.className,
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                      // Email
-                      Expanded(
-                        flex: 5,
-                        child: Text(
-                          student.email,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                      // Status
-                      Expanded(
-                        flex: 3,
-                        child: Center(
-                          child: Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFECFDF5),
-                              borderRadius: BorderRadius.circular(6.r),
-                            ),
-                            child: Text(
-                              student.status,
-                              style: GoogleFonts.inter(
-                                fontSize: 8.sp,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF10B981),
+                              // Class
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  student.className,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w500,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
                               ),
-                            ),
+                              // Email
+                              Expanded(
+                                flex: 5,
+                                child: Text(
+                                  student.email,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 10.sp,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                              // Status
+                              Expanded(
+                                flex: 3,
+                                child: Center(
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFECFDF5),
+                                      borderRadius: BorderRadius.circular(6.r),
+                                    ),
+                                    child: Text(
+                                      student.status,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 8.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF10B981),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              // Actions (Eye Icon)
+                              Expanded(
+                                flex: 2,
+                                child: Center(
+                                  child: Icon(
+                                    Icons.visibility_outlined,
+                                    size: 16.sp,
+                                    color: const Color(0xFF64748B),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ),
-                      ),
-                      // Actions (Eye Icon)
-                      Expanded(
-                        flex: 2,
-                        child: Center(
-                          child: Icon(
-                            Icons.visibility_outlined,
-                            size: 16.sp,
-                            color: const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+                        );
+                      },
+                    ),
+                ],
+              ),
             ),
+          ),
 
-          // Pagination Footer
+          // Pagination Footer (centered & wrapped in column to prevent overflows)
           Padding(
             padding: EdgeInsets.all(16.r),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   'Showing ${totalCount == 0 ? 0 : (_currentPage - 1) * _rowsPerPage + 1} to ${(_currentPage * _rowsPerPage) > totalCount ? totalCount : (_currentPage * _rowsPerPage)} of $totalCount students',
                   style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
                 ),
+                SizedBox(height: 12.h),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Prev Button
                     GestureDetector(
@@ -591,32 +605,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                         child: Icon(Icons.chevron_left_rounded, size: 14.sp, color: const Color(0xFF64748B)),
                       ),
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 6.w),
                     // Pages numbers
-                    ...List.generate(_totalPages == 0 ? 1 : _totalPages, (index) {
-                      final p = index + 1;
-                      final isSelected = p == _currentPage;
-                      return GestureDetector(
-                        onTap: () => setState(() => _currentPage = p),
-                        child: Container(
-                          margin: EdgeInsets.symmetric(horizontal: 2.w),
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                          decoration: BoxDecoration(
-                            color: isSelected ? const Color(0xFF0066CC) : Colors.transparent,
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            '$p',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: isSelected ? Colors.white : const Color(0xFF64748B),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                    SizedBox(width: 4.w),
+                    ..._buildPageNumbers(),
+                    SizedBox(width: 6.w),
                     // Next Button
                     GestureDetector(
                       onTap: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null,
@@ -636,6 +628,87 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  List<Widget> _buildPageNumbers() {
+    final List<Widget> widgets = [];
+    final total = _totalPages == 0 ? 1 : _totalPages;
+
+    if (total <= 5) {
+      for (int p = 1; p <= total; p++) {
+        widgets.add(_buildPageButton(p));
+      }
+    } else {
+      // Always show page 1
+      widgets.add(_buildPageButton(1));
+
+      if (_currentPage > 3) {
+        widgets.add(_buildEllipsis());
+      }
+
+      // Show pages around current page
+      int start = _currentPage - 1;
+      int end = _currentPage + 1;
+
+      if (start <= 1) {
+        start = 2;
+        end = 4;
+      }
+      if (end >= total) {
+        end = total - 1;
+        start = total - 3;
+      }
+
+      for (int p = start; p <= end; p++) {
+        widgets.add(_buildPageButton(p));
+      }
+
+      if (_currentPage < total - 2) {
+        widgets.add(_buildEllipsis());
+      }
+
+      // Always show last page
+      widgets.add(_buildPageButton(total));
+    }
+
+    return widgets;
+  }
+
+  Widget _buildPageButton(int p) {
+    final isSelected = p == _currentPage;
+    return GestureDetector(
+      onTap: () => setState(() => _currentPage = p),
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 2.w),
+        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0066CC) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6.r),
+        ),
+        child: Text(
+          '$p',
+          style: GoogleFonts.inter(
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w700,
+            color: isSelected ? Colors.white : const Color(0xFF64748B),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEllipsis() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 4.w),
+      child: Text(
+        '...',
+        style: GoogleFonts.inter(
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF64748B),
+        ),
       ),
     );
   }
