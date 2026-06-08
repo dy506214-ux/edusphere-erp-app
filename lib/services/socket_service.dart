@@ -1,7 +1,7 @@
 import 'dart:developer' as dev;
 import 'package:socket_io_client/socket_io_client.dart' as socket_io;
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:edusphere/config/api_config.dart';
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -19,19 +19,8 @@ class SocketService {
   bool get isConnected => _isConnected;
   String? get socketId => _socket?.id;
 
-  /// Gets the default server URL based on the running platform
-  String get defaultServerUrl {
-    if (kIsWeb) {
-      return 'http://localhost:5001';
-    }
-    try {
-      if (Platform.isAndroid) {
-        // 10.0.2.2 is the special IP in Android emulators to access host's localhost
-        return 'http://10.0.2.2:5001';
-      }
-    } catch (_) {}
-    return 'http://localhost:5001';
-  }
+  /// Gets the default server URL based on the running platform/config
+  String get defaultServerUrl => ApiConfig.serverBaseUrl;
 
   /// Initialize and connect to the Socket.io server
   void connect({required String userId, required String role, String? customUrl}) {
