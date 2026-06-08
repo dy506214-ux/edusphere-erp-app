@@ -75,7 +75,6 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _showLogout = false;
-  bool _isEditing = false;
 
   // Teacher editing text controllers
   final TextEditingController _nameCtrl = TextEditingController();
@@ -277,7 +276,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .select('parentId, relationship')
               .eq('studentId', studentId);
 
-          if (studentParentRes != null && studentParentRes.isNotEmpty) {
+          if (studentParentRes.isNotEmpty) {
             String father = '—';
             String mother = '—';
             String guardianPhone = '—';
@@ -326,7 +325,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               .eq('studentId', studentId)
               .order('uploadedAt', ascending: false);
 
-          if (docsRes != null) {
+          if (docsRes.isNotEmpty) {
             setState(() {
               _uploadedDocuments = docsRes.map((d) {
                 final String docName = d['documentName'] as String? ?? 'Document.pdf';
@@ -2367,18 +2366,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _teacherActionBtn(String label, Color bg, Color textCol, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20.r), border: Border.all(color: textCol == AppColors.error ? const Color(0xFFFECACA) : AppColors.border)),
-        child: Center(child: Text(label, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: textCol))),
-      ),
     );
   }
 

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -288,10 +287,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
   }
 
-  // --- Save Announcements ---
-  Future<void> _saveAnnouncements() async {
-    // Kept for backwards compatibility
-  }
 
   // --- Add Announcement ---
   Future<void> _addAnnouncement(AnnouncementModel announcement) async {
@@ -1476,17 +1471,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         _scrollToBottom();
       }
     });
-  }
-
-  String _formatAudience(String audience) {
-    if (audience.toUpperCase() == 'ALL') {
-      return 'STUDENT, TEACHER, PARENT';
-    } else if (audience.toUpperCase() == 'STUDENTS') {
-      return 'STUDENT';
-    } else if (audience.toUpperCase() == 'TEACHERS') {
-      return 'TEACHER';
-    }
-    return audience.toUpperCase();
   }
 
   // --- UI Component: Banner Card ---
