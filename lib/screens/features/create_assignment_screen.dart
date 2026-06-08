@@ -39,8 +39,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   RealtimeChannel? _realtimeChannel;
   Timer? _pollTimer;
 
-  // Chatbot overlay
-  final bool _showBotBubble = true;
+
 
   @override
   void initState() {
@@ -341,25 +340,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
             ),
           ),
 
-          // Speech Bubble for bot greeting
-          if (_showBotBubble)
-            Positioned(
-              bottom: 96.h,
-              right: 24.w,
-              child: _buildBotBubble(),
-            ),
 
-          // AI Helper chatbot floating action button
-          Positioned(
-            bottom: 84.h,
-            right: 20.w,
-            child: FloatingActionButton(
-              heroTag: 'assignment_chatbot_fab',
-              onPressed: _showChatbotDialog,
-              backgroundColor: const Color(0xFF0284C7),
-              child: const Icon(Icons.auto_awesome, color: Colors.white),
-            ),
-          ),
         ],
       ),
     );
@@ -1451,158 +1432,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
     );
   }
 
-  Widget _buildBotBubble() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
-      ),
-      child: Text(
-        'HI\n${_teacherName.split(" ").first.toUpperCase()}!\nHOW\nCAN I\nHELP?',
-        style: GoogleFonts.inter(
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w900,
-          color: const Color(0xFF0284C7),
-          height: 1.2,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
 
-  void _showChatbotDialog() {
-    final messageCtrl = TextEditingController();
-    final List<Map<String, String>> chatMessages = [
-      {
-        'sender': 'bot',
-        'text': 'Hello $_teacherName! I am your EduSphere Helper. How can I assist you with assignment management or grading student work today?'
-      }
-    ];
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-          title: Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Color(0xFF0284C7)),
-              SizedBox(width: 8.w),
-              Text('AI Assistant Chat', style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 16.sp)),
-            ],
-          ),
-          content: SizedBox(
-            width: 320.w,
-            height: 350.h,
-            child: Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: chatMessages.length,
-                    itemBuilder: (context, index) {
-                      final msg = chatMessages[index];
-                      final isBot = msg['sender'] == 'bot';
-                      return Align(
-                        alignment: isBot ? Alignment.centerLeft : Alignment.centerRight,
-                        child: Container(
-                          margin: EdgeInsets.symmetric(vertical: 4.h),
-                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                          decoration: BoxDecoration(
-                            color: isBot ? const Color(0xFFF1F5F9) : const Color(0xFF0284C7),
-                            borderRadius: BorderRadius.circular(16.r).copyWith(
-                              topLeft: isBot ? Radius.zero : Radius.circular(16.r),
-                              topRight: isBot ? Radius.circular(16.r) : Radius.zero,
-                            ),
-                          ),
-                          child: Text(
-                            msg['text']!,
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: isBot ? const Color(0xFF1E293B) : Colors.white,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: messageCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Ask helper...',
-                          filled: true,
-                          fillColor: const Color(0xFFF8FAFC),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide.none),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                        ),
-                        onFieldSubmitted: (val) {
-                          if (val.trim().isEmpty) return;
-                          setDialogState(() {
-                            chatMessages.add({'sender': 'user', 'text': val});
-                            final reply = _getBotReply(val);
-                            chatMessages.add({'sender': 'bot', 'text': reply});
-                          });
-                          messageCtrl.clear();
-                        },
-                      ),
-                    ),
-                    SizedBox(width: 8.w),
-                    IconButton(
-                      icon: const Icon(Icons.send, color: Color(0xFF0284C7)),
-                      onPressed: () {
-                        final val = messageCtrl.text;
-                        if (val.trim().isEmpty) return;
-                        setDialogState(() {
-                          chatMessages.add({'sender': 'user', 'text': val});
-                          final reply = _getBotReply(val);
-                          chatMessages.add({'sender': 'bot', 'text': reply});
-                        });
-                        messageCtrl.clear();
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getBotReply(String query) {
-    query = query.toLowerCase();
-    if (query.contains('create') || query.contains('new assignment')) {
-      return 'You can create a new assignment by clicking the blue "+ New Assignment" button at the top of the dashboard.';
-    }
-    if (query.contains('grade') || query.contains('evaluation') || query.contains('approve')) {
-      return 'To grade student submissions, select an assignment from the "My Assignments" list, scroll to the "Submission Tracker" section, and click "Grade & Approve" on the student submission.';
-    }
-    if (query.contains('realtime') || query.contains('update')) {
-      return 'The dashboard automatically syncs with the server using Supabase Realtime databases. Any changes by students or grading will appear instantly.';
-    }
-    return 'I am here to help you grade work, create assignments, and view classes! Let me know what you need.';
-  }
 }
 
 // ── CUSTOM DASHED RECTANGLE PAINTER ──

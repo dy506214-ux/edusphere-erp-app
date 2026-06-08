@@ -32,24 +32,17 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   String _selectedClass = 'All Classes';
   String _selectedTerm = 'All Terms';
 
-  bool _isChatOpen = false;
-  bool _showAssistantBubble = true;
-  final List<Map<String, String>> _chatMessages = [];
-  final _chatInputCtrl = TextEditingController();
-  final _chatScrollCtrl = ScrollController();
+
 
   @override
   void initState() {
     super.initState();
     _loadTeacherName();
     _loadExams();
-    _initChat();
   }
 
   @override
   void dispose() {
-    _chatInputCtrl.dispose();
-    _chatScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -79,13 +72,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     return 'AS';
   }
 
-  String _getFirstName(String name) {
-    try {
-      final parts = name.trim().split(RegExp(r'\s+'));
-      if (parts.isNotEmpty) return parts[0].toUpperCase();
-    } catch (_) {}
-    return 'ARJUN';
-  }
 
   List<Map<String, dynamic>> _seedExams() => [
         {
@@ -149,56 +135,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     }).toList();
   }
 
-  // ─────────────────────────────────────────────────────────
-  // CHAT
-  // ─────────────────────────────────────────────────────────
 
-  void _initChat() {
-    _chatMessages.add({
-      'sender': 'bot',
-      'text':
-          'Hello! I am your Academic Assistant. How can I help you today?',
-    });
-  }
-
-  void _toggleChat() => setState(() {
-        _isChatOpen = !_isChatOpen;
-        if (_isChatOpen) _showAssistantBubble = false;
-      });
-
-  void _handleSendMessage() {
-    final text = _chatInputCtrl.text.trim();
-    if (text.isEmpty) return;
-    _chatInputCtrl.clear();
-    setState(
-        () => _chatMessages.add({'sender': 'user', 'text': text}));
-    final q = text.toLowerCase();
-    String reply;
-    if (q.contains('exam') || q.contains('schedule')) {
-      reply =
-          'You can view the full exam schedule in the section below. Use filters to narrow by Class, Term, or Academic Year.';
-    } else if (q.contains('total') || q.contains('how many')) {
-      reply = 'There are ${_exams.length} exam(s) scheduled.';
-    } else {
-      reply =
-          "I can help with exam dates, status, and room details. Try asking: 'How many exams are scheduled?'";
-    }
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(
-            () => _chatMessages.add({'sender': 'bot', 'text': reply}));
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_chatScrollCtrl.hasClients) {
-            _chatScrollCtrl.animateTo(
-              _chatScrollCtrl.position.maxScrollExtent,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-            );
-          }
-        });
-      }
-    });
-  }
 
   // ─────────────────────────────────────────────────────────
   // CREATE / EDIT
@@ -497,11 +434,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ),
           ),
 
-          // Chat bubble + FAB
-          _buildAssistantOverlay(),
 
-          // Chat window
-          if (_isChatOpen) _buildChatWindow(),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -1122,225 +1055,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   // ASSISTANT
   // ─────────────────────────────────────────────────────────
 
-  Widget _buildAssistantOverlay() {
-    return Positioned(
-      right: 16.w,
-      bottom: 16.h,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (_showAssistantBubble && !_isChatOpen)
-            GestureDetector(
-              onTap: _toggleChat,
-              child: Container(
-                margin:
-                    EdgeInsets.only(bottom: 8.h, right: 8.w),
-                padding: EdgeInsets.symmetric(
-                    horizontal: 12.w, vertical: 10.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16.r),
-                    topRight: Radius.circular(16.r),
-                    bottomLeft: Radius.circular(16.r),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'HI ${_getFirstName(_teacherName)}!',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    Text(
-                      'HOW CAN I HELP?',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF2563EB),
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          FloatingActionButton(
-            heroTag: 'exam_chatbot_fab',
-            backgroundColor: const Color(0xFF2563EB),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28.r)),
-            onPressed: _toggleChat,
-            child: Icon(
-              _isChatOpen
-                  ? Icons.close_rounded
-                  : Icons.assistant_navigation,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildChatWindow() {
-    return Positioned(
-      right: 16.w,
-      bottom: 80.h,
-      width: 300.w,
-      height: 380.h,
-      child: Card(
-        elevation: 12,
-        shadowColor: Colors.black.withValues(alpha: 0.15),
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16.r)),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: 16.w, vertical: 12.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFF2563EB),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(16.r),
-                  topRight: Radius.circular(16.r),
-                ),
-              ),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 14.r,
-                    backgroundColor:
-                        Colors.white.withValues(alpha: 0.2),
-                    child: const Icon(Icons.assistant_rounded,
-                        color: Colors.white, size: 16),
-                  ),
-                  SizedBox(width: 8.w),
-                  Expanded(
-                    child: Text(
-                      'Academic Assistant',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _toggleChat,
-                    child: const Icon(Icons.close,
-                        color: Colors.white, size: 18),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Container(
-                color: const Color(0xFFF8FAFC),
-                child: ListView.builder(
-                  controller: _chatScrollCtrl,
-                  padding: EdgeInsets.all(12.r),
-                  itemCount: _chatMessages.length,
-                  itemBuilder: (ctx, i) {
-                    final msg = _chatMessages[i];
-                    final isUser = msg['sender'] == 'user';
-                    return Align(
-                      alignment: isUser
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        constraints:
-                            BoxConstraints(maxWidth: 220.w),
-                        margin: EdgeInsets.only(bottom: 8.h),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 12.w, vertical: 8.h),
-                        decoration: BoxDecoration(
-                          color: isUser
-                              ? const Color(0xFF2563EB)
-                              : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(12.r),
-                            topRight: Radius.circular(12.r),
-                            bottomLeft: isUser
-                                ? Radius.circular(12.r)
-                                : Radius.zero,
-                            bottomRight: isUser
-                                ? Radius.zero
-                                : Radius.circular(12.r),
-                          ),
-                          border: isUser
-                              ? null
-                              : Border.all(
-                                  color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: Text(
-                          msg['text'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            color: isUser
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(
-                  horizontal: 8.w, vertical: 6.h),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border:
-                    Border(top: BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _chatInputCtrl,
-                      onSubmitted: (_) => _handleSendMessage(),
-                      decoration: InputDecoration(
-                        hintText: 'Type your message...',
-                        hintStyle: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            color: const Color(0xFF94A3B8)),
-                        border: InputBorder.none,
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 8.w),
-                      ),
-                      style: GoogleFonts.inter(fontSize: 12.sp),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.send_rounded,
-                        color: Color(0xFF2563EB)),
-                    onPressed: _handleSendMessage,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   // ─────────────────────────────────────────────────────────
   // BOTTOM NAV

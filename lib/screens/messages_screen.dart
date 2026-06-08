@@ -177,11 +177,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String _communityFilter = 'All';
   String _firstName = 'Kavya';
 
-  // Chatbot State
-  bool _isChatOpen = false;
-  final List<Map<String, String>> _chatMessages = [];
-  final _chatInputCtrl = TextEditingController();
-  final ScrollController _chatScrollCtrl = ScrollController();
 
   @override
   void initState() {
@@ -213,8 +208,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _searchCtrl.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
-    _chatInputCtrl.dispose();
-    _chatScrollCtrl.dispose();
     super.dispose();
   }
 
@@ -225,41 +218,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
       if (mounted) {
         setState(() {
           _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
-          _initChat();
         });
       }
-    } catch (_) {
-      _initChat();
-    }
-  }
-
-  void _initChat() {
-    _chatMessages.clear();
-    _chatMessages.add({
-      'sender': 'bot',
-      'text': 'Hi $_firstName! I am Priya, your School Assistant. How can I help you in the Community today?'
-    });
-  }
-
-  void _toggleChat() {
-    setState(() {
-      _isChatOpen = !_isChatOpen;
-    });
-    if (_isChatOpen) {
-      _scrollToChatBottom();
-    }
-  }
-
-  void _scrollToChatBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_chatScrollCtrl.hasClients) {
-        _chatScrollCtrl.animateTo(
-          _chatScrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
+    } catch (_) {}
   }
 
   Future<void> _loadCommunityPosts() async {
@@ -1209,7 +1170,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
   // --- Student Layout Helpers ---
 
   Widget _buildStudentListView() {
-    final bool isDesktop = MediaQuery.of(context).size.width > 900;
     Widget bodyContent = _buildCommunityFeedContent();
 
     return Scaffold(
@@ -1287,9 +1247,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 Expanded(child: bodyContent),
               ],
             ),
-            if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
-            _buildAssistantFAB(isDesktop),
-            if (_isChatOpen) _buildChatWindow(isDesktop),
+
           ],
         ),
       ),
@@ -2324,366 +2282,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  Widget _buildAssistantSpeechBubble(bool isDesktop) {
-    return Positioned(
-      right: isDesktop ? 90.w : 84.w,
-      bottom: isDesktop ? 30.h : 24.h,
-      child: GestureDetector(
-        onTap: _toggleChat,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: const Color(0xFFE2EAF4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'HI',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F2547),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                '${_firstName.toUpperCase()}!',
-                style: GoogleFonts.outfit(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'HOW',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1A6FDB),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'CAN I',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1A6FDB),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'HELP?',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1A6FDB),
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildAssistantFAB(bool isDesktop) {
-    return Positioned(
-      right: 24.w,
-      bottom: isDesktop ? 24.h : 18.h,
-      child: GestureDetector(
-        onTap: _toggleChat,
-        child: Container(
-          width: 52.w,
-          height: 52.w,
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A6FDB),
-            borderRadius: BorderRadius.circular(16.r),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF1A6FDB).withValues(alpha: 0.35),
-                blurRadius: 12.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.chat_bubble_rounded,
-                  color: Colors.white,
-                  size: 24.sp,
-                ),
-                Positioned(
-                  right: -4.w,
-                  top: -4.h,
-                  child: Icon(
-                    Icons.add_rounded,
-                    color: Colors.yellow,
-                    size: 16.sp,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChatWindow(bool isDesktop) {
-    return Positioned(
-      right: isDesktop ? 24.w : 16.w,
-      left: isDesktop ? null : 16.w,
-      bottom: isDesktop ? 90.h : 84.h,
-      height: 420.h,
-      width: isDesktop ? 340.w : null,
-      child: Card(
-        elevation: 12,
-        shadowColor: Colors.black.withValues(alpha: 0.15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A6FDB),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20.r),
-                  topRight: Radius.circular(20.r),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(6.r),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: 10.w),
-                      Text(
-                        'Priya - Community AI',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: Colors.white, size: 20.sp),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: _toggleChat,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Container(
-                color: const Color(0xFFF8FAFC),
-                child: ListView.builder(
-                  controller: _chatScrollCtrl,
-                  padding: EdgeInsets.all(16.r),
-                  itemCount: _chatMessages.length,
-                  itemBuilder: (ctx, i) {
-                    final msg = _chatMessages[i];
-                    final isUser = msg['sender'] == 'user';
-                    return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: EdgeInsets.only(bottom: 10.h),
-                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                        decoration: BoxDecoration(
-                          color: isUser ? const Color(0xFF1A6FDB) : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16.r),
-                            topRight: Radius.circular(16.r),
-                            bottomLeft: isUser ? Radius.circular(16.r) : Radius.zero,
-                            bottomRight: isUser ? Radius.zero : Radius.circular(16.r),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 4.r,
-                              offset: Offset(0, 2.h),
-                            )
-                          ],
-                          border: isUser ? null : Border.all(color: const Color(0xFFE9F0F8)),
-                        ),
-                        child: Text(
-                          msg['text'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5.sp,
-                            height: 1.3,
-                            color: isUser ? Colors.white : const Color(0xFF0F2547),
-                            fontWeight: isUser ? FontWeight.w500 : FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Container(
-              color: const Color(0xFFF8FAFC),
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
-              child: Row(
-                children: [
-                  _buildChatQuickChip('Creating Posts', () {
-                    _chatInputCtrl.text = 'How to create posts?';
-                    _handleSendChatMsg();
-                  }),
-                  _buildChatQuickChip('Reactions Help', () {
-                    _chatInputCtrl.text = 'Explain reactions';
-                    _handleSendChatMsg();
-                  }),
-                  _buildChatQuickChip('Comments Help', () {
-                    _chatInputCtrl.text = 'How to reply to a post?';
-                    _handleSendChatMsg();
-                  }),
-                ],
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE9F0F8))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _chatInputCtrl,
-                      onSubmitted: (_) => _handleSendChatMsg(),
-                      decoration: InputDecoration(
-                        hintText: 'Ask about community feed...',
-                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
-                      ),
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _handleSendChatMsg,
-                    child: Container(
-                      padding: EdgeInsets.all(8.r),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF1A6FDB),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 16.sp,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChatQuickChip(String label, VoidCallback onTap) {
-    return Expanded(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4.w),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 6.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 9.5.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1A6FDB),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _handleSendChatMsg() {
-    final text = _chatInputCtrl.text.trim();
-    if (text.isEmpty) return;
-
-    _chatInputCtrl.clear();
-    setState(() {
-      _chatMessages.add({'sender': 'user', 'text': text});
-    });
-    _scrollToChatBottom();
-
-    String reply = '';
-    final query = text.toLowerCase();
-
-    if (query.contains('post') || query.contains('publish') || query.contains('write')) {
-      reply = 'To publish a post in the community feed, click the "+ Create Post" button at the top right, select a category (SAMPLE, EVENT, ANNOUNCEMENT, UPDATE), enter your content, and hit Publish!';
-    } else if (query.contains('react') || query.contains('like') || query.contains('insightful') || query.contains('fire')) {
-      reply = 'You can react to posts by tapping the React button on any card. Tap it to toggle between Liked and Insightful reactions. Reaction milestones are marked with a fire 🔥 emoji!';
-    } else if (query.contains('comment') || query.contains('reply')) {
-      reply = 'To read comments or write a reply, tap the "Comments" label at the bottom of any post card. This opens a dedicated bottom sheet for replies.';
-    } else if (query.contains('help') || query.contains('hi') || query.contains('hello')) {
-      reply = 'Hi $_firstName! I am Priya, your School Assistant. I can guide you on using the Community feed, reactions, creating posts, and comments!';
-    } else {
-      reply = 'I am not sure about that. Try asking about "creating posts", "reactions", or "comments" for details!';
-    }
-
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      if (mounted) {
-        setState(() {
-          _chatMessages.add({
-            'sender': 'bot',
-            'text': reply,
-          });
-        });
-        _scrollToChatBottom();
-      }
-    });
-  }
 
 
 

@@ -664,21 +664,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
                       // Attendance History
                       _buildAttendanceHistoryCard(),
-                      SizedBox(height: 100.h), // Offset for FAB
                     ],
                   ),
-                ),
-              ),
-
-              // Bottom right timetable slots FAB
-              Positioned(
-                right: 24.w,
-                bottom: 24.h,
-                child: FloatingActionButton(
-                  onPressed: _showAllTimetablesSheet,
-                  backgroundColor: const Color(0xFF0076F6),
-                  elevation: 6,
-                  child: Icon(Icons.departure_board, color: Colors.white, size: 26.sp),
                 ),
               ),
             ],

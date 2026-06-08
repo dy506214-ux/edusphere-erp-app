@@ -26,23 +26,46 @@ class _TransportScreenState extends State<TransportScreen> {
   String _stopName = 'Stop A';
   String _arrivalTime = '07:00 AM';
 
-  // Chatbot State
-  bool _isChatOpen = false;
-  final List<Map<String, String>> _chatMessages = [];
-  final _chatInputCtrl = TextEditingController();
-  final ScrollController _chatScrollCtrl = ScrollController();
+  RealtimeChannel? _transportChannel;
 
   @override
   void initState() {
     super.initState();
     _loadTransportAllocation();
+    _connectRealTime();
   }
 
   @override
   void dispose() {
-    _chatInputCtrl.dispose();
-    _chatScrollCtrl.dispose();
+    if (_transportChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_transportChannel!);
+      } catch (_) {}
+    }
     super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_transportChannel != null) {
+        client.removeChannel(_transportChannel!);
+      }
+
+      _transportChannel = client.channel('public:transport_allocation_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'TransportAllocation',
+          callback: (payload) {
+            if (mounted) {
+              _loadTransportAllocation();
+            }
+          },
+        );
+      
+      _transportChannel!.subscribe();
+    } catch (_) {}
   }
 
   Future<void> _loadTransportAllocation() async {
@@ -124,8 +147,6 @@ class _TransportScreenState extends State<TransportScreen> {
         _arrivalTime = '07:00 AM';
         _isTransportAssigned = true;
       }
-
-      _initChat();
     } catch (e) {
       debugPrint('Error loading transport allocation: $e');
       _routeName = 'Route 1 - City Center';
@@ -225,34 +246,7 @@ class _TransportScreenState extends State<TransportScreen> {
     }
   }
 
-  void _initChat() {
-    _chatMessages.clear();
-    _chatMessages.add({
-      'sender': 'bot',
-      'text': 'Hi $_firstName! I am Priya, your Transport Assistant. How can I help you today?'
-    });
-  }
 
-  void _toggleChat() {
-    setState(() {
-      _isChatOpen = !_isChatOpen;
-    });
-    if (_isChatOpen) {
-      _scrollToBottom();
-    }
-  }
-
-  void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_chatScrollCtrl.hasClients) {
-        _chatScrollCtrl.animateTo(
-          _chatScrollCtrl.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
 
   void _requestTransport() {
     if (_isRequesting) return;
@@ -270,69 +264,10 @@ class _TransportScreenState extends State<TransportScreen> {
     });
   }
 
-  void _handleSendChatMessage() {
-    final text = _chatInputCtrl.text.trim();
-    if (text.isEmpty) return;
 
-    _chatInputCtrl.clear();
-    setState(() {
-      _chatMessages.add({'sender': 'user', 'text': text});
-    });
-    _scrollToBottom();
-
-    String reply = '';
-    final query = text.toLowerCase();
-
-    if (query.contains('request') || query.contains('assign') || query.contains('allocate') || query.contains('book')) {
-      if (_isTransportAssigned) {
-        reply = 'You are already allocated to $_routeName!';
-      } else {
-        setState(() {
-          _chatMessages.add({'sender': 'bot', 'text': 'Processing your transport request...'});
-        });
-        _scrollToBottom();
-
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          _createSupabaseAllocation().then((_) {
-            if (mounted) {
-              setState(() {
-                _chatMessages.add({
-                  'sender': 'bot',
-                  'text': '✅ Success! You have been successfully assigned to:\n\n• Route: $_routeName\n• Stop: $_stopName\n• Scheduled Time: $_arrivalTime'
-                });
-              });
-              _scrollToBottom();
-              showToast(context, '✅ Transport assigned via Assistant!');
-            }
-          });
-        });
-        return;
-      }
-    } else if (query.contains('time') || query.contains('timing') || query.contains('schedule')) {
-      reply = 'The school transport timings are:\n• Scheduled Arrival Time: $_arrivalTime';
-    } else if (query.contains('driver') || query.contains('contact')) {
-      reply = 'For transport coordinator contact details, please reach out to the school administrative office.';
-    } else if (query.contains('route') || query.contains('stop')) {
-      reply = 'Your assigned route is $_routeName with pickup/drop stop at $_stopName.';
-    } else {
-      reply = "Hi $_firstName! I can help you request school transport, check routes or timings. Try typing: 'Request Transport' or 'Check Timings'.";
-    }
-
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) {
-        setState(() {
-          _chatMessages.add({'sender': 'bot', 'text': reply});
-        });
-        _scrollToBottom();
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final isDesktop = size.width > 900;
-
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -347,6 +282,7 @@ class _TransportScreenState extends State<TransportScreen> {
         child: SafeArea(
           child: Stack(
             children: [
+              // Main Content
               // Main Content
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
@@ -417,13 +353,6 @@ class _TransportScreenState extends State<TransportScreen> {
                   ],
                 ),
               ),
-
-              // Floating Assistant Speech Bubble & FAB Group
-              if (!_isChatOpen) _buildAssistantSpeechBubble(isDesktop),
-              _buildAssistantFAB(isDesktop),
-
-              // Chatbot overlay window
-              if (_isChatOpen) _buildChatWindow(isDesktop),
             ],
           ),
         ),
@@ -648,327 +577,5 @@ class _TransportScreenState extends State<TransportScreen> {
     }
   }
 
-  Widget _buildAssistantSpeechBubble(bool isDesktop) {
-    return Positioned(
-      right: isDesktop ? 90.w : 84.w,
-      bottom: isDesktop ? 30.h : 24.h,
-      child: GestureDetector(
-        onTap: _toggleChat,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: const Color(0xFFE2EAF4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
-                blurRadius: 10.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'HI',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F2547),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                '${_firstName.toUpperCase()}!',
-                style: GoogleFonts.outfit(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'HOW',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0076F6),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'CAN I',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0076F6),
-                  height: 1.2,
-                ),
-              ),
-              Text(
-                'HELP?',
-                style: GoogleFonts.outfit(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0076F6),
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildAssistantFAB(bool isDesktop) {
-    return Positioned(
-      right: 24.w,
-      bottom: isDesktop ? 24.h : 18.h,
-      child: GestureDetector(
-        onTap: _toggleChat,
-        child: Container(
-          width: 52.w,
-          height: 52.w,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0076F6),
-            borderRadius: BorderRadius.circular(16.r),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0076F6).withValues(alpha: 0.35),
-                blurRadius: 12.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Center(
-            child: Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                Icon(
-                  Icons.chat_bubble_rounded,
-                  color: Colors.white,
-                  size: 24.sp,
-                ),
-                Positioned(
-                  right: -4.w,
-                  top: -4.h,
-                  child: Icon(
-                    Icons.add_rounded,
-                    color: Colors.yellow,
-                    size: 16.sp,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChatWindow(bool isDesktop) {
-    return Positioned(
-      right: isDesktop ? 24.w : 16.w,
-      left: isDesktop ? null : 16.w,
-      bottom: isDesktop ? 90.h : 84.h,
-      height: 420.h,
-      width: isDesktop ? 340.w : null,
-      child: Card(
-        elevation: 12,
-        shadowColor: Colors.black.withValues(alpha: 0.15),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
-        child: Column(
-          children: [
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0076F6),
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20.r),
-                  topRight: Radius.circular(20.r),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(6.r),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(width: 10.w),
-                      Text(
-                        'Priya - Transport AI',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.close_rounded, color: Colors.white, size: 20.sp),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    onPressed: _toggleChat,
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Container(
-                color: const Color(0xFFF8FAFC),
-                child: ListView.builder(
-                  controller: _chatScrollCtrl,
-                  padding: EdgeInsets.all(16.r),
-                  itemCount: _chatMessages.length,
-                  itemBuilder: (ctx, i) {
-                    final msg = _chatMessages[i];
-                    final isUser = msg['sender'] == 'user';
-                    return Align(
-                      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: EdgeInsets.only(bottom: 10.h),
-                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                        decoration: BoxDecoration(
-                          color: isUser ? const Color(0xFF0076F6) : Colors.white,
-                          borderRadius: BorderRadius.only(
-                            topLeft: Radius.circular(16.r),
-                            topRight: Radius.circular(16.r),
-                            bottomLeft: isUser ? Radius.circular(16.r) : Radius.zero,
-                            bottomRight: isUser ? Radius.zero : Radius.circular(16.r),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 4.r,
-                              offset: Offset(0, 2.h),
-                            )
-                          ],
-                          border: isUser ? null : Border.all(color: const Color(0xFFE9F0F8)),
-                        ),
-                        child: Text(
-                          msg['text'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.5.sp,
-                            height: 1.3,
-                            color: isUser ? Colors.white : const Color(0xFF0F2547),
-                            fontWeight: isUser ? FontWeight.w500 : FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-            Container(
-              color: const Color(0xFFF8FAFC),
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
-              child: Row(
-                children: [
-                  if (!_isTransportAssigned)
-                    _buildQuickChip('Request Transport', () {
-                      _chatInputCtrl.text = 'Request Transport Route';
-                      _handleSendChatMessage();
-                    }),
-                  _buildQuickChip('Check Timings', () {
-                    _chatInputCtrl.text = 'What are the timings?';
-                    _handleSendChatMessage();
-                  }),
-                  _buildQuickChip('Driver Contact', () {
-                    _chatInputCtrl.text = 'Get driver contact';
-                    _handleSendChatMessage();
-                  }),
-                ],
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFE9F0F8))),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _chatInputCtrl,
-                      onSubmitted: (_) => _handleSendChatMessage(),
-                      decoration: InputDecoration(
-                        hintText: 'Ask about routes, timings...',
-                        hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 8.w),
-                      ),
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: _handleSendChatMessage,
-                    child: Container(
-                      padding: EdgeInsets.all(8.r),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF0076F6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.send_rounded,
-                        color: Colors.white,
-                        size: 16.sp,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildQuickChip(String label, VoidCallback onTap) {
-    return Expanded(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 4.w),
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 6.h),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Center(
-              child: Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 9.5.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0076F6),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

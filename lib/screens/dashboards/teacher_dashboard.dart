@@ -43,11 +43,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF0EA5E9),
-        child: Icon(Icons.auto_awesome, color: Colors.white, size: 28.sp), // closest to the spark icon
-      ),
     );
   }
 

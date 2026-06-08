@@ -1,0 +1,526 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:async';
+
+class AIChatbotOverlay extends StatefulWidget {
+  final Widget child;
+  const AIChatbotOverlay({super.key, required this.child});
+
+  @override
+  State<AIChatbotOverlay> createState() => _AIChatbotOverlayState();
+}
+
+class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
+  bool _isChatOpen = false;
+  final List<Map<String, String>> _chatMessages = [];
+  final _chatInputCtrl = TextEditingController();
+  final ScrollController _chatScrollCtrl = ScrollController();
+  StreamSubscription<AuthState>? _authSub;
+  Timer? _refreshTimer;
+
+  // Smart Prefetched Data
+  String _firstName = 'User';
+  String _studentId = '';
+  double _attendanceRate = 100.0;
+  int _pendingFee = 0;
+  int _booksDue = 0;
+  int _pendingAssignments = 0;
+  String _routeName = 'None Assigned';
+  String _stopName = 'None';
+  String _arrivalTime = '—';
+
+  bool _loadingResponse = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStudentDataAndPrefetch();
+    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      final event = data.event;
+      if (event == AuthChangeEvent.signedIn) {
+        _loadStudentDataAndPrefetch();
+        _startRefreshTimer();
+      } else if (event == AuthChangeEvent.signedOut) {
+        _stopRefreshTimer();
+        setState(() {
+          _firstName = 'User';
+          _studentId = '';
+          _initChat();
+        });
+      }
+    });
+    if (Supabase.instance.client.auth.currentUser != null) {
+      _startRefreshTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _chatInputCtrl.dispose();
+    _chatScrollCtrl.dispose();
+    _authSub?.cancel();
+    _stopRefreshTimer();
+    super.dispose();
+  }
+
+  void _startRefreshTimer() {
+    _stopRefreshTimer();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (_shouldShowChatbot) {
+        _loadStudentDataAndPrefetch();
+      }
+    });
+  }
+
+  void _stopRefreshTimer() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+  }
+
+  Future<void> _loadStudentDataAndPrefetch() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
+      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Tanvi Singh';
+      _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
+
+      if (_chatMessages.isEmpty) {
+        _initChat();
+      }
+
+      if (savedEmail == null) return;
+
+      final supabase = Supabase.instance.client;
+
+      // 1. Fetch user detail
+      final userRes = await supabase
+          .from('User')
+          .select()
+          .eq('email', savedEmail)
+          .maybeSingle();
+
+      if (userRes != null) {
+        final userId = userRes['id'] as String;
+        _firstName = userRes['firstName'] as String? ?? _firstName;
+
+        // 2. Fetch student detail
+        final studentRes = await supabase
+            .from('Student')
+            .select()
+            .eq('userId', userId)
+            .maybeSingle();
+
+        if (studentRes != null) {
+          _studentId = studentRes['id'] as String;
+          final classId = studentRes['currentClassId'] as String? ?? '';
+          final sectionId = studentRes['sectionId'] as String? ?? '';
+
+          // Fetch attendance rate
+          final List<dynamic> attendanceRes = await supabase
+              .from('AttendanceRecord')
+              .select()
+              .eq('studentId', _studentId);
+
+          if (attendanceRes.isNotEmpty) {
+            int present = 0;
+            for (var record in attendanceRes) {
+              final status = record['status'] as String? ?? '';
+              if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+                present++;
+              }
+            }
+            _attendanceRate = (present / attendanceRes.length) * 100;
+          }
+
+          // Fetch pending fees
+          final List<dynamic> ledgerRes = await supabase
+              .from('StudentFeeLedger')
+              .select()
+              .eq('studentId', _studentId);
+
+          double balance = 0;
+          for (var entry in ledgerRes) {
+            final pendingVal = (entry['totalPending'] ?? entry['total_pending'] ?? 0) as num;
+            balance += pendingVal.toDouble();
+          }
+          _pendingFee = balance.toInt();
+
+          // Fetch library books due
+          final List<dynamic> booksRes = await supabase
+              .from('LibraryIssue')
+              .select()
+              .eq('studentId', _studentId)
+              .eq('status', 'ISSUED');
+          _booksDue = booksRes.length;
+
+          // Fetch assignments pending
+          if (classId.isNotEmpty) {
+            final List<dynamic> assignmentsRes = await supabase
+                .from('Assignment')
+                .select()
+                .eq('classId', classId);
+
+            final classAssignments = assignmentsRes.where((a) {
+              final aSecId = a['sectionId'];
+              return aSecId == null || sectionId.isEmpty || aSecId == sectionId;
+            }).toList();
+
+            final List<dynamic> submissionsRes = await supabase
+                .from('AssignmentSubmission')
+                .select()
+                .eq('studentId', _studentId);
+
+            _pendingAssignments = (classAssignments.length - submissionsRes.length).clamp(0, 99);
+          }
+
+          // Fetch transport details
+          final allocationRes = await supabase
+              .from('TransportAllocation')
+              .select('*, TransportRoute(*), RouteStop(*)')
+              .eq('studentId', _studentId)
+              .eq('status', 'ACTIVE')
+              .maybeSingle();
+
+          if (allocationRes != null) {
+            final routeData = allocationRes['TransportRoute'];
+            final stopData = allocationRes['RouteStop'];
+
+            if (routeData != null) {
+              _routeName = routeData['name'] as String? ?? 'None';
+            }
+            if (stopData != null) {
+              _stopName = stopData['name'] as String? ?? 'None';
+              final timeVal = stopData['arrivalTime'];
+              if (timeVal != null) {
+                _arrivalTime = _formatTime(timeVal.toString());
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  String _formatTime(String timeStr) {
+    try {
+      if (timeStr.contains('AM') || timeStr.contains('PM')) return timeStr;
+      final parts = timeStr.split(':');
+      if (parts.length >= 2) {
+        int hour = int.parse(parts[0]);
+        int minute = int.parse(parts[1]);
+        String period = 'AM';
+        if (hour >= 12) {
+          period = 'PM';
+          if (hour > 12) hour -= 12;
+        } else if (hour == 0) {
+          hour = 12;
+        }
+        return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+      }
+    } catch (_) {}
+    return timeStr;
+  }
+
+  void _initChat() {
+    _chatMessages.clear();
+    _chatMessages.add({
+      'sender': 'bot',
+      'text': 'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?'
+    });
+  }
+
+  void _toggleChat() {
+    setState(() {
+      _isChatOpen = !_isChatOpen;
+    });
+    if (_isChatOpen) {
+      _loadStudentDataAndPrefetch();
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _handleSendChatMessage() {
+    final text = _chatInputCtrl.text.trim();
+    if (text.isEmpty) return;
+
+    _chatInputCtrl.clear();
+    setState(() {
+      _chatMessages.add({'sender': 'user', 'text': text});
+    });
+    _scrollToBottom();
+
+    setState(() => _loadingResponse = true);
+
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      String reply = '';
+      final query = text.toLowerCase();
+
+      if (query.contains('attendance') || query.contains('present') || query.contains('absent') || query.contains('classes')) {
+        reply = 'Hi $_firstName! Your overall attendance rate is ${_attendanceRate.toStringAsFixed(1)}% this month.';
+      } else if (query.contains('fee') || query.contains('payment') || query.contains('due') || query.contains('balance')) {
+        reply = _pendingFee > 0
+            ? 'Hi $_firstName! You have a pending fee balance of ₹$_pendingFee due. You can pay it from the Fees screen.'
+            : 'Hi $_firstName! Great news! You have no pending fees.';
+      } else if (query.contains('transport') || query.contains('bus') || query.contains('route') || query.contains('stop') || query.contains('timing')) {
+        reply = _routeName != 'None Assigned'
+            ? 'Hi $_firstName! Your transport details are:\n\n• Route: $_routeName\n• Stop: $_stopName\n• Scheduled Time: $_arrivalTime'
+            : 'Hi $_firstName! You are not currently allocated to any transport route.';
+      } else if (query.contains('book') || query.contains('library') || query.contains('overdue')) {
+        reply = _booksDue > 0
+            ? 'Hi $_firstName! You have $_booksDue book(s) currently overdue in the library. Please return them as soon as possible.'
+            : 'Hi $_firstName! You have no overdue library books at the moment.';
+      } else if (query.contains('assignment') || query.contains('homework') || query.contains('pending') || query.contains('task')) {
+        reply = _pendingAssignments > 0
+            ? 'Hi $_firstName! You have $_pendingAssignments pending assignment(s) to submit. Check the Assignments section to view them.'
+            : 'Hi $_firstName! You have completed all assignments! Keep it up!';
+      } else {
+        reply = "Hi $_firstName! I can help you check attendance, pending fees, library books, transport route, and assignments. Try typing: 'Check my fees' or 'Show my transport details'.";
+      }
+
+      setState(() {
+        _loadingResponse = false;
+        _chatMessages.add({'sender': 'bot', 'text': reply});
+      });
+      _scrollToBottom();
+    });
+  }
+
+  bool get _shouldShowChatbot {
+    try {
+      return Supabase.instance.client.auth.currentUser != null;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 900;
+    final showChat = _shouldShowChatbot;
+
+    return Stack(
+      children: [
+        // Screen Content
+        widget.child,
+
+        // Floating Action Button (FAB) only (no speech bubble)
+        if (showChat && !_isChatOpen)
+          Positioned(
+            right: 24.w,
+            bottom: isDesktop ? 24.h : 90.h,
+            child: _buildAssistantFAB(),
+          ),
+
+        // Chatbot Overlay Window
+        if (showChat && _isChatOpen)
+          Positioned(
+            right: isDesktop ? 24.w : 16.w,
+            left: isDesktop ? null : 16.w,
+            bottom: isDesktop ? 90.h : 84.h,
+            height: 420.h,
+            width: isDesktop ? 340.w : null,
+            child: _buildChatWindow(isDesktop),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildAssistantFAB() {
+    return GestureDetector(
+      onTap: _toggleChat,
+      child: Container(
+        width: 52.w,
+        height: 52.w,
+        decoration: BoxDecoration(
+          color: const Color(0xFF0076F6),
+          borderRadius: BorderRadius.circular(16.r),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0076F6).withValues(alpha: 0.35),
+              blurRadius: 12.r,
+              offset: Offset(0, 4.h),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Icon(
+                Icons.chat_bubble_rounded,
+                color: Colors.white,
+                size: 24.sp,
+              ),
+              Positioned(
+                right: -4.w,
+                top: -4.h,
+                child: Icon(
+                  Icons.add_rounded,
+                  color: Colors.yellow,
+                  size: 16.sp,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatWindow(bool isDesktop) {
+    return Card(
+      elevation: 12,
+      shadowColor: Colors.black.withValues(alpha: 0.15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0076F6),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(20.r),
+                topRight: Radius.circular(20.r),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16.r,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      child: Icon(Icons.face_retouching_natural_rounded, color: Colors.white, size: 18.sp),
+                    ),
+                    SizedBox(width: 10.w),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Priya Assistant',
+                          style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        Text(
+                          'AI Support Online',
+                          style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white70, fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: _toggleChat,
+                ),
+              ],
+            ),
+          ),
+          
+          // Chat Messages List
+          Expanded(
+            child: Container(
+              color: const Color(0xFFF8FAFC),
+              padding: EdgeInsets.all(16.r),
+              child: ListView.builder(
+                controller: _chatScrollCtrl,
+                itemCount: _chatMessages.length,
+                itemBuilder: (context, index) {
+                  final msg = _chatMessages[index];
+                  final isMe = msg['sender'] == 'user';
+                  return Align(
+                    alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                    child: Container(
+                      margin: EdgeInsets.only(bottom: 12.h),
+                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                      decoration: BoxDecoration(
+                        color: isMe ? const Color(0xFF0076F6) : Colors.white,
+                        border: isMe ? null : Border.all(color: const Color(0xFFE2EAF4)),
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(16.r),
+                          topRight: Radius.circular(16.r),
+                          bottomLeft: isMe ? Radius.circular(16.r) : Radius.circular(4.r),
+                          bottomRight: isMe ? Radius.circular(4.r) : Radius.circular(16.r),
+                        ),
+                      ),
+                      constraints: BoxConstraints(maxWidth: 240.w),
+                      child: Text(
+                        msg['text']!,
+                        style: GoogleFonts.inter(
+                          fontSize: 12.5.sp,
+                          color: isMe ? Colors.white : const Color(0xFF1E293B),
+                          fontWeight: isMe ? FontWeight.w600 : FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+
+          if (_loadingResponse)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.h),
+              child: const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0076F6)),
+              ),
+            ),
+
+          // Chat Input Bar
+          Container(
+            padding: EdgeInsets.all(10.r),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Color(0xFFF1F5F9))),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _chatInputCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Type your message...',
+                      hintStyle: GoogleFonts.inter(fontSize: 12.5.sp, color: Colors.grey),
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.symmetric(horizontal: 10.w),
+                    ),
+                    onSubmitted: (_) => _handleSendChatMessage(),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.send_rounded, color: Color(0xFF0076F6)),
+                  onPressed: _handleSendChatMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -208,13 +208,6 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: const Color(0xFF0066CC),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.r)),
-        child: Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 24.sp),
-      ),
     );
   }
 
