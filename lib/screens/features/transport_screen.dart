@@ -10,7 +10,8 @@ import '../../widgets/common_widgets.dart';
 
 class TransportScreen extends StatefulWidget {
   final RoleTheme theme;
-  const TransportScreen({super.key, required this.theme});
+  final bool showBackButton;
+  const TransportScreen({super.key, required this.theme, this.showBackButton = true});
 
   @override
   State<TransportScreen> createState() => _TransportScreenState();
@@ -294,7 +295,7 @@ class _TransportScreenState extends State<TransportScreen> {
                     // Header Bar with Back Button (if applicable)
                     Row(
                       children: [
-                        if (Navigator.canPop(context)) ...[
+                        if (widget.showBackButton && Navigator.canPop(context)) ...[
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: Container(

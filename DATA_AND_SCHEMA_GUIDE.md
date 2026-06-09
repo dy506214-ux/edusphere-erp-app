@@ -1,219 +1,139 @@
-# 📊 EduSphere — Data Architecture & Schema Guide
+# 📊 EduSphere — Complete System Architecture & Data Guide
 
-This guide provides a comprehensive reference of the data flow, backend/frontend environment configurations, database schemas, and relationships within the EduSphere School ERP ecosystem.
+Welcome to the **EduSphere ERP** System and Data Guide. This document explains where the data resides, how the frontend and backend communicate, environment configurations, and contains updated test credentials.
 
 ---
 
-## 🔄 1. Data Flow Architecture
+## 🔄 1. System & Data Flow Architecture
 
-The EduSphere system utilizes a hybrid serverless/microservice design centered around **Supabase** as the single source of truth for databases, authentication, and real-time operations.
+EduSphere is built using a hybrid serverless/microservices architecture that links the Flutter mobile client and the NodeJS backend server directly to a single **Supabase PostgreSQL** database.
 
 ```mermaid
 graph TD
-    subgraph Client-Side
-        Flutter[Flutter App]
+    subgraph Client-Side (Flutter App)
+        Flutter[Flutter Client]
     end
 
-    subgraph Backend-API
+    subgraph Backend-API (NodeJS Server)
         NodeServer[NodeJS/Express Server]
         Prisma[Prisma ORM]
     end
 
-    subgraph Supabase-Platform
+    subgraph Supabase-Platform (Cloud Backend)
         SupaAuth[Supabase Auth]
         PostgreSQL[(Supabase PostgreSQL)]
     end
 
     %% Client Interactions
-    Flutter -- "Direct Queries (Supabase SDK)" --> PostgreSQL
-    Flutter -- "Authenticate User" --> SupaAuth
+    Flutter -- "Direct DB Queries (Supabase SDK)" --> PostgreSQL
+    Flutter -- "User Authentication" --> SupaAuth
+    Flutter -- "Complex API Requests" --> NodeServer
 
     %% Server Interactions
-    NodeServer -- "Read/Write via Prisma" --> Prisma
+    NodeServer -- "Database Operations via Prisma" --> Prisma
     Prisma --> PostgreSQL
 ```
 
-### Flow Roles:
+### Data Flow Roles:
 1. **Frontend (Flutter)**:
-   - Queries tables directly using the `supabase_flutter` client SDK for fast UI rendering, simple CRUD operations, and real-time message listening.
-   - Handles client authentication (login, logout, password updates) using Supabase Auth.
+   - Queries tables directly using the `supabase_flutter` SDK for student/teacher dashboards, attendance logging, and assignment details.
+   - Performs user sign-in and session management directly with **Supabase Auth**.
+   - Connects to the NodeJS backend for complex computations, PDFs, and reporting.
 2. **Backend (NodeJS/Express)**:
-   - Built to handle complex business logic (e.g., payroll calculations, bulk notifications, automated database backups, scanner updates, custom reports).
-   - Interacts with the same PostgreSQL database on Supabase using **Prisma ORM** via direct or pooled database connections (`DATABASE_URL`).
-3. **Synchronization**:
-   - Because both the NodeJS API and the Flutter client connect to the **same Supabase PostgreSQL database**, any updates made by the NodeJS backend or Flutter app are instantly visible across the entire platform.
+   - Built to handle heavy backend tasks, backups, scheduling, and database management.
+   - Maps the PostgreSQL database using **Prisma ORM** to execute migrations and bulk updates.
+3. **Database Consistency**:
+   - Since both Flutter and NodeJS connect to the **same PostgreSQL database instance on Supabase**, data is immediately updated in real-time on the mobile app.
 
 ---
 
-## ⚙️ 2. Environment Schema Configurations
+## ⚙️ 2. Environment Configurations & Files
 
-### 📱 Frontend (Flutter) Configuration
-The Flutter application initializes with the Supabase client SDK using keys located in:
+The project coordinates its database and backend connectivity across both frontend and backend configurations:
+
+### 📱 A. Mobile Client Config (Flutter)
+Located in:
 📂 **[lib/config/supabase_config.dart](file:///d:/incubation/edusphere/lib/config/supabase_config.dart)**
-
+- Contains the active Supabase API URL and anonymous API Key used to initialize the client app.
 ```dart
 class SupabaseConfig {
-  static const String supabaseUrl = 'https://xernedkpgdrvjokokdoa.supabase.co';
-  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1...'; // JWT Anon Key
+  static const String supabaseUrl = 'https://bstevdkjqjzaglayicdg.supabase.co';
+  static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1...'; // Anon JWT Key
 }
 ```
 
-### 💻 Backend (NodeJS) Configuration
-The backend server uses a `.env` file to manage database connections, authentication credentials, and business parameters.
-📂 **[server/.env.example](file:///d:/incubation/edusphere/server/.env.example)** is provided as a template:
+📂 **[lib/config/api_config.dart](file:///d:/incubation/edusphere/lib/config/api_config.dart)**
+- Configures base URL paths for API endpoints.
+- Toggles between the live server (hosted on Render) and local development server depending on the compilation environment:
+```dart
+static const bool useLiveBackend = true; // Set to false to use localhost:5001
+```
 
-| Key | Description | Example Value |
+---
+
+### 💻 B. Backend Config (NodeJS Server)
+Located in:
+📂 **[server/.env](file:///d:/incubation/edusphere/server/.env)**
+- Defines the active environment configurations, database connection pools, security secrets, and local parameters.
+
+| Env Variable | Purpose / Usage | Example |
 | :--- | :--- | :--- |
-| **`PORT`** | Port number for NodeJS Express server | `5001` |
-| **`NODE_ENV`** | App environment mode | `development` or `production` |
-| **`DATABASE_URL`** | Connection string for Supabase database (pooled) | `postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres` |
-| **`DIRECT_URL`** | Direct connection string for Prisma migrations | `postgresql://postgres:[password]@db.[ref].supabase.co:5432/postgres` |
-| **`JWT_SECRET`** | Secret key for signing custom backend tokens | `your_jwt_secret_here` |
-| **`COOKIE_SECRET`** | Secret key for cookies encryption | `your_cookie_secret_here` |
-| **`REDIS_URL`** | Cache storage URL (for caching / sessions) | `redis://localhost:6379` |
-| **`ALLOWED_ORIGINS`**| Allowed CORS domains | `https://edusphere-client.onrender.com` |
-| **`CLOUDINARY_*`** | Cloudinary credentials for media upload | Cloudinary credentials (cloud name, API key, API secret) |
-| **`SCHOOL_ID`** | Identifier of the active school | `EDU001` |
-| **`SCHOOL_NAME`** | Name of the active school | `EduSphere Academy` |
-| **`FEE_CURRENCY`** | Local currency for finance modules | `INR` |
-| **`SCHOOL_START_TIME`**| Start time for attendance tracking | `08:30` |
+| `PORT` | Local server port for Express API | `5001` |
+| `DATABASE_URL` | Pooled connection (Port 6543) for Node queries | `postgresql://postgres.bstevdkjqjzaglayicdg...pooler.supabase.com:6543/postgres?pgbouncer=true` |
+| `DIRECT_URL` | Direct connection (Port 5432) for running migrations | `postgresql://postgres.bstevdkjqjzaglayicdg...pooler.supabase.com:5432/postgres` |
+| `SCHOOL_NAME` | Active school identity parameter | `EduSphere Academy` |
 
 ---
 
-## 🗄️ 3. Database Schema Reference
+## 🗄️ 3. Database Seeding & Source Files
 
-EduSphere features two parallel representations of the PostgreSQL database schema:
-1. **Raw SQL Schema** (`seed.sql` / `full_schema_setup.sql`) — Configures Supabase PostgreSQL directly.
-2. **Prisma ORM Schema** (`server/prisma/schema.prisma`) — Exposes models for NodeJS backend queries.
+Database schemas and seed data are managed in the following files:
 
-### 🔑 3.1. Raw SQL Table Definitions
-
-Below are the core tables defined in [seed.sql](file:///d:/incubation/edusphere/seed.sql) and [full_schema_setup.sql](file:///d:/incubation/edusphere/full_schema_setup.sql).
-
-#### 1. `teachers`
-Tracks teacher-specific information.
-```sql
-CREATE TABLE public.teachers (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    department TEXT NOT NULL,
-    designation TEXT NOT NULL,
-    phone TEXT,
-    joining_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-```
-
-#### 2. `students`
-Tracks student-specific information.
-```sql
-CREATE TABLE public.students (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    class_name TEXT NOT NULL,
-    section TEXT NOT NULL,
-    roll_no INT NOT NULL,
-    guardian_name TEXT,
-    phone TEXT,
-    admission_date DATE DEFAULT CURRENT_DATE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-```
-
-#### 3. `attendance`
-Tracks daily attendance logs for students.
-```sql
-CREATE TABLE public.attendance (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    student_name TEXT NOT NULL,
-    class_name TEXT NOT NULL,
-    section TEXT NOT NULL,
-    date DATE NOT NULL,
-    status TEXT NOT NULL, -- 'Present' (P), 'Absent' (A), 'Leave' (L)
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    UNIQUE (student_id, date)
-);
-```
-
-#### 4. `assignments`
-Assignments published by teachers for specific classes.
-```sql
-CREATE TABLE public.assignments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
-    subject TEXT NOT NULL,
-    description TEXT,
-    due_date DATE,
-    class_name TEXT NOT NULL,
-    section TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
-);
-```
-
-#### 5. `submissions`
-Assignment submissions by students.
-```sql
-CREATE TABLE public.submissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    assignment_id UUID NOT NULL REFERENCES public.assignments(id) ON DELETE CASCADE,
-    student_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    student_name TEXT NOT NULL,
-    submitted_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
-    grade TEXT DEFAULT 'Pending',
-    score TEXT DEFAULT 'Not Graded',
-    file_name TEXT,
-    UNIQUE (assignment_id, student_id)
-);
-```
+1. **SQL Schema & Seed (`seed.sql` / `full_schema_setup.sql`)**:
+   - Defines raw table structures (`public.teachers`, `public.students`, `public.attendance`, `public.assignments`, `public.submissions`) in Supabase.
+2. **Prisma Schema (`server/prisma/schema.prisma`)**:
+   - Translates database tables into Prisma Client models for server-side Javascript code.
+3. **Seed Scripts (`server/prisma/seed-new.js`)**:
+   - Seeds realistic mock databases (500 students, 50 teachers, admins) directly into the PostgreSQL schema and registers their matching credentials in Supabase Auth.
 
 ---
 
-### 🗺️ 3.2. Prisma ORM Mapping
+## 🔐 4. Updated Test Credentials (Demo Logins)
 
-In the backend, Prisma bridges PostgreSQL to JavaScript classes. The schemas map as follows:
+Below is the verified list of test accounts configured in the active Supabase environment.
 
-| Database Table | Prisma Model | Key Fields | Description |
+> [!IMPORTANT]
+> The password for all realistic seeded users (`@edusphere.edu` domain) is: **`edusphere`**
+>
+> The password for the legacy demo users (`@edusmart.edu` domain) is: **`Student@2024`** or **`Teacher@2024`**
+
+### Seeded Accounts list (Password: **`edusphere`**)
+
+| Role | Email Address | Password | Profile Source |
 | :--- | :--- | :--- | :--- |
-| `auth.users` | `User` | `id`, `email`, `password`, `role` | Base user login details |
-| `public.students` | `Student` | `id`, `userId`, `rollNumber`, `currentClassId` | Full student profile linked to `User` |
-| `public.teachers` | `Teacher` | `id`, `userId`, `employeeId`, `qualification` | Full teacher profile linked to `User` |
-| `public.attendance` | `AttendanceRecord`| `id`, `studentId`, `date`, `status` | Daily attendance log |
-| `public.assignments`| `Assignment` | `id`, `title`, `subjectId`, `teacherId` | Academic coursework assignments |
-| `public.submissions`| `AssignmentSubmission`| `id`, `assignmentId`, `studentId`, `grade`| Homework submission entries |
-| *(Extended Model)* | `StudentFeeLedger` | `id`, `studentId`, `totalPayable`, `status` | Tracks student balances, fees & ledger |
-| *(Extended Model)* | `Book` / `LibraryIssue` | `id`, `studentId`, `dueDate`, `status` | Library resource management system |
+| 👑 **Admin** | `admin@edusphere.edu` | **`edusphere`** | Administrator |
+| 👨‍🏫 **Teacher (HOD)** | `teacher1@edusphere.edu` | **`edusphere`** | Teacher 1 Profile (Physics) |
+| 👨‍🏫 **Teacher (Lecturer)**| `teacher2@edusphere.edu` | **`edusphere`** | Teacher 2 Profile |
+| 👨‍🎓 **Student (12th)** | `student1@edusphere.edu` | **`edusphere`** | Student 1 Profile |
+| 👨‍🎓 **Student (10th)** | `student2@edusphere.edu` | **`edusphere`** | Student 2 Profile |
+| 👨‍👩‍👦 **Parent** | `parent@edusphere.edu` | **`edusphere`** | Student Guardian Profile |
+| 💰 **Accountant** | `accountant@edusphere.edu` | **`edusphere`** | Finance Manager |
+| 🚌 **Transport** | `transport@edusphere.edu` | **`edusphere`** | Transport/Staff Manager |
 
 ---
 
-## 🔐 4. Authentication Flow
+## 📦 5. App Compilation & Build Details
 
-EduSphere maps system authorization roles directly through user metadata in Supabase Auth:
-
-```mermaid
-sequenceDiagram
-    participant Flutter as Flutter Client
-    participant Auth as Supabase Auth
-    participant DB as Postgres Table (public.students/teachers)
-
-    Flutter->>Auth: Login(email, password)
-    Auth-->>Flutter: Return Session JWT + raw_user_meta_data
-    Note over Flutter: Reads role from metadata:<br/>e.g., "role": "student" or "role": "teacher"
-    Flutter->>DB: Query profile based on Auth ID (user.id)
-    DB-->>Flutter: Return Name, Class, Department, etc.
+### Gradle Build Fix
+To support building on systems with multi-drive setups (e.g. Pub Cache on `C:` and Project Code on `D:`), Kotlin's incremental compiler relative-path check has been bypassed.
+📂 Config file: **[android/gradle.properties](file:///d:/incubation/edusphere/android/gradle.properties)**
+```properties
+kotlin.incremental=false
 ```
 
-### Predefined Auth Credentials (Demo Accounts)
-
-You can use these credentials to log in and inspect live data:
-
-| Role | Username / Email | Password | Linked Table / Record |
-| :--- | :--- | :--- | :--- |
-| 👨‍🎓 **Student** | `alex.rivera@edusmart.edu` | `Student@2024` | `public.students` (Grade 12, Sec A) |
-| 👨‍🏫 **Teacher** | `prof.harrison@edusmart.edu` | `Teacher@2024` | `public.teachers` (Physics HOD) |
-| 👨‍👩‍👦 **Parent** | `parent.smith@edusmart.edu` | `Parent@2024` | Guardian for student Alex Rivera |
-| 👑 **Admin** | `admin@edusmart.edu` | `Admin@2024` | School Administrator |
-| 💰 **Accountant** | `accounts@edusmart.edu` | `Account@2024` | Financial Coordinator |
-| 🚌 **Transport** | `transport@edusmart.edu` | `Transport@2024`| Transport Coordinator |
+### Release APK Build Command
+```bash
+flutter clean
+flutter build apk --release
+```
+- **Output release file location:** [app-release.apk](file:///d:/incubation/edusphere/app-release.apk) (copied to project root).

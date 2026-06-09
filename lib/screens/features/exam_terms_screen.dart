@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'exam_report_card_screen.dart';
-import 'exam_marks_entry_screen.dart';
 import 'exam_approval_screen.dart';
 import '../main_screen.dart';
 
@@ -373,33 +372,6 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                         if (_isTeacher) ...[
                                           Row(
                                             children: [
-                                              Expanded(
-                                                child: ElevatedButton(
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor: widget.theme.primary,
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                                                    padding: EdgeInsets.symmetric(vertical: 12.h),
-                                                    elevation: 0,
-                                                  ),
-                                                  onPressed: () {
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (_) => ExamMarksEntryScreen(theme: widget.theme),
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: Text(
-                                                    '📝 Enter Marks',
-                                                    style: GoogleFonts.inter(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.w800,
-                                                      fontSize: 12.sp,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              SizedBox(width: 8.w),
                                               Expanded(
                                                 child: OutlinedButton(
                                                   style: OutlinedButton.styleFrom(

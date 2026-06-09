@@ -122,11 +122,6 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       onTap: () => widget.onNavigate(8),
                     ),
                     _buildMenuItem(
-                      icon: Icons.assignment_turned_in_outlined,
-                      label: 'Marks Entry',
-                      onTap: () => widget.onNavigate(9),
-                    ),
-                    _buildMenuItem(
                       icon: Icons.access_time_rounded,
                       label: 'My Schedule',
                       onTap: () => widget.onNavigate(10),

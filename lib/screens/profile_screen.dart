@@ -11,6 +11,7 @@ import '../theme/colors.dart';
 import 'welcome_screen.dart';
 import 'features/settings_screen.dart';
 import '../widgets/common_widgets.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'main_screen.dart';
 
 
@@ -1754,8 +1755,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(12.r),
               border: Border.all(color: const Color(0xFFE2EAF4)),
             ),
-            child: CustomPaint(
-              painter: QRSimulatorPainter(color: const Color(0xFF0F2547)),
+            child: QrImageView(
+              data: _admissionNo,
+              version: QrVersions.auto,
+              size: 94.w,
+              gapless: false,
+              eyeStyle: const QrEyeStyle(
+                eyeShape: QrEyeShape.square,
+                color: Color(0xFF0F2547),
+              ),
+              dataModuleStyle: const QrDataModuleStyle(
+                dataModuleShape: QrDataModuleShape.square,
+                color: Color(0xFF0F2547),
+              ),
+              errorStateBuilder: (cxt, err) {
+                return Center(
+                  child: Text(
+                    'Error',
+                    style: GoogleFonts.inter(color: const Color(0xFF0F2547)),
+                  ),
+                );
+              },
             ),
           ),
           SizedBox(height: 12.h),

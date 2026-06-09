@@ -11,7 +11,6 @@ import '../theme/colors.dart';
 import 'features/exam_schedule_screen.dart';
 import 'features/exam_terms_screen.dart';
 import 'features/exam_report_card_screen.dart';
-import 'features/exam_marks_entry_screen.dart';
 import 'main_screen.dart';
 import 'welcome_screen.dart';
 import 'profile_screen.dart';
@@ -28,6 +27,7 @@ class AcademicScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final bool showAppBar;
   final String role; // 'student' or 'teacher'
+  final bool showBackButton;
 
   const AcademicScreen({
     super.key,
@@ -35,6 +35,7 @@ class AcademicScreen extends StatefulWidget {
     this.onBack,
     this.showAppBar = true,
     this.role = 'student',
+    this.showBackButton = false,
   });
 
   @override
@@ -704,7 +705,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   Widget _buildStudentHeader() {
-    final canGoBack = widget.onBack != null || Navigator.canPop(context);
+    final canGoBack = widget.showBackButton && (widget.onBack != null || Navigator.canPop(context));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1472,7 +1473,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF8FAFC),
-      drawer: _buildDrawer(),
+      drawer: widget.showBackButton ? _buildDrawer() : null,
       appBar: widget.showAppBar
           ? AppBar(
               backgroundColor: Colors.white,
@@ -1551,7 +1552,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
       padding: EdgeInsets.fromLTRB(20.w, 24.h, 20.w, 16.h),
       child: Row(
         children: [
-          if (!widget.showAppBar) ...[
+          if (widget.showBackButton) ...[
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF0F172A)),
               onPressed: widget.onBack ?? () => Navigator.pop(context),
@@ -2553,14 +2554,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 },
               ),
               _buildBottomNavItem(
-                icon: Icons.edit_note_rounded,
-                label: 'Marks Entry',
-                isSelected: false,
-                onTap: () {
-                  MainScreen.navigateTo(context, 9);
-                },
-              ),
-              _buildBottomNavItem(
                 icon: Icons.more_vert_rounded,
                 label: 'More',
                 isSelected: false,
@@ -2757,17 +2750,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
-                            },
-                          ),
-                          _drawerItem(
-                            icon: Icons.assignment_turned_in_outlined,
-                            label: 'Marks Entry',
-                            activeBlue: activeBlue,
-                            inactiveIcon: inactiveIcon,
-                            inactiveText: inactiveText,
-                            onTap: () {
-                              Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => ExamMarksEntryScreen(theme: widget.theme)));
                             },
                           ),
                           _drawerItem(

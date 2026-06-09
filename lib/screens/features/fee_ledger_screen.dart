@@ -14,7 +14,8 @@ import 'package:printing/printing.dart';
 
 class FeeLedgerScreen extends StatefulWidget {
   final RoleTheme theme;
-  const FeeLedgerScreen({super.key, required this.theme});
+  final bool showBackButton;
+  const FeeLedgerScreen({super.key, required this.theme, this.showBackButton = true});
 
   @override
   State<FeeLedgerScreen> createState() => _FeeLedgerScreenState();
@@ -1530,29 +1531,31 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
               padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      padding: EdgeInsets.all(8.r),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: AppColors.border),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 4.r,
-                          )
-                        ],
-                      ),
-                      child: Icon(
-                        Icons.arrow_back_ios_new_rounded,
-                        size: 16.sp,
-                        color: AppColors.textDark,
+                  if (widget.showBackButton) ...[
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: EdgeInsets.all(8.r),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12.r),
+                          border: Border.all(color: AppColors.border),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 4.r,
+                            )
+                          ],
+                        ),
+                        child: Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 16.sp,
+                          color: AppColors.textDark,
+                        ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 16.w),
+                    SizedBox(width: 16.w),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

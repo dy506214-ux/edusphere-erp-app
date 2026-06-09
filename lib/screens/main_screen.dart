@@ -27,6 +27,7 @@ import 'features/fee_ledger_screen.dart';
 import 'features/transport_screen.dart';
 import 'features/services_screen.dart';
 import 'features/scanner_feature_wrapper.dart';
+import 'features/teacher_scan_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
@@ -274,6 +275,7 @@ class _MainScreenState extends State<MainScreen> {
                   role: 'teacher',
                   onBack: () => _navigateTo(0),
                   showAppBar: false,
+                  showBackButton: false,
                 ), // Index 6: Academic
                 const ExamScheduleScreen(showAppBar: false), // Index 7: Examinations
                 ExamMarksEntryScreen(theme: _theme, showAppBar: false), // Index 8: Marks Entry
@@ -315,6 +317,7 @@ class _MainScreenState extends State<MainScreen> {
                   role: 'teacher',
                   onBack: () => _navigateTo(4),
                   showAppBar: false,
+                  showBackButton: false,
                 ), // Index 7: Academic
                 const ExamScheduleScreen(showAppBar: false), // Index 8: Examinations
                 ExamMarksEntryScreen(theme: _theme, showAppBar: false), // Index 9: Marks Entry
@@ -346,9 +349,10 @@ class _MainScreenState extends State<MainScreen> {
               role: 'student',
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
+              showBackButton: false,
             ),
-            FeeLedgerScreen(theme: _theme),
-            TransportScreen(theme: _theme),
+            FeeLedgerScreen(theme: _theme, showBackButton: false),
+            TransportScreen(theme: _theme, showBackButton: false),
             AnnouncementsScreen(
               theme: _theme,
               role: 'student',
@@ -635,8 +639,6 @@ class _MainScreenState extends State<MainScreen> {
                     _SidebarItem(icon: Icons.menu_book_outlined, label: 'Academic', selected: _idx == 6, color: _theme.primary, onTap: () => _navigateTo(6)),
                     SizedBox(height: 8.h),
                     _SidebarItem(icon: Icons.description_outlined, label: 'Examinations', selected: _idx == 7, color: _theme.primary, onTap: () => _navigateTo(7)),
-                    SizedBox(height: 8.h),
-                    _SidebarItem(icon: Icons.assignment_turned_in_outlined, label: 'Marks Entry', selected: _idx == 8, color: _theme.primary, onTap: () => _navigateTo(8)),
                     SizedBox(height: 8.h),
                     _SidebarItem(icon: Icons.access_time_rounded, label: 'My Schedule', selected: _idx == 9, color: _theme.primary, onTap: () => _navigateTo(9)),
                     SizedBox(height: 8.h),
@@ -1288,14 +1290,6 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                             inactiveIcon: inactiveIcon,
                             inactiveText: inactiveText,
                             onTap: () => MainScreen.navigateTo(context, isDesktop ? 7 : 8),
-                          ),
-                          _drawerItem(
-                            icon: Icons.assignment_turned_in_outlined,
-                            label: 'Marks Entry',
-                            activeBlue: activeBlue,
-                            inactiveIcon: inactiveIcon,
-                            inactiveText: inactiveText,
-                            onTap: () => MainScreen.navigateTo(context, isDesktop ? 8 : 9),
                           ),
                           _drawerItem(
                             icon: Icons.access_time_rounded,

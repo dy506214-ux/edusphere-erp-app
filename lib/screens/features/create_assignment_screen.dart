@@ -221,7 +221,6 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   @override
   Widget build(BuildContext context) {
     final initials = _getInitials(_teacherName);
-    final bool isPushed = Navigator.canPop(context);
 
     return Scaffold(
       key: _scaffoldKey,
