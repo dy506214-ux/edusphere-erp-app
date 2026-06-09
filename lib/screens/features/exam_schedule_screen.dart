@@ -295,7 +295,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: isPushed ? EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations') : null,
+      drawer: isPushed ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations') : null,
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: widget.showAppBar
           ? AppBar(
@@ -385,7 +385,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         ],
       ),
       bottomNavigationBar: isPushed 
-          ? TeacherBottomNavBar(activeIndex: 8)
+          ? const TeacherBottomNavBar(activeIndex: 8)
           : (widget.showAppBar ? _buildBottomNav() : null),
     );
   }
@@ -1064,7 +1064,7 @@ class _SubjectPerformancePainter extends CustomPainter {
       ..strokeWidth = 2.0;
       
     // Leave some space at the top for the label
-    final topPadding = 20.0;
+    const topPadding = 20.0;
     canvas.drawLine(
       Offset(cx, topPadding),
       Offset(cx, size.height),

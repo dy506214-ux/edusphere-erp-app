@@ -1593,7 +1593,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
                           icon: _isUploadingDoc
-                              ? SizedBox(width: 14, height: 14, child: const CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.upload_file, size: 14),
                           label: Text(
                             _isUploadingDoc ? 'Uploading...' : 'Upload Document',
@@ -1662,7 +1662,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
                         icon: _isUploadingDoc
-                            ? SizedBox(width: 14, height: 14, child: const CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.upload_file, size: 14),
                         label: Text(
                           _isUploadingDoc ? 'Uploading...' : 'Upload Document',

@@ -101,6 +101,8 @@ const login = asyncHandler(async (req, res) => {
     include: {
       student: {
         include: {
+          currentClass: true,
+          section: true,
           parents: {
             include: {
               parent: true
@@ -108,8 +110,26 @@ const login = asyncHandler(async (req, res) => {
           }
         }
       },
-      teacher: { select: { id: true, assignedScannerId: true } },
-      staff: { select: { id: true, assignedScannerId: true } }
+      teacher: {
+        select: {
+          id: true,
+          employeeId: true,
+          joiningDate: true,
+          qualification: true,
+          specialization: true,
+          assignedScannerId: true
+        }
+      },
+      staff: {
+        select: {
+          id: true,
+          employeeId: true,
+          joiningDate: true,
+          designation: true,
+          department: true,
+          assignedScannerId: true
+        }
+      }
     }
   });
 
@@ -169,6 +189,7 @@ const login = asyncHandler(async (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Login successful',
+    token,
     user: {
       id: user.id,
       email: user.email,
@@ -178,6 +199,7 @@ const login = asyncHandler(async (req, res) => {
       roles: effectiveRoles,
       teacher: user.teacher,
       staff: user.staff,
+      student: user.student,
       // Include parent access info if applicable
       ...(parentAccess.length > 0 && {
         parentAccess,

@@ -27,7 +27,6 @@ import 'features/fee_ledger_screen.dart';
 import 'features/transport_screen.dart';
 import 'features/services_screen.dart';
 import 'features/scanner_feature_wrapper.dart';
-import 'features/teacher_scan_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';

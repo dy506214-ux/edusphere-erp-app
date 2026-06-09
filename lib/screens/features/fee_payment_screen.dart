@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/api_service.dart';
 
 class FeePaymentScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -66,13 +67,6 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     super.dispose();
   }
 
-  String _generateUUID() {
-    final random = Random();
-    const hexDigits = '0123456789abcdef';
-    String genHex(int len) => List.generate(len, (_) => hexDigits[random.nextInt(16)]).join();
-    return '${genHex(8)}-${genHex(4)}-4${genHex(3)}-${hexDigits[8 + random.nextInt(4)]}${genHex(3)}-${genHex(12)}';
-  }
-
   String _formatCurrency(double amount) {
     final str = amount.toStringAsFixed(0);
     final parts = <String>[];
@@ -86,12 +80,6 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
       }
     }
     return '₹${parts.join('')}';
-  }
-
-  String _generateReceiptNumber() {
-    final rand = Random();
-    final num = rand.nextInt(90000000) + 10000000;
-    return 'RCT-$num';
   }
 
   String _generateTransactionId() {
@@ -118,68 +106,46 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
 
     setState(() => _processing = true);
 
-    _receiptNumber = _generateReceiptNumber();
     _transactionId = _generateTransactionId();
 
-    // Simulate processing delay
-    await Future.delayed(const Duration(seconds: 2));
-
     try {
-      final paymentId = _generateUUID();
       final mode = _selectedMethod == 'UPI' ? 'UPI' : (_selectedMethod == 'Card' ? 'CARD' : 'NET_BANKING');
       
-      // 1. Insert into FeePayment
-      await Supabase.instance.client.from('FeePayment').insert({
-        'id': paymentId,
-        'receiptNumber': _receiptNumber,
+      final paymentBody = {
         'studentId': widget.studentId,
-        'feeStructureId': widget.feeStructureId,
         'ledgerId': widget.ledgerId,
-        'academicYearId': widget.academicYearId,
         'amount': amount,
-        'discount': 0.0,
-        'penalty': 0.0,
-        'totalAmount': amount,
-        'paymentType': 'RECEIPT',
-        'paymentDate': DateTime.now().toIso8601String(),
         'paymentMode': mode,
         'transactionId': _transactionId,
-        'status': 'COMPLETED',
-        'createdAt': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-      });
+        'forMonth': DateTime.now().month,
+        'forYear': DateTime.now().year,
+      };
 
-      // 2. Fetch and update StudentFeeLedger
-      final ledgerRes = await Supabase.instance.client
-          .from('StudentFeeLedger')
-          .select()
-          .eq('id', widget.ledgerId)
-          .maybeSingle();
+      final paymentRes = await ApiService.instance.post('fees/payments', body: paymentBody);
 
-      if (ledgerRes != null) {
-        final double currentPaid = (ledgerRes['totalPaid'] ?? 0.0).toDouble();
-        final double totalPayable = (ledgerRes['totalPayable'] ?? 0.0).toDouble();
-        final double newPaid = currentPaid + amount;
-        final double newPending = (totalPayable - newPaid).clamp(0.0, double.infinity);
-        final String newStatus = newPending <= 0 ? 'PAID' : 'PARTIALLY_PAID';
+      if (paymentRes != null && paymentRes['id'] != null) {
+        _receiptNumber = paymentRes['receiptNumber'] as String? ?? 'RCT-00000000';
+        _transactionId = paymentRes['transactionId'] as String? ?? _transactionId;
 
-        await Supabase.instance.client.from('StudentFeeLedger').update({
-          'totalPaid': newPaid,
-          'totalPending': newPending,
-          'status': newStatus,
-          'updatedAt': DateTime.now().toIso8601String(),
-        }).eq('id', widget.ledgerId);
+        if (mounted) {
+          setState(() {
+            _processing = false;
+            _paymentSuccess = true;
+          });
+          _successAnimController.forward();
+        }
+      } else {
+        if (mounted) {
+          showToast(context, paymentRes != null && paymentRes['error'] != null ? paymentRes['error'].toString() : 'Payment failed on backend', isError: true);
+          setState(() => _processing = false);
+        }
       }
     } catch (e) {
       debugPrint('Error recording payment: $e');
-    }
-
-    if (mounted) {
-      setState(() {
-        _processing = false;
-        _paymentSuccess = true;
-      });
-      _successAnimController.forward();
+      if (mounted) {
+        showToast(context, 'Error communicating with backend', isError: true);
+        setState(() => _processing = false);
+      }
     }
   }
 

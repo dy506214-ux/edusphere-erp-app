@@ -11,6 +11,7 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/api_service.dart';
 
 class StudentDashboard extends StatefulWidget {
   final RoleTheme theme;
@@ -72,6 +73,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     }
     super.dispose();
   }
+
 
   void _connectRealTime() {
     try {
@@ -154,306 +156,162 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Future<void> _loadStudentData() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    
-    final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
-    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
-    
+
+    final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
+    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Student';
+
     setState(() {
       studentName = savedName;
       studentEmail = savedEmail;
     });
 
+    // ── 1. Fetch full student profile from backend ─────────────────────────
     try {
-      final supabase = Supabase.instance.client;
-      
-      // 1. Fetch user by email from User table
-      final userRes = await supabase
-          .from('User')
-          .select()
-          .eq('email', savedEmail)
-          .maybeSingle();
+      final res = await ApiService.instance.get('students/me');
+      if (res['success'] == true && res['student'] != null) {
+        final s = res['student'] as Map<String, dynamic>;
+        final u = s['user'] as Map? ?? {};
+        final cls = s['currentClass'] as Map? ?? {};
+        final sec = s['section'] as Map? ?? {};
 
-      if (userRes != null) {
-        final userId = userRes['id'] as String;
-        final fName = userRes['firstName'] as String? ?? '';
-        final lName = userRes['lastName'] as String? ?? '';
-        
-        setState(() {
-          studentName = '$fName $lName'.trim();
-          studentEmail = savedEmail;
-          studentPhone = userRes['phone'] as String? ?? '—';
-          
-          final rawDob = userRes['dateOfBirth'] ?? userRes['date_of_birth'];
-          if (rawDob != null) {
-            dob = rawDob.toString().split(' ')[0].split('T')[0];
-          } else {
-            dob = '—';
-          }
-          
-          gender = userRes['gender']?.toString() ?? '—';
-          address = userRes['address'] as String? ?? '—';
-        });
+        final fName = u['firstName'] as String? ?? '';
+        final lName = u['lastName'] as String? ?? '';
+        final fullName = '$fName $lName'.trim();
+        final studentId = s['id'] as String? ?? '';
 
-        // 2. Fetch student details from Student table
-        String studentId = userId; // Fallback
-        String classId = '';
-        String sectionId = '';
-        
-        try {
-          final studentRes = await supabase
-              .from('Student')
-              .select()
-              .eq('userId', userId)
-              .maybeSingle();
+        // Persist student_id for other screens
+        await prefs.setString('student_id', studentId);
 
-          if (studentRes != null) {
-            studentId = studentRes['id'] as String;
-            final rollVal = studentRes['rollNumber']?.toString() ?? '—';
-            final admVal = studentRes['admissionNumber'] as String? ?? '—';
-            classId = studentRes['currentClassId'] as String? ?? '';
-            sectionId = studentRes['sectionId'] as String? ?? '';
-            
-            setState(() {
-              rollNo = rollVal;
-              admissionNo = admVal;
-            });
-            
-            // Fetch class name dynamically
-            if (classId.isNotEmpty) {
-              try {
-                final classRes = await supabase
-                    .from('Class')
-                    .select('name')
-                    .eq('id', classId)
-                    .maybeSingle();
-                if (classRes != null && mounted) {
-                  setState(() {
-                    className = classRes['name'] as String? ?? 'Class 1';
-                  });
-                }
-              } catch (e) {
-                dev.log('Error loading class name: $e');
-              }
-            }
-            
-            // Fetch section name dynamically
-            if (sectionId.isNotEmpty) {
-              try {
-                final sectionRes = await supabase
-                    .from('Section')
-                    .select('name')
-                    .eq('id', sectionId)
-                    .maybeSingle();
-                if (sectionRes != null && mounted) {
-                  setState(() {
-                    sectionName = sectionRes['name'] as String? ?? 'Section A';
-                  });
-                }
-              } catch (e) {
-                dev.log('Error loading section name: $e');
-              }
-            }
-
-            // Fetch Parent details dynamically via StudentParent
-            try {
-              final studentParentRes = await supabase
-                  .from('StudentParent')
-                  .select('parentId')
-                  .eq('studentId', studentId)
-                  .limit(1)
-                  .maybeSingle();
-              if (studentParentRes != null && studentParentRes['parentId'] != null) {
-                final parentId = studentParentRes['parentId'] as String;
-                final parentRes = await supabase
-                    .from('Parent')
-                    .select('firstName, lastName, phone')
-                    .eq('id', parentId)
-                    .maybeSingle();
-                if (parentRes != null && mounted) {
-                  final pFName = parentRes['firstName'] as String? ?? '';
-                  final pLName = parentRes['lastName'] as String? ?? '';
-                  setState(() {
-                    fatherName = '$pFName $pLName'.trim();
-                    familyPhone = parentRes['phone'] as String? ?? '—';
-                  });
-                }
-              }
-            } catch (e) {
-              dev.log('Error loading parent data: $e');
-            }
-          }
-        } catch (e) {
-          dev.log('Error loading student profile: $e');
+        // Parent data
+        String parentName = '—';
+        String parentPhone = '—';
+        final parents = s['parents'] as List? ?? [];
+        if (parents.isNotEmpty) {
+          final parentMap = (parents.first as Map? ?? {})['parent'] as Map? ?? {};
+          parentName = '${parentMap['firstName'] ?? ''} ${parentMap['lastName'] ?? ''}'.trim();
+          parentPhone = parentMap['phone'] as String? ?? '—';
         }
 
-        // 3. Fetch live attendance percentage from AttendanceRecord (current month)
+        if (!mounted) return;
+        setState(() {
+          studentName = fullName.isNotEmpty ? fullName : savedName;
+          studentEmail = u['email'] as String? ?? savedEmail;
+          studentPhone = u['phone'] as String? ?? '—';
+          className = cls['name'] as String? ?? className;
+          sectionName = sec['name'] as String? ?? sectionName;
+          rollNo = s['rollNumber']?.toString() ?? rollNo;
+          admissionNo = s['admissionNumber'] as String? ?? admissionNo;
+          fatherName = parentName;
+          familyPhone = parentPhone;
+          final rawDob = u['dateOfBirth'];
+          if (rawDob != null) dob = rawDob.toString().split('T')[0];
+          gender = u['gender']?.toString() ?? '—';
+          address = u['address'] as String? ?? '—';
+        });
+
+        // ── 2. Attendance % (current month) ───────────────────────────────
         try {
           final now = DateTime.now();
           final monthStart = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-          final nextMonth = now.month < 12
-              ? DateTime(now.year, now.month + 1, 1)
-              : DateTime(now.year + 1, 1, 1);
-          final monthEnd = '${nextMonth.year}-${nextMonth.month.toString().padLeft(2, '0')}-01';
-
-          final List<dynamic> attendanceRes = await supabase
-              .from('AttendanceRecord')
-              .select()
-              .eq('studentId', studentId)
-              .gte('date', monthStart)
-              .lt('date', monthEnd);
-
-          if (mounted) {
-            if (attendanceRes.isNotEmpty) {
-              int present = 0;
-              int total = 0;
-              for (var record in attendanceRes) {
-                final status = record['status'] as String? ?? '';
-                if (status == 'PRESENT' || status == 'P') {
-                  present++;
-                  total++;
-                } else if (status == 'ABSENT' || status == 'A') {
-                  total++;
-                } else if (status == 'LATE' || status == 'HALF_DAY') {
-                  present++;
-                  total++;
-                }
-              }
-              setState(() {
-                attendanceRate = total > 0 ? (present / total) * 100 : 100.0;
-                _attendanceLoaded = true;
-              });
-            } else {
-              setState(() {
-                attendanceRate = 100.0;
-                _attendanceLoaded = true;
-              });
-            }
+          final attRes = await ApiService.instance.get(
+            'students/$studentId/attendance',
+            queryParams: {'startDate': monthStart},
+          );
+          if (attRes['success'] == true) {
+            final stats = attRes['stats'] as Map? ?? {};
+            final pct = (stats['percentage'] ?? 0) as num;
+            if (mounted) setState(() { attendanceRate = pct.toDouble(); _attendanceLoaded = true; });
+          } else {
+            if (mounted) setState(() { attendanceRate = 100.0; _attendanceLoaded = true; });
           }
         } catch (e) {
-          dev.log('Error loading attendance percentage: $e');
+          dev.log('Error loading attendance from API: $e');
+          if (mounted) setState(() { attendanceRate = 100.0; _attendanceLoaded = true; });
         }
 
-        // 4. Fetch pending assignments from Assignment & AssignmentSubmission
+        // ── 3. Pending Assignments ─────────────────────────────────────────
         try {
-          if (classId.isNotEmpty) {
-            final List<dynamic> assignmentsRes = await supabase
-                .from('Assignment')
-                .select()
-                .eq('classId', classId);
-
-            // Filter by sectionId in memory
-            final classAssignments = assignmentsRes.where((a) {
-              final aSecId = a['sectionId'];
-              return aSecId == null || sectionId.isEmpty || aSecId == sectionId;
-            }).toList();
-
-            final List<dynamic> submissionsRes = await supabase
-                .from('AssignmentSubmission')
-                .select()
-                .eq('studentId', studentId);
-
-            if (mounted) {
-              setState(() {
-                pendingCount = (classAssignments.length - submissionsRes.length).clamp(0, 99);
-              });
-            }
-          }
+          final assignRes = await ApiService.instance.get('assignments/student');
+          final assignments = (assignRes['assignments'] as List? ?? []);
+          final pending = assignments.where((a) {
+            final subs = a['submissions'] as List? ?? [];
+            return subs.isEmpty;
+          }).length;
+          if (mounted) setState(() { pendingCount = pending.clamp(0, 99); });
         } catch (e) {
-          dev.log('Error loading pending assignments count: $e');
+          dev.log('Error loading assignments from API: $e');
         }
 
-        // 5. Fetch Pending Fee from StudentFeeLedger
+        // ── 4. Pending Fees ────────────────────────────────────────────────
         try {
-          final List<dynamic> ledgerRes = await supabase
-              .from('StudentFeeLedger')
-              .select()
-              .eq('studentId', studentId);
-          
-          double balance = 0;
-          if (ledgerRes.isNotEmpty) {
-            for (var entry in ledgerRes) {
-              final pendingVal = (entry['totalPending'] ?? entry['total_pending'] ?? 0) as num;
-              balance += pendingVal.toDouble();
-            }
-          }
-          if (mounted) {
-            setState(() {
-              pendingFee = balance.toInt().clamp(0, 999999);
-            });
+          final feeRes = await ApiService.instance.get('fees/students/me/status');
+          if (feeRes['success'] == true) {
+            final summary = feeRes['summary'] as Map? ?? feeRes;
+            final outstanding = (summary['totalOutstanding'] ?? summary['totalPending'] ?? 0) as num;
+            if (mounted) setState(() { pendingFee = outstanding.toInt().clamp(0, 999999); });
           }
         } catch (e) {
-          dev.log('Error loading pending fees: $e');
+          dev.log('Error loading fees from API: $e');
         }
 
-        // 6. Fetch Books Due from LibraryIssue
+        // ── 5. Books Due ───────────────────────────────────────────────────
         try {
-          final List<dynamic> booksRes = await supabase
-              .from('LibraryIssue')
-              .select()
-              .eq('studentId', studentId)
-              .eq('status', 'ISSUED');
-          if (mounted) {
-            setState(() {
-              booksDue = booksRes.length;
-            });
+          final libRes = await ApiService.instance.get(
+            'library/issues',
+            queryParams: {'studentId': studentId, 'status': 'ISSUED'},
+          );
+          if (libRes['success'] == true) {
+            final issues = libRes['issues'] as List? ?? [];
+            if (mounted) setState(() { booksDue = issues.length; });
           }
         } catch (e) {
-          dev.log('Error loading books due count: $e');
+          dev.log('Error loading library from API: $e');
         }
 
-        // 7. Fetch Calendar Events & Upcoming Events
+        // ── 6. Calendar Events ─────────────────────────────────────────────
         await _loadCalendarEvents();
         await _loadUpcomingEvents();
       }
     } catch (e) {
-      dev.log('Error loading student dashboard details: $e');
+      dev.log('Error loading student data from backend API: $e');
+      // Fallback: load from SharedPreferences only
+      if (mounted) setState(() { _attendanceLoaded = true; });
     }
   }
 
   Future<void> _loadCalendarEvents() async {
     try {
-      final supabase = Supabase.instance.client;
-      final List<dynamic> res = await supabase
-          .from('SchoolCalendar')
-          .select()
-          .order('date', ascending: true);
-      if (mounted) {
-        setState(() {
-          _calendarEvents = res;
-        });
+      final now = DateTime.now();
+      final startDate = '${now.year}-01-01';
+      final endDate = '${now.year}-12-31';
+      final res = await ApiService.instance.get(
+        'calendar',
+        queryParams: {'startDate': startDate, 'endDate': endDate},
+      );
+      if (res['success'] == true && mounted) {
+        final events = res['events'] as List? ?? [];
+        setState(() { _calendarEvents = events; });
       }
     } catch (e) {
-      dev.log('Error loading calendar events: $e');
+      dev.log('Error loading calendar events from API: $e');
     }
   }
 
   Future<void> _loadUpcomingEvents() async {
     try {
-      final supabase = Supabase.instance.client;
-      final now = DateTime.now();
-      // Fetch events from today onward (next 60 days)
-      final fromDate = DateTime(now.year, now.month, now.day);
-      final toDate = fromDate.add(const Duration(days: 60));
-      final fromStr = fromDate.toIso8601String();
-      final toStr = toDate.toIso8601String();
-
-      final List<dynamic> res = await supabase
-          .from('SchoolCalendar')
-          .select()
-          .gte('date', fromStr)
-          .lte('date', toStr)
-          .order('date', ascending: true)
-          .limit(10);
-
-      if (mounted) {
+      final res = await ApiService.instance.get('calendar/upcoming', queryParams: {'limit': '10'});
+      if (res['success'] == true && mounted) {
+        final events = res['events'] as List? ?? [];
         setState(() {
-          _upcomingEvents = res;
+          _upcomingEvents = events;
           _upcomingEventsLoaded = true;
         });
+        dev.log('📅 Loaded ${events.length} upcoming events from API', name: 'StudentDashboard');
+      } else {
+        if (mounted) setState(() { _upcomingEventsLoaded = true; });
       }
-      dev.log('📅 Loaded ${res.length} upcoming events', name: 'StudentDashboard');
     } catch (e) {
-      dev.log('Error loading upcoming events: $e');
+      dev.log('Error loading upcoming events from API: $e');
       if (mounted) setState(() { _upcomingEventsLoaded = true; });
     }
   }

@@ -6,6 +6,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/api_service.dart';
 import 'dart:developer' as dev;
 import '../theme/colors.dart';
 import '../widgets/common_widgets.dart';
@@ -194,12 +195,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool _isMuted = false;
   bool _isSpeakerOn = false;
 
-  // Supabase realtime channel subscription
-  RealtimeChannel? _messagesChannel;
-  RealtimeChannel? _communityChannel;
+  // Messages are stored in-memory only (no backend messages API yet)
 
   // Periodic polling timer for robust real-time database synchronization
   Timer? _pollTimer;
+  RealtimeChannel? _messagesChannel;
 
   // --- Community Redesign State ---
   List<CommunityPostModel> _communityPosts = [];
@@ -232,12 +232,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   void dispose() {
     _pollTimer?.cancel();
-    if (_messagesChannel != null) {
-      Supabase.instance.client.removeChannel(_messagesChannel!);
-    }
-    if (_communityChannel != null) {
-      Supabase.instance.client.removeChannel(_communityChannel!);
-    }
+    _callTimer?.cancel();
     _msgCtrl.dispose();
     _searchCtrl.dispose();
     _scrollController.dispose();
@@ -265,60 +260,109 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _loadCommunityPosts() async {
     setState(() => _isLoadingCommunity = true);
     try {
-      final res = await Supabase.instance.client
-          .from('CommunityPost')
-          .select()
-          .order('created_at', ascending: false);
+      // Try fetching announcements from backend as community feed
+      final res = await ApiService.instance.get('announcements');
+      final List<dynamic> raw = res['announcements'] ?? res['data'] ?? [];
 
-      final List<CommunityPostModel> loadedPosts = res
-          .map<CommunityPostModel>((e) => CommunityPostModel.fromJson(e))
-          .toList();
-
-      if (mounted) {
-        setState(() {
-          _communityPosts = loadedPosts;
-        });
+      if (raw.isNotEmpty) {
+        final loaded = raw.map<CommunityPostModel>((e) {
+          final author = e['createdBy'] as Map? ?? {};
+          final firstName = author['firstName'] as String? ?? '';
+          final lastName = author['lastName'] as String? ?? '';
+          final authorName = '${firstName} ${lastName}'.trim().isEmpty
+              ? 'EduSphere'
+              : '${firstName} ${lastName}'.trim();
+          return CommunityPostModel(
+            id: e['id'] as String? ?? '',
+            authorName: authorName,
+            authorRole: e['targetAudience'] as String? ?? 'All',
+            timeAgo: 'Recently',
+            category: 'ANNOUNCEMENT',
+            content: e['content'] as String? ?? e['title'] as String? ?? '',
+            likes: 0,
+            insightfuls: 0,
+            commentsCount: 0,
+            comments: [],
+            createdAt: e['createdAt'] != null
+                ? DateTime.tryParse(e['createdAt'] as String)
+                : null,
+          );
+        }).toList();
+        if (mounted) setState(() => _communityPosts = loaded);
+        return;
       }
-
-      // Set up realtime listener
-      _communityChannel = Supabase.instance.client
-          .channel('public:CommunityPost')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'CommunityPost',
-            callback: (payload) {
-              if (mounted) {
-                _refreshCommunityPostsSilently();
-              }
-            },
-          )
-          .subscribe();
-
     } catch (e) {
-      dev.log('Error loading community posts: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingCommunity = false);
-      }
+      dev.log('Error loading community posts from backend: $e');
+    }
+
+    // Fallback to mock community posts
+    if (mounted) {
+      setState(() {
+        _communityPosts = _buildMockCommunityPosts();
+      });
     }
   }
 
+  List<CommunityPostModel> _buildMockCommunityPosts() {
+    final now = DateTime.now();
+    return [
+      CommunityPostModel(
+        id: 'post_1',
+        authorName: 'Principal Sharma',
+        authorRole: 'Principal',
+        timeAgo: '2h ago',
+        category: 'ANNOUNCEMENT',
+        content: '📢 Annual Sports Day will be held on 20th June. All students are encouraged to participate. Register with your house captain before 15th June.',
+        likes: 42,
+        insightfuls: 18,
+        commentsCount: 7,
+        comments: [],
+        createdAt: now.subtract(const Duration(hours: 2)),
+      ),
+      CommunityPostModel(
+        id: 'post_2',
+        authorName: 'Mrs. Priya Nair',
+        authorRole: 'Teacher • Science',
+        timeAgo: '5h ago',
+        category: 'UPDATE',
+        content: '📝 Reminder: Science project submissions are due this Friday. Please upload your reports to the assignment portal before 5 PM.',
+        likes: 29,
+        insightfuls: 11,
+        commentsCount: 3,
+        comments: [],
+        createdAt: now.subtract(const Duration(hours: 5)),
+      ),
+      CommunityPostModel(
+        id: 'post_3',
+        authorName: 'Student Council',
+        authorRole: 'Student Body',
+        timeAgo: '1d ago',
+        category: 'EVENT',
+        content: '🎉 Congratulations to Class 10-A for winning the inter-class debate competition! Special mention to Aryan Mehta and Riya Gupta for outstanding performance.',
+        likes: 87,
+        insightfuls: 34,
+        commentsCount: 15,
+        comments: [],
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      CommunityPostModel(
+        id: 'post_4',
+        authorName: 'Library Department',
+        authorRole: 'Administration',
+        timeAgo: '2d ago',
+        category: 'ANNOUNCEMENT',
+        content: '📚 New books have been added to the school library! Genre highlights: Science Fiction, History, and Engineering. Visit the library during lunch hours to explore.',
+        likes: 21,
+        insightfuls: 9,
+        commentsCount: 2,
+        comments: [],
+        createdAt: now.subtract(const Duration(days: 2)),
+      ),
+    ];
+  }
+
   Future<void> _refreshCommunityPostsSilently() async {
-    try {
-      final res = await Supabase.instance.client
-          .from('CommunityPost')
-          .select()
-          .order('created_at', ascending: false);
-      
-      if (mounted) {
-        setState(() {
-          _communityPosts = res
-              .map<CommunityPostModel>((e) => CommunityPostModel.fromJson(e))
-              .toList();
-        });
-      }
-    } catch (_) {}
+    // No-op: community posts are loaded once on init
   }
 
   @override
@@ -326,7 +370,6 @@ class _MessagesScreenState extends State<MessagesScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive && !oldWidget.isActive) {
       dev.log('🔄 MessagesScreen tab became active, checking messages seen status...', name: 'MessagesScreen');
-      _fetchMessagesFromDb();
       if (_active != null && !_active!.id.startsWith('mock_')) {
         _markAllFromContactAsSeen(_active!.id);
       }
@@ -352,178 +395,67 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   Future<void> _initializeRealTimeUsers() async {
     try {
-      final client = Supabase.instance.client;
-      final currentUser = client.auth.currentUser;
-      if (currentUser == null) return;
-
-      _currentUserId = currentUser.id;
-
       final prefs = await SharedPreferences.getInstance();
 
-      setState(() {
-        _isLoadingContacts = true;
-      });
+      if (mounted) setState(() => _isLoadingContacts = true);
 
-      // Load both teachers and students in parallel
-      final List<dynamic> teachersRes = await client.from('teachers').select('id, name, email, department');
-      final List<dynamic> studentsRes = await client.from('students').select('id, name, email, class_name');
+      _messagesChannel = Supabase.instance.client.channel('calls');
+      _messagesChannel!.subscribe();
 
-      // Database-backed robust role and name resolution
-      final isTeacherRecord = teachersRes.any((t) => t['id'] == _currentUserId);
-      final isStudentRecord = studentsRes.any((s) => s['id'] == _currentUserId);
+      _currentUserId = prefs.getString('user_id') ?? 'local_user';
+      _currentUserRole = prefs.getString('user_role') ?? widget.role;
+      _currentUserName = prefs.getString('user_name') ??
+          prefs.getString('student_name') ??
+          prefs.getString('teacher_name') ??
+          'User';
 
-      if (isTeacherRecord) {
-        _currentUserRole = 'teacher';
-        _currentUserName = teachersRes.firstWhere((t) => t['id'] == _currentUserId)['name'] as String? ?? 'Teacher';
-      } else if (isStudentRecord) {
-        _currentUserRole = 'student';
-        _currentUserName = studentsRes.firstWhere((s) => s['id'] == _currentUserId)['name'] as String? ?? 'Student';
-      } else {
-        _currentUserRole = prefs.getString('user_role') ?? 
-            ((currentUser.email?.contains('teacher') == true || currentUser.email?.contains('prof') == true) 
-                ? 'teacher' 
-                : 'student');
-        _currentUserName = currentUser.email?.split('@').first ?? 'User';
-      }
+      dev.log('👤 MessagesScreen user: $_currentUserName ($_currentUserRole)', name: 'MessagesScreen');
 
-      dev.log('👤 Resolved current user role: $_currentUserRole', name: 'MessagesScreen');
-
-      final List<Map<String, String>> fetchedContacts = [];
-
-      for (var e in teachersRes) {
-        fetchedContacts.add({
-          'id': e['id'] as String? ?? '',
-          'name': e['name'] as String? ?? 'Teacher',
-          'role': 'Teacher • ${e['department'] as String? ?? 'Faculty'}',
-          'email': e['email'] as String? ?? '',
-        });
-      }
-
-      for (var e in studentsRes) {
-        fetchedContacts.add({
-          'id': e['id'] as String? ?? '',
-          'name': e['name'] as String? ?? 'Student',
-          'role': 'Student • ${e['class_name'] as String? ?? 'Class'}',
-          'email': e['email'] as String? ?? '',
-        });
-      }
-
-      // Filter out logged-in user from the directory
-      _availableContacts = fetchedContacts.where((c) => c['id'] != _currentUserId).toList();
-
-
-
-      // Connect true event-driven Supabase Realtime channel stream!
-      _connectRealTime();
-
-      // Initialize periodic polling fallback (every 8 seconds to save battery)
-      _startPolling();
-
-    } catch (e) {
-      dev.log('⚠️ Error loading real-time users: $e', name: 'MessagesScreen');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingContacts = false;
-        });
-      }
-    }
-  }
-
-  void _connectRealTime() {
-    try {
-      final client = Supabase.instance.client;
-
-      if (_messagesChannel != null) {
-        client.removeChannel(_messagesChannel!);
-      }
-
-      dev.log('📡 Subscribing to Supabase Realtime changes and broadcast signaling...', name: 'MessagesScreen');
-      _messagesChannel = client.channel('public:messages')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'messages',
-          callback: (payload) {
-            dev.log('🔥 Real-time event payload received: $payload', name: 'MessagesScreen');
-            if (mounted) {
-              _fetchMessagesFromDb();
-            }
-          },
-        )
-        .onBroadcast(
-          event: 'incoming_call',
-          callback: (payload) {
-            dev.log('📞 Realtime incoming call event: $payload', name: 'MessagesScreen');
-            if (mounted) {
-              _handleIncomingCall(payload);
-            }
-          },
-        )
-        .onBroadcast(
-          event: 'call_response',
-          callback: (payload) {
-            dev.log('📞 Realtime call response event: $payload', name: 'MessagesScreen');
-            if (mounted) {
-              _handleCallResponse(payload);
-            }
-          },
-        );
-
-      _messagesChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime channel status: $status', name: 'MessagesScreen');
-        if (error != null) {
-          dev.log('❌ Supabase Realtime subscription error: $error', name: 'MessagesScreen');
+      // Try to load contacts from backend
+      try {
+        final res = await ApiService.instance.get('users');
+        final List<dynamic> users = res['users'] ?? res['data'] ?? [];
+        final fetched = <Map<String, String>>[];
+        for (final u in users) {
+          final uid = u['id'] as String? ?? '';
+          if (uid == _currentUserId) continue;
+          final firstName = u['firstName'] as String? ?? '';
+          final lastName = u['lastName'] as String? ?? '';
+          final name = '${firstName} ${lastName}'.trim().isEmpty ? 'User' : '${firstName} ${lastName}'.trim();
+          final role = u['role'] as String? ?? 'User';
+          fetched.add({'id': uid, 'name': name, 'role': role, 'email': u['email'] as String? ?? ''});
         }
-      });
-    } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime channel: $e', name: 'MessagesScreen');
-    }
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    
-    // Fetch once on load
-    _fetchMessagesFromDb();
-    
-    // Poll the database every 800 milliseconds for robust instant static real-time updates across devices
-    _pollTimer = Timer.periodic(const Duration(milliseconds: 800), (timer) {
-      if (mounted) {
-        _fetchMessagesFromDb();
+        if (fetched.isNotEmpty) {
+          _availableContacts = fetched;
+        } else {
+          _availableContacts = _buildMockContacts();
+        }
+      } catch (_) {
+        _availableContacts = _buildMockContacts();
       }
-    });
-    dev.log('🔥 Supabase direct database polling messaging listener connected.', name: 'MessagesScreen');
-  }
 
-  Future<void> _fetchMessagesFromDb() async {
-    if (_currentUserId.isEmpty) return;
-    try {
-      final client = Supabase.instance.client;
-
-      // Fetch sent and received messages in parallel to ensure bulletproof delivery without PostgREST .or() string parsing
-      final futures = await Future.wait([
-        client.from('messages').select().eq('sender_id', _currentUserId),
-        client.from('messages').select().eq('recipient_id', _currentUserId),
-      ]);
-
-      if (!mounted) return;
-
-      final List<dynamic> sentRes = futures[0];
-      final List<dynamic> receivedRes = futures[1];
-
-      final List<Map<String, dynamic>> allMessages = [];
-      allMessages.addAll(List<Map<String, dynamic>>.from(sentRes));
-      allMessages.addAll(List<Map<String, dynamic>>.from(receivedRes));
-
-      // Sort by created_at ascending in Dart
-      allMessages.sort((a, b) => (a['created_at'] as String).compareTo(b['created_at'] as String));
-
-      _processStreamedMessages(allMessages);
     } catch (e) {
-      dev.log('⚠️ Error fetching messages: $e', name: 'MessagesScreen');
+      dev.log('⚠️ Error initializing users: $e', name: 'MessagesScreen');
+      _availableContacts = _buildMockContacts();
+    } finally {
+      if (mounted) setState(() => _isLoadingContacts = false);
     }
   }
+
+  List<Map<String, String>> _buildMockContacts() {
+    return [
+      {'id': 'mock_teacher_1', 'name': 'Mr. Rajesh Kumar', 'role': 'Teacher • Physics', 'email': 'rajesh@edusphere.com'},
+      {'id': 'mock_teacher_2', 'name': 'Mrs. Priya Nair', 'role': 'Teacher • Science', 'email': 'priya@edusphere.com'},
+      {'id': 'mock_teacher_3', 'name': 'Dr. Arun Sharma', 'role': 'Teacher • Mathematics', 'email': 'arun@edusphere.com'},
+      {'id': 'mock_student_1', 'name': 'Aryan Mehta', 'role': 'Student • Class 10-A', 'email': 'aryan@edusphere.com'},
+      {'id': 'mock_student_2', 'name': 'Riya Gupta', 'role': 'Student • Class 10-B', 'email': 'riya@edusphere.com'},
+    ];
+  }
+
+  // Messages are in-memory only — no backend messages API exists yet.
+  // Real-time sync would be added when a messages route is available.
+
+  // Messages are handled in-memory only via optimistic UI updates.
 
   void _processStreamedMessages(List<Map<String, dynamic>> data) {
     if (!mounted) return;
@@ -637,48 +569,28 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
-  bool _isMarkingSeen = false;
-  void _markAllFromContactAsSeen(String contactId) async {
-    if (_isMarkingSeen) return;
-    _isMarkingSeen = true;
-    try {
-      await Supabase.instance.client
-          .from('messages')
-          .update({'is_seen': true})
-          .eq('sender_id', contactId)
-          .eq('recipient_id', _currentUserId)
-          .eq('is_seen', false);
-      dev.log('👀 Batch marked messages from $contactId as seen', name: 'MessagesScreen');
-    } catch (e) {
-      dev.log('⚠️ Failed to batch mark seen: $e', name: 'MessagesScreen');
-    } finally {
-      _isMarkingSeen = false;
-    }
+  void _markAllFromContactAsSeen(String contactId) {
+    // Mark seen locally in-memory
+    if (!mounted) return;
+    setState(() {
+      for (final chat in _chats) {
+        if (chat.id == contactId) {
+          for (final msg in chat.messages) {
+            msg.isSeen = true;
+          }
+          chat.unread = 0;
+        }
+      }
+    });
   }
 
-  void _openChat(_Chat c) async {
+  void _openChat(_Chat c) {
     setState(() {
       c.unread = 0;
       _active = c;
     });
     _scrollToBottom();
-    
-    // Mark all received unseen messages from this contact as seen inside the database
-    if (!c.id.startsWith('mock_')) {
-      try {
-        await Supabase.instance.client
-            .from('messages')
-            .update({'is_seen': true})
-            .eq('sender_id', c.id)
-            .eq('recipient_id', _currentUserId)
-            .eq('is_seen', false);
-        dev.log('👀 All messages from ${c.name} marked as SEEN', name: 'MessagesScreen');
-        // Instantly refresh list from database
-        _fetchMessagesFromDb();
-      } catch (e) {
-        dev.log('⚠️ Failed to mark messages seen: $e', name: 'MessagesScreen');
-      }
-    }
+    _markAllFromContactAsSeen(c.id);
   }
 
   void _send() async {
@@ -699,26 +611,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
     _scrollToBottom();
 
-    if (!recipientId.startsWith('mock_')) {
-      try {
-        // Direct database insert
-        await Supabase.instance.client.from('messages').insert({
-          'sender_id': _currentUserId,
-          'recipient_id': recipientId,
-          'text': text,
-          'is_seen': false,
-        });
-        
-        // Immediately fetch database state to synchronize
-        _fetchMessagesFromDb();
-        dev.log('📤 Rich message successfully sent and database fetched.', name: 'MessagesScreen');
-      } catch (e) {
-        dev.log('⚠️ Failed to send rich message to database: $e', name: 'MessagesScreen');
-      }
-    } else {
-      // Mock chats maintain local memory list without any mock reply triggers (Real Conversation mode)
-      dev.log('📝 Sent mock rich message locally.', name: 'MessagesScreen');
-    }
+    // Messages are in-memory only — optimistic UI update already done above
+    dev.log('📤 Message added to local chat: $text', name: 'MessagesScreen');
   }
 
   void _onEmojiSelected(String emoji) {
@@ -2245,7 +2139,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                   ],
                                 ),
                               );
-                            }).toList(),
+                            }),
                             if (pollOptionCtrls.length < 5)
                               TextButton.icon(
                                 onPressed: () {
@@ -3466,7 +3360,7 @@ class _Chat {
 
 class _Msg { 
   final String from, text, time; 
-  final bool isSeen;
+  bool isSeen;
   final String id;
-  const _Msg(this.from, this.text, this.time, {this.isSeen = false, this.id = ''}); 
+  _Msg(this.from, this.text, this.time, {this.isSeen = false, this.id = ''}); 
 }
