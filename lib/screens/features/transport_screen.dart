@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/api_service.dart';
 
 class TransportScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -84,78 +85,38 @@ class _TransportScreenState extends State<TransportScreen> {
       final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Singh';
       _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
       
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+      _studentId = prefs.getString('student_id') ?? '';
 
-      // 1. Fetch User details
-      final userRes = await Supabase.instance.client
-          .from('User')
-          .select()
-          .eq('email', savedEmail)
-          .maybeSingle();
-
-      if (userRes != null) {
-        final userId = userRes['id'] as String;
-        final firstName = userRes['firstName'] as String? ?? _firstName;
-        _firstName = firstName;
-
-        // 2. Fetch Student details
-        final studentRes = await Supabase.instance.client
-            .from('Student')
-            .select()
-            .eq('userId', userId)
-            .maybeSingle();
-
-        if (studentRes != null) {
-          _studentId = studentRes['id'] as String;
-
-          // 3. Fetch TransportAllocation details (joined with Route and Stop)
-          final allocationRes = await Supabase.instance.client
-              .from('TransportAllocation')
-              .select('*, TransportRoute(*), RouteStop(*)')
-              .eq('studentId', _studentId)
-              .eq('status', 'ACTIVE')
-              .maybeSingle();
-
-          if (allocationRes != null) {
-            final routeData = allocationRes['TransportRoute'];
-            final stopData = allocationRes['RouteStop'];
-
-            if (routeData != null) {
-              _routeName = routeData['name'] as String? ?? 'Route 1 - City Center';
-            }
-            if (stopData != null) {
-              _stopName = stopData['name'] as String? ?? 'Stop A';
-
-              final timeVal = stopData['arrivalTime'];
-              if (timeVal != null) {
-                _arrivalTime = _formatArrivalTime(timeVal.toString());
-              }
-            }
-          } else {
-            // Default reference values matching the image
-            _routeName = 'Route 1 - City Center';
-            _stopName = 'Stop A';
-            _arrivalTime = '07:00 AM';
+      final response = await ApiService.instance.get('transport/allocations/my');
+      if (response != null && response['success'] == true && response['allocation'] != null) {
+        final allocation = response['allocation'] as Map<String, dynamic>;
+        _isTransportAssigned = true;
+        
+        final routeObj = allocation['route'] as Map<String, dynamic>?;
+        if (routeObj != null) {
+          _routeName = routeObj['name'] as String? ?? 'Route 1 - City Center';
+        }
+        
+        final stopObj = allocation['stop'] as Map<String, dynamic>?;
+        if (stopObj != null) {
+          _stopName = stopObj['name'] as String? ?? 'Stop A';
+          final timeVal = stopObj['arrivalTime'];
+          if (timeVal != null) {
+            _arrivalTime = _formatArrivalTime(timeVal.toString());
           }
-          _isTransportAssigned = true;
-        } else {
-          _routeName = 'Route 1 - City Center';
-          _stopName = 'Stop A';
-          _arrivalTime = '07:00 AM';
-          _isTransportAssigned = true;
         }
       } else {
+        _isTransportAssigned = false;
         _routeName = 'Route 1 - City Center';
         _stopName = 'Stop A';
         _arrivalTime = '07:00 AM';
-        _isTransportAssigned = true;
       }
     } catch (e) {
       debugPrint('Error loading transport allocation: $e');
+      _isTransportAssigned = false;
       _routeName = 'Route 1 - City Center';
       _stopName = 'Stop A';
       _arrivalTime = '07:00 AM';
-      _isTransportAssigned = true;
     } finally {
       if (mounted) {
         setState(() {
@@ -191,43 +152,37 @@ class _TransportScreenState extends State<TransportScreen> {
 
   Future<void> _createSupabaseAllocation() async {
     try {
-      final routes = await Supabase.instance.client
-          .from('TransportRoute')
-          .select()
-          .limit(1);
-      final stops = await Supabase.instance.client
-          .from('RouteStop')
-          .select()
-          .limit(1);
-
+      final routesRes = await ApiService.instance.get('transport/routes');
+      final routes = routesRes['routes'] as List<dynamic>? ?? [];
+      
       String? routeId;
       String? stopId;
 
-      if (routes.isNotEmpty) routeId = routes.first['id'] as String;
-      if (stops.isNotEmpty) stopId = stops.first['id'] as String;
+      if (routes.isNotEmpty) {
+        final routeObj = routes.first as Map<String, dynamic>;
+        routeId = routeObj['id'] as String?;
+        final stops = routeObj['stops'] as List<dynamic>? ?? [];
+        if (stops.isNotEmpty) {
+          stopId = (stops.first as Map<String, dynamic>)['id'] as String?;
+        }
+      }
 
       if (_studentId.isNotEmpty && routeId != null && stopId != null) {
         String? academicYearId;
         try {
-          final academicYears = await Supabase.instance.client
-              .from('AcademicYear')
-              .select()
-              .eq('isCurrent', true)
-              .limit(1);
-          if (academicYears.isNotEmpty) {
-            academicYearId = academicYears.first['id'] as String;
+          final profileRes = await ApiService.instance.get('students/me');
+          if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+            academicYearId = profileRes['student']['academicYearId'] as String?;
           }
         } catch (_) {}
 
-        await Supabase.instance.client
-            .from('TransportAllocation')
-            .upsert({
-              'studentId': _studentId,
-              'routeId': routeId,
-              'stopId': stopId,
-              'academicYearId': academicYearId,
-              'status': 'ACTIVE',
-            });
+        await ApiService.instance.post('transport/allocate', body: {
+          'studentId': _studentId,
+          'routeId': routeId,
+          'stopId': stopId,
+          'academicYearId': academicYearId,
+          'status': 'ACTIVE',
+        });
 
         await _loadTransportAllocation();
       } else {
@@ -239,7 +194,7 @@ class _TransportScreenState extends State<TransportScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error creating supabase allocation: $e');
+      debugPrint('Error creating transport allocation: $e');
       setState(() {
         _isTransportAssigned = true;
         _routeName = 'Route 1 - City Center';

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/api_service.dart';
 import '../main_screen.dart';
 
 
@@ -75,28 +76,75 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       final prefs = await SharedPreferences.getInstance();
       final isStudent = widget.role == 'student';
 
+      dynamic response;
       if (isStudent) {
-        final studentClass = prefs.getString('student_class') ?? 'Grade 12';
-        final studentSection = prefs.getString('student_section') ?? 'A';
+        String? sectionId = prefs.getString('student_section_id');
+        if (sectionId == null || sectionId.isEmpty) {
+          // Fetch student profile first to get sectionId
+          final profileRes = await ApiService.instance.get('students/me');
+          if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+            final studentData = profileRes['student'] as Map<String, dynamic>;
+            sectionId = studentData['sectionId'] as String?;
+            if (sectionId != null) {
+              await prefs.setString('student_section_id', sectionId);
+            }
+          }
+        }
+        if (sectionId == null || sectionId.isEmpty) {
+          throw Exception('Student section ID could not be resolved');
+        }
 
-        // Query: Fetch timetable entries joined with subjects and teachers
-        final response = await Supabase.instance.client
-            .from('timetable_entries')
-            .select('*, subject:subjects(*), teacher:teachers(*)')
-            .eq('class_id', studentClass)
-            .eq('section', studentSection);
-
-        _allEntries = List<Map<String, dynamic>>.from(response);
+        response = await ApiService.instance.get('timetable/student/$sectionId');
       } else {
-        final teacherId = prefs.getString('teacher_id') ?? 'b2f4c6d8-2345-6789-bcde-f23456789012';
+        String? teacherId = prefs.getString('teacher_id');
+        if (teacherId == null || teacherId.isEmpty) {
+          teacherId = 'me';
+        }
+        response = await ApiService.instance.get('timetable/teacher/$teacherId');
+      }
 
-        // Query: Fetch timetable entries joined with subjects where teacher_id matches
-        final response = await Supabase.instance.client
-            .from('timetable_entries')
-            .select('*, subject:subjects(*)')
-            .eq('teacher_id', teacherId);
+      if (response != null && response['success'] == true) {
+        final rawSchedule = response['schedule'] as List<dynamic>? ?? [];
+        final Map<int, String> weekdayToName = {
+          1: 'Mon',
+          2: 'Tue',
+          3: 'Wed',
+          4: 'Thu',
+          5: 'Fri',
+          6: 'Sat',
+          7: 'Sun',
+        };
 
-        _allEntries = List<Map<String, dynamic>>.from(response);
+        _allEntries = rawSchedule.map((slot) {
+          final sMap = slot as Map<String, dynamic>;
+          final teacherObj = sMap['teacher'] as Map<String, dynamic>?;
+          final userObj = teacherObj?['user'] as Map<String, dynamic>?;
+          String resolvedTeacherName = 'Class Teacher';
+          if (userObj != null) {
+            resolvedTeacherName = '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim();
+          } else if (teacherObj?['name'] != null) {
+            resolvedTeacherName = teacherObj!['name'] as String;
+          }
+
+          final roomObj = sMap['room'] as Map<String, dynamic>?;
+          final sectionObj = sMap['section'] as Map<String, dynamic>?;
+          final classObj = sectionObj?['class'] as Map<String, dynamic>?;
+
+          return {
+            'day_of_week': weekdayToName[sMap['dayOfWeek']] ?? 'Mon',
+            'start_time': sMap['startTime'] ?? '08:00',
+            'end_time': sMap['endTime'] ?? '08:45',
+            'room_number': roomObj?['name'] ?? 'Room 101',
+            'class_name': classObj?['name'] ?? '',
+            'section': sectionObj?['name'] ?? '',
+            'subject': sMap['subject'],
+            'teacher': {
+              'name': resolvedTeacherName,
+            },
+          };
+        }).toList();
+      } else {
+        throw Exception(response?['message'] ?? 'Failed to load timetable response');
       }
 
       _applyFilters();

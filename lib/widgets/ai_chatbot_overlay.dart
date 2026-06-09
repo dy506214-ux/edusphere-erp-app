@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
+import '../services/api_service.dart';
 
 class AIChatbotOverlay extends StatefulWidget {
   final Widget child;
@@ -113,117 +114,39 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
 
       if (savedEmail == null) return;
 
-      final supabase = Supabase.instance.client;
-
-      // 1. Fetch user detail
-      final userRes = await supabase
-          .from('User')
-          .select()
-          .eq('email', savedEmail)
-          .maybeSingle();
-
-      if (userRes != null) {
-        final userId = userRes['id'] as String;
-        final oldFirstName = _firstName;
-        _firstName = userRes['firstName'] as String? ?? _firstName;
-
-        if (_firstName != oldFirstName && _chatMessages.length == 1 && _chatMessages[0]['sender'] == 'bot') {
-          _chatMessages[0]['text'] = 'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?';
-        }
-
-        // 2. Fetch student detail
-        final studentRes = await supabase
-            .from('Student')
-            .select()
-            .eq('userId', userId)
-            .maybeSingle();
-
-        if (studentRes != null) {
-          _studentId = studentRes['id'] as String;
-          final classId = studentRes['currentClassId'] as String? ?? '';
-          final sectionId = studentRes['sectionId'] as String? ?? '';
-
-          // Fetch attendance rate
-          final List<dynamic> attendanceRes = await supabase
-              .from('AttendanceRecord')
-              .select()
-              .eq('studentId', _studentId);
-
-          if (attendanceRes.isNotEmpty) {
-            int present = 0;
-            for (var record in attendanceRes) {
-              final status = record['status'] as String? ?? '';
-              if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
-                present++;
-              }
+      final response = await ApiService.instance.get('dashboard/stats');
+      if (response != null && response['success'] == true && response['stats'] != null) {
+        final stats = response['stats'] as Map<String, dynamic>;
+        
+        if (role == 'student') {
+          _studentId = stats['studentId'] as String? ?? '';
+          _attendanceRate = (stats['attendancePercentage'] as num? ?? 100.0).toDouble();
+          _pendingFee = (stats['pendingFees'] as num? ?? 0).toInt();
+          _booksDue = (stats['booksDue'] as num? ?? 0).toInt();
+          
+          final transportObj = stats['transport'] as Map<String, dynamic>?;
+          if (transportObj != null) {
+            _routeName = transportObj['route'] as String? ?? 'None Assigned';
+            _stopName = transportObj['stop'] as String? ?? 'None';
+            final timeVal = transportObj['time'];
+            if (timeVal != null) {
+              _arrivalTime = _formatTime(timeVal.toString());
             }
-            _attendanceRate = (present / attendanceRes.length) * 100;
+          } else {
+            _routeName = 'None Assigned';
+            _stopName = 'None';
+            _arrivalTime = '—';
           }
-
-          // Fetch pending fees
-          final List<dynamic> ledgerRes = await supabase
-              .from('StudentFeeLedger')
-              .select()
-              .eq('studentId', _studentId);
-
-          double balance = 0;
-          for (var entry in ledgerRes) {
-            final pendingVal = (entry['totalPending'] ?? entry['total_pending'] ?? 0) as num;
-            balance += pendingVal.toDouble();
-          }
-          _pendingFee = balance.toInt();
-
-          // Fetch library books due
-          final List<dynamic> booksRes = await supabase
-              .from('LibraryIssue')
-              .select()
-              .eq('studentId', _studentId)
-              .eq('status', 'ISSUED');
-          _booksDue = booksRes.length;
-
-          // Fetch assignments pending
-          if (classId.isNotEmpty) {
-            final List<dynamic> assignmentsRes = await supabase
-                .from('Assignment')
-                .select()
-                .eq('classId', classId);
-
-            final classAssignments = assignmentsRes.where((a) {
-              final aSecId = a['sectionId'];
-              return aSecId == null || sectionId.isEmpty || aSecId == sectionId;
-            }).toList();
-
-            final List<dynamic> submissionsRes = await supabase
-                .from('AssignmentSubmission')
-                .select()
-                .eq('studentId', _studentId);
-
-            _pendingAssignments = (classAssignments.length - submissionsRes.length).clamp(0, 99);
-          }
-
-          // Fetch transport details
-          final allocationRes = await supabase
-              .from('TransportAllocation')
-              .select('*, TransportRoute(*), RouteStop(*)')
-              .eq('studentId', _studentId)
-              .eq('status', 'ACTIVE')
-              .maybeSingle();
-
-          if (allocationRes != null) {
-            final routeData = allocationRes['TransportRoute'];
-            final stopData = allocationRes['RouteStop'];
-
-            if (routeData != null) {
-              _routeName = routeData['name'] as String? ?? 'None';
+          
+          // Fallback prefetch for pending assignments
+          try {
+            final classId = prefs.getString('student_class_id') ?? '';
+            if (classId.isNotEmpty) {
+              final assignmentsRes = await ApiService.instance.get('assignments/teacher');
+              final List<dynamic> rawAssignments = assignmentsRes['assignments'] ?? [];
+              _pendingAssignments = rawAssignments.length;
             }
-            if (stopData != null) {
-              _stopName = stopData['name'] as String? ?? 'None';
-              final timeVal = stopData['arrivalTime'];
-              if (timeVal != null) {
-                _arrivalTime = _formatTime(timeVal.toString());
-              }
-            }
-          }
+          } catch (_) {}
         }
       }
     } catch (_) {}
