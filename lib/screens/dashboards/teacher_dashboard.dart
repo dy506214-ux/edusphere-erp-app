@@ -8,6 +8,8 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import '../features/academic_calendar_screen.dart';
 import '../../theme/colors.dart';
+import '../../services/api_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final RoleTheme theme;
@@ -25,11 +27,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   bool _upcomingEventsLoaded = false;
   RealtimeChannel? _teacherDashChannel;
   Timer? _teacherDashTimer;
+  String _teacherName = 'Teacher';
 
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
+    _loadTeacherName();
     _loadUpcomingEvents();
     _connectRealTime();
   }
@@ -64,27 +68,26 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     });
   }
 
+  Future<void> _loadTeacherName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final name = prefs.getString('teacher_name') ?? prefs.getString('user_name') ?? 'Teacher';
+    if (mounted) setState(() { _teacherName = name.trim().split(' ').first; });
+  }
+
   Future<void> _loadUpcomingEvents() async {
     try {
-      final supabase = Supabase.instance.client;
-      final now = DateTime.now();
-      final fromDate = DateTime(now.year, now.month, now.day);
-      final toDate = fromDate.add(const Duration(days: 60));
-      final List<dynamic> res = await supabase
-          .from('SchoolCalendar')
-          .select()
-          .gte('date', fromDate.toIso8601String())
-          .lte('date', toDate.toIso8601String())
-          .order('date', ascending: true)
-          .limit(8);
-      if (mounted) {
+      final res = await ApiService.instance.get('calendar/upcoming', queryParams: {'limit': '8'});
+      if (res['success'] == true && mounted) {
+        final events = res['events'] as List? ?? [];
         setState(() {
-          _upcomingEvents = res;
+          _upcomingEvents = events;
           _upcomingEventsLoaded = true;
         });
+      } else {
+        if (mounted) setState(() { _upcomingEventsLoaded = true; });
       }
     } catch (e) {
-      dev.log('Error loading teacher upcoming events: $e');
+      dev.log('Error loading teacher upcoming events from API: $e');
       if (mounted) setState(() { _upcomingEventsLoaded = true; });
     }
   }
@@ -137,16 +140,19 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 borderRadius: BorderRadius.circular(8.r),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF64748B)),
-                  SizedBox(width: 4.w),
-                  Text('Refresh',
-                      style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF475569))),
-                ],
+              child: GestureDetector(
+                onTap: _loadUpcomingEvents,
+                child: Row(
+                  children: [
+                    Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF64748B)),
+                    SizedBox(width: 4.w),
+                    Text('Refresh',
+                        style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF475569))),
+                  ],
+                ),
               ),
             ),
           ],
@@ -160,7 +166,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Good day, Vikram.',
+                  Text('Good day, $_teacherName.',
                       style: GoogleFonts.inter(
                           fontSize: 14.sp,
                           color: const Color(0xFF64748B))),

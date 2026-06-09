@@ -151,7 +151,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF0F4F8),
       drawer: widget.showAppBar
-          ? EduSphereDrawer(role: 'teacher', activeLabel: 'Academic Calendar')
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic Calendar')
           : null,
       appBar: widget.showAppBar
           ? AppBar(
@@ -202,7 +202,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         ),
       ),
       bottomNavigationBar: widget.showAppBar
-          ? TeacherBottomNavBar(activeIndex: 1)
+          ? const TeacherBottomNavBar(activeIndex: 1)
           : null,
     );
   }

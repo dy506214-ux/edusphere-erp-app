@@ -5,7 +5,7 @@ import '../main_screen.dart';
 class ExamDetailScreen extends StatefulWidget {
   final String examName;
 
-  const ExamDetailScreen({Key? key, required this.examName}) : super(key: key);
+  const ExamDetailScreen({super.key, required this.examName});
 
   @override
   State<ExamDetailScreen> createState() => _ExamDetailScreenState();
@@ -88,7 +88,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF0F4F8),
-      drawer: EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations'),
+      drawer: const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations'),
       appBar: _buildAppBar(),
       body: Stack(
         children: [
@@ -245,7 +245,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           color: Colors.white,
         ),
       ),
-      bottomNavigationBar: TeacherBottomNavBar(activeIndex: 7),
+      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 7),
     );
   }
 
@@ -363,10 +363,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         Container(
           width: 800.w, // Fixed width for horizontal scrolling
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(
-              bottom: BorderSide(color: const Color(0xFFE2E8F0)),
+              bottom: BorderSide(color: Color(0xFFE2E8F0)),
             ),
           ),
           child: Row(
@@ -394,7 +394,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               color: Colors.white,
               border: isLast
                   ? null
-                  : Border(bottom: BorderSide(color: const Color(0xFFF1F5F9))),
+                  : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
             ),
             child: Row(
               children: [
@@ -428,7 +428,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -487,10 +487,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         Container(
           width: 1000.w, // Fixed width for horizontal scrolling
           padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(
-              bottom: BorderSide(color: const Color(0xFFE2E8F0)),
+              bottom: BorderSide(color: Color(0xFFE2E8F0)),
             ),
           ),
           child: Row(
@@ -518,7 +518,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           final mat = e['theory'] == '23' ? '23' : '0';
           final total = e['theory'] == '23' ? '23' : '0';
           final percent = e['theory'] == '23' ? '23%' : '0%';
-          final grade = 'F';
+          const grade = 'F';
 
           return Container(
             width: 1000.w, // Fixed width for horizontal scrolling
@@ -527,7 +527,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               color: Colors.white,
               border: isLast
                   ? null
-                  : Border(bottom: BorderSide(color: const Color(0xFFF1F5F9))),
+                  : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
             ),
             child: Row(
               children: [
@@ -593,7 +593,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

@@ -11,6 +11,7 @@ import 'dart:math';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import '../../services/api_service.dart';
 
 class FeeLedgerScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -131,204 +132,76 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _studentId = prefs.getString('student_id') ?? '';
+      _studentName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Student';
+      _studentEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
 
-      // Also try Supabase auth user id as fallback
-      if (_studentId.isEmpty) {
-        final currentUser = Supabase.instance.client.auth.currentUser;
-        _studentId = currentUser?.id ?? '';
+      // Call the backend endpoint to get student fee status
+      final feeRes = await ApiService.instance.get('fees/students/me/status');
+
+      if (feeRes != null && feeRes['success'] == true) {
+        // Resolve student basic details
+        if (feeRes['student'] != null) {
+          final sObj = feeRes['student'];
+          _studentId = sObj['id'] as String? ?? _studentId;
+          if (sObj['user'] != null) {
+            final uObj = sObj['user'];
+            _studentName = '${uObj['firstName'] ?? ''} ${uObj['lastName'] ?? ''}'.trim();
+            _studentEmail = uObj['email'] as String? ?? _studentEmail;
+          }
+        }
+
+        // Process summary
+        if (feeRes['summary'] != null) {
+          final summary = feeRes['summary'];
+          _totalFee = (summary['totalFees'] ?? 0).toDouble();
+          _totalPaid = (summary['totalPaid'] ?? 0).toDouble();
+        }
+
+        // Process ledgers
+        final List<dynamic> ledgers = feeRes['ledgers'] ?? [];
+        final List<Map<String, dynamic>> heads = [];
+
+        for (var entry in ledgers) {
+          final structure = entry['feeStructure'] as Map<String, dynamic>? ?? {};
+          _feeStructureId = structure['id'] as String? ?? '';
+          _ledgerId = entry['id'] as String? ?? '';
+          if (entry['academicYearId'] != null) {
+            _academicYearId = entry['academicYearId'] as String;
+          }
+          final headName = structure['name'] as String? ?? 'Fee';
+          final amount = (entry['totalPayable'] ?? structure['totalAmount'] ?? 0).toDouble();
+          final paid = (entry['totalPaid'] ?? 0).toDouble();
+          final status = entry['status']?.toString() ?? 'PENDING';
+
+          heads.add({
+            'id': entry['id'],
+            'name': headName,
+            'amount': amount,
+            'paid': paid,
+            'status': status == 'PAID' ? 'PAID' : (paid > 0 ? 'PARTIAL' : 'PENDING'),
+            'feeStructureId': _feeStructureId,
+            'academicYearId': _academicYearId,
+          });
+        }
+        _feeHeads = heads;
+
+        // Process recent payments
+        final List<dynamic> payments = feeRes['recentPayments'] ?? [];
+        _paymentHistory = payments.map((p) {
+          return {
+            'date': p['paymentDate'] as String? ?? '',
+            'amount': (p['amount'] as num? ?? 0).toDouble(),
+            'method': p['paymentMode']?.toString() ?? 'UPI',
+            'receipt': p['receiptNumber'] as String? ?? 'RCT-00000000',
+            'status': p['status']?.toString() ?? 'SUCCESS',
+          };
+        }).toList();
+      } else {
+        _feeHeads = [];
+        _totalFee = 0;
+        _totalPaid = 0;
+        _paymentHistory = [];
       }
-
-      // Load name and email for PDF
-      try {
-        final userRes = await Supabase.instance.client
-            .from('User')
-            .select('firstName, lastName, email')
-            .eq('id', _studentId)
-            .maybeSingle();
-        if (userRes != null) {
-          _studentName = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
-          _studentEmail = userRes['email'] as String? ?? '';
-        }
-      } catch (_) {}
-
-      if (_studentId.isNotEmpty) {
-        Map<String, dynamic>? studentProfile;
-        try {
-          studentProfile = await Supabase.instance.client
-              .from('Student')
-              .select('id, currentClassId, academicYearId')
-              .eq('userId', _studentId)
-              .maybeSingle();
-          studentProfile ??= await Supabase.instance.client
-                .from('Student')
-                .select('id, currentClassId, academicYearId')
-                .eq('id', _studentId)
-                .maybeSingle();
-          if (studentProfile != null) {
-            _studentId = studentProfile['id'] as String;
-            _academicYearId = studentProfile['academicYearId'] as String? ?? '';
-          }
-        } catch (e) {
-          dev.log('Error resolving student profile: $e', name: 'FeeLedgerScreen');
-        }
-
-        // Fetch fee ledger joined with FeeStructure
-        var ledgerRes = await Supabase.instance.client
-            .from('StudentFeeLedger')
-            .select('*, FeeStructure(*)')
-            .eq('studentId', _studentId);
-
-        var ledgerData = List<Map<String, dynamic>>.from(ledgerRes);
-
-        // Seeding database record in real-time if student has no fee structures assigned
-        if (ledgerData.isEmpty && studentProfile != null && _academicYearId.isNotEmpty) {
-          try {
-            final classId = studentProfile['currentClassId'] as String?;
-            
-            // Check if a FeeStructure exists or create one
-            var structuresRes = await Supabase.instance.client
-                .from('FeeStructure')
-                .select()
-                .eq('academicYearId', _academicYearId)
-                .eq('name', 'Tuition Fee - Grade 1')
-                .maybeSingle();
-
-            Map<String, dynamic> feeStructure;
-            if (structuresRes != null) {
-              feeStructure = structuresRes;
-            } else {
-              final newStructureId = _generateUUID();
-              final newStructure = {
-                'id': newStructureId,
-                'name': 'Tuition Fee - Grade 1',
-                'description': 'Tuition Fee breakdown',
-                'classId': classId,
-                'academicYearId': _academicYearId,
-                'totalAmount': 10500.0,
-                'frequency': 'YEARLY',
-                'dueDay': 10,
-                'earlyPaymentDiscount': 0.0,
-                'latePaymentPenalty': 0.0,
-                'isActive': true,
-                'createdAt': DateTime.now().toIso8601String(),
-                'updatedAt': DateTime.now().toIso8601String(),
-              };
-              await Supabase.instance.client.from('FeeStructure').insert(newStructure);
-              
-              final newItem = {
-                'id': _generateUUID(),
-                'feeStructureId': newStructureId,
-                'headName': 'TUITION',
-                'amount': 10500.0,
-              };
-              await Supabase.instance.client.from('FeeStructureItem').insert(newItem);
-              feeStructure = newStructure;
-            }
-
-            // Create StudentFeeLedger
-            final newLedgerId = _generateUUID();
-            final newLedger = {
-              'id': newLedgerId,
-              'studentId': _studentId,
-              'academicYearId': _academicYearId,
-              'feeStructureId': feeStructure['id'],
-              'totalPayable': 10500.0,
-              'totalPaid': 0.0,
-              'totalPending': 10500.0,
-              'totalDiscount': 0.0,
-              'status': 'PENDING',
-              'createdAt': DateTime.now().toIso8601String(),
-              'updatedAt': DateTime.now().toIso8601String(),
-            };
-            await Supabase.instance.client.from('StudentFeeLedger').insert(newLedger);
-
-            // Re-fetch
-            ledgerRes = await Supabase.instance.client
-                .from('StudentFeeLedger')
-                .select('*, FeeStructure(*)')
-                .eq('studentId', _studentId);
-            ledgerData = List<Map<String, dynamic>>.from(ledgerRes);
-          } catch (seedingError) {
-            dev.log('Error seeding default ledger: $seedingError', name: 'FeeLedgerScreen');
-          }
-        }
-
-        if (ledgerData.isNotEmpty) {
-          double totalFee = 0;
-          double totalPaid = 0;
-          final List<Map<String, dynamic>> heads = [];
-
-          for (var entry in ledgerData) {
-            final structure = entry['FeeStructure'] as Map<String, dynamic>? ?? {};
-            _feeStructureId = structure['id'] as String? ?? '';
-            _ledgerId = entry['id'] as String? ?? '';
-            if (entry['academicYearId'] != null) {
-              _academicYearId = entry['academicYearId'] as String;
-            }
-            final headName = structure['name'] as String? ?? 'Fee';
-            final amount = (entry['totalPayable'] ?? entry['amount'] ?? structure['totalAmount'] ?? 0).toDouble();
-            final paid = (entry['totalPaid'] ?? entry['paid_amount'] ?? 0).toDouble();
-
-            String status = 'PENDING';
-            if (paid >= amount && amount > 0) {
-              status = 'PAID';
-            } else if (paid > 0) {
-              status = 'PARTIAL';
-            }
-
-            totalFee += amount;
-            totalPaid += paid;
-            heads.add({
-              'id': entry['id'],
-              'name': headName,
-              'amount': amount,
-              'paid': paid,
-              'status': status,
-              'feeStructureId': _feeStructureId,
-              'academicYearId': _academicYearId,
-            });
-          }
-
-          _feeHeads = heads;
-          _totalFee = totalFee;
-          _totalPaid = totalPaid;
-        } else {
-          _feeHeads = [];
-          _totalFee = 0;
-          _totalPaid = 0;
-        }
-
-        // Fetch payment history
-        final paymentsRes = await Supabase.instance.client
-            .from('FeePayment')
-            .select()
-            .eq('studentId', _studentId)
-            .order('paymentDate', ascending: false);
-
-        final List<Map<String, dynamic>> paymentsData = List<Map<String, dynamic>>.from(paymentsRes);
-
-        if (paymentsData.isNotEmpty) {
-          _paymentHistory = paymentsData.map((p) {
-            return {
-              'date': p['paymentDate'] as String? ?? '',
-              'amount': (p['amount'] as num? ?? 0).toDouble(),
-              'method': p['paymentMode']?.toString() ?? 'UPI',
-              'receipt': p['receiptNumber'] as String? ?? 'RCT-00000000',
-              'status': p['status']?.toString() ?? 'SUCCESS',
-            };
-          }).toList();
-        } else {
-          _paymentHistory = [];
-        }
-
-        setState(() {});
-        return;
-      }
-
-      _feeHeads = [];
-      _totalFee = 0;
-      _totalPaid = 0;
-      _paymentHistory = [];
     } catch (e) {
       _feeHeads = [];
       _totalFee = 0;

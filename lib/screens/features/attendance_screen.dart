@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:intl/intl.dart' as intl;
+import '../../services/api_service.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -98,42 +99,36 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
-      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
-      _studentEmailStr = savedEmail;
-      _studentNameStr = savedName;
+      _studentIdStr = prefs.getString('student_id') ?? '';
+      _studentEmailStr = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
+      _studentNameStr = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
 
-      // Query database for student ID using User & Student mapping
-      final userRes = await Supabase.instance.client
-          .from('User')
-          .select()
-          .eq('email', _studentEmailStr)
-          .maybeSingle();
+      if (_studentIdStr.isEmpty) {
+        // Lookup student profile from backend /me
+        final profileRes = await ApiService.instance.get('students/me');
+        if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+          final studentData = profileRes['student'];
+          _studentIdStr = studentData['id'] as String? ?? '';
+          await prefs.setString('student_id', _studentIdStr);
+          if (studentData['user'] != null) {
+            final u = studentData['user'];
+            _studentNameStr = '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
+            await prefs.setString('student_name', _studentNameStr);
+          }
+        }
+      }
 
-      if (userRes != null) {
-        final userId = userRes['id'] as String;
-        _studentNameStr = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
-
-        final studentRes = await Supabase.instance.client
-            .from('Student')
-            .select()
-            .eq('userId', userId)
-            .maybeSingle();
-
-        if (studentRes != null) {
-          _studentIdStr = studentRes['id'] as String;
-
-          final List<dynamic> attendanceRes = await Supabase.instance.client
-              .from('AttendanceRecord')
-              .select()
-              .eq('studentId', _studentIdStr);
-
+      if (_studentIdStr.isNotEmpty) {
+        final attendanceRes = await ApiService.instance.get('students/$_studentIdStr/attendance');
+        if (attendanceRes != null && attendanceRes['success'] == true) {
+          final List<dynamic> list = attendanceRes['attendance'] ?? [];
+          
           final Map<int, String> dbCalData = {};
           final Map<int, Map<String, dynamic>> dbDailyRecords = {};
           int dbPresent = 0;
           int dbAbsent = 0;
 
-          for (var record in attendanceRes) {
+          for (var record in list) {
             final dateStr = record['date'] as String;
             final status = record['status'] as String;
             
@@ -141,7 +136,14 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               final date = DateTime.parse(dateStr);
               if (date.month == _selectedMonth.month && date.year == _selectedMonth.year) {
                 dbCalData[date.day] = status;
-                dbDailyRecords[date.day] = record as Map<String, dynamic>;
+                dbDailyRecords[date.day] = {
+                  'status': status,
+                  'checkInTime': record['checkInTime'],
+                  'createdAt': record['createdAt'],
+                  'markedBy': record['markedByName'] ?? record['markedBy'],
+                  'scannedByQR': record['scannedByQR'],
+                  'scannedByRFID': record['scannedByRFID'],
+                };
                 
                 if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
                   dbPresent++;
@@ -164,7 +166,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         }
       }
     } catch (e) {
-      // Fallback stays as default state values
+      dev.log('⚠️ Error loading attendance: $e', name: 'AttendanceScreen');
     } finally {
       if (mounted) {
         setState(() { _isLoading = false; });

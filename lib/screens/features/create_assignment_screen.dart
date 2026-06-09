@@ -3,11 +3,10 @@ import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../widgets/common_widgets.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart' as intl;
+import '../../services/api_service.dart';
 import '../main_screen.dart';
 
 
@@ -33,33 +32,36 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   bool _isSubmitting = false;
 
   // Local state data
-  String _teacherName = 'Vikram Yadav';
+  String _teacherName = 'Teacher';
   final List<Map<String, dynamic>> _assignments = [];
   final List<Map<String, dynamic>> _submissionsList = [];
   Map<String, dynamic>? _selectedAssignment;
 
-  // Syncing
-  RealtimeChannel? _realtimeChannel;
+  // Academic data (fetched from backend for create form)
+  List<Map<String, dynamic>> _classes = [];
+  List<Map<String, dynamic>> _sections = [];
+  List<Map<String, dynamic>> _subjects = [];
+
+  // Polling timer
   Timer? _pollTimer;
-
-
 
   @override
   void initState() {
     super.initState();
     _loadTeacherName();
     _loadAllData();
-    _connectRealTime();
+    _loadAcademicData();
+    // Poll every 30 seconds for new submissions
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadAllData(showLoading: false);
+      }
+    });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
-    if (_realtimeChannel != null) {
-      try {
-        Supabase.instance.client.removeChannel(_realtimeChannel!);
-      } catch (_) {}
-    }
     super.dispose();
   }
 
@@ -82,7 +84,38 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
         return parts[0][0].toUpperCase();
       }
     } catch (_) {}
-    return 'VY';
+    return 'T';
+  }
+
+  /// Fetch classes, sections, subjects from backend for the create form
+  Future<void> _loadAcademicData() async {
+    try {
+      final results = await Future.wait([
+        ApiService.instance.get('academic/classes'),
+        ApiService.instance.get('academic/sections'),
+        ApiService.instance.get('academic/subjects'),
+      ]);
+
+      final classesData = results[0];
+      final sectionsData = results[1];
+      final subjectsData = results[2];
+
+      if (mounted) {
+        setState(() {
+          _classes = List<Map<String, dynamic>>.from(
+            (classesData['classes'] ?? classesData['data'] ?? []) as List,
+          );
+          _sections = List<Map<String, dynamic>>.from(
+            (sectionsData['sections'] ?? sectionsData['data'] ?? []) as List,
+          );
+          _subjects = List<Map<String, dynamic>>.from(
+            (subjectsData['subjects'] ?? subjectsData['data'] ?? []) as List,
+          );
+        });
+      }
+    } catch (e) {
+      dev.log('⚠️ Error loading academic data: $e', name: 'CreateAssignmentScreen');
+    }
   }
 
   Future<void> _loadAllData({bool showLoading = true}) async {
@@ -96,40 +129,36 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
 
     try {
       // 1. Fetch all assignments created by teacher
-      final List<dynamic> assignmentsRes = await Supabase.instance.client
-          .from('assignments')
-          .select()
-          .order('id', ascending: false);
+      final assignmentsRes = await ApiService.instance.get('assignments/teacher');
+      final List<dynamic> rawAssignments = assignmentsRes['assignments'] ?? [];
 
-      final List<Map<String, dynamic>> tempAssignments = [];
-      for (var row in assignmentsRes) {
-        tempAssignments.add(Map<String, dynamic>.from(row));
-      }
+      final List<Map<String, dynamic>> tempAssignments = rawAssignments.map((row) {
+        final subject = row['subject'] as Map<String, dynamic>?;
+        final cls = row['class'] as Map<String, dynamic>?;
+        final section = row['section'] as Map<String, dynamic>?;
+        final submissionsCount = row['_count']?['submissions'] ?? 0;
 
-      // 2. Fetch all submissions
-      final List<dynamic> submissionsRes = await Supabase.instance.client
-          .from('submissions')
-          .select('*, assignments(title, subject)')
-          .order('submitted_at', ascending: false);
-
-      final List<Map<String, dynamic>> tempSubmissions = [];
-      for (var row in submissionsRes) {
-        final ass = row['assignments'] as Map<String, dynamic>?;
-        final assTitle = ass?['title'] as String? ?? 'Untitled Assignment';
-        final assSubject = ass?['subject'] as String? ?? 'General';
-
-        tempSubmissions.add({
+        return {
           'id': row['id'],
-          'assignment_id': row['assignment_id'],
-          'student_id': row['student_id'],
-          'student_name': row['student_name'] ?? 'Unknown Student',
-          'submitted_at': row['submitted_at'],
-          'grade': row['grade'] ?? 'Pending',
-          'score': row['score'] ?? 'Not Graded',
-          'file_name': row['file_name'],
-          'assignment_title': assTitle,
-          'assignment_subject': assSubject,
-        });
+          'title': row['title'] ?? 'Untitled Assignment',
+          'subject': subject?['name'] ?? 'General',
+          'class_name': cls?['name'] ?? 'N/A',
+          'section': section?['name'] ?? 'All',
+          'due_date': row['dueDate'] != null
+              ? _formatDueDate(row['dueDate'] as String)
+              : 'No Due Date',
+          'submissions_count': submissionsCount,
+          'description': row['description'],
+        };
+      }).toList();
+
+      // 2. Fetch submissions for currently selected assignment (or first one)
+      List<Map<String, dynamic>> tempSubmissions = [];
+      final String? targetId = _selectedAssignment?['id'] as String? ??
+          (tempAssignments.isNotEmpty ? tempAssignments.first['id'] as String? : null);
+
+      if (targetId != null) {
+        tempSubmissions = await _fetchSubmissionsForAssignment(targetId);
       }
 
       if (mounted) {
@@ -142,7 +171,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
           _submissionsList.addAll(tempSubmissions);
           _isLoadingSubmissions = false;
 
-          // Maintain selected assignment reference or select first one by default if none selected
+          // Maintain selected assignment reference
           if (_selectedAssignment != null) {
             final exists = _assignments.any((a) => a['id'] == _selectedAssignment!['id']);
             if (exists) {
@@ -157,7 +186,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
         });
       }
     } catch (e) {
-      dev.log('⚠️ Error loading dashboard data: $e', name: 'CreateAssignmentScreen');
+      dev.log('⚠️ Error loading assignment data: $e', name: 'CreateAssignmentScreen');
       if (mounted) {
         setState(() {
           _isLoadingAssignments = false;
@@ -167,55 +196,67 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
     }
   }
 
-  void _connectRealTime() {
+  /// Fetch submissions for a specific assignment via GET /assignments/:id
+  Future<List<Map<String, dynamic>>> _fetchSubmissionsForAssignment(String assignmentId) async {
     try {
-      final client = Supabase.instance.client;
+      final res = await ApiService.instance.get('assignments/$assignmentId');
+      final assignment = res['assignment'] as Map<String, dynamic>?;
+      final rawSubs = assignment?['submissions'] as List<dynamic>? ?? [];
 
-      if (_realtimeChannel != null) {
-        client.removeChannel(_realtimeChannel!);
-      }
+      return rawSubs.map((sub) {
+        final student = sub['student'] as Map<String, dynamic>?;
+        final userInfo = student?['user'] as Map<String, dynamic>?;
+        final firstName = userInfo?['firstName'] as String? ?? '';
+        final lastName = userInfo?['lastName'] as String? ?? '';
+        final studentName = '${firstName} ${lastName}'.trim().isEmpty
+            ? 'Unknown Student'
+            : '${firstName} ${lastName}'.trim();
 
-      dev.log('📡 Subscribing to Supabase Realtime changes for Assignment Dashboard...', name: 'CreateAssignmentScreen');
-      _realtimeChannel = client.channel('public:assignment_dashboard_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'assignments',
-            callback: (payload) {
-              dev.log('🔥 Real-time assignments change payload: $payload', name: 'CreateAssignmentScreen');
-              if (mounted) {
-                _loadAllData(showLoading: false);
-              }
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'submissions',
-            callback: (payload) {
-              dev.log('🔥 Real-time submissions change payload: $payload', name: 'CreateAssignmentScreen');
-              if (mounted) {
-                _loadAllData(showLoading: false);
-              }
-            },
-          );
-
-      _realtimeChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime status: $status', name: 'CreateAssignmentScreen');
-        if (error != null) {
-          dev.log('❌ Supabase Realtime subscription error: $error', name: 'CreateAssignmentScreen');
-        }
-      });
+        return {
+          'id': sub['id'],
+          'assignment_id': assignmentId,
+          'student_id': sub['studentId'],
+          'student_name': studentName,
+          'submitted_at': sub['submittedAt'],
+          'grade': sub['grade'] ?? 'Pending',
+          'score': sub['feedback'] ?? 'Not Graded',
+          'file_name': sub['filePath'] != null
+              ? (sub['filePath'] as String).split('/').last
+              : null,
+          'status': sub['status'] ?? 'PENDING',
+          'assignment_title': assignment?['title'] ?? 'Untitled',
+          'assignment_subject': (assignment?['subject'] as Map?)?.values.first ?? 'General',
+        };
+      }).toList();
     } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime channel: $e', name: 'CreateAssignmentScreen');
+      dev.log('⚠️ Error fetching submissions for $assignmentId: $e', name: 'CreateAssignmentScreen');
+      return [];
     }
+  }
 
-    // Polling fallback
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted) {
-        _loadAllData(showLoading: false);
-      }
+  String _formatDueDate(String rawDate) {
+    try {
+      final dt = DateTime.parse(rawDate).toLocal();
+      return intl.DateFormat('MMM d, yyyy').format(dt);
+    } catch (_) {
+      return rawDate;
+    }
+  }
+
+  /// When user selects an assignment, load its submissions
+  Future<void> _selectAssignment(Map<String, dynamic> assignment) async {
+    setState(() {
+      _selectedAssignment = assignment;
+      _isLoadingSubmissions = true;
     });
+    final subs = await _fetchSubmissionsForAssignment(assignment['id'] as String);
+    if (mounted) {
+      setState(() {
+        _submissionsList.clear();
+        _submissionsList.addAll(subs);
+        _isLoadingSubmissions = false;
+      });
+    }
   }
 
   @override
@@ -249,7 +290,6 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                   icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
                   onPressed: () {},
                 ),
-                // Styled profile avatar badge
                 Padding(
                   padding: EdgeInsets.only(right: 16.w, left: 4.w),
                   child: Center(
@@ -343,8 +383,6 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
               ),
             ),
           ),
-
-
         ],
       ),
     );
@@ -432,11 +470,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                 final isSelected = _selectedAssignment != null && _selectedAssignment!['id'] == a['id'];
 
                 return InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedAssignment = a;
-                    });
-                  },
+                  onTap: () => _selectAssignment(a),
                   borderRadius: BorderRadius.circular(12.r),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -484,7 +518,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                               ),
                               SizedBox(height: 2.h),
                               Text(
-                                '${a['subject']} • Target: Class ${a['class_name'] ?? 'N/A'} (${a['section'] ?? 'N/A'})',
+                                '${a['subject']} • Class ${a['class_name']} (${a['section']})',
                                 style: GoogleFonts.inter(
                                   fontSize: 11.sp,
                                   color: const Color(0xFF64748B),
@@ -610,18 +644,14 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
               ),
             )
           else
-            _buildFilteredSubmissionsList(),
+            _buildSubmissionsList(),
         ],
       ),
     );
   }
 
-  Widget _buildFilteredSubmissionsList() {
-    final list = _submissionsList
-        .where((s) => s['assignment_id']?.toString() == _selectedAssignment!['id']?.toString())
-        .toList();
-
-    if (list.isEmpty) {
+  Widget _buildSubmissionsList() {
+    if (_submissionsList.isEmpty) {
       return CustomPaint(
         painter: DashedRectPainter(
           color: const Color(0xFFCBD5E1),
@@ -656,11 +686,12 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: list.length,
+      itemCount: _submissionsList.length,
       separatorBuilder: (_, __) => const Divider(height: 20, color: Color(0xFFF1F5F9)),
       itemBuilder: (context, index) {
-        final sub = list[index];
-        final hasGrade = sub['grade'] != 'Pending';
+        final sub = _submissionsList[index];
+        final hasGrade = sub['grade'] != null && sub['grade'] != 'Pending';
+        final status = sub['status'] as String? ?? 'PENDING';
 
         DateTime? subDate;
         if (sub['submitted_at'] != null) {
@@ -701,7 +732,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                   ),
                   SizedBox(height: 2.h),
                   Text(
-                    'File: ${sub['file_name'] ?? 'submission.pdf'} • $formattedDate',
+                    'File: ${sub['file_name'] ?? 'submission'} • $formattedDate',
                     style: GoogleFonts.inter(
                       fontSize: 11.sp,
                       color: const Color(0xFF64748B),
@@ -720,7 +751,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                       SizedBox(width: 4.w),
                       Text(
                         hasGrade
-                            ? 'Score: ${sub['score']} (${sub['grade']})'
+                            ? 'Grade: ${sub['grade']} (${status})'
                             : 'Evaluation Pending',
                         style: GoogleFonts.inter(
                           fontSize: 11.sp,
@@ -762,13 +793,10 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   void _showCreateAssignmentSheet(BuildContext context) {
     final titleCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String selectedSubject = 'Physics';
     DateTime? tempDueDate;
-    PlatformFile? attachedFile;
-    String? chosenClass;
-    final List<String> chosenSections = [];
-
-    final subjects = ['Physics', 'Maths', 'Chemistry', 'English', 'CS'];
+    Map<String, dynamic>? chosenClass;
+    Map<String, dynamic>? chosenSection;
+    Map<String, dynamic>? chosenSubject;
 
     showModalBottomSheet(
       context: context,
@@ -782,7 +810,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
           ),
           padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r, MediaQuery.of(context).viewInsets.bottom + 20.r),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.80),
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,34 +845,36 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                   ),
                   SizedBox(height: 16.h),
 
-                  // Subject selection
+                  // Subject selection (from backend)
                   _buildSheetLabel('Subject'),
                   SizedBox(height: 8.h),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: subjects.map((s) => GestureDetector(
-                      onTap: () => setSheetState(() => selectedSubject = s),
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                        decoration: BoxDecoration(
-                          color: selectedSubject == s ? const Color(0xFF0284C7) : Colors.white,
-                          borderRadius: BorderRadius.circular(12.r),
-                          border: Border.all(
-                            color: selectedSubject == s ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
-                          ),
+                  _subjects.isEmpty
+                      ? Text('Loading subjects...', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)))
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _subjects.map((s) => GestureDetector(
+                            onTap: () => setSheetState(() => chosenSubject = s),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                              decoration: BoxDecoration(
+                                color: chosenSubject?['id'] == s['id'] ? const Color(0xFF0284C7) : Colors.white,
+                                borderRadius: BorderRadius.circular(12.r),
+                                border: Border.all(
+                                  color: chosenSubject?['id'] == s['id'] ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: Text(
+                                s['name'] as String? ?? '',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.bold,
+                                  color: chosenSubject?['id'] == s['id'] ? Colors.white : const Color(0xFF64748B),
+                                ),
+                              ),
+                            ),
+                          )).toList(),
                         ),
-                        child: Text(
-                          s,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.bold,
-                            color: selectedSubject == s ? Colors.white : const Color(0xFF64748B),
-                          ),
-                        ),
-                      ),
-                    )).toList(),
-                  ),
                   SizedBox(height: 16.h),
 
                   // Instructions
@@ -899,122 +929,77 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                   ),
                   SizedBox(height: 16.h),
 
-                  // Attach Reference File
-                  _buildSheetLabel('Attach Reference File'),
-                  SizedBox(height: 6.h),
-                  GestureDetector(
-                    onTap: () async {
-                      try {
-                        final result = await FilePicker.platform.pickFiles(
-                          type: FileType.custom,
-                          allowedExtensions: ['pdf', 'doc', 'docx', 'zip'],
-                        );
-                        if (result != null && result.files.isNotEmpty) {
-                          setSheetState(() => attachedFile = result.files.first);
-                        }
-                      } catch (e) {
-                        if (context.mounted) {
-                          showToast(context, 'Error picking file: $e');
-                        }
-                      }
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(14.r),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: attachedFile == null
-                          ? Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.cloud_upload_outlined, color: Color(0xFF0284C7), size: 20),
-                                SizedBox(width: 8.w),
-                                Text(
-                                  'Tap to select a file (PDF, DOC, ZIP)',
+                  // Assign To — Class
+                  _buildSheetLabel('Assign To — Class'),
+                  SizedBox(height: 8.h),
+                  _classes.isEmpty
+                      ? Text('Loading classes...', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)))
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _classes.map((cls) {
+                            final isSelected = chosenClass?['id'] == cls['id'];
+                            return GestureDetector(
+                              onTap: () => setSheetState(() {
+                                chosenClass = cls;
+                                chosenSection = null; // reset section when class changes
+                              }),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Text(
+                                  cls['name'] as String? ?? '',
                                   style: GoogleFonts.inter(
-                                    fontSize: 12.sp,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0284C7),
+                                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                                    fontSize: 12.sp,
                                   ),
                                 ),
-                              ],
-                            )
-                          : Row(
-                              children: [
-                                const Icon(Icons.description, color: Color(0xFF0284C7), size: 20),
-                                SizedBox(width: 8.w),
-                                Expanded(
-                                  child: Text(
-                                    attachedFile!.name,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 12.sp,
-                                      fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF334155),
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                IconButton(
-                                  onPressed: () => setSheetState(() => attachedFile = null),
-                                  icon: const Icon(Icons.close, color: Colors.redAccent, size: 18),
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
                   SizedBox(height: 16.h),
 
-                  // Assign To (Class & Section)
-                  _buildSheetLabel('Assign To'),
-                  SizedBox(height: 6.h),
-                  GestureDetector(
-                    onTap: () {
-                      _showTargetSelectionSheet(
-                        context,
-                        chosenClass,
-                        chosenSections,
-                        (cls, secs) {
-                          setSheetState(() {
-                            chosenClass = cls;
-                            chosenSections.clear();
-                            chosenSections.addAll(secs);
-                          });
-                        },
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.all(14.r),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8FAFC),
-                        borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.people_alt_outlined, color: Color(0xFF0284C7), size: 18),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: Text(
-                              chosenClass != null && chosenSections.isNotEmpty
-                                  ? 'Class $chosenClass (${chosenSections.join(', ')})'
-                                  : 'Select Class & Section',
-                              style: GoogleFonts.inter(
-                                color: chosenClass != null ? const Color(0xFF0F172A) : const Color(0xFF94A3B8),
-                                fontWeight: chosenClass != null ? FontWeight.bold : FontWeight.normal,
-                                fontSize: 13.sp,
+                  // Section selection
+                  _buildSheetLabel('Section'),
+                  SizedBox(height: 8.h),
+                  _sections.isEmpty
+                      ? Text('Loading sections...', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)))
+                      : Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: _sections.map((sec) {
+                            final isSelected = chosenSection?['id'] == sec['id'];
+                            return GestureDetector(
+                              onTap: () => setSheetState(() => chosenSection = sec),
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  border: Border.all(
+                                    color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Text(
+                                  sec['name'] as String? ?? '',
+                                  style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.bold,
+                                    color: isSelected ? Colors.white : const Color(0xFF475569),
+                                    fontSize: 12.sp,
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                          const Icon(Icons.chevron_right, color: Color(0xFF64748B), size: 18),
-                        ],
-                      ),
-                    ),
-                  ),
+                            );
+                          }).toList(),
+                        ),
                   SizedBox(height: 24.h),
 
                   // Submit button
@@ -1027,8 +1012,12 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                         showToast(context, 'Please enter a title', isError: true);
                         return;
                       }
-                      if (chosenClass == null || chosenSections.isEmpty) {
-                        showToast(context, 'Please select a target class & section', isError: true);
+                      if (chosenSubject == null) {
+                        showToast(context, 'Please select a subject', isError: true);
+                        return;
+                      }
+                      if (chosenClass == null) {
+                        showToast(context, 'Please select a class', isError: true);
                         return;
                       }
 
@@ -1036,29 +1025,29 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                       setState(() => _isSubmitting = true);
 
                       try {
-                        final formattedDue = intl.DateFormat('yyyy-MM-dd').format(
-                          tempDueDate ?? DateTime.now().add(const Duration(days: 1)),
+                        final formattedDue = intl.DateFormat("yyyy-MM-dd'T'HH:mm:ss.mmm'Z'").format(
+                          (tempDueDate ?? DateTime.now().add(const Duration(days: 1))).toUtc(),
                         );
 
-                        // Save assignment record for each selected section
-                        for (var sec in chosenSections) {
-                          await Supabase.instance.client
-                              .from('assignments')
-                              .insert({
-                                'title': titleCtrl.text.trim(),
-                                'subject': selectedSubject,
-                                'description': descCtrl.text.trim(),
-                                'due_date': formattedDue,
-                                'class_name': 'Grade $chosenClass',
-                                'section': sec,
-                              });
-                        }
+                        final result = await ApiService.instance.post('assignments', body: {
+                          'title': titleCtrl.text.trim(),
+                          'description': descCtrl.text.trim(),
+                          'dueDate': formattedDue,
+                          'subjectId': chosenSubject!['id'],
+                          'classId': chosenClass!['id'],
+                          if (chosenSection != null) 'sectionId': chosenSection!['id'],
+                        });
 
                         if (context.mounted) {
-                          showToast(context, 'Assignment published successfully!');
-                          Navigator.pop(context);
+                          if (result['assignment'] != null || result['message'] != null) {
+                            showToast(context, 'Assignment published successfully!');
+                            Navigator.pop(context);
+                            _loadAllData(showLoading: true);
+                          } else {
+                            final errMsg = result['message'] ?? result['error'] ?? 'Failed to publish';
+                            showToast(context, errMsg, isError: true);
+                          }
                         }
-                        _loadAllData(showLoading: true);
                       } catch (e) {
                         if (context.mounted) {
                           showToast(context, 'Error publishing: $e', isError: true);
@@ -1081,172 +1070,9 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
     );
   }
 
-  void _showTargetSelectionSheet(
-    BuildContext context,
-    String? initialClass,
-    List<String> initialSections,
-    Function(String?, List<String>) onConfirm,
-  ) {
-    String? activeClass = initialClass;
-    final List<String> activeSections = List<String>.from(initialSections);
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          padding: EdgeInsets.all(20.r),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Select Target',
-                    style: GoogleFonts.inter(
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              SizedBox(height: 20.h),
-              Text(
-                'CHOOSE CLASS',
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: List.generate(12, (i) {
-                  final clsStr = '${i + 1}';
-                  final isSelected = activeClass == clsStr;
-                  return GestureDetector(
-                    onTap: () => setModalState(() => activeClass = clsStr),
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                      decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(8.r),
-                        border: Border.all(
-                          color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                      child: Text(
-                        clsStr,
-                        style: GoogleFonts.inter(
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : const Color(0xFF475569),
-                          fontSize: 12.sp,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-              SizedBox(height: 20.h),
-              Text(
-                'CHOOSE SECTION (MULTIPLE)',
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              SizedBox(height: 10.h),
-              Row(
-                children: ['A', 'B', 'C', 'D'].map((s) {
-                  final isSelected = activeSections.contains(s);
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setModalState(() {
-                          if (isSelected) {
-                            activeSections.remove(s);
-                          } else {
-                            activeSections.add(s);
-                          }
-                        });
-                      },
-                      child: Container(
-                        margin: EdgeInsets.only(right: s != 'D' ? 8.w : 0),
-                        height: 38.h,
-                        decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
-                          borderRadius: BorderRadius.circular(8.r),
-                          border: Border.all(
-                            color: isSelected ? const Color(0xFF0284C7) : const Color(0xFFE2E8F0),
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            s,
-                            style: GoogleFonts.inter(
-                              fontWeight: FontWeight.bold,
-                              color: isSelected ? Colors.white : const Color(0xFF475569),
-                              fontSize: 12.sp,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-              SizedBox(height: 24.h),
-              ElevatedButton(
-                onPressed: () {
-                  if (activeClass == null) {
-                    showToast(context, 'Please select a class', isError: true);
-                    return;
-                  }
-                  if (activeSections.isEmpty) {
-                    showToast(context, 'Please select at least one section', isError: true);
-                    return;
-                  }
-                  onConfirm(activeClass, activeSections);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0284C7),
-                  foregroundColor: Colors.white,
-                  minimumSize: Size(double.infinity, 44.h),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                ),
-                child: Text('Confirm Selection', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   void _showEvaluationDialog(BuildContext context, Map<String, dynamic> sub) {
-    final scoreCtrl = TextEditingController(text: sub['score'] == 'Not Graded' ? '' : sub['score']);
-    String selectedGrade = sub['grade'] == 'Pending' ? 'A+' : sub['grade'];
+    String selectedGrade = sub['grade'] == 'Pending' || sub['grade'] == null ? 'A+' : sub['grade'];
+    final feedbackCtrl = TextEditingController(text: sub['score'] == 'Not Graded' ? '' : sub['score']);
     final gradesList = ['A+', 'A', 'B+', 'B', 'C', 'D', 'F'];
 
     showDialog(
@@ -1316,12 +1142,13 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                 ),
               ),
               SizedBox(height: 16.h),
-              _buildDialogLabel('ENTER SCORE (e.g. 92/100)'),
+              _buildDialogLabel('FEEDBACK / COMMENTS'),
               SizedBox(height: 6.h),
               TextField(
-                controller: scoreCtrl,
+                controller: feedbackCtrl,
+                maxLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'e.g. 92/100',
+                  hintText: 'Optional feedback for the student...',
                   hintStyle: GoogleFonts.inter(color: const Color(0xFF94A3B8), fontSize: 13.sp),
                   contentPadding: EdgeInsets.all(12.r),
                   border: OutlineInputBorder(
@@ -1360,24 +1187,39 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                 elevation: 0,
               ),
               onPressed: () async {
-                final score = scoreCtrl.text.trim().isEmpty ? 'Not Graded' : scoreCtrl.text.trim();
+                final feedback = feedbackCtrl.text.trim();
+                final submissionId = sub['id'] as String?;
                 Navigator.pop(ctx);
+
+                if (submissionId == null) {
+                  showToast(context, 'Submission ID not found', isError: true);
+                  return;
+                }
 
                 showToast(context, 'Saving evaluation...');
 
                 try {
-                  await Supabase.instance.client
-                      .from('submissions')
-                      .update({
-                        'grade': selectedGrade,
-                        'score': score,
-                      })
-                      .eq('id', sub['id']);
+                  // PUT /assignments/submissions/:submissionId/grade
+                  final result = await ApiService.instance.put(
+                    'assignments/submissions/$submissionId/grade',
+                    body: {
+                      'grade': selectedGrade,
+                      'feedback': feedback.isEmpty ? null : feedback,
+                    },
+                  );
 
                   if (context.mounted) {
-                    showToast(context, 'Submission evaluated successfully!');
+                    if (result['success'] == true || result['submission'] != null) {
+                      showToast(context, 'Submission evaluated successfully!');
+                      // Refresh submissions for the selected assignment
+                      if (_selectedAssignment != null) {
+                        await _selectAssignment(_selectedAssignment!);
+                      }
+                    } else {
+                      final errMsg = result['message'] ?? result['error'] ?? 'Failed to save grade';
+                      showToast(context, errMsg, isError: true);
+                    }
                   }
-                  _loadAllData(showLoading: false);
                 } catch (e) {
                   if (context.mounted) {
                     showToast(context, 'Error saving grade: $e', isError: true);
@@ -1435,8 +1277,6 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
       ),
     );
   }
-
-
 }
 
 // ── CUSTOM DASHED RECTANGLE PAINTER ──

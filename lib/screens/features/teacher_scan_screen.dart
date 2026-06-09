@@ -15,10 +15,17 @@ import '../../theme/colors.dart';
 class TeacherScanScreen extends StatefulWidget {
   final RoleTheme theme;
   final bool showAppBar;
+  final String scannerId;
+  final DateTime sessionDate;
+  final String sessionAction;
+
   const TeacherScanScreen({
     super.key,
     required this.theme,
     this.showAppBar = true,
+    required this.scannerId,
+    required this.sessionDate,
+    required this.sessionAction,
   });
 
   @override
@@ -293,7 +300,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Attendance Scanner',
+                  'Attendance Scanner (${widget.sessionAction.toUpperCase()})',
                   style: GoogleFonts.outfit(
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w900,
@@ -302,9 +309,9 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  _isDesktopOrWeb
-                      ? 'Enter student admission number below'
-                      : 'Point camera at student\'s QR code',
+                  'Date: ${widget.sessionDate.day.toString().padLeft(2, '0')}/${widget.sessionDate.month.toString().padLeft(2, '0')}/${widget.sessionDate.year} • ${_isDesktopOrWeb
+                      ? 'Enter student admission number'
+                      : 'Point camera at student\'s QR'}',
                   style: GoogleFonts.inter(
                     fontSize: 11.sp,
                     color: Colors.white.withValues(alpha: 0.75),
@@ -500,7 +507,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                   child: ElevatedButton.icon(
                     onPressed: _isProcessing ? null : _submitManual,
                     icon: _isProcessing
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
@@ -706,22 +713,26 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                       ),
                     ),
                     SizedBox(width: 8.w),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 8.w, vertical: 2.h),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFD1FAE5),
-                        borderRadius: BorderRadius.circular(6.r),
-                      ),
-                      child: Text(
-                        'PRESENT',
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF065F46),
+                    (() {
+                      final status = s['status'] as String? ?? 'PRESENT';
+                      final isCheckOut = status.toUpperCase() == 'CHECK-OUT';
+                      return Container(
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
+                        decoration: BoxDecoration(
+                          color: isCheckOut ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
+                          borderRadius: BorderRadius.circular(6.r),
                         ),
-                      ),
-                    ),
+                        child: Text(
+                          status,
+                          style: GoogleFonts.inter(
+                            fontSize: 9.sp,
+                            fontWeight: FontWeight.w800,
+                            color: isCheckOut ? const Color(0xFF991B1B) : const Color(0xFF065F46),
+                          ),
+                        ),
+                      );
+                    })(),
                   ],
                 ),
               ))),

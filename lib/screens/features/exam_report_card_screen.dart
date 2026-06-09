@@ -1,3 +1,4 @@
+import 'dart:developer' as dev;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,7 +6,8 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/api_service.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
@@ -76,96 +78,86 @@ class _ExamReportCardScreenState extends State<ExamReportCardScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
-        // Fetch current student profile details
-        final studentRes = await Supabase.instance.client
-            .from('students')
-            .select()
-            .eq('id', currentUser.id)
-            .maybeSingle();
-
-        if (studentRes != null) {
-          studentName = studentRes['name'] as String? ?? studentName;
-          className = studentRes['class_name'] as String? ?? className;
-          section = studentRes['section'] as String? ?? section;
-          rollNo = studentRes['roll_no']?.toString() ?? rollNo;
-        }
-
-        // Fetch exams list
-        final examsRes = await Supabase.instance.client
-            .from('exams')
-            .select('id, name')
-            .order('name');
-        
-        final List<Map<String, dynamic>> loadedExams = List<Map<String, dynamic>>.from(examsRes);
-
-        if (loadedExams.isNotEmpty) {
-          _examsList = loadedExams;
-          // Decide preselected exam_id
-          _selectedExamId = widget.initialExamId ?? _examsList.first['id'] as String;
-          await _fetchReportCardDetails();
-          return;
-        }
+      // 1. Load student profile from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name');
+      if (savedName != null && savedName.isNotEmpty) {
+        studentName = savedName;
       }
 
-      // Offline or empty DB fallback
-      _examsList = _mockExams;
-      _selectedExamId = widget.initialExamId ?? _examsList.first['id'] as String;
-      _loadFallbackMockResults();
+      // 2. Fetch exams list from backend: GET /exams
+      final examsRes = await ApiService.instance.get('exams');
+      final List<dynamic> rawExams = examsRes['exams'] ?? examsRes['data'] ?? [];
+
+      final List<Map<String, dynamic>> loadedExams = rawExams
+          .map((e) => {'id': e['id'] as String, 'name': e['name'] as String? ?? 'Exam'})
+          .toList();
+
+      if (loadedExams.isNotEmpty) {
+        _examsList = loadedExams;
+        _selectedExamId = widget.initialExamId ?? _examsList.first['id'] as String;
+        // Results: try backend, fall to mocks on failure
+        await _fetchReportCardDetails();
+        return;
+      }
     } catch (e) {
-      _examsList = _mockExams;
-      _selectedExamId = widget.initialExamId ?? _mockExams.first['id'] as String;
-      _loadFallbackMockResults();
-      debugPrint('Error loading initial report card details: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
-      }
+      dev.log('⚠️ Error loading exams from backend: $e', name: 'ExamReportCard');
     }
+
+    // Fallback to mock data
+    _examsList = _mockExams;
+    _selectedExamId = widget.initialExamId ?? _mockExams.first['id'] as String;
+    _loadFallbackMockResults();
+
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _fetchReportCardDetails() async {
     if (_selectedExamId == null) return;
+    if (mounted) setState(() => _loading = true);
 
     try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser != null) {
-        // Query exam results joined with subjects and exams
-        final resultsRes = await Supabase.instance.client
-            .from('exam_results')
-            .select('*, subjects(id, name), exams(id, name)')
-            .eq('student_id', currentUser.id)
-            .eq('exam_id', _selectedExamId!);
+      // GET /report-cards?examId=<id> — attempt to fetch published report card
+      final res = await ApiService.instance.get(
+        'report-cards',
+        queryParams: {'examId': _selectedExamId!},
+      );
 
-        final List<Map<String, dynamic>> results = List<Map<String, dynamic>>.from(resultsRes);
+      final List<dynamic> cards = res['reportCards'] ?? res['data'] ?? [];
 
-        if (results.isNotEmpty) {
-          setState(() {
-            _reportData = results.map((r) {
-              final subject = r['subjects'] as Map<String, dynamic>? ?? {};
-              return {
-                'subject': subject['name'] as String? ?? r['subject_name'] as String? ?? 'Subject',
-                'max_marks': r['max_marks'] as int? ?? 100,
-                'marks_obtained': (r['marks_obtained'] as num).toDouble(),
-              };
-            }).toList();
-          });
+      if (cards.isNotEmpty) {
+        final card = cards.first as Map<String, dynamic>;
+        final List<dynamic> grades = card['grades'] ?? [];
+
+        if (grades.isNotEmpty) {
+          final results = grades.map<Map<String, dynamic>>((g) {
+            final subject = g['subject'] as Map<String, dynamic>?;
+            return {
+              'subject': subject?['name'] as String? ?? g['subjectName'] as String? ?? 'Subject',
+              'max_marks': g['maxMarks'] as int? ?? 100,
+              'marks_obtained': ((g['marksObtained'] ?? g['marks'] ?? 0) as num).toDouble(),
+            };
+          }).toList();
+
+          if (mounted) {
+            setState(() {
+              _reportData = results;
+              _loading = false;
+            });
+          }
           return;
         }
       }
-
-      _loadFallbackMockResults();
     } catch (e) {
-      _loadFallbackMockResults();
+      dev.log('⚠️ Error fetching report card from backend: $e', name: 'ExamReportCard');
     }
+
+    // Fall through to mock results
+    _loadFallbackMockResults();
+    if (mounted) setState(() => _loading = false);
   }
 
   void _loadFallbackMockResults() {

@@ -5,6 +5,8 @@ import 'main_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/ai_chatbot_overlay.dart';
+import '../services/api_service.dart';
+import 'dart:developer' as dev;
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -40,119 +42,96 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final response = await Supabase.instance.client.auth.signInWithPassword(
-        email: email,
-        password: pass,
-      );
-
-      if (response.user != null) {
-        final user = response.user!;
-        String rawRole = user.userMetadata?['role'] as String? ?? '';
-        if (rawRole != 'teacher' && rawRole != 'student') {
-          rawRole = email.contains('teacher') ? 'teacher' : 'student';
-        }
-        final role = rawRole;
-        
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_role', role);
-
-        try {
-          if (role == 'teacher') {
-            final data = await Supabase.instance.client
-                .from('Teacher')
-                .select('id, employeeId, joiningDate, qualification, specialization, User(firstName, lastName, email, phone)')
-                .eq('userId', user.id)
-                .single();
-
-            final userMap = data['User'] as Map? ?? {};
-            final fullName = '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'.trim();
-            final emailVal = userMap['email'] ?? email;
-            final phoneVal = userMap['phone'] ?? '';
-            final specVal = data['specialization'] ?? '';
-            final joinVal = data['joiningDate'] ?? '';
-            final empIdVal = data['employeeId'] ?? '';
-            final qualVal = data['qualification'] ?? '';
-
-            await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
-            await prefs.setString('teacher_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
-            await prefs.setString('teacher_design', specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
-            await prefs.setString('teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
-            await prefs.setString('teacher_email', emailVal);
-            await prefs.setString('teacher_mobile', phoneVal);
-            await prefs.setString('teacher_joining', joinVal.toString().split(' ')[0].split('T')[0]);
-            await prefs.setString('teacher_emp_id', empIdVal);
-            if (qualVal.isNotEmpty) {
-              await prefs.setString('teacher_qual', qualVal);
-            }
-            
-            await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
-            await prefs.setString('${role}_email', emailVal);
-          } else if (role == 'student') {
-            final data = await Supabase.instance.client
-                .from('Student')
-                .select('id, admissionNumber, currentClassId, sectionId, rollNumber, User(firstName, lastName, email, phone, dateOfBirth, gender, address), Class(name), Section(name)')
-                .eq('userId', user.id)
-                .single();
-
-            final userMap = data['User'] as Map? ?? {};
-            final classMap = data['Class'] as Map? ?? {};
-            final sectionMap = data['Section'] as Map? ?? {};
-            final fullName = '${userMap['firstName'] ?? ''} ${userMap['lastName'] ?? ''}'.trim();
-            final emailVal = userMap['email'] ?? email;
-            final phoneVal = userMap['phone'] ?? '';
-            final classVal = classMap['name'] ?? 'Class 1';
-            final sectionVal = sectionMap['name'] ?? 'A';
-            final rollVal = data['rollNumber'] ?? '24';
-            final admVal = data['admissionNumber'] ?? '';
-
-            await prefs.setString('student_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
-            await prefs.setString('student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
-            await prefs.setString('student_email', emailVal);
-            await prefs.setString('student_class', classVal);
-            await prefs.setString('student_section', sectionVal);
-            await prefs.setString('student_roll', rollVal.toString());
-            await prefs.setString('student_guardian', '—');
-            await prefs.setString('student_phone', phoneVal);
-            await prefs.setString('student_admission', data['joiningDate']?.toString().split(' ')[0].split('T')[0] ?? '');
-            if (admVal.isNotEmpty) {
-              await prefs.setString('student_admission_id', admVal);
-              await prefs.setString('student_admission_no', admVal);
-            }
-            
-            await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
-            await prefs.setString('${role}_email', emailVal);
-          }
-        } catch (e) {
-          final name = user.userMetadata?['name'] as String? ?? 'EduSphere User';
-          await prefs.setString('${role}_name', name);
-          await prefs.setString('${role}_email', email);
-          if (role == 'teacher') {
-            await prefs.setString('teacher_name', name);
-            await prefs.setString('teacher_email', email);
-          } else if (role == 'student') {
-            await prefs.setString('student_name', name);
-            await prefs.setString('student_email', email);
-          }
-        }
-
-        if (mounted) {
-          Navigator.pushReplacement(context, PageRouteBuilder(
-            pageBuilder: (_, __, ___) => MainScreen(role: role),
-            transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
-            transitionDuration: const Duration(milliseconds: 600),
-          ));
-        }
+      // 1. Call Node.js Backend Login
+      final backendRes = await ApiService.instance.login(email, pass);
+      if (backendRes['success'] != true) {
+        setState(() {
+          _error = backendRes['error'] ?? backendRes['message'] ?? 'Invalid email or password';
+          _loading = false;
+        });
+        return;
       }
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.message;
-        _loading = false;
-      });
+
+      final userObj = backendRes['user'] as Map<String, dynamic>;
+      final role = (userObj['role'] as String? ?? '').toLowerCase();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_role', role);
+
+      // 2. Perform Supabase Login (as a secondary check for realtime subscriptions)
+      try {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: pass,
+        );
+      } catch (e) {
+        dev.log('⚠️ Supabase login failed/skipped: $e', name: 'WelcomeScreen');
+      }
+
+      // 3. Save details to SharedPreferences based on role
+      final firstName = userObj['firstName'] ?? '';
+      final lastName = userObj['lastName'] ?? '';
+      final fullName = '$firstName $lastName'.trim();
+      final phoneVal = userObj['phone'] ?? '';
+
+      if (role == 'teacher') {
+        final teacherMap = userObj['teacher'] as Map? ?? {};
+        final specVal = teacherMap['specialization'] ?? '';
+        final joinVal = teacherMap['joiningDate'] ?? '';
+        final empIdVal = teacherMap['employeeId'] ?? '';
+        final qualVal = teacherMap['qualification'] ?? '';
+
+        await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
+        await prefs.setString('teacher_id', teacherMap['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
+        await prefs.setString('teacher_design', specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
+        await prefs.setString('teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
+        await prefs.setString('teacher_email', email);
+        await prefs.setString('teacher_mobile', phoneVal);
+        await prefs.setString('teacher_joining', joinVal.toString().split(' ')[0].split('T')[0]);
+        await prefs.setString('teacher_emp_id', empIdVal);
+        if (qualVal.isNotEmpty) {
+          await prefs.setString('teacher_qual', qualVal);
+        }
+        
+        await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
+        await prefs.setString('${role}_email', email);
+      } else if (role == 'student') {
+        final studentMap = userObj['student'] as Map? ?? {};
+        final classMap = studentMap['currentClass'] as Map? ?? {};
+        final sectionMap = studentMap['section'] as Map? ?? {};
+        final classVal = classMap['name'] ?? 'Class 1';
+        final sectionVal = sectionMap['name'] ?? 'A';
+        final rollVal = studentMap['rollNumber'] ?? '24';
+        final admVal = studentMap['admissionNumber'] ?? '';
+
+        await prefs.setString('student_id', studentMap['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
+        await prefs.setString('student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+        await prefs.setString('student_email', email);
+        await prefs.setString('student_class', classVal);
+        await prefs.setString('student_section', sectionVal);
+        await prefs.setString('student_roll', rollVal.toString());
+        await prefs.setString('student_guardian', '—');
+        await prefs.setString('student_phone', phoneVal);
+        await prefs.setString('student_admission', studentMap['joiningDate']?.toString().split(' ')[0].split('T')[0] ?? '');
+        if (admVal.isNotEmpty) {
+          await prefs.setString('student_admission_id', admVal);
+          await prefs.setString('student_admission_no', admVal);
+        }
+        
+        await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+        await prefs.setString('${role}_email', email);
+      }
+
+      if (mounted) {
+        Navigator.pushReplacement(context, PageRouteBuilder(
+          pageBuilder: (_, __, ___) => MainScreen(role: role),
+          transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+          transitionDuration: const Duration(milliseconds: 600),
+        ));
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'An unexpected error occurred';
+        _error = 'An unexpected error occurred during backend login: $e';
         _loading = false;
       });
     }

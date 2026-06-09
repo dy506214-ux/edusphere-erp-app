@@ -140,6 +140,13 @@ const getAssignmentDetails = asyncHandler(async (req, res) => {
 
 // Delete assignment
 const deleteAssignment = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+
+  const assignment = await prisma.assignment.findUnique({ where: { id } });
+  if (!assignment) {
+    throw new NotFoundError('Assignment not found');
+  }
+
   // Resolve teacherId from userId
   const requesterTeacher = await prisma.teacher.findFirst({ where: { userId: req.user.userId || req.user.id } });
   const teacherId = requesterTeacher ? requesterTeacher.id : null;

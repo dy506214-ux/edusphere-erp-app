@@ -1,6 +1,9 @@
 name: edusphere
+
 description: EduSphere - Smart School ERP & Digital Learning System
+
 publish_to: 'none'
+
 version: 1.0.0+1
 
 environment:
@@ -26,6 +29,7 @@ dependencies:
   latlong2: ^0.9.1
   qr_flutter: ^4.1.0
   qr_code_scanner: ^1.0.0
+  http: ^1.2.1
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +38,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
   supabase: any
+
 flutter_launcher_icons:
   android: true
   ios: true
