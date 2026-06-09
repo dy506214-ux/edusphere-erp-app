@@ -208,6 +208,33 @@ class _MessagesScreenState extends State<MessagesScreen> {
   String _communityFilter = 'All';
   String _firstName = 'Kavya';
 
+  bool _isChatOpen = false;
+  final ScrollController _chatScrollCtrl = ScrollController();
+  final TextEditingController _chatInputCtrl = TextEditingController();
+  final List<Map<String, String>> _chatMessages = [
+    {
+      'sender': 'bot',
+      'text': 'Hi! I am Priya, your AI Community Assistant. I can help you understand how to create posts, react, and comment. How can I help you today?'
+    }
+  ];
+
+  void _toggleChat() {
+    setState(() {
+      _isChatOpen = !_isChatOpen;
+    });
+  }
+
+  void _scrollToChatBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   @override
   void initState() {

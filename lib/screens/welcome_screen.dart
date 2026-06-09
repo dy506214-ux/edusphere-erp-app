@@ -62,6 +62,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             final specVal = data['specialization'] ?? '';
             final joinVal = data['joiningDate'] ?? '';
             final empIdVal = data['employeeId'] ?? '';
+            final qualVal = data['qualification'] ?? '';
 
             await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
             await prefs.setString('teacher_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
@@ -93,6 +94,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             final classVal = classMap['name'] ?? 'Class 1';
             final sectionVal = sectionMap['name'] ?? 'A';
             final rollVal = data['rollNumber'] ?? '24';
+            final admVal = data['admissionNumber'] ?? '';
 
             await prefs.setString('student_id', data['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
             await prefs.setString('student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');

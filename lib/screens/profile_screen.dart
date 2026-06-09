@@ -346,26 +346,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               };
             }).toList();
           });
-                } catch (e) {
-          if (docsRes.isNotEmpty) {
-            setState(() {
-              _uploadedDocuments = docsRes.map((d) {
-                final String docName = d['documentName'] as String? ?? 'Document.pdf';
-                final String? uploadDateStr = d['uploadedAt'] as String?;
-                String dateStr = '—';
-                if (uploadDateStr != null) {
-                  try {
-                    final parsed = DateTime.parse(uploadDateStr);
-                    dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
-                  } catch (_) {}
-                }
-                return {
-                  'name': docName,
-                  'date': dateStr,
-                };
-              }).toList();
-            });
-          }
         } catch (e) {
           debugPrint('Error fetching documents: $e');
         }

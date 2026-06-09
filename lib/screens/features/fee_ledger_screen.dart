@@ -163,10 +163,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                 .select('id, currentClassId, academicYearId')
                 .eq('id', _studentId)
                 .maybeSingle();
-              .from('Student')
-              .select('id, currentClassId, academicYearId')
-              .eq('id', _studentId)
-              .maybeSingle();
           if (studentProfile != null) {
             _studentId = studentProfile['id'] as String;
             _academicYearId = studentProfile['academicYearId'] as String? ?? '';

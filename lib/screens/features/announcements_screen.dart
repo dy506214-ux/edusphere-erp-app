@@ -71,6 +71,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   RealtimeChannel? _announcementsChannel;
 
+  String _firstName = 'Student';
+  bool _isChatOpen = false;
+  final ScrollController _chatScrollCtrl = ScrollController();
+  final TextEditingController _chatInputCtrl = TextEditingController();
+  final List<Map<String, String>> _chatMessages = [
+    {
+      'sender': 'bot',
+      'text': 'Hi! I am Priya, your AI Assistant. I can help you understand how to navigate Announcements. How can I help you today?'
+    }
+  ];
+
+  void _toggleChat() {
+    setState(() {
+      _isChatOpen = !_isChatOpen;
+    });
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_chatScrollCtrl.hasClients) {
+        _chatScrollCtrl.animateTo(
+          _chatScrollCtrl.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
 
   @override
   void initState() {
