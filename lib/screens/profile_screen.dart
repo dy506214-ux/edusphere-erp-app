@@ -196,165 +196,147 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadStudentDataFromSupabase() async {
     try {
-      final client = Supabase.instance.client;
-      final currentUser = client.auth.currentUser;
-      if (currentUser == null) {
+      // Use backend API instead of direct Supabase queries
+      final response = await ApiService.instance.get('students/me');
+      
+      if (response == null || response['success'] != true || response['student'] == null) {
         await _loadStudentData();
         return;
       }
 
-      final studentRes = await client
-          .from('Student')
-          .select('id, admissionNumber, rollNumber, joiningDate, medium, religion, caste, nationality, emergencyPhone, User(firstName, lastName, email, phone, dateOfBirth, gender, bloodGroup, address), Class(name), Section(name)')
-          .eq('userId', currentUser.id)
-          .maybeSingle();
-
-      if (studentRes != null) {
-        final userMap = studentRes['User'] as Map? ?? {};
-        final classMap = studentRes['Class'] as Map? ?? {};
-        final sectionMap = studentRes['Section'] as Map? ?? {};
+      final studentRes = response['student'] as Map<String, dynamic>;
+      final userMap = studentRes['user'] as Map<String, dynamic>? ?? {};
+      final classMap = studentRes['currentClass'] as Map<String, dynamic>? ?? {};
+      final sectionMap = studentRes['section'] as Map<String, dynamic>? ?? {};
+      
+      final String firstName = userMap['firstName'] as String? ?? '';
+      final String lastName = userMap['lastName'] as String? ?? '';
+      
+      setState(() {
+        _studentName = '$firstName $lastName'.trim();
+        if (_studentName.isEmpty) _studentName = 'Alex Rivera';
         
-        final String firstName = userMap['firstName'] as String? ?? '';
-        final String lastName = userMap['lastName'] as String? ?? '';
+        _studentEmail = userMap['email'] as String? ?? 'alex.rivera@edusmart.edu';
+        _admissionNo = studentRes['admissionNumber'] as String? ?? 'ADM-2026-024';
+        _studentClass = classMap['name'] as String? ?? 'Grade 12';
+        _section = sectionMap['name'] as String? ?? 'A';
+        _rollNo = studentRes['rollNumber']?.toString() ?? '24';
         
-        setState(() {
-          _studentName = '$firstName $lastName'.trim();
-          if (_studentName.isEmpty) _studentName = 'Alex Rivera';
-          
-          _studentEmail = userMap['email'] as String? ?? currentUser.email ?? 'alex.rivera@edusmart.edu';
-          _admissionNo = studentRes['admissionNumber'] as String? ?? 'ADM-2026-024';
-          _studentClass = classMap['name'] as String? ?? 'Grade 12';
-          _section = sectionMap['name'] as String? ?? 'A';
-          _rollNo = studentRes['rollNumber']?.toString() ?? '24';
-          
-          _batch = '2024-25';
-          _medium = studentRes['medium'] as String? ?? 'ENGLISH';
-          
-          final joinDateStr = studentRes['joiningDate'] as String?;
-          if (joinDateStr != null) {
-            try {
-              final parsed = DateTime.parse(joinDateStr);
-              _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
-            } catch (_) {
-              _studentJoinedDate = '6/1/2024';
-            }
-          } else {
+        _batch = '2024-25';
+        _medium = studentRes['medium'] as String? ?? 'ENGLISH';
+        
+        final joinDateStr = studentRes['joiningDate'] as String?;
+        if (joinDateStr != null) {
+          try {
+            final parsed = DateTime.parse(joinDateStr);
+            _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
+          } catch (_) {
             _studentJoinedDate = '6/1/2024';
           }
-          
-          _emergencyInfo = studentRes['emergencyPhone'] as String? ?? 'UNSET';
-          if (_emergencyInfo.isEmpty) _emergencyInfo = 'UNSET';
-          
-          final rawGender = userMap['gender'] as String? ?? '—';
-          if (rawGender.toUpperCase() == 'MALE') {
-            _studentGender = 'Male';
-          } else if (rawGender.toUpperCase() == 'FEMALE') {
-            _studentGender = 'Female';
-          } else {
-            _studentGender = rawGender;
+        } else {
+          _studentJoinedDate = '6/1/2024';
+        }
+        
+        _emergencyInfo = studentRes['emergencyPhone'] as String? ?? 'UNSET';
+        if (_emergencyInfo.isEmpty) _emergencyInfo = 'UNSET';
+        
+        final rawGender = userMap['gender'] as String? ?? '—';
+        if (rawGender.toUpperCase() == 'MALE') {
+          _studentGender = 'Male';
+        } else if (rawGender.toUpperCase() == 'FEMALE') {
+          _studentGender = 'Female';
+        } else {
+          _studentGender = rawGender;
+        }
+        
+        final dobStr = userMap['dateOfBirth'] as String?;
+        if (dobStr != null) {
+          try {
+            final parsed = DateTime.parse(dobStr);
+            _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+          } catch (_) {
+            _studentDob = dobStr;
           }
+        } else {
+          _studentDob = '—';
+        }
+        
+        _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
+        _religion = studentRes['religion'] as String? ?? 'HINDU';
+        _casteGroup = studentRes['caste'] as String? ?? 'GENERAL';
+        _nationality = studentRes['nationality'] as String? ?? 'INDIAN';
+      });
+
+      // Store student ID for later use
+      final studentId = studentRes['id'] as String;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('student_id', studentId);
+
+      // Extract Parent details from the included parents array
+      try {
+        final parentsList = studentRes['parents'] as List<dynamic>? ?? [];
+        if (parentsList.isNotEmpty) {
+          String father = '—';
+          String mother = '—';
+          String guardianPhone = '—';
           
-          final dobStr = userMap['dateOfBirth'] as String?;
-          if (dobStr != null) {
-            try {
-              final parsed = DateTime.parse(dobStr);
-              _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
-            } catch (_) {
-              _studentDob = dobStr;
-            }
-          } else {
-            _studentDob = '—';
-          }
-          
-          _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
-          _religion = studentRes['religion'] as String? ?? 'HINDU';
-          _casteGroup = studentRes['caste'] as String? ?? 'GENERAL';
-          _nationality = studentRes['nationality'] as String? ?? 'INDIAN';
-        });
-
-        final studentId = studentRes['id'] as String;
-
-        // Fetch Parent details dynamically via StudentParent
-        try {
-          final studentParentRes = await client
-              .from('StudentParent')
-              .select('parentId, relationship')
-              .eq('studentId', studentId);
-
-          if (studentParentRes.isNotEmpty) {
-            String father = '—';
-            String mother = '—';
-            String guardianPhone = '—';
+          for (var sp in parentsList) {
+            final spMap = sp as Map<String, dynamic>;
+            final rel = spMap['relationship'] as String?;
+            final parentObj = spMap['parent'] as Map<String, dynamic>?;
             
-            for (var sp in studentParentRes) {
-              final parentId = sp['parentId'] as String?;
-              final rel = sp['relationship'] as String?;
-              if (parentId != null) {
-                final parentRes = await client
-                    .from('Parent')
-                    .select('firstName, lastName, phone')
-                    .eq('id', parentId)
-                    .maybeSingle();
-                
-                if (parentRes != null) {
-                  final pFullName = '${parentRes['firstName'] ?? ''} ${parentRes['lastName'] ?? ''}'.trim();
-                  final pPhone = parentRes['phone'] as String? ?? '—';
-                  if (rel == 'FATHER') {
-                    father = pFullName;
-                    if (guardianPhone == '—') guardianPhone = pPhone;
-                  } else if (rel == 'MOTHER') {
-                    mother = pFullName;
-                    if (guardianPhone == '—') guardianPhone = pPhone;
-                  } else {
-                    if (guardianPhone == '—') guardianPhone = pPhone;
-                  }
-                }
+            if (parentObj != null) {
+              final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+              final pPhone = parentObj['phone'] as String? ?? '—';
+              if (rel == 'FATHER') {
+                father = pFullName;
+                if (guardianPhone == '—') guardianPhone = pPhone;
+              } else if (rel == 'MOTHER') {
+                mother = pFullName;
+                if (guardianPhone == '—') guardianPhone = pPhone;
+              } else {
+                if (guardianPhone == '—') guardianPhone = pPhone;
               }
             }
-            
-            setState(() {
-              _fatherName = father;
-              _motherName = mother;
-              _guardianPhone = guardianPhone;
-            });
           }
-        } catch (e) {
-          debugPrint('Error fetching parents: $e');
-        }
-
-        // Fetch uploaded documents from StudentDocument
-        try {
-          final List<dynamic> docsRes = await client
-              .from('StudentDocument')
-              .select('documentName, uploadedAt')
-              .eq('studentId', studentId)
-              .order('uploadedAt', ascending: false);
-
+          
           setState(() {
-            _uploadedDocuments = docsRes.map((d) {
-              final String docName = d['documentName'] as String? ?? 'Document.pdf';
-              final String? uploadDateStr = d['uploadedAt'] as String?;
-              String dateStr = '—';
-              if (uploadDateStr != null) {
-                try {
-                  final parsed = DateTime.parse(uploadDateStr);
-                  dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
-                } catch (_) {}
-              }
-              return {
-                'name': docName,
-                'date': dateStr,
-              };
-            }).toList();
+            _fatherName = father;
+            _motherName = mother;
+            _guardianPhone = guardianPhone;
           });
-        } catch (e) {
-          debugPrint('Error fetching documents: $e');
         }
-      } else {
-        await _loadStudentData();
+      } catch (e) {
+        debugPrint('Error parsing parents: $e');
+      }
+
+      // Extract uploaded documents from included documents array
+      try {
+        final docsList = studentRes['documents'] as List<dynamic>? ?? [];
+        setState(() {
+          _uploadedDocuments = docsList.map((d) {
+            final dMap = d as Map<String, dynamic>;
+            final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+            final String? uploadDateStr = dMap['uploadedAt'] as String?;
+            String dateStr = '—';
+            if (uploadDateStr != null) {
+              try {
+                final parsed = DateTime.parse(uploadDateStr);
+                dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
+              } catch (_) {}
+            }
+            return {
+              'name': docName,
+              'date': dateStr,
+              'id': dMap['id']?.toString() ?? '',
+            };
+          }).toList();
+        });
+      } catch (e) {
+        debugPrint('Error parsing documents: $e');
       }
     } catch (e) {
-      debugPrint('Error loading student profile from Supabase: $e');
+      debugPrint('Error loading student profile from API: $e');
       await _loadStudentData();
     }
   }
@@ -442,46 +424,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveStudentDataToSupabase() async {
     try {
-      final client = Supabase.instance.client;
-      final currentUser = client.auth.currentUser;
-      if (currentUser == null) return;
-
-      final parts = _studentName.trim().split(RegExp(r'\s+'));
-      final String fName = parts.isNotEmpty ? parts[0] : '';
-      final String lName = parts.length > 1 ? parts.sublist(1).join(' ') : '';
-
-      DateTime? dob;
-      if (_studentDob.isNotEmpty && _studentDob != '—') {
-        try {
-          final dobParts = _studentDob.split('/');
-          if (dobParts.length == 3) {
-            dob = DateTime(int.parse(dobParts[2]), int.parse(dobParts[1]), int.parse(dobParts[0]));
-          } else {
-            dob = DateTime.parse(_studentDob);
-          }
-        } catch (_) {}
-      }
-
-      await client.from('User').update({
-        'firstName': fName,
-        'lastName': lName,
-        'gender': _studentGender.toUpperCase().contains('FEMALE') ? 'FEMALE' : (_studentGender.toUpperCase().contains('MALE') ? 'MALE' : 'OTHER'),
-        'bloodGroup': _studentBloodGroup,
-        if (dob != null) 'dateOfBirth': dob.toIso8601String(),
-      }).eq('id', currentUser.id);
-
-      final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
-      if (studentIdRes != null) {
-        final studentId = studentIdRes['id'] as String;
-        await client.from('Student').update({
-          'rollNumber': _rollNo,
-          'caste': _casteGroup,
-          'religion': _religion,
-          'emergencyPhone': _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
-        }).eq('id', studentId);
-      }
+      // Use backend API to update student profile
+      await ApiService.instance.put('students/me', body: {
+        'emergencyPhone': _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
+      });
     } catch (e) {
-      debugPrint('Error saving student profile to Supabase: $e');
+      debugPrint('Error saving student profile to API: $e');
     }
   }
 
@@ -571,32 +519,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
         _saveStudentData();
 
-        try {
-          final client = Supabase.instance.client;
-          final currentUser = client.auth.currentUser;
-          if (currentUser != null) {
-            final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
-            if (studentIdRes != null) {
-              final studentId = studentIdRes['id'] as String;
-              
-              // We simulate the file URL if we don't upload the actual bytes to Supabase Storage
-              final fileUrl = 'https://example.com/uploads/$docName';
-              
-              await client.from('StudentDocument').insert({
-                'studentId': studentId,
-                'documentType': docName.split('.').last.toUpperCase(),
-                'documentName': docName,
-                'fileUrl': fileUrl,
-                'fileSize': platformFile.size,
-                'mimeType': 'application/octet-stream',
-                'uploadedAt': now.toIso8601String(),
-              });
-            }
-          }
-        } catch (e) {
-          debugPrint('Error uploading document to Supabase DB: $e');
-        }
-
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -619,26 +541,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _removeDocument(int index) async {
     final name = _uploadedDocuments[index]['name'];
+    final docId = _uploadedDocuments[index]['id'];
     setState(() {
       _uploadedDocuments.removeAt(index);
     });
     _saveStudentData();
 
-    try {
-      final client = Supabase.instance.client;
-      final currentUser = client.auth.currentUser;
-      if (currentUser != null) {
-        final studentIdRes = await client.from('Student').select('id').eq('userId', currentUser.id).maybeSingle();
-        if (studentIdRes != null) {
-          final studentId = studentIdRes['id'] as String;
-          await client.from('StudentDocument')
-              .delete()
-              .eq('studentId', studentId)
-              .eq('documentName', name ?? '');
-        }
+    // Delete via backend API if document ID exists
+    if (docId != null && docId.isNotEmpty) {
+      try {
+        await ApiService.instance.delete('students/documents/$docId');
+      } catch (e) {
+        debugPrint('Error deleting document from API: $e');
       }
-    } catch (e) {
-      debugPrint('Error deleting document from Supabase: $e');
     }
 
     if (mounted) {
