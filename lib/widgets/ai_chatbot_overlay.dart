@@ -26,7 +26,6 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
 
   // Smart Prefetched Data
   String _firstName = 'User';
-  String _studentId = '';
   double _attendanceRate = 100.0;
   int _pendingFee = 0;
   int _booksDue = 0;
@@ -51,7 +50,6 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
         _stopRefreshTimer();
         setState(() {
           _firstName = 'User';
-          _studentId = '';
           _initChat();
         });
       }
@@ -119,7 +117,6 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
         final stats = response['stats'] as Map<String, dynamic>;
         
         if (role == 'student') {
-          _studentId = stats['studentId'] as String? ?? '';
           _attendanceRate = (stats['attendancePercentage'] as num? ?? 100.0).toDouble();
           _pendingFee = (stats['pendingFees'] as num? ?? 0).toInt();
           _booksDue = (stats['booksDue'] as num? ?? 0).toInt();

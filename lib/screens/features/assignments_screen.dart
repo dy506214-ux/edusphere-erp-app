@@ -1135,7 +1135,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                         });
                       }
                     } catch (e) {
-                      if (mounted) showToast(context, 'Error picking file');
+                      if (!context.mounted) return;
+                      showToast(context, 'Error picking file');
                     }
                   },
                   child: CustomPaint(

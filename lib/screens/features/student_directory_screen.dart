@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../profile_screen.dart';
+import '../../theme/colors.dart';
 
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
+  final String id;
   final String admissionNo;
   final String name;
   final String className;
   final String email;
   final String status;
   const StudentRecord({
+    required this.id,
     required this.admissionNo,
     required this.name,
     required this.className,
@@ -75,6 +79,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         final className = classData?['name'] ?? 'Class 1';
 
         loadedStudents.add(StudentRecord(
+          id: item['id']?.toString() ?? '',
           admissionNo: item['admissionNumber'] ?? '',
           name: fullName.isNotEmpty ? fullName : 'Unknown',
           className: className,
@@ -102,21 +107,21 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
   List<StudentRecord> _getDemoStudents() {
     return [
-      const StudentRecord(admissionNo: 'ADM240001', name: 'Priya Singh', className: 'Class 1 - A', email: 'student1@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240002', name: 'Anjali Das', className: 'Class 1 - A', email: 'student2@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240003', name: 'Sneha Mair', className: 'Class 1 - A', email: 'student3@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240004', name: 'Arjun Reddy', className: 'Class 1 - A', email: 'student4@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240005', name: 'Ankit Gupta', className: 'Class 1 - A', email: 'student5@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240006', name: 'Deepak Yadav', className: 'Class 1 - A', email: 'student6@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240007', name: 'Riya Nair', className: 'Class 1 - A', email: 'student7@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240008', name: 'Karan Mishra', className: 'Class 1 - A', email: 'student8@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240009', name: 'Deepika Sharma', className: 'Class 1 - A', email: 'student9@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240010', name: 'Sanjay Mulchandani', className: 'Class 1 - A', email: 'student10@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240011', name: 'Rahul Verma', className: 'Class 2 - B', email: 'student11@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240012', name: 'Kiran Patel', className: 'Class 2 - B', email: 'student12@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240013', name: 'Neha Gupta', className: 'Class 3 - A', email: 'student13@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240014', name: 'Aman Sharma', className: 'Class 3 - B', email: 'student14@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(admissionNo: 'ADM240015', name: 'Pooja Joshi', className: 'Class 4 - A', email: 'student15@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy1', admissionNo: 'ADM240001', name: 'Priya Singh', className: 'Class 1 - A', email: 'student1@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy2', admissionNo: 'ADM240002', name: 'Anjali Das', className: 'Class 1 - A', email: 'student2@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy3', admissionNo: 'ADM240003', name: 'Sneha Mair', className: 'Class 1 - A', email: 'student3@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy4', admissionNo: 'ADM240004', name: 'Arjun Reddy', className: 'Class 1 - A', email: 'student4@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy5', admissionNo: 'ADM240005', name: 'Ankit Gupta', className: 'Class 1 - A', email: 'student5@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy6', admissionNo: 'ADM240006', name: 'Deepak Yadav', className: 'Class 1 - A', email: 'student6@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy7', admissionNo: 'ADM240007', name: 'Riya Nair', className: 'Class 1 - A', email: 'student7@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy8', admissionNo: 'ADM240008', name: 'Karan Mishra', className: 'Class 1 - A', email: 'student8@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy9', admissionNo: 'ADM240009', name: 'Deepika Sharma', className: 'Class 1 - A', email: 'student9@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy10', admissionNo: 'ADM240010', name: 'Sanjay Mulchandani', className: 'Class 1 - A', email: 'student10@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy11', admissionNo: 'ADM240011', name: 'Rahul Verma', className: 'Class 2 - B', email: 'student11@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy12', admissionNo: 'ADM240012', name: 'Kiran Patel', className: 'Class 2 - B', email: 'student12@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy13', admissionNo: 'ADM240013', name: 'Neha Gupta', className: 'Class 3 - A', email: 'student13@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy14', admissionNo: 'ADM240014', name: 'Aman Sharma', className: 'Class 3 - B', email: 'student14@demoschool.com', status: 'ACTIVE'),
+      const StudentRecord(id: 'dummy15', admissionNo: 'ADM240015', name: 'Pooja Joshi', className: 'Class 4 - A', email: 'student15@demoschool.com', status: 'ACTIVE'),
     ];
   }
 
@@ -192,6 +197,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   _allStudents.insert(
                     0,
                     StudentRecord(
+                      id: 'new_temp_$newId',
                       admissionNo: newId,
                       name: nameCtrl.text,
                       className: classCtrl.text.isEmpty ? 'Class 1 - A' : classCtrl.text,
@@ -564,10 +570,32 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                   Expanded(
                                     flex: 2,
                                     child: Center(
-                                      child: Icon(
-                                        Icons.visibility_outlined,
-                                        size: 16.sp,
-                                        color: const Color(0xFF64748B),
+                                      child: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        icon: Icon(
+                                          Icons.visibility_outlined,
+                                          size: 16.sp,
+                                          color: const Color(0xFF64748B),
+                                        ),
+                                        onPressed: () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => ProfileScreen(
+                                                role: 'student',
+                                                theme: roleThemes['student']!,
+                                                studentId: student.id,
+                                                studentName: student.name,
+                                                studentEmail: student.email,
+                                                studentClass: student.className,
+                                                admissionNo: student.admissionNo,
+                                                showAppBar: true,
+                                                onBack: () => Navigator.pop(context),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ),

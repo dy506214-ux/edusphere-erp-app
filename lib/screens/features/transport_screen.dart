@@ -22,7 +22,6 @@ class TransportScreen extends StatefulWidget {
 class _TransportScreenState extends State<TransportScreen> {
   bool _isTransportAssigned = true;
   bool _isRequesting = false;
-  String _firstName = 'Kavya';
 
   // Dynamic route details
   bool _isLoading = true;
@@ -118,10 +117,7 @@ class _TransportScreenState extends State<TransportScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      
-      // Load name from SharedPreferences immediately as a quick local fallback
-      final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Singh';
-      _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
+
       
       _studentId = prefs.getString('student_id') ?? '';
 

@@ -13,6 +13,7 @@ import 'features/settings_screen.dart';
 import '../widgets/common_widgets.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'main_screen.dart';
+import '../services/api_service.dart';
 
 
 // ── CUSTOM QR SIMULATOR PAINTER ──
@@ -63,6 +64,11 @@ class ProfileScreen extends StatefulWidget {
   final VoidCallback? onBack;
   final bool showAppBar;
   final VoidCallback? onOpenDrawer;
+  final String? studentId;
+  final String? studentName;
+  final String? studentEmail;
+  final String? studentClass;
+  final String? admissionNo;
 
   const ProfileScreen({
     super.key,
@@ -71,6 +77,11 @@ class ProfileScreen extends StatefulWidget {
     this.onBack,
     this.showAppBar = true,
     this.onOpenDrawer,
+    this.studentId,
+    this.studentName,
+    this.studentEmail,
+    this.studentClass,
+    this.admissionNo,
   });
 
   @override
@@ -131,7 +142,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _pushEnabled = true;
   bool _inAppEnabled = true;
 
-
+  // Desktop Tabs State
+  String _selectedTab = 'Personal Details';
+  final List<String> _tabs = [
+    'Personal Details',
+    'Academic',
+    'Attendance',
+    'Fees',
+    'Time Table',
+    'Transport',
+    'Documents'
+  ];
 
   // Student details state
   String _studentName = 'Kavya Yadav';
@@ -163,13 +184,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _guardianPhone = '+91 98765 43210';
   final List<RealtimeChannel> _realtimeChannels = [];
 
+  // Tab details database variables
+  int _timetableDay = 1;
+  final List<String> _weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  bool _isLoadingTabDetails = false;
+  List<Map<String, dynamic>> _attendanceRecords = [];
+  Map<String, dynamic>? _feeLedger;
+  List<Map<String, dynamic>> _feePayments = [];
+  Map<String, dynamic>? _transportAllocation;
+  Map<int, List<Map<String, dynamic>>> _timetableSlots = {};
+
   @override
   void initState() {
     super.initState();
+    _timetableDay = DateTime.now().weekday > 6 ? 1 : DateTime.now().weekday;
     if (widget.role == 'teacher') {
       _loadProfileData();
       _loadSessionData();
     } else if (widget.role == 'student') {
+      if (widget.studentName != null) {
+        _studentName = widget.studentName!;
+      }
+      if (widget.studentEmail != null) {
+        _studentEmail = widget.studentEmail!;
+      }
+      if (widget.admissionNo != null) {
+        _admissionNo = widget.admissionNo!;
+      }
+      if (widget.studentClass != null) {
+        final className = widget.studentClass!;
+        if (className.contains(' - ')) {
+          final parts = className.split(' - ');
+          _studentClass = parts[0];
+          _section = parts[1];
+        } else {
+          _studentClass = className;
+        }
+      }
       _loadStudentDataFromSupabase();
       _connectRealTimeSync();
     }
@@ -194,10 +245,110 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  Future<void> _loadAllTabDetails(String studentId, String? sectionId) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingTabDetails = true;
+    });
+    final client = Supabase.instance.client;
+
+    // 1. Fetch Attendance Records
+    try {
+      final List<dynamic> attRes = await client
+          .from('AttendanceRecord')
+          .select('date, status, remarks')
+          .eq('studentId', studentId)
+          .order('date', ascending: false);
+      if (mounted) {
+        setState(() {
+          _attendanceRecords = List<Map<String, dynamic>>.from(attRes);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching attendance details: $e');
+    }
+
+    // 2. Fetch Fee Ledger and Payments
+    try {
+      final feeLedgerRes = await client
+          .from('StudentFeeLedger')
+          .select('id, totalPayable, totalPaid, totalPending, status, feeStructure(name)')
+          .eq('studentId', studentId)
+          .maybeSingle();
+      
+      if (feeLedgerRes != null && mounted) {
+        setState(() {
+          _feeLedger = Map<String, dynamic>.from(feeLedgerRes);
+        });
+        
+        final List<dynamic> paymentsRes = await client
+            .from('FeePayment')
+            .select('receiptNumber, amount, paymentDate, paymentMode, status')
+            .eq('studentId', studentId)
+            .order('paymentDate', ascending: false);
+        if (mounted) {
+          setState(() {
+            _feePayments = List<Map<String, dynamic>>.from(paymentsRes);
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching fee details: $e');
+    }
+
+    // 3. Fetch Transport Allocation
+    try {
+      final transRes = await client
+          .from('TransportAllocation')
+          .select('status, route(name, startLocation, endLocation), stop(name)')
+          .eq('studentId', studentId)
+          .maybeSingle();
+      if (transRes != null && mounted) {
+        setState(() {
+          _transportAllocation = Map<String, dynamic>.from(transRes);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching transport details: $e');
+    }
+
+    // 4. Fetch Timetable slots if sectionId is present
+    if (sectionId != null) {
+      try {
+        final List<dynamic> slotsRes = await client
+            .from('TimetableSlot')
+            .select('dayOfWeek, startTime, endTime, period, durationMinutes, subject(name, code), teacher(User(firstName, lastName)), room(name)')
+            .eq('sectionId', sectionId)
+            .order('period', ascending: true);
+
+        final Map<int, List<Map<String, dynamic>>> grouped = {};
+        for (var s in slotsRes) {
+          final slot = Map<String, dynamic>.from(s);
+          final day = slot['dayOfWeek'] as int? ?? 1;
+          grouped.putIfAbsent(day, () => []).add(slot);
+        }
+        if (mounted) {
+          setState(() {
+            _timetableSlots = grouped;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error fetching timetable details: $e');
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingTabDetails = false;
+      });
+    }
+  }
+
   Future<void> _loadStudentDataFromSupabase() async {
     try {
-      // Use backend API instead of direct Supabase queries
-      final response = await ApiService.instance.get('students/me');
+      final response = widget.studentId != null
+          ? await ApiService.instance.get('students/${widget.studentId}')
+          : await ApiService.instance.get('students/me');
       
       if (response == null || response['success'] != true || response['student'] == null) {
         await _loadStudentData();
@@ -272,6 +423,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('student_id', studentId);
 
+      final String? sectionId = studentRes['sectionId'] as String?;
+      _loadAllTabDetails(studentId, sectionId);
+
       // Extract Parent details from the included parents array
       try {
         final parentsList = studentRes['parents'] as List<dynamic>? ?? [];
@@ -280,6 +434,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           String mother = '—';
           String guardianPhone = '—';
           
+
           for (var sp in parentsList) {
             final spMap = sp as Map<String, dynamic>;
             final rel = spMap['relationship'] as String?;
@@ -830,6 +985,1093 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // --- RESPONSIVE TABBED STUDENT PROFILE METHODS ---
+  Widget _buildTabbedStudentProfile(bool isDesktop) {
+    final double horizontalPadding = isDesktop ? 40.w : 16.w;
+    final double verticalPadding = isDesktop ? 20.h : 12.h;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF4F7FB),
+      body: Stack(
+        children: [
+          // Basic background gradient
+          Container(
+            height: 250.h,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFFE2EAF4), Color(0xFFF4F7FB)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+          ),
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Back Button
+                  if (widget.onBack != null)
+                    GestureDetector(
+                      onTap: widget.onBack,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.arrow_back, color: const Color(0xFF0F2547), size: 16.sp),
+                          SizedBox(width: 8.w),
+                          Text(
+                            'Back to Students',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  SizedBox(height: 20.h),
+
+                  // Main Header Card
+                  _buildTabbedHeaderCard(isDesktop),
+                  SizedBox(height: 20.h),
+
+                  // Tab Bar
+                  _buildTabbedNavigation(isDesktop),
+                  SizedBox(height: 20.h),
+
+                  // Tab Content
+                  _buildTabbedTabContent(isDesktop),
+                  SizedBox(height: 24.h),
+
+                  if (widget.studentId == null) ...[
+                    // Digital Identity & QR Attendance
+                    _buildDigitalIdentityCard(isDesktop),
+                    SizedBox(height: 24.h),
+                  ],
+
+                  // Logout
+                  if (widget.studentId == null) ...[
+                    GestureDetector(
+                      onTap: () => setState(() => _showLogout = true),
+                      child: Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(20.r),
+                          border: Border.all(color: const Color(0xFFFECACA)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp),
+                            SizedBox(width: 10.w),
+                            Text('Sign Out', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: AppColors.error)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 60.h),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          if (_showLogout) _buildLogoutDialog(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabbedHeaderCard(bool isDesktop) {
+    final List<String> parts = _studentName.trim().split(RegExp(r'\s+'));
+    final String initials = parts.length >= 2 
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'ST');
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isDesktop ? 24.r : 16.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: isDesktop ? 64.w : 52.w,
+                    height: isDesktop ? 64.w : 52.w,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE8F1FB),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials,
+                        style: GoogleFonts.inter(
+                          fontSize: isDesktop ? 22.sp : 18.sp,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF1A6FDB),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (widget.studentId == null)
+                    GestureDetector(
+                      onTap: _openEditProfileSheet,
+                      child: Container(
+                        padding: EdgeInsets.all(4.r),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF1A6FDB),
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                        ),
+                        child: Icon(Icons.edit_rounded, size: 10.sp, color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+              SizedBox(width: isDesktop ? 24.w : 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _studentName,
+                      style: GoogleFonts.inter(
+                        fontSize: isDesktop ? 20.sp : 16.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F2547),
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Admission No: $_admissionNo',
+                      style: GoogleFonts.inter(
+                        fontSize: isDesktop ? 12.sp : 10.5.sp,
+                        color: const Color(0xFF64748B),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Text(
+                  'ACTIVE',
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 11.sp : 9.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF10B981),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isDesktop ? 24.h : 16.h),
+          const Divider(color: Color(0xFFE2EAF4), height: 1),
+          SizedBox(height: isDesktop ? 24.h : 16.h),
+          if (isDesktop)
+            Row(
+              children: [
+                Expanded(child: _buildHeaderItem(Icons.email_outlined, 'Email', _studentEmail)),
+                SizedBox(width: 20.w),
+                Expanded(child: _buildHeaderItem(Icons.phone_outlined, 'Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A')),
+                SizedBox(width: 20.w),
+                Expanded(child: _buildHeaderItem(Icons.calendar_today_outlined, 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A')),
+                SizedBox(width: 20.w),
+                Expanded(child: _buildHeaderItem(Icons.menu_book_outlined, 'Class', '$_studentClass - $_section')),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 16.w,
+              runSpacing: 16.h,
+              children: [
+                SizedBox(
+                  width: 145.w,
+                  child: _buildHeaderItem(Icons.email_outlined, 'Email', _studentEmail),
+                ),
+                SizedBox(
+                  width: 145.w,
+                  child: _buildHeaderItem(Icons.phone_outlined, 'Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
+                ),
+                SizedBox(
+                  width: 145.w,
+                  child: _buildHeaderItem(Icons.calendar_today_outlined, 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A'),
+                ),
+                SizedBox(
+                  width: 145.w,
+                  child: _buildHeaderItem(Icons.menu_book_outlined, 'Class', '$_studentClass - $_section'),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderItem(IconData icon, String label, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Icon(icon, size: 18.sp, color: const Color(0xFF64748B)),
+        SizedBox(width: 10.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                value,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F2547),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTabbedNavigation(bool isDesktop) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF0F6),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: _tabs.map((tab) {
+            final bool isActive = _selectedTab == tab;
+            return GestureDetector(
+              onTap: () => setState(() => _selectedTab = tab),
+              child: Container(
+                margin: EdgeInsets.only(right: 6.w),
+                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20.w : 14.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFFDFEEFA) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Text(
+                  tab,
+                  style: GoogleFonts.inter(
+                    fontSize: isDesktop ? 13.sp : 12.sp,
+                    fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                    color: isActive ? const Color(0xFF0F2547) : const Color(0xFF475569),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabbedTabContent(bool isDesktop) {
+    if (_isLoadingTabDetails) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(40.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF1A6FDB)),
+        ),
+      );
+    }
+
+    if (_selectedTab == 'Personal Details') {
+      final personalCard = Container(
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Personal Information', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            SizedBox(height: 20.h),
+            _buildGridRow('Gender', _studentGender != '—' ? _studentGender : 'N/A', 'Blood Group', _studentBloodGroup != '—' ? _studentBloodGroup : 'N/A'),
+            SizedBox(height: 16.h),
+            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A', 'Admission Number', _admissionNo),
+          ],
+        ),
+      );
+
+      final coreIdentityCard = Container(
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Core Identity', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            SizedBox(height: 20.h),
+            _buildGridRow('Caste Group', _casteGroup.isNotEmpty ? _casteGroup : 'N/A', 'Religion', _religion.isNotEmpty ? _religion : 'N/A'),
+            SizedBox(height: 16.h),
+            _buildGridRow('Nationality', _nationality.isNotEmpty ? _nationality : 'N/A', 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A'),
+          ],
+        ),
+      );
+
+      final guardianCard = Container(
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Guardian Details', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            SizedBox(height: 20.h),
+            _buildGridRow('Father Name', _fatherName.isNotEmpty ? _fatherName : 'N/A', 'Mother Name', _motherName.isNotEmpty ? _motherName : 'N/A'),
+            SizedBox(height: 16.h),
+            _buildGridRow('Guardian Phone', _guardianPhone.isNotEmpty ? _guardianPhone : 'N/A', 'Emergency Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
+          ],
+        ),
+      );
+
+      if (isDesktop) {
+        return Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: personalCard),
+                SizedBox(width: 20.w),
+                Expanded(child: coreIdentityCard),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: guardianCard),
+                SizedBox(width: 20.w),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.all(20.r),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(color: const Color(0xFFE2EAF4)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Address Info', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                        SizedBox(height: 20.h),
+                        Text('Address', style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                        SizedBox(height: 4.h),
+                        Text(_address.isNotEmpty && _address != 'No location registered' ? _address : 'No registered address available', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      } else {
+        return Column(
+          children: [
+            personalCard,
+            SizedBox(height: 16.h),
+            coreIdentityCard,
+            SizedBox(height: 16.h),
+            guardianCard,
+            SizedBox(height: 16.h),
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20.r),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: const Color(0xFFE2EAF4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Address Info', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                  SizedBox(height: 20.h),
+                  Text('Address', style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                  SizedBox(height: 4.h),
+                  Text(_address.isNotEmpty && _address != 'No location registered' ? _address : 'No registered address available', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ],
+        );
+      }
+    }
+
+    if (_selectedTab == 'Academic') {
+      if (widget.studentId != null) {
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Academic Information', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+              SizedBox(height: 16.h),
+              Text('Academic records will be displayed here.', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500)),
+            ],
+          ),
+        );
+      }
+
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Academic Details', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            SizedBox(height: 20.h),
+            _buildGridRow('Current Class', _studentClass, 'Section', _section),
+            SizedBox(height: 16.h),
+            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A', 'Admission Number', _admissionNo),
+            SizedBox(height: 16.h),
+            _buildGridRow('Academic Batch', _batch, 'Medium of Instruction', _medium),
+            SizedBox(height: 16.h),
+            _buildGridRow('Enrollment Date', _studentJoinedDate, 'Status', 'ACTIVE'),
+          ],
+        ),
+      );
+    }
+
+    if (_selectedTab == 'Attendance') {
+      if (widget.studentId != null) {
+        return _buildDigitalIdentityCard(isDesktop, customTitle: 'Attendance Records');
+      }
+
+      final int total = _attendanceRecords.length;
+      final int present = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'PRESENT').length;
+      final int late = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'LATE').length;
+      final int absent = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'ABSENT').length;
+      
+      final double percentage = total > 0 ? (present + late) / total * 100 : 92.5;
+      final int displayPresent = total > 0 ? present + late : 24;
+      final int displayAbsent = total > 0 ? absent : 2;
+      final int displayTotal = total > 0 ? total : 26;
+
+      return Column(
+        children: [
+          Row(
+            children: [
+              _buildAttendanceStatCard('Attendance Rate', '${percentage.toStringAsFixed(1)}%', const Color(0xFF1A6FDB), const Color(0xFFE8F1FB)),
+              SizedBox(width: 8.w),
+              _buildAttendanceStatCard('Days Present', '$displayPresent/$displayTotal', const Color(0xFF10B981), const Color(0xFFECFDF5)),
+              SizedBox(width: 8.w),
+              _buildAttendanceStatCard('Days Absent', '$displayAbsent', const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(20.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Recent Attendance Log', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                SizedBox(height: 16.h),
+                if (_attendanceRecords.isEmpty)
+                  _buildMockAttendanceList()
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _attendanceRecords.length > 5 ? 5 : _attendanceRecords.length,
+                    itemBuilder: (ctx, idx) {
+                      final r = _attendanceRecords[idx];
+                      final dateStr = r['date']?.toString() ?? '—';
+                      final status = r['status']?.toString() ?? 'PRESENT';
+                      final remarks = r['remarks']?.toString() ?? 'Scanned via QR Code';
+                      return _buildAttendanceRow(dateStr, status, remarks);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_selectedTab == 'Fees') {
+      final double payable = _feeLedger != null ? double.tryParse(_feeLedger!['totalPayable']?.toString() ?? '45000') ?? 45000.0 : 45000.0;
+      final double paid = _feeLedger != null ? double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '30000') ?? 30000.0 : 30000.0;
+      final double pending = _feeLedger != null ? double.tryParse(_feeLedger!['totalPending']?.toString() ?? '15000') ?? 15000.0 : 15000.0;
+      final String status = _feeLedger != null ? _feeLedger!['status']?.toString() ?? 'PARTIALLY_PAID' : 'PARTIALLY_PAID';
+      final String structureName = _feeLedger != null && _feeLedger!['feeStructure'] != null 
+          ? _feeLedger!['feeStructure']['name'].toString() 
+          : 'Grade 11 Annual Fee';
+
+      Color statusColor = const Color(0xFFF59E0B);
+      Color statusBg = const Color(0xFFFFFBEB);
+      if (status.toUpperCase() == 'PAID') {
+        statusColor = const Color(0xFF10B981);
+        statusBg = const Color(0xFFECFDF5);
+      } else if (status.toUpperCase() == 'PENDING') {
+        statusColor = const Color(0xFFEF4444);
+        statusBg = const Color(0xFFFEF2F2);
+      }
+
+      return Column(
+        children: [
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(20.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        structureName,
+                        style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6.r)),
+                      child: Text(
+                        status.replaceAll('_', ' ').toUpperCase(),
+                        style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w800, color: statusColor),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20.h),
+                _buildGridRow('Total Fee Payable', '₹${payable.toStringAsFixed(2)}', 'Total Amount Paid', '₹${paid.toStringAsFixed(2)}'),
+                SizedBox(height: 16.h),
+                _buildGridRow('Pending Balance', '₹${pending.toStringAsFixed(2)}', 'Academic Year', _batch),
+              ],
+            ),
+          ),
+          SizedBox(height: 16.h),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(20.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Recent Payment Transactions', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                SizedBox(height: 16.h),
+                if (_feePayments.isEmpty)
+                  _buildMockFeePayments()
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _feePayments.length,
+                    itemBuilder: (ctx, idx) {
+                      final p = _feePayments[idx];
+                      final receipt = p['receiptNumber']?.toString() ?? '—';
+                      final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
+                      final dateStr = p['paymentDate']?.toString() ?? '—';
+                      final mode = p['paymentMode']?.toString() ?? 'ONLINE';
+                      return _buildFeePaymentRow(receipt, amount, dateStr, mode);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_selectedTab == 'Time Table') {
+      final List<Map<String, dynamic>> slots = _timetableSlots[_timetableDay] ?? [];
+      
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(6, (idx) {
+              final dayNum = idx + 1;
+              final bool isSelected = _timetableDay == dayNum;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _timetableDay = dayNum),
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 2.w),
+                    padding: EdgeInsets.symmetric(vertical: 8.h),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF1A6FDB) : Colors.white,
+                      border: Border.all(color: const Color(0xFFE2EAF4)),
+                      borderRadius: BorderRadius.circular(8.r),
+                    ),
+                    child: Text(
+                      _weekDays[idx],
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 11.5.sp,
+                        fontWeight: FontWeight.w800,
+                        color: isSelected ? Colors.white : const Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+          SizedBox(height: 16.h),
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(20.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Scheduled Periods', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                SizedBox(height: 16.h),
+                if (slots.isEmpty)
+                  _buildMockTimetableSlots()
+                else
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: slots.length,
+                    itemBuilder: (ctx, idx) {
+                      final s = slots[idx];
+                      final period = s['period'] as int? ?? (idx + 1);
+                      final start = s['startTime']?.toString() ?? '—';
+                      final end = s['endTime']?.toString() ?? '—';
+                      final sub = s['subject'] as Map? ?? {};
+                      final subName = sub['name']?.toString() ?? 'General Class';
+                      final roomName = s['room'] != null ? s['room']['name']?.toString() ?? 'Classroom' : 'Classroom';
+                      final teacherMap = s['teacher'] as Map? ?? {};
+                      final teacherUser = teacherMap['User'] as Map? ?? {};
+                      final tFirstName = teacherUser['firstName']?.toString() ?? '';
+                      final tLastName = teacherUser['lastName']?.toString() ?? '';
+                      final teacherName = '$tFirstName $tLastName'.trim().isNotEmpty ? '$tFirstName $tLastName'.trim() : 'Class Teacher';
+                      
+                      return _buildTimetableSlotRow(period, start, end, subName, teacherName, roomName);
+                    },
+                  ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_selectedTab == 'Transport') {
+      final String routeName = _transportAllocation != null && _transportAllocation!['route'] != null
+          ? _transportAllocation!['route']['name'].toString()
+          : 'Route 102 - North Delhi Bypass';
+      final String stopName = _transportAllocation != null && _transportAllocation!['stop'] != null
+          ? _transportAllocation!['stop']['name'].toString()
+          : 'Rohini Sector 15 Crossing';
+      final String startLoc = _transportAllocation != null && _transportAllocation!['route'] != null
+          ? _transportAllocation!['route']['startLocation']?.toString() ?? 'School Campus'
+          : 'School Campus';
+      final String endLoc = _transportAllocation != null && _transportAllocation!['route'] != null
+          ? _transportAllocation!['route']['endLocation']?.toString() ?? 'Rohini Bus Depot'
+          : 'Rohini Bus Depot';
+      final String transStatus = _transportAllocation != null
+          ? _transportAllocation!['status'].toString()
+          : 'ACTIVE';
+
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Transport Bus Allocation', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6.r)),
+                  child: Text(
+                    transStatus.toUpperCase(),
+                    style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            _buildGridRow('Assigned Route', routeName, 'Assigned Bus Stop', stopName),
+            SizedBox(height: 16.h),
+            _buildGridRow('Route Start Location', startLoc, 'Route End Location', endLoc),
+            SizedBox(height: 20.h),
+            Container(
+              padding: EdgeInsets.all(14.r),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12.r),
+                border: Border.all(color: const Color(0xFFE2EAF4)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.directions_bus_filled_outlined, color: const Color(0xFF1A6FDB), size: 20.sp),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Text(
+                      'Bus routes run on schedule every working day. Student scans RFID card upon entry and exit for real-time tracking.',
+                      style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500, height: 1.3),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_selectedTab == 'Documents') {
+      return _buildDocumentsVault();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(48.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+      ),
+      child: Center(
+        child: Text(
+          '$_selectedTab details coming soon...',
+          style: GoogleFonts.inter(
+            fontSize: 14.sp,
+            color: const Color(0xFF94A3B8),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridRow(String label1, String value1, String label2, String value2) {
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label1, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              SizedBox(height: 4.h),
+              Text(value1, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label2, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              SizedBox(height: 4.h),
+              Text(value2, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttendanceStatCard(String label, String value, Color textColor, Color bgColor) {
+    return Expanded(
+      child: Container(
+        padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 12.w),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Column(
+          children: [
+            Text(label, style: GoogleFonts.inter(fontSize: 10.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)), textAlign: TextAlign.center),
+            SizedBox(height: 6.h),
+            Text(value, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: textColor)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttendanceRow(String dateStr, String status, String remarks) {
+    Color badgeBg;
+    Color badgeText;
+    if (status.toUpperCase() == 'PRESENT') {
+      badgeBg = const Color(0xFFECFDF5);
+      badgeText = const Color(0xFF10B981);
+    } else if (status.toUpperCase() == 'ABSENT') {
+      badgeBg = const Color(0xFFFEF2F2);
+      badgeText = const Color(0xFFEF4444);
+    } else {
+      badgeBg = const Color(0xFFFFFBEB);
+      badgeText = const Color(0xFFD97706);
+    }
+
+    String formattedDate = dateStr;
+    try {
+      final dateObj = DateTime.parse(dateStr);
+      formattedDate = '${dateObj.day}/${dateObj.month}/${dateObj.year}';
+    } catch (_) {}
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(formattedDate, style: GoogleFonts.inter(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+              SizedBox(height: 2.h),
+              Text(remarks, style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF868E96))),
+            ],
+          ),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+            decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(6.r)),
+            child: Text(
+              status.toUpperCase(),
+              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: badgeText),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockAttendanceList() {
+    final List<Map<String, String>> mockData = [
+      {'date': '2026-06-08', 'status': 'PRESENT', 'remarks': 'Scanned at Library Gate'},
+      {'date': '2026-06-05', 'status': 'PRESENT', 'remarks': 'Scanned at Main Entry Gate'},
+      {'date': '2026-06-04', 'status': 'ABSENT', 'remarks': 'Absent (No scan detected)'},
+      {'date': '2026-06-03', 'status': 'PRESENT', 'remarks': 'Scanned at Classroom Gate'},
+    ];
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: mockData.length,
+      itemBuilder: (ctx, idx) {
+        final r = mockData[idx];
+        return _buildAttendanceRow(r['date']!, r['status']!, r['remarks']!);
+      },
+    );
+  }
+
+  Widget _buildFeePaymentRow(String receipt, double amount, String dateStr, String mode) {
+    String formattedDate = dateStr;
+    try {
+      final dateObj = DateTime.parse(dateStr);
+      formattedDate = '${dateObj.day}/${dateObj.month}/${dateObj.year}';
+    } catch (_) {}
+
+    return Container(
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Receipt #$receipt', style: GoogleFonts.inter(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+              SizedBox(height: 2.h),
+              Text('Paid on $formattedDate via $mode', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF868E96))),
+            ],
+          ),
+          Text(
+            '₹${amount.toStringAsFixed(2)}',
+            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockFeePayments() {
+    final List<Map<String, dynamic>> mockData = [
+      {'receipt': 'RCPT-2026-9081', 'amount': 15000.0, 'date': '2026-05-10', 'mode': 'UPI'},
+      {'receipt': 'RCPT-2026-4402', 'amount': 15000.0, 'date': '2026-04-12', 'mode': 'CASH'},
+    ];
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: mockData.length,
+      itemBuilder: (ctx, idx) {
+        final p = mockData[idx];
+        return _buildFeePaymentRow(p['receipt']!, p['amount']!, p['date']!, p['mode']!);
+      },
+    );
+  }
+
+  Widget _buildTimetableSlotRow(int period, String start, String end, String subject, String teacher, String room) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 10.h),
+      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36.w,
+            height: 36.w,
+            decoration: const BoxDecoration(color: Color(0xFFEAF1FB), shape: BoxShape.circle),
+            child: Center(
+              child: Text(
+                'P$period',
+                style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF1A6FDB)),
+              ),
+            ),
+          ),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(subject, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                SizedBox(height: 2.h),
+                Text('$teacher • Room $room', style: GoogleFonts.inter(fontSize: 10.5.sp, color: const Color(0xFF868E96), fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(start, style: GoogleFonts.inter(fontSize: 11.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+              SizedBox(height: 2.h),
+              Text(end, style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF868E96))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMockTimetableSlots() {
+    final List<Map<String, dynamic>> mockData = [
+      {'period': 1, 'start': '08:30 AM', 'end': '09:15 AM', 'subject': 'Mathematics', 'teacher': 'Emma Johnson', 'room': '101'},
+      {'period': 2, 'start': '09:15 AM', 'end': '10:00 AM', 'subject': 'Physics', 'teacher': 'Vikram Yadav', 'room': 'Lab A'},
+      {'period': 3, 'start': '10:15 AM', 'end': '11:00 AM', 'subject': 'English Lit.', 'teacher': 'Sarah Connor', 'room': '102'},
+      {'period': 4, 'start': '11:00 AM', 'end': '11:45 AM', 'subject': 'Computer Science', 'teacher': 'Alan Turing', 'room': 'CS Lab'},
+    ];
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: mockData.length,
+      itemBuilder: (ctx, idx) {
+        final s = mockData[idx];
+        return _buildTimetableSlotRow(s['period']!, s['start']!, s['end']!, s['subject']!, s['teacher']!, s['room']!);
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.role == 'teacher') {
@@ -839,624 +2081,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final double width = MediaQuery.of(context).size.width;
     final bool isDesktop = width > 800;
 
-    final List<String> parts = _studentName.trim().split(RegExp(r'\s+'));
-    final String initials = parts.length >= 2 
-        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : (parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'KY');
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: Stack(
-        children: [
-          // Background Gradient Backdrop
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFF3F8FC), Color(0xFFFCFDFE)],
-              ),
-            ),
-          ),
-          SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'My Profile',
-                              style: GoogleFonts.outfit(
-                                fontSize: 24.sp,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF0F2547),
-                              ),
-                            ),
-                            SizedBox(height: 4.h),
-                            Text(
-                              'Manage your account and view your details',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF6B7A90),
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1A6FDB),
-                          side: const BorderSide(color: Color(0xFF1A6FDB), width: 1.5),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                          elevation: 0,
-                        ),
-                        onPressed: _simulateDocumentUpload,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: Text(
-                          'Upload Document',
-                          style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20.h),
-
-                  // Profile Info Card
-                  Container(
-                    width: double.infinity,
-                    padding: EdgeInsets.all(20.r),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24.r),
-                      border: Border.all(color: const Color(0xFFE2EAF4)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // Avatar Circular Container
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            Container(
-                              width: 68.w,
-                              height: 68.w,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFE8F1FB),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  initials,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 24.sp,
-                                    fontWeight: FontWeight.w900,
-                                    color: const Color(0xFF1A6FDB),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: _openEditProfileSheet,
-                              child: Container(
-                                padding: EdgeInsets.all(5.r),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF1A6FDB),
-                                  shape: BoxShape.circle,
-                                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-                                ),
-                                child: Icon(Icons.edit_rounded, size: 12.sp, color: Colors.white),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(width: 16.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    _studentName,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.w900,
-                                      color: const Color(0xFF0F2547),
-                                    ),
-                                  ),
-                                  SizedBox(width: 8.w),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEAFBEE),
-                                      border: Border.all(color: const Color(0xFF2B8A3E), width: 1.w),
-                                      borderRadius: BorderRadius.circular(6.r),
-                                    ),
-                                    child: Text(
-                                      _admissionNo,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 9.sp,
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF2B8A3E),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 6.h),
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 12.w,
-                                runSpacing: 6.h,
-                                children: [
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.school_outlined, size: 14.sp, color: const Color(0xFF868E96)),
-                                      SizedBox(width: 4.w),
-                                      Text(
-                                        '$_studentClass - $_section',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11.5.sp,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF868E96),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.badge_outlined, size: 14.sp, color: const Color(0xFF868E96)),
-                                      SizedBox(width: 4.w),
-                                      Text(
-                                        'Roll No: $_rollNo',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11.5.sp,
-                                          fontWeight: FontWeight.w700,
-                                          color: const Color(0xFF868E96),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Container(
-                                        width: 6.w,
-                                        height: 6.w,
-                                        decoration: const BoxDecoration(
-                                          color: Color(0xFF2B8A3E),
-                                          shape: BoxShape.circle,
-                                        ),
-                                      ),
-                                      SizedBox(width: 4.w),
-                                      Text(
-                                        'Active Profile',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11.sp,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF2B8A3E),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-
-                  // Metrics cards row
-                  Row(
-                    children: [
-                      _buildMetricCard(
-                        icon: Icons.calendar_today_outlined,
-                        iconColor: const Color(0xFF1A6FDB),
-                        label: 'Batch',
-                        value: _batch,
-                      ),
-                      SizedBox(width: 8.w),
-                      _buildMetricCard(
-                        icon: Icons.book_outlined,
-                        iconColor: const Color(0xFF10B981),
-                        label: 'Medium',
-                        value: _medium,
-                      ),
-                      SizedBox(width: 8.w),
-                      _buildMetricCard(
-                        icon: Icons.date_range_outlined,
-                        iconColor: const Color(0xFF8B5CF6),
-                        label: 'Joined',
-                        value: _studentJoinedDate,
-                      ),
-                      SizedBox(width: 8.w),
-                      _buildMetricCard(
-                        icon: Icons.shield_outlined,
-                        iconColor: const Color(0xFFEF4444),
-                        label: 'Emergency Info',
-                        value: _emergencyInfo,
-                        valueColor: _emergencyInfo == 'UNSET' ? const Color(0xFFEF4444) : const Color(0xFF0F2547),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // Core Identity Card
-                  Row(
-                    children: [
-                      Icon(Icons.person_outline_rounded, size: 20.sp, color: const Color(0xFF1A6FDB)),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'Core Identity',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0F2547),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 12.h),
-                  Container(
-                    padding: EdgeInsets.all(20.r),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(color: const Color(0xFFE2EAF4)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _buildIdentityItem('Gender', _studentGender)),
-                            Expanded(child: _buildIdentityItem('Date of Birth', _studentDob)),
-                          ],
-                        ),
-                        Divider(color: const Color(0xFFE2EAF4), height: 24.h),
-                        Row(
-                          children: [
-                            Expanded(child: _buildIdentityItem('Blood Group', _studentBloodGroup)),
-                            Expanded(child: _buildIdentityItem('Religion', _religion)),
-                          ],
-                        ),
-                        Divider(color: const Color(0xFFE2EAF4), height: 24.h),
-                        Row(
-                          children: [
-                            Expanded(child: _buildIdentityItem('Caste Group', _casteGroup)),
-                            Expanded(child: _buildIdentityItem('Nationality', _nationality)),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // Guardian & Notifications
-                  if (isDesktop)
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(child: _buildGuardianCard()),
-                        SizedBox(width: 16.w),
-                        Expanded(child: _buildNotificationCard()),
-                      ],
-                    )
-                  else
-                    Column(
-                      children: [
-                        _buildGuardianCard(),
-                        SizedBox(height: 16.h),
-                        _buildNotificationCard(),
-                      ],
-                    ),
-                  SizedBox(height: 24.h),
-
-                  // Documents Asset Vault
-                  _buildDocumentsVault(),
-                  SizedBox(height: 24.h),
-
-                  // Digital Identity & QR Attendance
-                  _buildDigitalIdentityCard(isDesktop),
-                  SizedBox(height: 24.h),
-
-                  // Logout
-                  GestureDetector(
-                    onTap: () => setState(() => _showLogout = true),
-                    child: Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(vertical: 16.h),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFEF2F2),
-                        borderRadius: BorderRadius.circular(20.r),
-                        border: Border.all(color: const Color(0xFFFECACA)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp),
-                          SizedBox(width: 10.w),
-                          Text('Sign Out', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: AppColors.error)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: 60.h),
-                ],
-              ),
-            ),
-          ),
-
-          if (_showLogout) _buildLogoutDialog(),
-        ],
-      ),
-    );
+    return _buildTabbedStudentProfile(isDesktop);
   }
-
-  Widget _buildMetricCard({
-    required IconData icon,
-    required Color iconColor,
-    required String label,
-    required String value,
-    Color? valueColor,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.all(12.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: const Color(0xFFE2EAF4)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: iconColor, size: 18.sp),
-            SizedBox(height: 12.h),
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF868E96),
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 11.5.sp,
-                fontWeight: FontWeight.w900,
-                color: valueColor ?? const Color(0xFF0F2547),
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildIdentityItem(String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 11.5.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF868E96),
-          ),
-        ),
-        SizedBox(height: 4.h),
-        Text(
-          value,
-          style: GoogleFonts.inter(
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F2547),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGuardianCard() {
-    return Container(
-      padding: EdgeInsets.all(20.r),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: const Color(0xFFE2EAF4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.people_outline_rounded, size: 18.sp, color: const Color(0xFF1A6FDB)),
-              SizedBox(width: 8.w),
-              Text(
-                'Guardian Details',
-                style: GoogleFonts.outfit(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          _buildDetailRow('Father', _fatherName, showPhoneIcon: true),
-          Divider(color: const Color(0xFFE2EAF4), height: 16.h),
-          _buildDetailRow('Mother', _motherName, showPhoneIcon: true),
-          Divider(color: const Color(0xFFE2EAF4), height: 16.h),
-          _buildDetailRow('Guardian Phone', _guardianPhone),
-          SizedBox(height: 16.h),
-          Center(
-            child: Text(
-              'View All',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF1A6FDB),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, {bool showPhoneIcon = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF868E96),
-          ),
-        ),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2547),
-              ),
-            ),
-            if (showPhoneIcon && value != '—') ...[
-              SizedBox(width: 8.w),
-              Icon(Icons.phone_outlined, size: 14.sp, color: const Color(0xFF1A6FDB)),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNotificationCard() {
-    return Container(
-      padding: EdgeInsets.all(20.r),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: const Color(0xFFE2EAF4)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.notifications_none_rounded, size: 18.sp, color: const Color(0xFF1A6FDB)),
-              SizedBox(width: 8.w),
-              Text(
-                'Notification Preferences',
-                style: GoogleFonts.outfit(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Push Notifications',
-                    style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    'Receive instant push alerts',
-                    style: GoogleFonts.inter(fontSize: 10.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF868E96)),
-                  ),
-                ],
-              ),
-              Switch(
-                value: _pushNotifications,
-                activeThumbColor: const Color(0xFF1A6FDB),
-                activeTrackColor: const Color(0xFF1A6FDB).withValues(alpha: 0.4),
-                onChanged: (val) {
-                  setState(() => _pushNotifications = val);
-                  _saveStudentData();
-                },
-              ),
-            ],
-          ),
-          Divider(color: const Color(0xFFE2EAF4), height: 16.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'In-App Notifications',
-                    style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
-                  ),
-                  SizedBox(height: 2.h),
-                  Text(
-                    'Show alerts inside dashboard',
-                    style: GoogleFonts.inter(fontSize: 10.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF868E96)),
-                  ),
-                ],
-              ),
-              Switch(
-                value: _inAppNotifications,
-                activeThumbColor: const Color(0xFF1A6FDB),
-                activeTrackColor: const Color(0xFF1A6FDB).withValues(alpha: 0.4),
-                onChanged: (val) {
-                  setState(() => _inAppNotifications = val);
-                  _saveStudentData();
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildDocumentsVault() {
     return Container(
       width: double.infinity,
@@ -1592,7 +2218,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDigitalIdentityCard(bool isDesktop) {
+  Widget _buildDigitalIdentityCard(bool isDesktop, {String? customTitle}) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20.r),
@@ -1609,7 +2235,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Icon(Icons.qr_code_2_rounded, size: 18.sp, color: const Color(0xFF1A6FDB)),
               SizedBox(width: 8.w),
               Text(
-                'Digital Identity & QR Attendance',
+                customTitle ?? 'Digital Identity & QR Attendance',
                 style: GoogleFonts.outfit(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w900,

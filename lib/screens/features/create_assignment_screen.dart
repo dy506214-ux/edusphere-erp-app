@@ -208,9 +208,9 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
         final userInfo = student?['user'] as Map<String, dynamic>?;
         final firstName = userInfo?['firstName'] as String? ?? '';
         final lastName = userInfo?['lastName'] as String? ?? '';
-        final studentName = '${firstName} ${lastName}'.trim().isEmpty
+        final studentName = '$firstName $lastName'.trim().isEmpty
             ? 'Unknown Student'
-            : '${firstName} ${lastName}'.trim();
+            : '$firstName $lastName'.trim();
 
         return {
           'id': sub['id'],
@@ -751,7 +751,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                       SizedBox(width: 4.w),
                       Text(
                         hasGrade
-                            ? 'Grade: ${sub['grade']} (${status})'
+                             ? 'Grade: ${sub['grade']} ($status)'
                             : 'Evaluation Pending',
                         style: GoogleFonts.inter(
                           fontSize: 11.sp,

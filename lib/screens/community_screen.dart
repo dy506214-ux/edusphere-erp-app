@@ -1,6 +1,4 @@
-import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -156,9 +154,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
-  Future<void> _savePosts() async {
-    // Legacy method, not used anymore but kept for compatibility
-  }
+
 
   Future<void> _addNewPost(String title, String content, String category, String audience, List<XFile> images, {List<Map<String,dynamic>> pollOptions = const []}) async {
     final finalContent = title.isNotEmpty ? '$title\n\n$content' : content;
@@ -1159,7 +1155,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 
                                 String finalContentBody = bodyCtrl.text.trim();
                                 if (category == 'Poll') {
-                                  finalContentBody += (finalContentBody.isNotEmpty ? '\n\n' : '') + '**Poll Question:** ${pollQuestionCtrl.text.trim()}';
+                                  final suffix = '**Poll Question:** ${pollQuestionCtrl.text.trim()}';
+                                  finalContentBody = finalContentBody.isNotEmpty
+                                      ? '$finalContentBody\n\n$suffix'
+                                      : suffix;
                                 }
                                 
                                 final scaffoldMessenger = ScaffoldMessenger.of(this.context);
@@ -1180,10 +1179,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 } catch (e) {
                                   if (mounted) {
                                     scaffoldMessenger.showSnackBar(
-                                      SnackBar(
+                                      const SnackBar(
                                         content: Text('Database Error: Table missing in Supabase!'), 
                                         backgroundColor: Colors.red,
-                                        duration: const Duration(seconds: 4)
+                                        duration: Duration(seconds: 4),
                                       ),
                                     );
                                   }

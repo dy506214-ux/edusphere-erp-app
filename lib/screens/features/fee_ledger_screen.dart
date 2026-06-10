@@ -7,7 +7,6 @@ import '../../theme/colors.dart';
 import 'fee_payment_screen.dart';
 import 'dart:async';
 import 'dart:developer' as dev;
-import 'dart:math';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -115,12 +114,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     });
   }
 
-  String _generateUUID() {
-    final random = Random();
-    const hexDigits = '0123456789abcdef';
-    String genHex(int len) => List.generate(len, (_) => hexDigits[random.nextInt(16)]).join();
-    return '${genHex(8)}-${genHex(4)}-4${genHex(3)}-${hexDigits[8 + random.nextInt(4)]}${genHex(3)}-${genHex(12)}';
-  }
+
 
   Future<void> _loadLedgerData({bool showLoading = true}) async {
     if (showLoading) {

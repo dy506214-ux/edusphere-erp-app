@@ -20,7 +20,6 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   bool _isLoading = true;
   String _studentNameStr = 'Test Student';
-  String _studentEmailStr = 'eduspherestudent@gmail.com';
   String _studentIdStr = '';
   
   Map<int, String> _calData = {};
@@ -100,7 +99,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _studentIdStr = prefs.getString('student_id') ?? '';
-      _studentEmailStr = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'eduspherestudent@gmail.com';
       _studentNameStr = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
 
       if (_studentIdStr.isEmpty) {
