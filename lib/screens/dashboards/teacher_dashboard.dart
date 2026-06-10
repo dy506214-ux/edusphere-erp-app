@@ -189,14 +189,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: isDesktop ? _buildDesktopLayout() : _buildMobileLayout(),
-      floatingActionButton: isDesktop
-          ? null
-          : FloatingActionButton(
-              heroTag: null,
-              onPressed: () {},
-              backgroundColor: const Color(0xFF0EA5E9),
-              child: Icon(Icons.auto_awesome, color: Colors.white, size: 28.sp),
-            ),
     );
   }
 
@@ -220,7 +212,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             _buildSchoolCalendar(),
             SizedBox(height: 24.h),
             _buildUpcomingEvents(),
-            SizedBox(height: 80.h), // space for FAB
+            SizedBox(height: 40.h),
           ],
         ),
       ),
@@ -345,79 +337,72 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Teacher Dashboard',
+              style: GoogleFonts.outfit(
+                  fontSize: 28.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F172A))),
+          SizedBox(height: 6.h),
+          Text('Good day, $_teacherName. Here\'s what\'s happening in your classes.',
+              style: GoogleFonts.inter(
+                  fontSize: 14.sp,
+                  color: const Color(0xFF475569))),
+          SizedBox(height: 16.h),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Teacher Dashboard',
-                  style: GoogleFonts.outfit(
-                      fontSize: 24.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A))),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8.r),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
+              Expanded(
                 child: GestureDetector(
                   onTap: () {
                     _loadUpcomingEvents();
                     _loadDashboardStats();
                   },
-                  child: Row(
-                    children: [
-                      Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF64748B)),
-                      SizedBox(width: 4.w),
-                      Text('Refresh',
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 10.h),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.r),
+                      border: Border.all(color: const Color(0xFFD2E2F4)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 16.sp, color: const Color(0xFF475569)),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'Refresh',
                           style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569))),
-                    ],
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ],
-          ),
-          SizedBox(height: 8.h),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+              SizedBox(width: 12.w),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Good day, $_teacherName.',
-                        style: GoogleFonts.inter(
-                            fontSize: 14.sp,
-                            color: const Color(0xFF64748B))),
-                    SizedBox(height: 4.h),
-                    Text('Here\'s what\'s happening in your classes.',
-                        style: GoogleFonts.inter(
-                            fontSize: 14.sp,
-                            color: const Color(0xFF64748B))),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(8.r),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.calendar_month_rounded, size: 16.sp, color: const Color(0xFF3B82F6)),
-                    SizedBox(width: 6.w),
-                    Text(DateFormat('EEE, d MMM yyyy').format(DateTime.now()),
-                        style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF3B82F6))),
-                  ],
+                child: Container(
+                  padding: EdgeInsets.symmetric(vertical: 10.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2FE),
+                    borderRadius: BorderRadius.circular(10.r),
+                    border: Border.all(color: const Color(0xFFBAE6FD)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF0284C7),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -428,107 +413,54 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   Widget _buildMetricsGrid(bool isDesktop) {
+    final cards = [
+      _buildResponsiveStatCard(
+        title: 'ATTENDANCE TODAY',
+        value: '${_attendanceTodayPercentage.toStringAsFixed(0)}%',
+        color: const Color(0xFF3B82F6),
+        showProgress: true,
+        onTap: () => MainScreen.navigateTo(context, 3),
+      ),
+      _buildResponsiveStatCard(
+        title: 'MY STUDENTS',
+        value: '$_studentCount',
+        color: const Color(0xFF0EA5E9),
+        showProgress: false,
+        onTap: () => MainScreen.navigateTo(context, 2),
+      ),
+      _buildResponsiveStatCard(
+        title: 'PENDING ATTEND.',
+        value: '$_pendingAttendance',
+        color: const Color(0xFFF59E0B),
+        showProgress: false,
+        onTap: () => MainScreen.navigateTo(context, 3),
+      ),
+      _buildResponsiveStatCard(
+        title: 'OVERDUE BOOKS',
+        value: '$_overdueBooks',
+        color: const Color(0xFFEF4444),
+        showProgress: false,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LibraryOverdueScreen(theme: widget.theme),
+          ),
+        ),
+      ),
+    ];
+
     if (isDesktop) {
       return Row(
-        children: [
-          Expanded(
-            child: _buildDesktopStatCard(
-              title: 'ATTENDANCE TODAY',
-              value: '${_attendanceTodayPercentage.toStringAsFixed(0)}%',
-              color: const Color(0xFF3B82F6),
-              showProgress: true,
-              onTap: () => MainScreen.navigateTo(context, 3),
-            ),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: _buildDesktopStatCard(
-              title: 'MY STUDENTS',
-              value: '$_studentCount',
-              color: const Color(0xFF0EA5E9),
-              showProgress: false,
-              onTap: () => MainScreen.navigateTo(context, 2),
-            ),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: _buildDesktopStatCard(
-              title: 'PENDING ATTEND.',
-              value: '$_pendingAttendance',
-              color: const Color(0xFFF59E0B),
-              showProgress: false,
-              onTap: () => MainScreen.navigateTo(context, 3),
-            ),
-          ),
-          SizedBox(width: 16.w),
-          Expanded(
-            child: _buildDesktopStatCard(
-              title: 'OVERDUE BOOKS',
-              value: '$_overdueBooks',
-              color: const Color(0xFFEF4444),
-              showProgress: false,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LibraryOverdueScreen(theme: widget.theme),
-                ),
-              ),
-            ),
-          ),
-        ],
+        children: cards.map((c) => Expanded(child: c)).toList(),
       );
     } else {
-      return GridView.count(
-        crossAxisCount: 2,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        crossAxisSpacing: 16.w,
-        mainAxisSpacing: 16.h,
-        childAspectRatio: 1.5,
-        children: [
-          _buildStatCard(
-              'ATTENDANCE TODAY',
-              '${_attendanceTodayPercentage.toStringAsFixed(0)}%',
-              Icons.people_outline_rounded,
-              const Color(0xFF3B82F6),
-              const Color(0xFFE0F2FE),
-              true,
-              onTap: () => MainScreen.navigateTo(context, 3)),
-          _buildStatCard(
-              'MY STUDENTS',
-              '$_studentCount',
-              Icons.school_outlined,
-              const Color(0xFF0EA5E9),
-              const Color(0xFFE0F2FE),
-              false,
-              onTap: () => MainScreen.navigateTo(context, 2)),
-          _buildStatCard(
-              'PENDING ATTEND.',
-              '$_pendingAttendance',
-              Icons.access_time_rounded,
-              const Color(0xFFF59E0B),
-              const Color(0xFFFEF3C7),
-              false,
-              onTap: () => MainScreen.navigateTo(context, 3)),
-          _buildStatCard(
-              'OVERDUE BOOKS',
-              '$_overdueBooks',
-              Icons.menu_book_rounded,
-              const Color(0xFFEF4444),
-              const Color(0xFFFEE2E2),
-              false,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => LibraryOverdueScreen(theme: widget.theme),
-                ),
-              )),
-        ],
+      return Column(
+        children: cards.expand((c) => [c, SizedBox(height: 12.h)]).toList()..removeLast(),
       );
     }
   }
 
-  Widget _buildDesktopStatCard({
+  Widget _buildResponsiveStatCard({
     required String title,
     required String value,
     required Color color,
@@ -538,8 +470,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 104.h,
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16.r),
@@ -554,7 +485,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -575,119 +505,36 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 ),
               ],
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  value,
-                  style: GoogleFonts.outfit(
-                    fontSize: 28.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
-                  ),
+            SizedBox(height: 12.h),
+            Text(
+              value,
+              style: GoogleFonts.outfit(
+                fontSize: 28.sp,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            if (showProgress) ...[
+              SizedBox(height: 10.h),
+              Container(
+                height: 4.h,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2.r),
                 ),
-                if (showProgress) ...[
-                  SizedBox(height: 8.h),
-                  Container(
-                    height: 4.h,
-                    width: double.infinity,
+                child: FractionallySizedBox(
+                  alignment: Alignment.centerLeft,
+                  widthFactor: (_attendanceTodayPercentage / 100.0).clamp(0.0, 1.0),
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
+                      color: color,
                       borderRadius: BorderRadius.circular(2.r),
                     ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: (_attendanceTodayPercentage / 100.0).clamp(0.0, 1.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(2.r),
-                        ),
-                      ),
-                    ),
                   ),
-                ],
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, IconData icon, Color iconColor, Color bgColor, bool showProgress, {required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.all(16.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border(left: BorderSide(color: iconColor, width: 4.w)),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10,
-                offset: const Offset(0, 4))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(title,
-                      style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1E293B),
-                          letterSpacing: 0.5)),
                 ),
-                Container(
-                  padding: EdgeInsets.all(8.r),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: iconColor, size: 18.sp),
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(value,
-                    style: GoogleFonts.outfit(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A))),
-                if (showProgress) ...[
-                  SizedBox(height: 8.h),
-                  Container(
-                    height: 4.h,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE2E8F0),
-                      borderRadius: BorderRadius.circular(2.r),
-                    ),
-                    child: FractionallySizedBox(
-                      alignment: Alignment.centerLeft,
-                      widthFactor: (_attendanceTodayPercentage / 100.0).clamp(0.0, 1.0),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: iconColor,
-                          borderRadius: BorderRadius.circular(2.r),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
           ],
         ),
       ),
