@@ -12,6 +12,7 @@ import 'welcome_screen.dart';
 import 'features/settings_screen.dart';
 import '../widgets/common_widgets.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../services/api_service.dart';
 import 'main_screen.dart';
 
 
@@ -137,6 +138,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _studentName = 'Kavya Yadav';
   String _studentEmail = 'kavya.yadav@edusmart.edu';
   String _admissionNo = 'ADM-2023-0681';
+  String? _dbQrCode;
   String _studentClass = 'Grade 11';
   String _section = 'C';
   String _rollNo = '118';
@@ -265,7 +267,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _religion = studentRes['religion'] as String? ?? 'HINDU';
         _casteGroup = studentRes['caste'] as String? ?? 'GENERAL';
         _nationality = studentRes['nationality'] as String? ?? 'INDIAN';
+        _dbQrCode = userMap['qrCode'] as String?;
       });
+
+      // Fetch QR Code from the backend API (same as the website does)
+      if (userMap['id'] != null) {
+        try {
+          final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
+          if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+            final qr = qrRes['qrCode'] as String?;
+            if (qr != null && qr.isNotEmpty) {
+              setState(() {
+                _dbQrCode = qr;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('student_qrcode', qr);
+            }
+          }
+        } catch (e) {
+          debugPrint('Error fetching QR from API: $e');
+        }
+      }
 
       // Store student ID for later use
       final studentId = studentRes['id'] as String;
@@ -439,6 +461,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _studentName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Yadav';
       _studentEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'kavya.yadav@edusmart.edu';
       _admissionNo = prefs.getString('student_admission_no') ?? 'ADM-2023-0681';
+      _dbQrCode = prefs.getString('student_qrcode');
       _studentClass = prefs.getString('student_class') ?? 'Grade 11';
       _section = prefs.getString('student_section') ?? 'C';
       _rollNo = prefs.getString('student_roll') ?? '118';
@@ -453,6 +476,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _religion = prefs.getString('student_religion') ?? 'HINDU';
       _casteGroup = prefs.getString('student_caste_group') ?? 'GENERAL';
       _nationality = prefs.getString('student_nationality') ?? 'INDIAN';
+
+      _fatherName = prefs.getString('student_father') ?? 'Rajesh Sharma';
+      _motherName = prefs.getString('student_mother') ?? 'Priya Sharma';
+      _guardianPhone = prefs.getString('student_guardian_phone') ?? '+91 98765 43210';
 
       _pushNotifications = prefs.getBool('push_notifications_enabled') ?? true;
       _inAppNotifications = prefs.getBool('in_app_notifications_enabled') ?? true;
@@ -472,6 +499,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('student_name', _studentName);
     await prefs.setString('student_email', _studentEmail);
     await prefs.setString('student_admission_no', _admissionNo);
+    if (_dbQrCode != null) {
+      await prefs.setString('student_qrcode', _dbQrCode!);
+    } else {
+      await prefs.remove('student_qrcode');
+    }
     await prefs.setString('student_class', _studentClass);
     await prefs.setString('student_section', _section);
     await prefs.setString('student_roll', _rollNo);
@@ -486,6 +518,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('student_religion', _religion);
     await prefs.setString('student_caste_group', _casteGroup);
     await prefs.setString('student_nationality', _nationality);
+
+    await prefs.setString('student_father', _fatherName);
+    await prefs.setString('student_mother', _motherName);
+    await prefs.setString('student_guardian_phone', _guardianPhone);
 
     await prefs.setBool('push_notifications_enabled', _pushNotifications);
     await prefs.setBool('in_app_notifications_enabled', _inAppNotifications);
@@ -1662,36 +1698,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           SizedBox(height: 12.h),
           Container(
-            width: 110.w,
-            height: 110.w,
-            padding: EdgeInsets.all(8.r),
+            width: 180.w,
+            height: 180.w,
+            padding: EdgeInsets.all(12.r),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
+              borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: const Color(0xFFE2EAF4)),
             ),
-            child: QrImageView(
-              data: _admissionNo,
-              version: QrVersions.auto,
-              size: 94.w,
-              gapless: false,
-              eyeStyle: const QrEyeStyle(
-                eyeShape: QrEyeShape.square,
-                color: Color(0xFF0F2547),
-              ),
-              dataModuleStyle: const QrDataModuleStyle(
-                dataModuleShape: QrDataModuleShape.square,
-                color: Color(0xFF0F2547),
-              ),
-              errorStateBuilder: (cxt, err) {
-                return Center(
-                  child: Text(
-                    'Error',
-                    style: GoogleFonts.inter(color: const Color(0xFF0F2547)),
+            child: _dbQrCode != null && _dbQrCode!.startsWith('data:image')
+                ? (() {
+                    try {
+                      final base64Str = _dbQrCode!.split(',').last;
+                      final bytes = base64Decode(base64Str);
+                      return Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (cxt, err, stack) {
+                          return Center(
+                            child: Text(
+                              'QR Error',
+                              style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontSize: 10.sp),
+                            ),
+                          );
+                        },
+                      );
+                    } catch (e) {
+                      return Center(
+                        child: Text(
+                          'QR Error',
+                          style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontSize: 10.sp),
+                        ),
+                      );
+                    }
+                  })()
+                : QrImageView(
+                    data: _admissionNo,
+                    version: QrVersions.auto,
+                    size: 156.w,
+                    gapless: false,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFF0F2547),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Color(0xFF0F2547),
+                    ),
+                    errorStateBuilder: (cxt, err) {
+                      return Center(
+                        child: Text(
+                          'Error',
+                          style: GoogleFonts.inter(color: const Color(0xFF0F2547)),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           SizedBox(height: 12.h),
           Text(

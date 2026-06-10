@@ -269,9 +269,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
           final author = e['createdBy'] as Map? ?? {};
           final firstName = author['firstName'] as String? ?? '';
           final lastName = author['lastName'] as String? ?? '';
-          final authorName = '${firstName} ${lastName}'.trim().isEmpty
+          final authorName = '$firstName $lastName'.trim().isEmpty
               ? 'EduSphere'
-              : '${firstName} ${lastName}'.trim();
+              : '$firstName $lastName'.trim();
           return CommunityPostModel(
             id: e['id'] as String? ?? '',
             authorName: authorName,
@@ -421,7 +421,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           if (uid == _currentUserId) continue;
           final firstName = u['firstName'] as String? ?? '';
           final lastName = u['lastName'] as String? ?? '';
-          final name = '${firstName} ${lastName}'.trim().isEmpty ? 'User' : '${firstName} ${lastName}'.trim();
+          final name = '$firstName $lastName'.trim().isEmpty ? 'User' : '$firstName $lastName'.trim();
           final role = u['role'] as String? ?? 'User';
           fetched.add({'id': uid, 'name': name, 'role': role, 'email': u['email'] as String? ?? ''});
         }

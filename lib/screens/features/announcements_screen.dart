@@ -5,7 +5,6 @@ import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
-import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 
 

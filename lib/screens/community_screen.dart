@@ -1159,7 +1159,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 
                                 String finalContentBody = bodyCtrl.text.trim();
                                 if (category == 'Poll') {
-                                  finalContentBody += (finalContentBody.isNotEmpty ? '\n\n' : '') + '**Poll Question:** ${pollQuestionCtrl.text.trim()}';
+                                  finalContentBody += '${finalContentBody.isNotEmpty ? '\n\n' : ''}**Poll Question:** ${pollQuestionCtrl.text.trim()}';
                                 }
                                 
                                 final scaffoldMessenger = ScaffoldMessenger.of(this.context);
@@ -1180,10 +1180,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 } catch (e) {
                                   if (mounted) {
                                     scaffoldMessenger.showSnackBar(
-                                      SnackBar(
+                                      const SnackBar(
                                         content: Text('Database Error: Table missing in Supabase!'), 
                                         backgroundColor: Colors.red,
-                                        duration: const Duration(seconds: 4)
+                                        duration: Duration(seconds: 4)
                                       ),
                                     );
                                   }

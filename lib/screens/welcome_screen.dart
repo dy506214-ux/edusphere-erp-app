@@ -116,6 +116,71 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           await prefs.setString('student_admission_id', admVal);
           await prefs.setString('student_admission_no', admVal);
         }
+
+        // Save database-related QR code base64 string
+        final qrCodeVal = userObj['qrCode'] as String? ?? '';
+        if (qrCodeVal.isNotEmpty) {
+          await prefs.setString('student_qrcode', qrCodeVal);
+        } else {
+          await prefs.remove('student_qrcode');
+        }
+
+        // Save core identity details
+        await prefs.setString('student_gender', userObj['gender'] as String? ?? '—');
+        
+        final dobVal = userObj['dateOfBirth'] as String?;
+        if (dobVal != null) {
+          try {
+            final parsed = DateTime.parse(dobVal);
+            await prefs.setString('student_dob', '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}');
+          } catch (_) {
+            await prefs.setString('student_dob', dobVal);
+          }
+        } else {
+          await prefs.setString('student_dob', '—');
+        }
+
+        await prefs.setString('student_blood_group', userObj['bloodGroup'] as String? ?? '—');
+        await prefs.setString('student_religion', studentMap['religion'] as String? ?? 'HINDU');
+        await prefs.setString('student_caste_group', studentMap['caste'] as String? ?? 'GENERAL');
+        await prefs.setString('student_nationality', studentMap['nationality'] as String? ?? 'INDIAN');
+
+        // Save parents info
+        try {
+          final parentsList = studentMap['parents'] as List? ?? [];
+          if (parentsList.isNotEmpty) {
+            String father = '—';
+            String mother = '—';
+            String guardianPhone = '—';
+            for (var sp in parentsList) {
+              final spMap = sp as Map;
+              final rel = spMap['relationship'] as String?;
+              final parentObj = spMap['parent'] as Map?;
+              if (parentObj != null) {
+                final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pPhone = parentObj['phone'] as String? ?? '—';
+                if (rel == 'FATHER') {
+                  father = pFullName;
+                  if (guardianPhone == '—') guardianPhone = pPhone;
+                } else if (rel == 'MOTHER') {
+                  mother = pFullName;
+                  if (guardianPhone == '—') guardianPhone = pPhone;
+                } else {
+                  if (guardianPhone == '—') guardianPhone = pPhone;
+                }
+              }
+            }
+            await prefs.setString('student_father', father);
+            await prefs.setString('student_mother', mother);
+            await prefs.setString('student_guardian_phone', guardianPhone);
+          } else {
+            await prefs.remove('student_father');
+            await prefs.remove('student_mother');
+            await prefs.remove('student_guardian_phone');
+          }
+        } catch (e) {
+          dev.log('Error saving parents to prefs: $e');
+        }
         
         await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
         await prefs.setString('${role}_email', email);
