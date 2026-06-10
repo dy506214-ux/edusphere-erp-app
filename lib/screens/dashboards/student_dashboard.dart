@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../features/attendance_screen.dart';
-import '../features/results_screen.dart';
+import '../features/exam_report_card_screen.dart';
 import '../features/fee_ledger_screen.dart';
 import '../features/library_overdue_screen.dart';
 import '../features/academic_calendar_screen.dart';
@@ -820,7 +820,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 leftBorderColor: const Color(0xFF8B5CF6),
                 subtitle: 'Academic report',
                 subtitleColor: AppColors.textLight,
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
               )),
             ],
           )
@@ -877,7 +877,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     leftBorderColor: const Color(0xFF8B5CF6),
                     subtitle: 'Academic perf...',
                     subtitleColor: AppColors.textLight,
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
                   )),
                 ],
               ),
