@@ -56,6 +56,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       final role = (userObj['role'] as String? ?? '').toLowerCase();
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('user_role', role);
+      await prefs.setString('user_id', userObj['id'] as String? ?? '');
 
       // 2. Perform Supabase Login (as a secondary check for realtime subscriptions)
       try {
@@ -80,8 +81,30 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         final empIdVal = teacherMap['employeeId'] ?? '';
         final qualVal = teacherMap['qualification'] ?? '';
 
+        String teacherIdVal = teacherMap['id'] as String? ?? '';
+        if (teacherIdVal.isEmpty || teacherIdVal == 'b2f4c6d8-2345-6789-bcde-f23456789012') {
+          try {
+            final teachersData = await ApiService.instance.get('teachers');
+            if (teachersData != null && teachersData['success'] == true) {
+              final teachersList = teachersData['teachers'] as List? ?? [];
+              final matchingTeacher = teachersList.firstWhere(
+                (t) => t['userId'] == userObj['id'],
+                orElse: () => null,
+              );
+              if (matchingTeacher != null) {
+                teacherIdVal = matchingTeacher['id'] as String? ?? '';
+              }
+            }
+          } catch (e) {
+            dev.log('Error looking up teacher profile ID: $e');
+          }
+        }
+        if (teacherIdVal.isEmpty) {
+          teacherIdVal = 'd38f8d07-0e3c-4b3a-9d7b-a75bde8d5044'; // real akshit sharma teacher ID
+        }
+
         await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
-        await prefs.setString('teacher_id', teacherMap['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
+        await prefs.setString('teacher_id', teacherIdVal);
         await prefs.setString('teacher_design', specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
         await prefs.setString('teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
         await prefs.setString('teacher_email', email);
@@ -90,6 +113,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         await prefs.setString('teacher_emp_id', empIdVal);
         if (qualVal.isNotEmpty) {
           await prefs.setString('teacher_qual', qualVal);
+        }
+        
+        final qrCodeVal = userObj['qrCode'] as String? ?? '';
+        if (qrCodeVal.isNotEmpty) {
+          await prefs.setString('teacher_qrcode', qrCodeVal);
+        } else {
+          await prefs.remove('teacher_qrcode');
         }
         
         await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');

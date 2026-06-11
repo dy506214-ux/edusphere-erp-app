@@ -7,6 +7,8 @@ import 'dart:math' as math;
 import 'package:intl/intl.dart' as intl;
 import '../main_screen.dart';
 import 'exam_detail_screen.dart';
+import '../../services/api_service.dart';
+import 'dart:developer' as dev;
 
 
 class ExamScheduleScreen extends StatefulWidget {
@@ -96,6 +98,40 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   Future<void> _loadExams() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
+    try {
+      final res = await ApiService.instance.get('exams');
+      if (res != null && res['success'] == true) {
+        final List<dynamic> rawList = res['exams'] ?? res['data'] ?? [];
+        if (rawList.isNotEmpty) {
+          final List<Map<String, dynamic>> list = rawList.map((e) {
+            return {
+              'id': e['id'],
+              'name': e['name'] as String? ?? 'Exam',
+              'class': e['class']?.toString() ?? 'All Classes',
+              'term': e['term']?.toString() ?? '-',
+              'start_date': e['startDate'] != null
+                  ? e['startDate'].toString().split('T')[0]
+                  : '15/09/2024',
+              'status': e['status']?.toString() ?? 'Active',
+              'subject': e['subject']?.toString() ?? 'All Subjects',
+              'time': e['time']?.toString() ?? '10:00 AM',
+              'room': e['room']?.toString() ?? 'Hall A',
+              'duration': e['duration']?.toString() ?? '3 hrs',
+              'syllabus': e['syllabus']?.toString() ?? 'Full Syllabus',
+              'academic_year': e['academicYear']?.toString() ?? 'All Years',
+            };
+          }).toList();
+          setState(() {
+            _exams = list;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+    } catch (e) {
+      dev.log('Error loading exams from API: $e');
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('examinations_schedule_list');
@@ -217,24 +253,31 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB)),
-              onPressed: () {
+              onPressed: () async {
                 if (nameCtrl.text.trim().isEmpty) return;
+                final newExam = {
+                  'name': nameCtrl.text.trim(),
+                  'class': selectedClass,
+                  'term': selectedTerm,
+                  'start_date': dateCtrl.text.trim(),
+                  'status': selectedStatus,
+                  'time': timeCtrl.text.trim(),
+                  'room': roomCtrl.text.trim(),
+                  'duration': durationCtrl.text.trim(),
+                  'syllabus': syllabusCtrl.text.trim(),
+                  'academic_year': '2026-2027',
+                  'subject': 'All Subjects',
+                };
+                try {
+                  await ApiService.instance.post('exams', body: newExam);
+                } catch (e) {
+                  dev.log('Error posting exam to API: $e');
+                }
                 setState(() {
-                  _exams.insert(0, {
-                    'name': nameCtrl.text.trim(),
-                    'class': selectedClass,
-                    'term': selectedTerm,
-                    'start_date': dateCtrl.text.trim(),
-                    'status': selectedStatus,
-                    'time': timeCtrl.text.trim(),
-                    'room': roomCtrl.text.trim(),
-                    'duration': durationCtrl.text.trim(),
-                    'syllabus': syllabusCtrl.text.trim(),
-                    'academic_year': '2026-2027',
-                    'subject': 'All Subjects',
-                  });
+                  _exams.insert(0, newExam);
                 });
                 _saveExams();
+                if (!context.mounted) return;
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text('Exam scheduled!',

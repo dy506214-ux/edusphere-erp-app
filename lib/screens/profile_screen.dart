@@ -200,8 +200,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _timetableDay = DateTime.now().weekday > 6 ? 1 : DateTime.now().weekday;
     if (widget.role == 'teacher') {
-      _loadProfileData();
+      _loadTeacherDataFromSupabase();
       _loadSessionData();
+      _connectRealTimeSync();
     } else if (widget.role == 'student') {
       if (widget.studentName != null) {
         _studentName = widget.studentName!;
@@ -540,59 +541,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             callback: (_) {
               if (mounted) {
-                _loadStudentDataFromSupabase();
+                if (widget.role == 'student') {
+                  _loadStudentDataFromSupabase();
+                } else if (widget.role == 'teacher') {
+                  _loadTeacherDataFromSupabase();
+                }
               }
             },
           );
       userChannel.subscribe();
       _realtimeChannels.add(userChannel);
 
-      final studentChannel = client.channel('public:student_profile_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'Student',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'userId',
-              value: currentUser.id,
-            ),
-            callback: (_) {
-              if (mounted) {
-                _loadStudentDataFromSupabase();
-              }
-            },
-          );
-      studentChannel.subscribe();
-      _realtimeChannels.add(studentChannel);
+      if (widget.role == 'student') {
+        final studentChannel = client.channel('public:student_profile_sync')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'Student',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'userId',
+                value: currentUser.id,
+              ),
+              callback: (_) {
+                if (mounted) {
+                  _loadStudentDataFromSupabase();
+                }
+              },
+            );
+        studentChannel.subscribe();
+        _realtimeChannels.add(studentChannel);
 
-      final docChannel = client.channel('public:student_doc_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'StudentDocument',
-            callback: (_) {
-              if (mounted) {
-                _loadStudentDataFromSupabase();
-              }
-            },
-          );
-      docChannel.subscribe();
-      _realtimeChannels.add(docChannel);
+        final docChannel = client.channel('public:student_doc_sync')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'StudentDocument',
+              callback: (_) {
+                if (mounted) {
+                  _loadStudentDataFromSupabase();
+                }
+              },
+            );
+        docChannel.subscribe();
+        _realtimeChannels.add(docChannel);
 
-      final parentChannel = client.channel('public:student_parent_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'StudentParent',
-            callback: (_) {
-              if (mounted) {
-                _loadStudentDataFromSupabase();
-              }
-            },
-          );
-      parentChannel.subscribe();
-      _realtimeChannels.add(parentChannel);
+        final parentChannel = client.channel('public:student_parent_sync')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'StudentParent',
+              callback: (_) {
+                if (mounted) {
+                  _loadStudentDataFromSupabase();
+                }
+              },
+            );
+        parentChannel.subscribe();
+        _realtimeChannels.add(parentChannel);
+      } else if (widget.role == 'teacher') {
+        final teacherChannel = client.channel('public:teacher_profile_sync')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'Teacher',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'userId',
+                value: currentUser.id,
+              ),
+              callback: (_) {
+                if (mounted) {
+                  _loadTeacherDataFromSupabase();
+                }
+              },
+            );
+        teacherChannel.subscribe();
+        _realtimeChannels.add(teacherChannel);
+      }
     } catch (e) {
       debugPrint('⚠️ Error connecting Supabase Realtime in ProfileScreen: $e');
     }
@@ -922,6 +948,185 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Future<void> _loadTeacherDataFromSupabase() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      
+      String? currentUserId = currentUser?.id;
+      if (currentUserId == null || currentUserId.isEmpty) {
+        currentUserId = prefs.getString('user_id');
+      }
+
+      if (currentUserId == null || currentUserId.isEmpty) {
+        await _loadProfileData();
+        return;
+      }
+
+      // Fetch teacher list from Render API
+      final teachersData = await ApiService.instance.get('teachers');
+      if (teachersData == null || teachersData['success'] != true) {
+        await _loadProfileData();
+        return;
+      }
+
+      final teachersList = teachersData['teachers'] as List? ?? [];
+      final teacherMap = teachersList.firstWhere(
+        (t) => t['userId'] == currentUserId,
+        orElse: () => null,
+      ) as Map<String, dynamic>?;
+
+      if (teacherMap == null) {
+        await _loadProfileData();
+        return;
+      }
+
+      final userMap = teacherMap['user'] as Map<String, dynamic>? ?? {};
+
+      // Fetch QR Code from Render API specifically
+      String? qrCode;
+      try {
+        final qrRes = await ApiService.instance.get('users/$currentUserId/qr');
+        if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+          qrCode = qrRes['qrCode'] as String?;
+        }
+      } catch (e) {
+        debugPrint('Error fetching teacher QR from API: $e');
+      }
+
+      setState(() {
+        final String firstName = userMap['firstName'] as String? ?? '';
+        final String lastName = userMap['lastName'] as String? ?? '';
+        _userName = '$firstName $lastName'.trim();
+        if (_userName.isEmpty) _userName = 'Vikram Yadav';
+        _email = userMap['email'] as String? ?? '';
+        _phone = userMap['phone'] as String? ?? 'N/A';
+        
+        final rawGender = userMap['gender'] as String? ?? 'Not Specified';
+        if (rawGender.toUpperCase() == 'MALE') {
+          _gender = 'Male';
+        } else if (rawGender.toUpperCase() == 'FEMALE') {
+          _gender = 'Female';
+        } else {
+          _gender = rawGender;
+        }
+
+        final dobStr = userMap['dateOfBirth'] as String?;
+        if (dobStr != null) {
+          try {
+            final parsed = DateTime.parse(dobStr);
+            _dob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+          } catch (_) {
+            _dob = dobStr;
+          }
+        } else {
+          _dob = 'Not set';
+        }
+
+        _bloodGroup = userMap['bloodGroup'] as String? ?? 'Not assigned';
+        _address = userMap['address'] as String? ?? 'No location registered';
+        
+        final lastPwdStr = userMap['lastPasswordChange'] as String?;
+        if (lastPwdStr != null) {
+          try {
+            final parsed = DateTime.parse(lastPwdStr);
+            _lastPasswordChange = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+          } catch (_) {
+            _lastPasswordChange = lastPwdStr;
+          }
+        }
+        
+        _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
+        
+        _employeeId = teacherMap['employeeId'] as String? ?? 'ID_PENDING';
+        _designation = teacherMap['specialization'] as String? ?? 'TEACHER';
+        _department = teacherMap['qualification'] as String? ?? 'CORE_SYSTEM';
+        
+        final rawExp = teacherMap['experience']?.toString();
+        _experience = (rawExp != null && rawExp.isNotEmpty) ? '$rawExp Years' : 'N/A';
+
+        final joinDateStr = teacherMap['joiningDate'] as String?;
+        if (joinDateStr != null) {
+          try {
+            final parsed = DateTime.parse(joinDateStr);
+            _joinedDate = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+          } catch (_) {
+            _joinedDate = joinDateStr;
+          }
+        }
+
+        // Sync local variables which are shared with the QR identity card
+        _studentName = _userName;
+        _admissionNo = _employeeId;
+      });
+
+      await prefs.setString('teacher_name', _userName);
+      await prefs.setString('teacher_email', _email);
+      await prefs.setString('teacher_mobile', _phone);
+      await prefs.setString('teacher_gender', _gender);
+      await prefs.setString('teacher_dob', _dob);
+      await prefs.setString('teacher_blood', _bloodGroup);
+      await prefs.setString('teacher_address', _address);
+      await prefs.setString('teacher_emp_id', _employeeId);
+      await prefs.setString('teacher_design', _designation);
+      await prefs.setString('teacher_dept', _department);
+      await prefs.setString('teacher_exp', _experience);
+      if (_dbQrCode != null) {
+        await prefs.setString('teacher_qrcode', _dbQrCode!);
+      }
+    } catch (e) {
+      debugPrint('Error loading teacher profile from API: $e');
+      await _loadProfileData();
+    }
+  }
+
+  Future<void> _saveTeacherDataToSupabase(Map<String, String> data) async {
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) return;
+
+      final Map<String, dynamic> userUpdates = {};
+      if (data.containsKey('name')) {
+        final parts = data['name']!.split(' ');
+        userUpdates['firstName'] = parts.first;
+        userUpdates['lastName'] = parts.skip(1).join(' ');
+      }
+      if (data.containsKey('phone')) userUpdates['phone'] = data['phone'];
+      if (data.containsKey('gender')) userUpdates['gender'] = data['gender']!.toUpperCase();
+      if (data.containsKey('dob')) {
+        try {
+          final parts = data['dob']!.split('/');
+          if (parts.length == 3) {
+            userUpdates['dateOfBirth'] = '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+          } else {
+            userUpdates['dateOfBirth'] = DateTime.parse(data['dob']!).toIso8601String();
+          }
+        } catch (_) {
+          userUpdates['dateOfBirth'] = data['dob'];
+        }
+      }
+      if (data.containsKey('bloodGroup')) userUpdates['bloodGroup'] = data['bloodGroup'];
+      if (data.containsKey('address')) userUpdates['address'] = data['address'];
+
+      if (userUpdates.isNotEmpty) {
+        await client.from('User').update(userUpdates).eq('id', currentUser.id);
+      }
+
+      final Map<String, dynamic> teacherUpdates = {};
+      if (data.containsKey('employeeId')) teacherUpdates['employeeId'] = data['employeeId'];
+      if (data.containsKey('designation')) teacherUpdates['specialization'] = data['designation'];
+      if (data.containsKey('department')) teacherUpdates['qualification'] = data['department'];
+      
+      if (teacherUpdates.isNotEmpty) {
+        await client.from('Teacher').update(teacherUpdates).eq('userId', currentUser.id);
+      }
+    } catch (e) {
+      debugPrint('Error saving teacher profile to Supabase: $e');
+    }
+  }
+
   Future<void> _loadProfileData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -941,6 +1146,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
         _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
         _lastPasswordChange = prefs.getString('teacher_last_pwd') ?? 'Action Required';
+        _dbQrCode = prefs.getString('teacher_qrcode');
+        _studentName = _userName;
+        _admissionNo = _employeeId;
       } else {
         _userName = prefs.getString('student_name') ?? 'Alex Rivera';
         _email = prefs.getString('student_email') ?? 'alex.rivera@edusmart.edu';
@@ -974,6 +1182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (data.containsKey('designation')) await prefs.setString('teacher_design', data['designation']!);
       if (data.containsKey('department')) await prefs.setString('teacher_dept', data['department']!);
       if (data.containsKey('experience')) await prefs.setString('teacher_exp', data['experience']!);
+      await _saveTeacherDataToSupabase(data);
     } else {
       if (data.containsKey('name')) await prefs.setString('student_name', data['name']!);
       if (data.containsKey('email')) await prefs.setString('student_email', data['email']!);
@@ -986,7 +1195,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (data.containsKey('className')) await prefs.setString('student_class', data['className']!);
       if (data.containsKey('admissionId')) await prefs.setString('student_admission_id', data['admissionId']!);
     }
-    await _loadProfileData();
+    await _loadTeacherDataFromSupabase();
     if (mounted) {
       showToast(context, 'Profile updated successfully!');
     }
@@ -2397,7 +2606,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(6.r),
             ),
             child: Text(
-              'STUDENT',
+              widget.role == 'teacher' ? 'TEACHER' : 'STUDENT',
               style: GoogleFonts.inter(
                 fontSize: 8.5.sp,
                 fontWeight: FontWeight.w800,
@@ -2441,7 +2650,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: const Color(0xFF1A6FDB),
-                  content: Text('Student ID: $_admissionNo', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                  content: Text(
+                    widget.role == 'teacher' ? 'Teacher ID: $_admissionNo' : 'Student ID: $_admissionNo',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700),
+                  ),
                 ),
               );
             },
@@ -2452,7 +2664,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: BorderRadius.circular(10.r),
               ),
               child: Text(
-                'STUDENT ID',
+                widget.role == 'teacher' ? 'TEACHER ID' : 'STUDENT ID',
                 style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF495057)),
               ),
             ),
@@ -3367,8 +3579,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           SizedBox(height: 16.h),
-          // Custom locator pattern QR code
-          StylizedQrCode(size: 140.r, color: const Color(0xFF0F172A)),
+          // Custom locator pattern QR code or generated QR code
+          Container(
+            width: 140.r,
+            height: 140.r,
+            padding: EdgeInsets.all(8.r),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: _dbQrCode != null && _dbQrCode!.startsWith('data:image')
+                ? (() {
+                    try {
+                      final base64Str = _dbQrCode!.split(',').last;
+                      final bytes = base64Decode(base64Str);
+                      return Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (cxt, err, stack) {
+                          return Center(
+                            child: Text(
+                              'QR Error',
+                              style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.sp),
+                            ),
+                          );
+                        },
+                      );
+                    } catch (e) {
+                      return Center(
+                        child: Text(
+                          'QR Error',
+                          style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.sp),
+                        ),
+                      );
+                    }
+                  })()
+                : QrImageView(
+                    data: _employeeId,
+                    version: QrVersions.auto,
+                    size: 124.r,
+                    gapless: false,
+                    eyeStyle: const QrEyeStyle(
+                      eyeShape: QrEyeShape.square,
+                      color: Color(0xFF0F172A),
+                    ),
+                    dataModuleStyle: const QrDataModuleStyle(
+                      dataModuleShape: QrDataModuleShape.square,
+                      color: Color(0xFF0F172A),
+                    ),
+                    errorStateBuilder: (cxt, err) {
+                      return Center(
+                        child: Text(
+                          'Error',
+                          style: GoogleFonts.inter(color: const Color(0xFF0F172A)),
+                        ),
+                      );
+                    },
+                  ),
+          ),
           SizedBox(height: 16.h),
           Text(
             _userName,

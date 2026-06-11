@@ -199,8 +199,12 @@ class _ExamReportCardScreenState extends State<ExamReportCardScreen> {
   }
 
   String get _activeExamName {
-    final active = _examsList.firstWhere((e) => e['id'] == _selectedExamId, orElse: () => {'name': 'Exam Term'});
-    return active['name'] as String;
+    for (final e in _examsList) {
+      if (e['id'] == _selectedExamId) {
+        return e['name'] as String? ?? 'Exam Term';
+      }
+    }
+    return 'Exam Term';
   }
 
   Future<void> _downloadReportCardPDF() async {

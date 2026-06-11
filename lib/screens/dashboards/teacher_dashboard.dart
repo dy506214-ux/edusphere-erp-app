@@ -111,6 +111,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     });
   }
 
+
+
   Future<void> _loadTeacherName() async {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString('teacher_name') ?? prefs.getString('user_name') ?? 'Teacher';
@@ -465,6 +467,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       );
     }
   }
+
 
   Widget _buildMetricsGrid(bool isDesktop) {
     final cards = [

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../profile_screen.dart';
 import '../../theme/colors.dart';
 
+
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
   final String id;
@@ -58,9 +59,10 @@ class StudentDirectoryScreen extends StatefulWidget {
 class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
-  final int _rowsPerPage = 10;
+  final int _rowsPerPage = 100;
   String _searchQuery = '';
   bool _isLoading = false;
+  String? _errorMessage;
   List<StudentRecord> _allStudents = [];
 
   @override
@@ -70,7 +72,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   Future<void> _fetchStudents() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
     try {
       final response = await Supabase.instance.client
           .from('Student')
@@ -106,35 +111,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error fetching students: $e');
+      debugPrint('Error fetching students from API: $e');
       if (mounted) {
         setState(() {
-          _allStudents = _getDemoStudents();
+          _errorMessage = 'Could not load students. Pull down to retry.';
           _isLoading = false;
         });
       }
     }
   }
 
-  List<StudentRecord> _getDemoStudents() {
-    return [
-      const StudentRecord(id: 'dummy1', admissionNo: 'ADM240001', name: 'Kavita Das', className: 'Grade 8 - A', email: 'student1@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy2', admissionNo: 'ADM240002', name: 'Saanvi Sharma', className: 'Grade 8 - A', email: 'student2@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy3', admissionNo: 'ADM240003', name: 'Aarav Yadav', className: 'Grade 8 - A', email: 'student3@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy4', admissionNo: 'ADM240004', name: 'Harish Sharma', className: 'Grade 8 - A', email: 'student4@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy5', admissionNo: 'ADM240005', name: 'Aarohi Mishra', className: 'Grade 8 - A', email: 'student5@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy6', admissionNo: 'ADM240006', name: 'Aarohi Garg', className: 'Grade 8 - A', email: 'student6@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy7', admissionNo: 'ADM240007', name: 'Manoj Agrawal', className: 'Grade 8 - A', email: 'student7@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy8', admissionNo: 'ADM240008', name: 'Vikram Bansal', className: 'Grade 8 - A', email: 'student8@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy9', admissionNo: 'ADM240009', name: 'Kavita Bhat', className: 'Grade 8 - A', email: 'student9@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy10', admissionNo: 'ADM240010', name: 'Sanjay Mulchandani', className: 'Grade 8 - A', email: 'student10@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy11', admissionNo: 'ADM240011', name: 'Rahul Verma', className: 'Grade 8 - A', email: 'student11@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy12', admissionNo: 'ADM240012', name: 'Kiran Patel', className: 'Grade 8 - A', email: 'student12@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy13', admissionNo: 'ADM240013', name: 'Neha Gupta', className: 'Grade 8 - A', email: 'student13@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy14', admissionNo: 'ADM240014', name: 'Aman Sharma', className: 'Grade 8 - A', email: 'student14@demoschool.com', status: 'ACTIVE'),
-      const StudentRecord(id: 'dummy15', admissionNo: 'ADM240015', name: 'Pooja Joshi', className: 'Grade 8 - A', email: 'student15@demoschool.com', status: 'ACTIVE'),
-    ];
-  }
 
   @override
   void dispose() {
@@ -163,72 +149,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   int get _totalPages {
     final len = _filteredStudents.length;
     return (len / _rowsPerPage).ceil();
-  }
-
-  void _showAddStudentDialog() {
-    final nameCtrl = TextEditingController();
-    final classCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text(
-          'Add New Student',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Full Name'),
-            ),
-            TextField(
-              controller: classCtrl,
-              decoration: const InputDecoration(labelText: 'Class (e.g. Class 1 - A)'),
-            ),
-            TextField(
-              controller: emailCtrl,
-              decoration: const InputDecoration(labelText: 'Email Address'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameCtrl.text.isNotEmpty && emailCtrl.text.isNotEmpty) {
-                setState(() {
-                  final newId = 'ADM24${(_allStudents.length + 1).toString().padLeft(4, '0')}';
-                  _allStudents.insert(
-                    0,
-                    StudentRecord(
-                      id: 'new_temp_$newId',
-                      admissionNo: newId,
-                      name: nameCtrl.text,
-                      className: classCtrl.text.isEmpty ? 'Class 1 - A' : classCtrl.text,
-                      email: emailCtrl.text,
-                      status: 'ACTIVE',
-                    ),
-                  );
-                });
-                Navigator.pop(context);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066CC),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-            ),
-            child: const Text('Add Student', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -262,27 +182,24 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
               ],
             )
           : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeaderRow(),
-              SizedBox(height: 16.h),
-              _buildDirectoryCard(),
-              SizedBox(height: 80.h),
-            ],
+      body: RefreshIndicator(
+        onRefresh: _fetchStudents,
+        color: const Color(0xFF0066CC),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeaderRow(),
+                SizedBox(height: 16.h),
+                _buildDirectoryCard(),
+                SizedBox(height: 80.h),
+              ],
+            ),
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: null,
-        onPressed: _showAddStudentDialog,
-        backgroundColor: const Color(0xFF0066CC),
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.r)),
-        child: Icon(Icons.person_add_alt_1_rounded, color: Colors.white, size: 24.sp),
       ),
     );
   }
@@ -331,15 +248,38 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Student Directory',
-                  style: GoogleFonts.outfit(
-                      fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                Row(
+                  children: [
+                    Text(
+                      'Student Directory',
+                      style: GoogleFonts.outfit(
+                          fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                    ),
+                    const Spacer(),
+                    if (_isLoading)
+                      SizedBox(
+                        width: 14.w,
+                        height: 14.h,
+                        child: const CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF0066CC),
+                        ),
+                      ),
+                  ],
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  'Browse and manage student records ($totalCount total)',
-                  style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                  _isLoading
+                      ? 'Loading student data...'
+                      : _errorMessage != null
+                          ? _errorMessage!
+                          : 'Browse and manage student records ($totalCount total)',
+                  style: GoogleFonts.inter(
+                      fontSize: 10.sp,
+                      color: _errorMessage != null
+                          ? Colors.orange
+                          : const Color(0xFF94A3B8),
+                      fontWeight: FontWeight.w500),
                 ),
                 SizedBox(height: 12.h),
                 // Search Bar
@@ -436,6 +376,30 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           child: const Center(
                             child: CircularProgressIndicator(
                               color: Color(0xFF0066CC),
+                            ),
+                          ),
+                        )
+                      else if (_errorMessage != null)
+                        Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32.h, horizontal: 16.w),
+                          child: Center(
+                            child: Column(
+                              children: [
+                                Icon(Icons.cloud_off_rounded, size: 32.sp, color: Colors.orange.shade300),
+                                SizedBox(height: 8.h),
+                                Text(
+                                  _errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+                                ),
+                                SizedBox(height: 12.h),
+                                ElevatedButton.icon(
+                                  onPressed: _fetchStudents,
+                                  icon: const Icon(Icons.refresh, size: 16),
+                                  label: const Text('Retry'),
+                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0066CC)),
+                                ),
+                              ],
                             ),
                           ),
                         )
@@ -625,7 +589,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
             },
           ),
 
-          // Pagination Footer (centered & wrapped in column to prevent overflows)
+          // Pagination Footer
           Padding(
             padding: EdgeInsets.all(16.r),
             child: Column(
@@ -639,7 +603,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Prev Button
                     GestureDetector(
                       onTap: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
                       child: Container(
@@ -653,10 +616,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                       ),
                     ),
                     SizedBox(width: 6.w),
-                    // Pages numbers
                     ..._buildPageNumbers(),
                     SizedBox(width: 6.w),
-                    // Next Button
                     GestureDetector(
                       onTap: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null,
                       child: Container(
@@ -688,35 +649,20 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         widgets.add(_buildPageButton(p));
       }
     } else {
-      // Always show page 1
       widgets.add(_buildPageButton(1));
+      if (_currentPage > 3) widgets.add(_buildEllipsis());
 
-      if (_currentPage > 3) {
-        widgets.add(_buildEllipsis());
-      }
-
-      // Show pages around current page
       int start = _currentPage - 1;
       int end = _currentPage + 1;
 
-      if (start <= 1) {
-        start = 2;
-        end = 4;
-      }
-      if (end >= total) {
-        end = total - 1;
-        start = total - 3;
-      }
+      if (start <= 1) { start = 2; end = 4; }
+      if (end >= total) { end = total - 1; start = total - 3; }
 
       for (int p = start; p <= end; p++) {
         widgets.add(_buildPageButton(p));
       }
 
-      if (_currentPage < total - 2) {
-        widgets.add(_buildEllipsis());
-      }
-
-      // Always show last page
+      if (_currentPage < total - 2) widgets.add(_buildEllipsis());
       widgets.add(_buildPageButton(total));
     }
 

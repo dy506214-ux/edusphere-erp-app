@@ -6,6 +6,7 @@ import '../../theme/colors.dart';
 import '../main_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
+import '../../services/api_service.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Teacher Attendance Screen — matches the EduSphere attendance design
@@ -34,26 +35,58 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   String _selectedSection = 'All Sections';
   DateTime _selectedDate = DateTime.now();
 
-  final List<String> _classes = [
-    'Grade 1',
-    'Grade 2',
-    'Grade 3',
-    'Grade 4',
-    'Grade 5',
-    'Grade 6',
-    'Grade 7',
-    'Grade 8',
-    'Grade 9',
-    'Grade 10',
-    'Grade 11',
-    'Grade 12',
-  ];
-  final List<String> _sections = [
-    'All Sections',
-    'Section A',
-    'Section B',
-    'Section C',
-  ];
+  final List<String> _classes = [];
+  final List<String> _sections = ['All Sections'];
+
+  List<Map<String, dynamic>> _apiClasses = [];
+
+  Future<void> _loadApiClasses() async {
+    if (!mounted) return;
+    try {
+      final res = await ApiService.instance.get('academic/classes');
+      if (res != null && res['success'] == true) {
+        final classList = res['classes'] as List? ?? [];
+        if (mounted) {
+          setState(() {
+            _apiClasses = List<Map<String, dynamic>>.from(classList);
+            _classes.clear();
+            for (var c in _apiClasses) {
+              final name = c['name']?.toString() ?? '';
+              if (name.isNotEmpty && !_classes.contains(name)) {
+                _classes.add(name);
+              }
+            }
+            if (_classes.isNotEmpty) {
+              _selectedClass = _classes.first;
+              _updateSectionsForSelectedClass();
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading API classes: $e');
+    }
+  }
+
+  void _updateSectionsForSelectedClass() {
+    if (_selectedClass == null) return;
+    final cls = _apiClasses.firstWhere(
+      (c) => c['name'] == _selectedClass,
+      orElse: () => {},
+    );
+    _sections.clear();
+    _sections.add('All Sections');
+    if (cls.isNotEmpty) {
+      final secList = cls['sections'] as List? ?? [];
+      for (var s in secList) {
+        final sName = s['name']?.toString() ?? '';
+        if (sName.isNotEmpty) {
+          _sections.add('Section $sName');
+        }
+      }
+    }
+    _selectedSection = 'All Sections';
+  }
 
   // ── Attendance data ──
   bool _isLoading = false;
@@ -75,6 +108,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   @override
   void initState() {
     super.initState();
+    _loadApiClasses();
     _loadExistingSlotsForDate();
   }
 
@@ -624,6 +658,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               if (val != null) {
                 setState(() {
                   _selectedClass = val;
+                  _updateSectionsForSelectedClass();
                 });
                 _createNewSlotFromSelection();
               }
@@ -1014,87 +1049,91 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
     try {
       final className = _fullClassName;
-      final dbClassName = _selectedClass!.replaceAll('Grade', 'Class');
 
-      final classRes = await _supabase
-          .from('Class')
-          .select('id')
-          .eq('name', dbClassName)
-          .maybeSingle();
+      final cls = _apiClasses.firstWhere(
+        (c) => c['name'] == _selectedClass,
+        orElse: () => {},
+      );
 
-      if (classRes == null) {
-        throw 'Class not found in database';
+      if (cls.isEmpty) {
+        throw 'Class not found in dynamic class list';
       }
-      final classId = classRes['id'] as String;
+      final classId = cls['id'] as String;
 
       String? sectionId;
       if (_selectedSection != 'All Sections') {
         final secName = _selectedSection.replaceAll('Section ', '').trim();
-        final sectionRes = await _supabase
-            .from('Section')
-            .select('id')
-            .eq('classId', classId)
-            .eq('name', secName)
-            .maybeSingle();
-        if (sectionRes != null) {
-          sectionId = sectionRes['id'] as String;
+        final secList = cls['sections'] as List? ?? [];
+        final sec = secList.firstWhere(
+          (s) => s['name'] == secName,
+          orElse: () => null,
+        );
+        if (sec != null) {
+          sectionId = sec['id'] as String;
         }
       }
 
-      var studentQuery = _supabase
-          .from('Student')
-          .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
-          .eq('currentClassId', classId);
-
+      final Map<String, String> studentParams = {
+        'classId': classId,
+        'limit': '200',
+      };
       if (sectionId != null) {
-        studentQuery = studentQuery.eq('sectionId', sectionId);
+        studentParams['sectionId'] = sectionId;
       }
 
-      final studentRes = await studentQuery;
+      // 1. Fetch students for the class/section
+      final studentsRes = await ApiService.instance.get('students', queryParams: studentParams);
+      final List<dynamic> studentsRawList = studentsRes is List 
+          ? studentsRes 
+          : (studentsRes['students'] ?? studentsRes['data'] ?? []);
+
+      // 2. Fetch all attendance records for this date (avoid classId to prevent server 500 error)
+      final attendanceRes = await ApiService.instance.get('attendance/date', queryParams: {'date': _dbDateStr});
+      final List<dynamic> attendanceRawList = (attendanceRes['data'] != null 
+          ? attendanceRes['data']['attendance'] 
+          : attendanceRes['attendance']) ?? [];
 
       final List<Map<String, dynamic>> studentList = [];
-      for (var s in studentRes) {
-        final user = s['User'] as Map<String, dynamic>? ?? {};
-        final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-        studentList.add({
-          'id': s['id']?.toString() ?? '',
-          'name': name.isNotEmpty ? name : 'Unknown',
-          'email': user['email']?.toString() ?? '',
-          'class_name': className,
-          'admission_no': s['admissionNumber']?.toString() ?? '',
-        });
-      }
-      
-      studentList.sort((a, b) => a['name'].compareTo(b['name']));
-
-      final studentIds = studentList.map((s) => s['id']).toList();
-      final List<dynamic> existingAttendance = studentIds.isNotEmpty
-          ? await _supabase
-              .from('AttendanceRecord')
-              .select('studentId, status')
-              .eq('date', _dbDateStr)
-              .inFilter('studentId', studentIds)
-          : [];
-
-      // Always start fresh – unmarked – so teacher must explicitly mark each student.
-      // If existing DB records exist, pre-fill them so re-opening a submitted slot shows saved data.
-      Map<String, String> statusMap = {};
+      final Map<String, String> statusMap = {};
       bool alreadySubmitted = false;
 
-      if (existingAttendance.isNotEmpty) {
-        alreadySubmitted = true;
-        for (var record in existingAttendance) {
-          final sId = record['studentId']?.toString() ?? '';
-          final statusVal = record['status']?.toString() ?? '';
+      for (var item in studentsRawList) {
+        final user = item['user'] as Map? ?? item['User'] as Map? ?? {};
+        final firstName = user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
+        final lastName = user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
+        final fullName = '$firstName $lastName'.trim();
+        final email = user['email'] ?? item['email'] ?? '';
+        final admission = item['admissionNumber'] ?? item['admissionNo'] ?? '';
 
-          String localStatus = 'P';
-          if (statusVal == 'ABSENT') localStatus = 'A';
-          if (statusVal == 'LATE') localStatus = 'L';
+        final sId = item['id']?.toString() ?? '';
+        if (sId.isEmpty) continue;
 
-          if (sId.isNotEmpty) statusMap[sId] = localStatus;
+        studentList.add({
+          'id': sId,
+          'name': fullName.isNotEmpty ? fullName : (email.isNotEmpty ? email.split('@')[0] : 'Unknown'),
+          'email': email,
+          'class_name': className,
+          'admission_no': admission,
+        });
+      }
+
+      studentList.sort((a, b) => a['name'].compareTo(b['name']));
+
+      // Map attendance records to our students
+      for (var att in attendanceRawList) {
+        final sId = att['studentId']?.toString() ?? '';
+        if (sId.isNotEmpty) {
+          final isOurStudent = studentList.any((s) => s['id'] == sId);
+          if (isOurStudent) {
+            alreadySubmitted = true;
+            final statusVal = att['status']?.toString() ?? '';
+            String localStatus = 'P';
+            if (statusVal == 'ABSENT' || statusVal == 'A') localStatus = 'A';
+            if (statusVal == 'LATE' || statusVal == 'L') localStatus = 'L';
+            statusMap[sId] = localStatus;
+          }
         }
       }
-      // For a brand-new slot (no prior DB records), statusMap remains empty → all unmarked.
 
       final newSlot = {
         'class': _selectedClass!,
@@ -1132,6 +1171,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         );
       }
     } catch (e) {
+      debugPrint('Error creating slot via API: $e');
       final demoList = _getDemoStudents();
       final newSlot = {
         'class': _selectedClass!,
@@ -1154,7 +1194,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               children: [
                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text('Attendance slot created', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                Text('Attendance slot created (Offline fallback)', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
             backgroundColor: const Color(0xFF10B981),
@@ -2145,38 +2185,30 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
     final dbDateStr = DateFormat('yyyy-MM-dd').format(widget.date);
 
     try {
-      final studentIds = _students.map((s) => s['id']).toList();
-
-      if (studentIds.isNotEmpty) {
-        await widget.supabase
-            .from('AttendanceRecord')
-            .delete()
-            .eq('date', dbDateStr)
-            .inFilter('studentId', studentIds);
-      }
-
-      final records = <Map<String, dynamic>>[];
+      final attendanceData = <Map<String, dynamic>>[];
       for (var student in _students) {
         final String studentId = student['id']?.toString() ?? '';
         if (studentId.isEmpty) continue;
-        final statusLocal = _attendanceStatus[studentId] ?? 'A'; // default absent if somehow still null
+        final statusLocal = _attendanceStatus[studentId] ?? 'A';
 
         String statusEnum = 'PRESENT';
         if (statusLocal == 'A') statusEnum = 'ABSENT';
         if (statusLocal == 'L') statusEnum = 'LATE';
 
-        records.add({
-          'attendeeType': 'STUDENT',
+        attendanceData.add({
           'studentId': studentId,
-          'date': dbDateStr,
           'status': statusEnum,
-          'createdAt': DateTime.now().toUtc().toIso8601String(),
-          'updatedAt': DateTime.now().toUtc().toIso8601String(),
         });
       }
 
-      if (records.isNotEmpty) {
-        await widget.supabase.from('AttendanceRecord').insert(records);
+      final payload = {
+        'date': dbDateStr,
+        'attendanceData': attendanceData,
+      };
+
+      final response = await ApiService.instance.post('attendance/bulk', body: payload);
+      if (response == null || response['success'] != true) {
+        throw response != null ? (response['message'] ?? 'API response error') : 'No response from API';
       }
 
       if (mounted) {

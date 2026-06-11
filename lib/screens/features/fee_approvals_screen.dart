@@ -98,17 +98,48 @@ class _FeeApprovalsScreenState extends State<FeeApprovalsScreen> with SingleTick
     },
   ];
 
+  RealtimeChannel? _realtimeChannel;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _loadApprovals();
+    _connectRealTime();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
     super.dispose();
+  }
+
+  void _connectRealTime() {
+    try {
+      final client = Supabase.instance.client;
+      if (_realtimeChannel != null) {
+        client.removeChannel(_realtimeChannel!);
+      }
+      _realtimeChannel = client.channel('public:fee_waiver_requests_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'fee_waiver_requests',
+            callback: (_) {
+              if (mounted) {
+                _loadApprovals();
+              }
+            },
+          );
+      _realtimeChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error connecting realtime for fee approvals: $e');
+    }
   }
 
   Future<void> _loadApprovals() async {

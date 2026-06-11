@@ -137,3 +137,21 @@ flutter clean
 flutter build apk --release
 ```
 - **Output release file location:** [app-release.apk](file:///d:/incubation/edusphere/app-release.apk) (copied to project root).
+
+---
+
+## 📱 6. Mobile Screen to Supabase Mapping & Real-time Guide
+
+Below is the complete mapping of Flutter mobile features/screens to their respective Supabase tables, including the data fields and real-time synchronization channels.
+
+| Feature / Screen | File Path | Supabase Table | Key Fields & Mapping | Real-Time Sync Channel |
+| :--- | :--- | :--- | :--- | :--- |
+| **Academic Calendar** | [academic_calendar_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/academic_calendar_screen.dart) | `SchoolCalendar` | `title`, `description`, `date`, `type`, `createdBy` | Postgres changes on `SchoolCalendar` |
+| **User Profile** | [profile_screen.dart](file:///d:/incubation/edusphere/lib/screens/profile_screen.dart) | `User`, `Teacher`, `Student` | `firstName`, `lastName`, `email`, `phone`, `gender`, `dob`, `designation`, `department` | Direct read/write on changes |
+| **Assignments** | [assignments_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/assignments_screen.dart) | `Assignment`, `AssignmentSubmission` | `title`, `description`, `subject`, `dueDate`, `classId`, `status` | Postgres changes on `Assignment` and `AssignmentSubmission` |
+| **Announcements** | [announcements_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/announcements_screen.dart) | `Announcement` | `title`, `content`, `priority`, `targetAudience`, `createdAt` | Postgres changes on `Announcement` |
+| **Community Feed** | [community_screen.dart](file:///d:/incubation/edusphere/lib/screens/community_screen.dart) | `CommunityPost` | `content`, `category`, `author_name`, `likes`, `comments` (JSONB) | Postgres changes on `CommunityPost` |
+| **Services / Tickets** | [services_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/services_screen.dart) | `ServiceRequest` | `title`, `category` (Type), `desc`, `status`, `createdAt`, `userId` | Postgres changes on `ServiceRequest` |
+| **Fee Approvals** | [fee_approvals_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/fee_approvals_screen.dart) | `fee_waiver_requests` | `student_name`, `class`, `type`, `fee_head`, `original_amount`, `requested_amount`, `reason`, `status` | Postgres changes on `fee_waiver_requests` |
+| **Student Directory** | [student_directory_screen.dart](file:///d:/incubation/edusphere/lib/screens/features/student_directory_screen.dart) | `Student` (joins `User`, `Class`) | `admissionNumber`, `status`, `User(firstName, lastName, email)`, `Class(name)` | Postgres changes on `Student` |
+

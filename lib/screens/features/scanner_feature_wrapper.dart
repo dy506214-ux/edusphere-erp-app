@@ -51,8 +51,8 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
           _selectedLocation = mainScanner['location'] ?? 'Main Entrance';
           _isLoading = false;
         });
-      } else {
         // No scanners exist. Let's create a default one in Supabase so it's fully working!
+        final currentUser = Supabase.instance.client.auth.currentUser;
         final insertRes = await Supabase.instance.client
             .from('QRScanner')
             .insert({
@@ -60,6 +60,7 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
               'location': 'Main Gate',
               'scannerType': 'ENTRY',
               'isActive': true,
+              'createdBy': currentUser?.id ?? 'e8f5de9c-114f-4ffd-9698-49f349208bfb',
             })
             .select()
             .single();
