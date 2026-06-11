@@ -4,6 +4,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../profile_screen.dart';
 import '../../theme/colors.dart';
+import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
+import '../../config/api_config.dart';
 
 
 // ── Student Model ────────────────────────────────────────────────────────────
@@ -14,6 +17,7 @@ class StudentRecord {
   final String className;
   final String email;
   final String status;
+  final String? avatarUrl;
   const StudentRecord({
     required this.id,
     required this.admissionNo,
@@ -21,6 +25,7 @@ class StudentRecord {
     required this.className,
     required this.email,
     required this.status,
+    this.avatarUrl,
   });
 
   String get formattedAdmissionNo {
@@ -97,6 +102,20 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     } catch (e) {
       debugPrint('Error subscribing to student directory realtime: $e');
     }
+
+    try {
+      SocketService().on('STUDENT_UPDATED', (data) {
+        if (mounted) _fetchStudents();
+      });
+      SocketService().on('STUDENT_ADDED', (data) {
+        if (mounted) _fetchStudents();
+      });
+      SocketService().on('STUDENT_DELETED', (data) {
+        if (mounted) _fetchStudents();
+      });
+    } catch (e) {
+      debugPrint('Error subscribing to Socket.IO student updates: $e');
+    }
   }
 
   Future<void> _fetchStudents() async {
@@ -105,30 +124,39 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       _errorMessage = null;
     });
     try {
-      final response = await Supabase.instance.client
-          .from('Student')
-          .select('id, admissionNumber, currentClassId, status, User(firstName, lastName, email), Class(name), Section(name)');
+      final response = await ApiService.instance.get('students', queryParams: {'limit': '200'});
+      final List<dynamic> studentsRawList = response is List 
+          ? response 
+          : (response['students'] ?? response['data'] ?? []);
 
       final List<StudentRecord> loadedStudents = [];
-      for (var item in response) {
-        final user = item['User'] as Map?;
-        final classData = item['Class'] as Map?;
-        final sectionData = item['Section'] as Map?;
-        final firstName = user?['firstName'] ?? '';
-        final lastName = user?['lastName'] ?? '';
+      for (var item in studentsRawList) {
+        final user = item['user'] as Map? ?? item['User'] as Map? ?? {};
+        final classData = item['currentClass'] as Map? ?? item['Class'] as Map? ?? {};
+        final sectionData = item['section'] as Map? ?? item['Section'] as Map? ?? {};
+        
+        final firstName = user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
+        final lastName = user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
         final fullName = '$firstName $lastName'.trim();
         
-        final rawClassName = classData?['name']?.toString() ?? 'Class 8';
-        final sectionName = sectionData?['name']?.toString() ?? 'A';
+        final rawClassName = classData['name']?.toString() ?? 'Class 8';
+        final sectionName = sectionData['name']?.toString() ?? 'A';
         final displayClassName = '${rawClassName.replaceAll('Class', 'Grade')} - $sectionName';
+
+        final rawAvatar = user['avatar'] ?? user['photoUrl'] ?? user['profileImage']?.toString() ?? '';
+        String? avatarUrl;
+        if (rawAvatar.isNotEmpty) {
+          avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+        }
 
         loadedStudents.add(StudentRecord(
           id: item['id']?.toString() ?? '',
-          admissionNo: item['admissionNumber'] ?? '',
+          admissionNo: item['admissionNumber'] ?? item['admissionNo'] ?? '',
           name: fullName.isNotEmpty ? fullName : 'Unknown',
           className: displayClassName,
-          email: user?['email'] ?? '',
+          email: user['email'] ?? item['email'] ?? '',
           status: item['status'] ?? 'ACTIVE',
+          avatarUrl: avatarUrl,
         ));
       }
 
@@ -158,6 +186,11 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         Supabase.instance.client.removeChannel(_realtimeChannel!);
       } catch (_) {}
     }
+    try {
+      SocketService().off('STUDENT_UPDATED');
+      SocketService().off('STUDENT_ADDED');
+      SocketService().off('STUDENT_DELETED');
+    } catch (_) {}
     super.dispose();
   }
 
@@ -503,15 +536,35 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                               color: Color(0xFFEFF6FF),
                                               shape: BoxShape.circle,
                                             ),
-                                            child: Center(
-                                              child: Text(
-                                                student.initials,
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 9.sp,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: const Color(0xFF1E6091),
-                                                ),
-                                              ),
+                                            child: ClipRRect(
+                                              borderRadius: BorderRadius.circular(14.r),
+                                              child: (student.avatarUrl != null && student.avatarUrl!.isNotEmpty)
+                                                  ? Image.network(
+                                                      student.avatarUrl!,
+                                                      fit: BoxFit.cover,
+                                                      width: 28.w,
+                                                      height: 28.h,
+                                                      errorBuilder: (_, __, ___) => Center(
+                                                        child: Text(
+                                                          student.initials,
+                                                          style: GoogleFonts.inter(
+                                                            fontSize: 9.sp,
+                                                            fontWeight: FontWeight.w700,
+                                                            color: const Color(0xFF1E6091),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    )
+                                                  : Center(
+                                                      child: Text(
+                                                        student.initials,
+                                                        style: GoogleFonts.inter(
+                                                          fontSize: 9.sp,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: const Color(0xFF1E6091),
+                                                        ),
+                                                      ),
+                                                    ),
                                             ),
                                           ),
                                           SizedBox(width: 8.w),

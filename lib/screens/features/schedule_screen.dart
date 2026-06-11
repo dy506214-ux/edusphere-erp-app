@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/api_service.dart';
@@ -20,7 +21,7 @@ class ScheduleScreen extends StatefulWidget {
     required this.role,
     required this.theme,
     this.onOpenDrawer,
-    this.showAppBar = true,
+    this.showAppBar = false,
   });
 
   @override
@@ -42,7 +43,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     _loadTimetableData();
 
     // Start periodic timer to refresh the "NOW" period highlight dynamically every 60 seconds
-    _timer = Timer.periodic(const Duration(seconds: 60), (timer) {
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
       if (mounted) {
         setState(() {}); // Trigger repaint to check active period highlights
       }
@@ -75,7 +76,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       final prefs = await SharedPreferences.getInstance();
       final isStudent = widget.role == 'student';
 
-      dynamic response;
+      final client = Supabase.instance.client;
+      List<dynamic> slotsRes = [];
       if (isStudent) {
         String? sectionId = prefs.getString('student_section_id');
         if (sectionId == null || sectionId.isEmpty) {
@@ -93,17 +95,74 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           throw Exception('Student section ID could not be resolved');
         }
 
-        response = await ApiService.instance.get('timetable/student/$sectionId');
+        slotsRes = await client
+            .from('TimetableSlot')
+            .select('*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
+            .eq('sectionId', sectionId);
       } else {
         String? teacherId = prefs.getString('teacher_id');
         if (teacherId == null || teacherId.isEmpty) {
           teacherId = 'me';
         }
-        response = await ApiService.instance.get('timetable/teacher/$teacherId');
+        if (teacherId == 'me') {
+          final currentUser = client.auth.currentUser;
+          if (currentUser != null) {
+            final teacherRes = await client
+                .from('Teacher')
+                .select('id')
+                .eq('userId', currentUser.id)
+                .maybeSingle();
+            if (teacherRes != null) {
+              teacherId = teacherRes['id'] as String;
+            }
+          }
+        }
+        slotsRes = await client
+            .from('TimetableSlot')
+            .select('*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
+            .eq('teacherId', teacherId);
       }
 
+      final rawSchedule = slotsRes.map((slot) {
+        final subject = slot['Subject'] as Map<String, dynamic>?;
+        final section = slot['Section'] as Map<String, dynamic>?;
+        final classData = section?['Class'] as Map<String, dynamic>?;
+        final teacher = slot['Teacher'] as Map<String, dynamic>?;
+        final user = teacher?['User'] as Map<String, dynamic>?;
+        
+        String resolvedTeacherName = 'Class Teacher';
+        if (user != null) {
+          resolvedTeacherName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+        }
+
+        return {
+          'dayOfWeek': slot['dayOfWeek'],
+          'startTime': slot['startTime'],
+          'endTime': slot['endTime'],
+          'room': {
+            'name': slot['roomId'] ?? 'Room 101',
+          },
+          'section': {
+            'name': section?['name'] ?? '',
+            'class': {
+              'name': classData?['name'] ?? '',
+            },
+          },
+          'subject': subject,
+          'teacher': {
+            'user': user,
+            'name': resolvedTeacherName,
+          },
+        };
+      }).toList();
+
+      dynamic response = {
+        'success': true,
+        'schedule': rawSchedule,
+      };
+
       if (response != null && response['success'] == true) {
-        final rawSchedule = response['schedule'] as List<dynamic>? ?? [];
+        final rawScheduleList = response['schedule'] as List<dynamic>? ?? [];
         final Map<int, String> weekdayToName = {
           1: 'Mon',
           2: 'Tue',

@@ -9,6 +9,7 @@ import 'dart:developer' as dev;
 import '../features/academic_calendar_screen.dart';
 import '../../theme/colors.dart';
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main_screen.dart';
 import '../features/teacher_overdue_management_screen.dart';
@@ -21,7 +22,7 @@ class TeacherDashboard extends StatefulWidget {
   State<TeacherDashboard> createState() => _TeacherDashboardState();
 }
 
-class _TeacherDashboardState extends State<TeacherDashboard> {
+class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBindingObserver {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
@@ -40,13 +41,18 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   int _overdueBooks = 0;
   double _attendanceTodayPercentage = 90.0;
 
+  DateTime? _lastRefreshTime;
+  String _lastTriggerSource = 'None';
+  String? _lastRealtimeEvent;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _selectedDay = _focusedDay;
     _loadTeacherName();
     _loadUpcomingEvents();
-    _loadDashboardStats();
+    _fetchDashboardData('initial');
     _connectRealTime();
   }
 
@@ -58,7 +64,36 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         Supabase.instance.client.removeChannel(_teacherDashChannel!);
       } catch (_) {}
     }
+    
+    // Clean up Socket.IO listeners
+    try {
+      final socketEvents = [
+        'STUDENT_ADDED',
+        'STUDENT_DELETED',
+        'STUDENT_UPDATED',
+        'ATTENDANCE_UPDATED',
+        'CLASS_UPDATED',
+        'EVENT_UPDATED',
+        'DASHBOARD_STATS_CHANGED'
+      ];
+      for (var event in socketEvents) {
+        SocketService().off(event);
+      }
+    } catch (e) {
+      dev.log('Error unregistering Socket.IO events: $e', name: 'TeacherDashboard');
+    }
+
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      dev.log('📱 App resumed from background. Triggering dashboard refresh...', name: 'TeacherDashboard');
+      _loadUpcomingEvents();
+      _fetchDashboardData('app_resume');
+    }
   }
 
   Future<void> _refreshDashboard() async {
@@ -67,7 +102,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     try {
       await Future.wait([
         _loadUpcomingEvents(),
-        _loadDashboardStats(),
+        _fetchDashboardData('manual'),
       ]);
     } finally {
       if (mounted) {
@@ -85,9 +120,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           schema: 'public',
           table: 'SchoolCalendar',
           callback: (_) {
+            dev.log('⚡ Realtime DB change on SchoolCalendar', name: 'TeacherDashboard');
             if (mounted) {
               _loadUpcomingEvents();
-              _loadDashboardStats();
+              _fetchDashboardData('realtime_event', eventName: 'Supabase:SchoolCalendar');
             }
           },
         )
@@ -96,22 +132,82 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           schema: 'public',
           table: 'AttendanceRecord',
           callback: (_) {
-            if (mounted) _loadDashboardStats();
+            dev.log('⚡ Realtime DB change on AttendanceRecord', name: 'TeacherDashboard');
+            if (mounted) {
+              _fetchDashboardData('realtime_event', eventName: 'Supabase:AttendanceRecord');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Student',
+          callback: (_) {
+            dev.log('⚡ Realtime DB change on Student', name: 'TeacherDashboard');
+            if (mounted) {
+              _fetchDashboardData('realtime_event', eventName: 'Supabase:Student');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Class',
+          callback: (_) {
+            dev.log('⚡ Realtime DB change on Class', name: 'TeacherDashboard');
+            if (mounted) {
+              _fetchDashboardData('realtime_event', eventName: 'Supabase:Class');
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'LibraryIssue',
+          callback: (_) {
+            dev.log('⚡ Realtime DB change on LibraryIssue', name: 'TeacherDashboard');
+            if (mounted) {
+              _fetchDashboardData('realtime_event', eventName: 'Supabase:LibraryIssue');
+            }
           },
         );
       _teacherDashChannel!.subscribe();
     } catch (e) {
       dev.log('Teacher dash realtime error: $e');
     }
-    _teacherDashTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+
+    // Connect Socket.IO events
+    try {
+      final socketEvents = [
+        'STUDENT_ADDED',
+        'STUDENT_DELETED',
+        'STUDENT_UPDATED',
+        'ATTENDANCE_UPDATED',
+        'CLASS_UPDATED',
+        'EVENT_UPDATED',
+        'DASHBOARD_STATS_CHANGED'
+      ];
+
+      for (var event in socketEvents) {
+        SocketService().on(event, (data) {
+          dev.log('⚡ Socket.IO event received: $event', name: 'TeacherDashboard');
+          if (mounted) {
+            _loadUpcomingEvents();
+            _fetchDashboardData('realtime_event', eventName: 'SocketIO:$event');
+          }
+        });
+      }
+    } catch (e) {
+      dev.log('Error registering Socket.IO events: $e', name: 'TeacherDashboard');
+    }
+
+    _teacherDashTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         _loadUpcomingEvents();
-        _loadDashboardStats();
+        _fetchDashboardData('periodic');
       }
     });
   }
-
-
 
   Future<void> _loadTeacherName() async {
     final prefs = await SharedPreferences.getInstance();
@@ -124,62 +220,57 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   Future<void> _loadDashboardStats() async {
+    await _fetchDashboardData('initial');
+  }
+
+  Future<void> _fetchDashboardData(String triggerSource, {String? eventName}) async {
+    final apiUrl = 'dashboard/stats';
+    dev.log('📡 FETCHING Teacher Dashboard stats...', name: 'TeacherDashboard');
+    dev.log('🔗 API URL Path: $apiUrl', name: 'TeacherDashboard');
+    dev.log('👉 Trigger Source: $triggerSource', name: 'TeacherDashboard');
+    if (eventName != null) {
+      dev.log('⚡ Realtime Event: $eventName', name: 'TeacherDashboard');
+    }
+
     try {
-      final supabase = Supabase.instance.client;
-      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final response = await ApiService.instance.get(apiUrl);
+      
+      dev.log('📥 Response Data: $response', name: 'TeacherDashboard');
 
-      // 1. Fetch student count
-      final studentCountRes = await supabase.from('Student').select('id');
-      final studentCount = studentCountRes.length;
-
-      // 2. Fetch overdue books count (unreturned issues whose dueDate is before today)
-      final activeIssuesRes = await supabase.from('LibraryIssue').select('dueDate').isFilter('returnDate', null);
-      int overdueCount = 0;
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      for (var issue in activeIssuesRes) {
-        final dueDateStr = issue['dueDate'] ?? '';
-        if (dueDateStr.isNotEmpty) {
-          try {
-            final dueDate = DateTime.parse(dueDateStr);
-            final dueNormalized = DateTime(dueDate.year, dueDate.month, dueDate.day);
-            if (dueNormalized.isBefore(today)) {
-              overdueCount++;
-            }
-          } catch (_) {}
+      if (response != null && response['success'] == true) {
+        final stats = response['stats'] as Map<String, dynamic>? ?? {};
+        
+        final studentCount = stats['totalStudents'] as int? ?? stats['activeStudents'] as int? ?? 60;
+        final overdueCount = stats['overdueBooks'] as int? ?? 0;
+        
+        final attDetails = stats['attendanceDetails'] as Map<String, dynamic>?;
+        double attendancePct = 90.0;
+        int pendingAttend = 0;
+        if (attDetails != null) {
+          final marked = attDetails['marked'] as int? ?? 0;
+          final total = attDetails['total'] as int? ?? 0;
+          if (total > 0) {
+            attendancePct = (marked / total) * 100.0;
+            pendingAttend = (total - marked).clamp(0, 9999);
+          }
         }
-      }
 
-      // 3. Fetch attendance today percentage
-      final attendanceRecords = await supabase.from('AttendanceRecord').select('status').eq('date', todayStr);
-      double attendancePct = 90.0;
-      if (attendanceRecords.isNotEmpty) {
-        final presentCount = attendanceRecords.where((r) => r['status'] == 'PRESENT').length;
-        attendancePct = (presentCount / attendanceRecords.length) * 100.0;
-      }
-
-      // 4. Fetch pending attendance count (classes without attendance marked today)
-      final classesRes = await supabase.from('Class').select('id');
-      final markedTodayRes = await supabase.from('AttendanceRecord').select('classId').eq('date', todayStr);
-      final markedClassIds = markedTodayRes.map((r) => r['classId']?.toString()).toSet();
-      int pendingAttend = 0;
-      for (var c in classesRes) {
-        final classId = c['id']?.toString();
-        if (classId != null && !markedClassIds.contains(classId)) {
-          pendingAttend++;
+        if (mounted) {
+          setState(() {
+            _studentCount = studentCount;
+            _overdueBooks = overdueCount;
+            _attendanceTodayPercentage = attendancePct;
+            _pendingAttendance = pendingAttend;
+            _lastRefreshTime = DateTime.now();
+            _lastTriggerSource = triggerSource;
+            _lastRealtimeEvent = eventName;
+          });
         }
-      }
-
-      if (mounted) {
-        setState(() {
-          _studentCount = studentCount > 0 ? studentCount : 60;
-          _overdueBooks = overdueCount;
-          _attendanceTodayPercentage = attendancePct;
-          _pendingAttendance = pendingAttend;
-        });
+        
+        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()}', name: 'TeacherDashboard');
       }
     } catch (e) {
-      dev.log('Error loading teacher dashboard stats: $e');
+      dev.log('❌ Error fetching dashboard REST API: $e', name: 'TeacherDashboard');
     }
   }
 

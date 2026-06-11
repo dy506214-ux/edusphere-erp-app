@@ -5,7 +5,7 @@ def main():
     password = "akshitsha84"
     project_ref = "bstevdkjqjzaglayicdg"
     username = f"postgres.{project_ref}"
-    host = "aws-0-ap-south-1.pooler.supabase.com"
+    host = "aws-1-ap-south-1.pooler.supabase.com"
     db_uri = f"postgresql://{username}:{password}@{host}:6543/postgres"
 
     print("Connecting to database...")

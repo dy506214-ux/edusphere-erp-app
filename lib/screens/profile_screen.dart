@@ -13,7 +13,9 @@ import 'features/settings_screen.dart';
 import '../widgets/common_widgets.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/api_service.dart';
+import '../services/socket_service.dart';
 import 'main_screen.dart';
+import '../config/api_config.dart';
 
 // ── CUSTOM QR SIMULATOR PAINTER ──
 class QRSimulatorPainter extends CustomPainter {
@@ -121,6 +123,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _dob = 'Not set';
   String _bloodGroup = 'Not assigned';
   String _address = 'No location registered';
+  bool _isProfileLoading = false;
+  bool _hasProfileError = false;
+  String? _studentUserId;
 
   // Teacher specific fields
   String _employeeId = 'ID_PENDING';
@@ -158,6 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _studentEmail = 'kavya.yadav@edusmart.edu';
   String _admissionNo = 'ADM-2023-0681';
   String? _dbQrCode;
+  String? _avatarUrl;
   String _studentClass = 'Grade 11';
   String _section = 'C';
   String _rollNo = '118';
@@ -453,15 +459,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _resetProfileFields() {
+    _studentName = '—';
+    _studentEmail = '—';
+    _admissionNo = '—';
+    _studentClass = '—';
+    _section = '—';
+    _rollNo = '—';
+    _batch = '—';
+    _medium = '—';
+    _studentJoinedDate = '—';
+    _emergencyInfo = '—';
+    _studentGender = '—';
+    _studentDob = '—';
+    _studentBloodGroup = '—';
+    _religion = '—';
+    _casteGroup = '—';
+    _nationality = '—';
+    _avatarUrl = null;
+    _dbQrCode = null;
+    
+    _userName = '—';
+    _email = '—';
+    _phone = '—';
+    _gender = '—';
+    _dob = '—';
+    _bloodGroup = '—';
+    _address = '—';
+    _rollNumber = '—';
+    _className = '—';
+    _admissionId = '—';
+    _fatherName = '—';
+    _motherName = '—';
+    _guardianPhone = '—';
+    _uploadedDocuments = [];
+    _attendanceRecords = [];
+    _feeLedger = null;
+    _feePayments = [];
+    _timetableSlots = {};
+    _transportAllocation = null;
+  }
+
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.studentId != oldWidget.studentId) {
+      if (widget.role == 'student') {
+        _loadStudentDataFromSupabase();
+      }
+    }
+  }
+
   Future<void> _loadStudentDataFromSupabase() async {
+    if (!mounted) return;
+    setState(() {
+      _isProfileLoading = true;
+      _hasProfileError = false;
+    });
+
+    if (widget.studentId != null) {
+      _resetProfileFields();
+    }
+
     try {
       final client = Supabase.instance.client;
       Map<String, dynamic>? studentRes;
 
+      debugPrint('🔍 DB/API Student Profile request initiated. Student ID: ${widget.studentId}');
+
       if (widget.studentId != null) {
         final res = await client
             .from('Student')
-            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*, User(*)))')
+            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
             .eq('id', widget.studentId!)
             .maybeSingle();
         if (res != null) {
@@ -472,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (currentUser != null) {
           final res = await client
               .from('Student')
-              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*, User(*)))')
+              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
               .eq('userId', currentUser.id)
               .maybeSingle();
           if (res != null) {
@@ -483,6 +552,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (studentRes != null) {
         final studentData = studentRes;
+        debugPrint('✅ DB Student data loaded successfully. ID: ${studentData['id']}');
+        
         final userMap = studentData['User'] as Map<String, dynamic>? ?? {};
         final classMap = studentData['Class'] as Map<String, dynamic>? ?? {};
         final sectionMap = studentData['Section'] as Map<String, dynamic>? ?? {};
@@ -490,6 +561,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final String firstName = userMap['firstName'] as String? ?? '';
         final String lastName = userMap['lastName'] as String? ?? '';
         
+        _studentUserId = studentData['userId']?.toString() ?? userMap['id']?.toString();
+
         setState(() {
           _studentName = '$firstName $lastName'.trim();
           if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
@@ -508,7 +581,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           
           _rollNo = studentData['rollNumber']?.toString() ?? '—';
-          // Derive batch from AcademicYear linked to the Class
           final academicYear = classMap['AcademicYear'] as Map<String, dynamic>?;
           _batch = academicYear?['name'] as String? ?? '—';
           _medium = studentData['medium'] as String? ?? '—';
@@ -555,7 +627,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _nationality = studentData['nationality'] as String? ?? '—';
           _dbQrCode = userMap['qrCode'] as String?;
           
-          // Extract Parent details
+          final rawAvatar = userMap['avatar']?.toString() ?? '';
+          if (rawAvatar.isNotEmpty) {
+            _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+          } else {
+            _avatarUrl = null;
+          }
+          
+          _userName = _studentName;
+          _email = _studentEmail;
+          _phone = userMap['phone'] as String? ?? '—';
+          _gender = _studentGender;
+          _dob = _studentDob;
+          _bloodGroup = _studentBloodGroup;
+          _address = userMap['address'] as String? ?? '—';
+          _rollNumber = _rollNo;
+          _className = sectionMap['name'] != null ? '$_studentClass - ${_section}' : _studentClass;
+          _admissionId = _admissionNo;
+          
           String father = '—';
           String mother = '—';
           String guardianPhoneVal = studentData['emergencyPhone'] as String? ?? '—';
@@ -567,11 +656,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final rel = spMap['relationship'] as String?;
               final parentObj = spMap['Parent'] as Map<String, dynamic>?;
               if (parentObj != null) {
-                final userObj = parentObj['User'] as Map<String, dynamic>?;
-                final pFullName = userObj != null
-                    ? '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim()
-                    : '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
-                final pPhone = userObj?['phone'] as String? ?? parentObj['phone'] as String? ?? '—';
+                final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pPhone = parentObj['phone'] as String? ?? '—';
                 if (rel == 'FATHER') {
                   father = pFullName;
                   if (guardianPhoneVal == '—') guardianPhoneVal = pPhone;
@@ -591,7 +677,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _motherName = mother;
           _guardianPhone = guardianPhoneVal;
  
-          // Extract documents
           List<Map<String, String>> docs = [];
           final studentDocList = studentData['StudentDocument'] as List<dynamic>? ?? [];
           if (studentDocList.isNotEmpty) {
@@ -614,6 +699,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }).toList();
           }
           _uploadedDocuments = docs;
+          _isProfileLoading = false;
         });
  
         final studentId = studentData['id'] as String;
@@ -622,6 +708,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
  
         final String? sectionId = studentData['sectionId'] as String?;
         _loadAllTabDetails(studentId, sectionId);
+        _connectRealTimeSync();
  
         if (userMap['id'] != null) {
           try {
@@ -639,24 +726,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         return;
       }
-
+ 
+      debugPrint('📡 Supabase student returned empty result. Falling back to REST API...');
       final response = widget.studentId != null
           ? await ApiService.instance.get('students/${widget.studentId}')
           : await ApiService.instance.get('students/me');
       
       if (response == null || response['success'] != true || response['student'] == null) {
-        await _loadStudentData();
-        return;
+        throw Exception('API details fetch failed or returned invalid response format.');
       }
-
+ 
       final studentResMap = response['student'] as Map<String, dynamic>;
+      debugPrint('✅ REST API student details successfully retrieved.');
       final userMap = studentResMap['user'] as Map<String, dynamic>? ?? {};
       final classMap = studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
       final sectionMap = studentResMap['section'] as Map<String, dynamic>? ?? {};
       
       final String firstName = userMap['firstName'] as String? ?? '';
       final String lastName = userMap['lastName'] as String? ?? '';
-      
+      _studentUserId = studentResMap['userId']?.toString() ?? userMap['id']?.toString();
+
       setState(() {
         _studentName = '$firstName $lastName'.trim();
         if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
@@ -706,14 +795,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _studentDob = '—';
         }
         
-        _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
+        _studentBloodGroup = studentResMap['bloodGroup'] as String? ?? '—';
         _religion = studentResMap['religion'] as String? ?? '—';
         _casteGroup = studentResMap['caste'] as String? ?? '—';
         _nationality = studentResMap['nationality'] as String? ?? '—';
         _dbQrCode = userMap['qrCode'] as String?;
+        
+        final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? userMap['profileImage']?.toString() ?? '';
+        if (rawAvatar.isNotEmpty) {
+          _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+        } else {
+          _avatarUrl = null;
+        }
+ 
+        _userName = _studentName;
+        _email = _studentEmail;
+        _phone = userMap['phone'] as String? ?? '—';
+        _gender = _studentGender;
+        _dob = _studentDob;
+        _bloodGroup = _studentBloodGroup;
+        _address = userMap['address'] as String? ?? '—';
+        _rollNumber = _rollNo;
+        _className = sectionMap['name'] != null ? '$_studentClass - ${_section}' : _studentClass;
+        _admissionId = _admissionNo;
+        _isProfileLoading = false;
       });
-
-      // Fetch QR Code from the backend API (same as the website does)
+ 
       if (userMap['id'] != null) {
         try {
           final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
@@ -731,23 +838,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           debugPrint('Error fetching QR from API: $e');
         }
       }
-
-      // Store student ID for later use
+ 
       final studentId = studentResMap['id'] as String;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('student_id', studentId);
-
+ 
       final String? sectionId = studentResMap['sectionId'] as String?;
       _loadAllTabDetails(studentId, sectionId);
-
-      // Extract Parent details from the included parents array
+      _connectRealTimeSync();
+ 
       try {
         final parentsList = studentResMap['parents'] as List<dynamic>? ?? [];
         if (parentsList.isNotEmpty) {
           String father = '—';
           String mother = '—';
           String guardianPhone = '—';
-
+ 
           for (var sp in parentsList) {
             final spMap = sp as Map<String, dynamic>;
             final rel = spMap['relationship'] as String?;
@@ -777,8 +883,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } catch (e) {
         debugPrint('Error parsing parents: $e');
       }
-
-      // Extract uploaded documents from included documents array
+ 
       try {
         final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
         setState(() {
@@ -804,8 +909,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         debugPrint('Error parsing documents: $e');
       }
     } catch (e) {
-      debugPrint('Error loading student profile from API: $e');
-      await _loadStudentData();
+      debugPrint('🚨 Supabase/REST Student Profile queries both failed. Error: $e');
+      if (widget.studentId != null) {
+        setState(() {
+          _isProfileLoading = false;
+          _hasProfileError = true;
+        });
+      } else {
+        await _loadStudentData();
+        setState(() {
+          _isProfileLoading = false;
+        });
+      }
     }
   }
 
@@ -816,45 +931,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (currentUser == null) return;
 
       for (var ch in _realtimeChannels) {
-        client.removeChannel(ch);
+        try {
+          client.removeChannel(ch);
+        } catch (_) {}
       }
       _realtimeChannels.clear();
 
-      final userChannel = client.channel('public:user_profile_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'User',
-            filter: PostgresChangeFilter(
-              type: PostgresChangeFilterType.eq,
-              column: 'id',
-              value: currentUser.id,
-            ),
-            callback: (_) {
-              if (mounted) {
-                if (widget.role == 'student') {
-                  _loadStudentDataFromSupabase();
-                } else if (widget.role == 'teacher') {
-                  _loadTeacherDataFromSupabase();
+      final String targetStudentId = widget.studentId ?? '';
+      final String targetUserId = widget.studentId != null ? (_studentUserId ?? '') : currentUser.id;
+
+      debugPrint('🔌 Connecting Real-Time Sync. Student ID: $targetStudentId, User ID: $targetUserId');
+
+      if (targetUserId.isNotEmpty) {
+        final userChannel = client.channel('public:user_profile_sync_$targetUserId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'User',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'id',
+                value: targetUserId,
+              ),
+              callback: (_) {
+                debugPrint('🔄 Realtime update detected on User: $targetUserId. Reloading...');
+                if (mounted) {
+                  if (widget.role == 'student') {
+                    _loadStudentDataFromSupabase();
+                  } else if (widget.role == 'teacher') {
+                    _loadTeacherDataFromSupabase();
+                  }
                 }
-              }
-            },
-          );
-      userChannel.subscribe();
-      _realtimeChannels.add(userChannel);
+              },
+            );
+        userChannel.subscribe();
+        _realtimeChannels.add(userChannel);
+      }
 
       if (widget.role == 'student') {
-        final studentChannel = client.channel('public:student_profile_sync')
+        final String studentFilterValue = widget.studentId ?? currentUser.id;
+        final String studentFilterColumn = widget.studentId != null ? 'id' : 'userId';
+
+        final studentChannel = client.channel('public:student_profile_sync_$studentFilterValue')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'Student',
               filter: PostgresChangeFilter(
                 type: PostgresChangeFilterType.eq,
-                column: 'userId',
-                value: currentUser.id,
+                column: studentFilterColumn,
+                value: studentFilterValue,
               ),
               callback: (_) {
+                debugPrint('🔄 Realtime update detected on Student. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -863,12 +992,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         studentChannel.subscribe();
         _realtimeChannels.add(studentChannel);
 
-        final docChannel = client.channel('public:student_doc_sync')
+        final docChannel = client.channel('public:student_doc_sync_$targetStudentId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'StudentDocument',
               callback: (_) {
+                debugPrint('🔄 Realtime update detected on StudentDocument. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -877,12 +1007,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         docChannel.subscribe();
         _realtimeChannels.add(docChannel);
 
-        final parentChannel = client.channel('public:student_parent_sync')
+        final parentChannel = client.channel('public:student_parent_sync_$targetStudentId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'StudentParent',
               callback: (_) {
+                debugPrint('🔄 Realtime update detected on StudentParent. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -902,6 +1033,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: currentUser.id,
               ),
               callback: (_) {
+                debugPrint('🔄 Realtime update detected on Teacher. Reloading...');
                 if (mounted) {
                   _loadTeacherDataFromSupabase();
                 }
@@ -910,6 +1042,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         teacherChannel.subscribe();
         _realtimeChannels.add(teacherChannel);
       }
+
+      // Socket.IO event updates
+      SocketService().on('STUDENT_UPDATED', (data) {
+        if (!mounted) return;
+        try {
+          final String? updatedStudentId = data?['id']?.toString() ?? data?['studentId']?.toString();
+          debugPrint('📡 Socket.IO STUDENT_UPDATED received. Updated Student ID: $updatedStudentId, Current Viewed ID: ${widget.studentId}');
+          if (widget.studentId != null && updatedStudentId == widget.studentId) {
+            debugPrint('🔄 Socket.IO student matches viewed student. Reloading...');
+            _loadStudentDataFromSupabase();
+          } else if (widget.studentId == null && widget.role == 'student') {
+            _loadStudentDataFromSupabase();
+          }
+        } catch (e) {
+          debugPrint('Error handling Socket.IO update: $e');
+        }
+      });
     } catch (e) {
       debugPrint('⚠️ Error connecting Supabase Realtime in ProfileScreen: $e');
     }
@@ -1525,6 +1674,146 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final double horizontalPadding = isDesktop ? 40.w : 16.w;
     final double verticalPadding = isDesktop ? 20.h : 12.h;
 
+    Widget bodyContent;
+
+    if (_isProfileLoading) {
+      bodyContent = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF1A6FDB)),
+            SizedBox(height: 16.h),
+            Text(
+              'Fetching student profile data...',
+              style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      );
+    } else if (_hasProfileError) {
+      bodyContent = Center(
+        child: Container(
+          margin: EdgeInsets.all(24.r),
+          padding: EdgeInsets.all(24.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFFECACA)),
+            boxShadow: [
+              BoxShadow(color: Colors.red.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.error_outline_rounded, color: const Color(0xFFEF4444), size: 48.sp),
+              SizedBox(height: 16.h),
+              Text(
+                'Failed to load student details',
+                style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+              ),
+              SizedBox(height: 8.h),
+              Text(
+                'Please check your network connection and try again.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+              ),
+              SizedBox(height: 20.h),
+              ElevatedButton.icon(
+                onPressed: _loadStudentDataFromSupabase,
+                icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                label: Text('Retry', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A6FDB),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                ),
+              ),
+              if (widget.onBack != null) ...[
+                SizedBox(height: 12.h),
+                TextButton(
+                  onPressed: widget.onBack,
+                  child: Text('Go Back', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF1A6FDB))),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    } else {
+      bodyContent = SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top Back Button
+            if (widget.onBack != null)
+              GestureDetector(
+                onTap: widget.onBack,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.arrow_back, color: const Color(0xFF0F2547), size: 16.sp),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Back to Students',
+                      style: GoogleFonts.inter(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F2547),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            SizedBox(height: 20.h),
+
+            // Main Header Card
+            _buildTabbedHeaderCard(isDesktop),
+            SizedBox(height: 20.h),
+
+            // Tab Bar
+            _buildTabbedNavigation(isDesktop),
+            SizedBox(height: 20.h),
+
+            // Tab Content
+            _buildTabbedTabContent(isDesktop),
+            SizedBox(height: 24.h),
+
+            // Digital Identity & QR Attendance
+            _buildDigitalIdentityCard(isDesktop, customTitle: widget.studentId != null ? 'Student Digital Identity Card' : null),
+            SizedBox(height: 24.h),
+
+            // Logout
+            if (widget.studentId == null) ...[
+              GestureDetector(
+                onTap: () => setState(() => _showLogout = true),
+                child: Container(
+                  width: double.infinity,
+                  padding: EdgeInsets.symmetric(vertical: 16.h),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp),
+                      SizedBox(width: 10.w),
+                      Text('Sign Out', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: AppColors.error)),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 60.h),
+            ],
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       body: Stack(
@@ -1542,76 +1831,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Back Button
-                  if (widget.onBack != null)
-                    GestureDetector(
-                      onTap: widget.onBack,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.arrow_back, color: const Color(0xFF0F2547), size: 16.sp),
-                          SizedBox(width: 8.w),
-                          Text(
-                            'Back to Students',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F2547),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  SizedBox(height: 20.h),
-
-                  // Main Header Card
-                  _buildTabbedHeaderCard(isDesktop),
-                  SizedBox(height: 20.h),
-
-                  // Tab Bar
-                  _buildTabbedNavigation(isDesktop),
-                  SizedBox(height: 20.h),
-
-                  // Tab Content
-                  _buildTabbedTabContent(isDesktop),
-                  SizedBox(height: 24.h),
-
-                  // Digital Identity & QR Attendance
-                  _buildDigitalIdentityCard(isDesktop, customTitle: widget.studentId != null ? 'Student Digital Identity Card' : null),
-                  SizedBox(height: 24.h),
-
-                  // Logout
-                  if (widget.studentId == null) ...[
-                    GestureDetector(
-                      onTap: () => setState(() => _showLogout = true),
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(vertical: 16.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF2F2),
-                          borderRadius: BorderRadius.circular(20.r),
-                          border: Border.all(color: const Color(0xFFFECACA)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp),
-                            SizedBox(width: 10.w),
-                            Text('Sign Out', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: AppColors.error)),
-                          ],
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: 60.h),
-                  ],
-                ],
-              ),
-            ),
+            child: bodyContent,
           ),
           if (_showLogout) _buildLogoutDialog(),
         ],
@@ -1656,15 +1876,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       color: Color(0xFFE8F1FB),
                       shape: BoxShape.circle,
                     ),
-                    child: Center(
-                      child: Text(
-                        initials,
-                        style: GoogleFonts.inter(
-                          fontSize: isDesktop ? 22.sp : 18.sp,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF1A6FDB),
-                        ),
-                      ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(isDesktop ? 32.r : 26.r),
+                      child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                          ? Image.network(
+                              _avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Center(
+                                child: Text(
+                                  initials,
+                                  style: GoogleFonts.inter(
+                                    fontSize: isDesktop ? 22.sp : 18.sp,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF1A6FDB),
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                initials,
+                                style: GoogleFonts.inter(
+                                  fontSize: isDesktop ? 22.sp : 18.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF1A6FDB),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   if (widget.studentId == null)
@@ -3299,14 +3537,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 40.r,
                     backgroundColor: widget.theme.primary.withValues(alpha: 0.1),
-                    child: Text(
-                      _getInitials(_userName),
-                      style: GoogleFonts.inter(
-                        fontSize: 26.sp,
-                        fontWeight: FontWeight.w800,
-                        color: widget.theme.primary,
-                      ),
-                    ),
+                    backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                        ? NetworkImage(_avatarUrl!)
+                        : null,
+                    child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                        ? null
+                        : Text(
+                            _getInitials(_userName),
+                            style: GoogleFonts.inter(
+                              fontSize: 26.sp,
+                              fontWeight: FontWeight.w800,
+                              color: widget.theme.primary,
+                            ),
+                          ),
                   ),
                   Container(
                     padding: EdgeInsets.all(4.r),
