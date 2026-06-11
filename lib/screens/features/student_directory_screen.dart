@@ -64,11 +64,39 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   List<StudentRecord> _allStudents = [];
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _fetchStudents();
+    _connectRealtime();
+  }
+
+  void _connectRealtime() {
+    try {
+      final client = Supabase.instance.client;
+      _realtimeChannel = client.channel('public:student_directory_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Student',
+          callback: (payload) {
+            if (mounted) _fetchStudents();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'User',
+          callback: (payload) {
+            if (mounted) _fetchStudents();
+          },
+        );
+      _realtimeChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error subscribing to student directory realtime: $e');
+    }
   }
 
   Future<void> _fetchStudents() async {
@@ -125,6 +153,11 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -571,8 +604,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                             },
                                             child: Icon(Icons.remove_red_eye_outlined, size: 18.sp, color: const Color(0xFF64748B)),
                                           ),
-                                          SizedBox(width: 8.w),
-                                          Icon(Icons.more_vert_rounded, size: 18.sp, color: const Color(0xFF94A3B8)),
                                         ],
                                       ),
                                     ),

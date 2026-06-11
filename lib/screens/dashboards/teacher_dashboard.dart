@@ -184,7 +184,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   Map<String, List<dynamic>> _calendarEvents = {};
-  bool _calendarEventsLoaded = false;
 
   Future<void> _loadUpcomingEvents() async {
     try {
@@ -228,14 +227,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
         }
         setState(() {
           _calendarEvents = newEvents;
-          _calendarEventsLoaded = true;
         });
       } else {
-        if (mounted) setState(() { _calendarEventsLoaded = true; });
+        // no-op
       }
     } catch (e) {
       dev.log('Error loading calendar events in dashboard: $e');
-      if (mounted) setState(() { _calendarEventsLoaded = true; });
     }
   }
 

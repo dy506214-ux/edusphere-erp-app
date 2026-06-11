@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:developer' as dev;
 
 class TimetableScreen extends StatefulWidget {
   final bool isStudent;
@@ -33,7 +35,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     '03:00 – 04:00',
   ];
 
-  final List<List<dynamic>> _gridData = [
+  final List<List<dynamic>> _defaultGridData = [
     [
       {'sub': 'Mathematics', 'cls': 'Class 8A', 'rm': 'Room 201', 'color': const Color(0xFFDCFCE7), 'text': const Color(0xFF166534)},
       {'sub': 'Mathematics', 'cls': 'Class 9B', 'rm': 'Room 203', 'color': const Color(0xFFFEF9C3), 'text': const Color(0xFF854D0E)},
@@ -93,6 +95,156 @@ class _TimetableScreenState extends State<TimetableScreen> {
       null,
     ],
   ];
+
+  List<List<dynamic>> _gridData = [];
+  bool _isLoading = false;
+  RealtimeChannel? _timetableChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _gridData = List.from(_defaultGridData.map((row) => List.from(row)));
+    if (!widget.isStudent) {
+      _loadTimetableSlots();
+      _connectRealtime();
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_timetableChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_timetableChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
+  }
+
+  void _connectRealtime() {
+    try {
+      _timetableChannel = Supabase.instance.client
+          .channel('public:teacher_timetable_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'TimetableSlot',
+            callback: (_) {
+              if (mounted) _loadTimetableSlots();
+            },
+          );
+      _timetableChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error subscribing to timetable realtime: $e');
+    }
+  }
+
+  Future<void> _loadTimetableSlots() async {
+    setState(() => _isLoading = true);
+    try {
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) return;
+
+      final teacherRes = await client
+          .from('Teacher')
+          .select('id')
+          .eq('userId', currentUser.id)
+          .maybeSingle();
+
+      final teacherId = teacherRes != null ? teacherRes['id'] as String : currentUser.id;
+
+      final slotsRes = await client
+          .from('TimetableSlot')
+          .select('*, Subject(name), Section(name, Class(name))')
+          .eq('teacherId', teacherId);
+
+      if (slotsRes.isNotEmpty) {
+        final List<List<dynamic>> newGrid = List.generate(9, (r) => List.generate(6, (c) => null));
+        for (int day = 0; day < 6; day++) {
+          newGrid[3][day] = 'Break';
+          newGrid[6][day] = 'Lunch';
+        }
+
+        int getRowIndex(int period) {
+          switch (period) {
+            case 1: return 0;
+            case 2: return 1;
+            case 3: return 2;
+            case 4: return 4;
+            case 5: return 5;
+            case 6: return 7;
+            case 7: return 8;
+            default: return -1;
+          }
+        }
+
+        for (var slot in slotsRes) {
+          final dayVal = slot['dayOfWeek'];
+          final periodVal = slot['period'];
+          if (dayVal == null || periodVal == null) continue;
+          
+          final int day = dayVal is int ? dayVal : int.tryParse(dayVal.toString()) ?? 1;
+          final int period = periodVal is int ? periodVal : int.tryParse(periodVal.toString()) ?? 1;
+          
+          final colIndex = day - 1;
+          final rowIndex = getRowIndex(period);
+          
+          if (colIndex >= 0 && colIndex < 6 && rowIndex >= 0 && rowIndex < 9) {
+            final subject = slot['Subject'] as Map?;
+            final section = slot['Section'] as Map?;
+            final classData = section != null ? section['Class'] as Map? : null;
+            
+            final subName = subject != null ? subject['name']?.toString() ?? '' : '';
+            final secName = section != null ? section['name']?.toString() ?? '' : '';
+            final clsName = classData != null ? classData['name']?.toString() ?? '' : '';
+            
+            final displayClass = clsName.isNotEmpty ? (secName.isNotEmpty ? '$clsName - $secName' : clsName) : 'Class 8A';
+            final room = slot['roomId']?.toString() ?? 'Room 201';
+            
+            Color cardColor = const Color(0xFFDCFCE7);
+            Color textColor = const Color(0xFF166534);
+            
+            if (subName.contains('Math')) {
+              cardColor = const Color(0xFFDCFCE7);
+              textColor = const Color(0xFF166534);
+            } else if (subName.contains('Science') || subName.contains('Physics') || subName.contains('Chemistry') || subName.contains('Biology')) {
+              cardColor = const Color(0xFFF3E8FF);
+              textColor = const Color(0xFF6B21A8);
+            } else if (subName.contains('English')) {
+              cardColor = const Color(0xFFFEF9C3);
+              textColor = const Color(0xFF854D0E);
+            } else if (subName.contains('Social') || subName.contains('History') || subName.contains('SST')) {
+              cardColor = const Color(0xFFDBEAFE);
+              textColor = const Color(0xFF1E40AF);
+            } else {
+              cardColor = const Color(0xFFF0FDF4);
+              textColor = const Color(0xFF15803D);
+            }
+
+            newGrid[rowIndex][colIndex] = {
+              'sub': subName.isNotEmpty ? subName : 'Class',
+              'cls': displayClass,
+              'rm': room,
+              'color': cardColor,
+              'text': textColor,
+            };
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _gridData = newGrid;
+          });
+        }
+      }
+    } catch (e) {
+      dev.log('Error loading timetable slots: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 
   // ── STUDENT DATA ──────────────────────────────────────────────────────────
   final _studentDays = [
@@ -177,7 +329,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 children: [
                   _buildTopBar(),
                   SizedBox(height: 20.h),
-                  _buildWeeklyGrid(),
+                  _isLoading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(40),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : _buildWeeklyGrid(),
                   SizedBox(height: 24.h),
                   _buildLegend(),
                   SizedBox(height: 40.h),

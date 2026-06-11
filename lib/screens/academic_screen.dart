@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:convert';
 import 'dart:developer' as dev;
 import 'package:intl/intl.dart' as intl;
 import '../theme/colors.dart';
@@ -19,6 +18,7 @@ import 'features/create_assignment_screen.dart';
 import 'features/schedule_screen.dart';
 import 'features/student_timetable_screen.dart';
 import 'features/announcements_screen.dart';
+import '../widgets/common_widgets.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Academic Screen — supports student Academic Overview & teacher Academic Management
@@ -62,6 +62,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   // ── Student/Overview State ──
   bool _isLoadingStudent = true;
   String _studentEmail = '';
+  // ignore: unused_field
   String _studentName = '';
   String _studentId = '';
   String _classId = '';
@@ -140,10 +141,10 @@ class _AcademicScreenState extends State<AcademicScreen> {
     super.initState();
     if (widget.role == 'student') {
       _loadStudentOverviewData();
-      _connectRealTime();
     } else {
       _loadLocalData();
     }
+    _connectRealTime();
   }
 
   @override
@@ -274,7 +275,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'AttendanceRecord',
           callback: (payload) {
             dev.log('🔥 Real-time attendance change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         )
         .onPostgresChanges(
@@ -283,7 +290,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Subject',
           callback: (payload) {
             dev.log('🔥 Real-time subject change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         )
         .onPostgresChanges(
@@ -292,7 +305,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'TimetableSlot',
           callback: (payload) {
             dev.log('🔥 Real-time timetable slot change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         )
         .onPostgresChanges(
@@ -301,7 +320,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Student',
           callback: (payload) {
             dev.log('🔥 Real-time student profile change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         )
         .onPostgresChanges(
@@ -310,7 +335,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Class',
           callback: (payload) {
             dev.log('🔥 Real-time class change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         )
         .onPostgresChanges(
@@ -319,7 +350,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Section',
           callback: (payload) {
             dev.log('🔥 Real-time section change payload: $payload', name: 'AcademicScreen');
-            if (mounted) _loadStudentOverviewData(showLoading: false);
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
           },
         );
 
@@ -333,10 +370,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e', name: 'AcademicScreen');
     }
 
-    // Polling fallback every 2 seconds for robust background sync
-    _realtimePollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted && widget.role == 'student') {
-        _loadStudentOverviewData(showLoading: false);
+    // Polling fallback for robust background sync
+    _realtimePollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (mounted) {
+        if (widget.role == 'student') {
+          _loadStudentOverviewData(showLoading: false);
+        } else {
+          _loadLocalData();
+        }
       }
     });
   }
@@ -349,92 +390,89 @@ class _AcademicScreenState extends State<AcademicScreen> {
       final prefs = await SharedPreferences.getInstance();
       _userName = prefs.getString('teacher_name') ?? prefs.getString('student_name') ?? 'Emma Johnson';
       _userRole = prefs.getString('user_role') ?? 'teacher';
+
+      final client = Supabase.instance.client;
+
+      // 1. Fetch Class list
+      final List<dynamic> classesRes = await client
+          .from('Class')
+          .select('*, classTeacher:User(firstName, lastName)');
       
-      final classesJson = prefs.getString('academic_classes_list');
-      if (classesJson != null) {
-        _classesList = List<Map<String, dynamic>>.from(json.decode(classesJson));
-      }
-      
-      if (_classesList.isEmpty) {
-        _classesList = List.generate(10, (i) => {
-          'name': 'Grade ${i + 1}',
-          'level': '${i + 1}',
-          'academic_year': '—',
-          'class_teacher': '—',
-          'students': 0,
+      final List<Map<String, dynamic>> loadedClasses = [];
+      for (var c in classesRes) {
+        final classTeacherUser = c['classTeacher'] as Map?;
+        final tName = classTeacherUser != null
+            ? '${classTeacherUser['firstName'] ?? ''} ${classTeacherUser['lastName'] ?? ''}'.trim()
+            : '—';
+        
+        final countRes = await client
+            .from('Student')
+            .select('id')
+            .eq('currentClassId', c['id']);
+        
+        loadedClasses.add({
+          'id': c['id'],
+          'name': c['name']?.toString() ?? '',
+          'level': c['level']?.toString() ?? '',
+          'academic_year': '2026-2027',
+          'class_teacher': tName.isNotEmpty ? tName : '—',
+          'students': countRes.length,
         });
       }
       
-      final subjectsJson = prefs.getString('academic_subjects_list');
-      if (subjectsJson != null) {
-        _subjectsList = List<Map<String, dynamic>>.from(json.decode(subjectsJson));
-      }
-
-      if (_subjectsList.isEmpty) {
-        final defaultSubjects = [
-          {'name': 'Mathematics', 'code': 'MAT-1'},
-          {'name': 'Science', 'code': 'SCI-1'},
-          {'name': 'English', 'code': 'ENG-1'},
-          {'name': 'Social Studies', 'code': 'SOC-1'},
-          {'name': 'Hindi', 'code': 'HIN-1'},
-          {'name': 'Computer', 'code': 'COM-1'},
-          {'name': 'Mathematics', 'code': 'MAT-2'},
-          {'name': 'Science', 'code': 'SCI-2'},
-          {'name': 'English', 'code': 'ENG-2'},
-          {'name': 'Social Studies', 'code': 'SOC-2'},
-          {'name': 'Hindi', 'code': 'HIN-2'},
-          {'name': 'Computer', 'code': 'COM-2'},
-        ];
-        _subjectsList = defaultSubjects.map((s) => {
-          'name': s['name'],
-          'code': s['code'],
-          'class': '—',
+      // 2. Fetch Subject list
+      final List<dynamic> subjectsRes = await client
+          .from('Subject')
+          .select('*, Class(name)');
+      
+      final List<Map<String, dynamic>> loadedSubjects = [];
+      for (var s in subjectsRes) {
+        final classData = s['Class'] as Map?;
+        final className = classData != null ? classData['name']?.toString() ?? '—' : '—';
+        loadedSubjects.add({
+          'id': s['id'],
+          'name': s['name']?.toString() ?? '',
+          'code': s['code']?.toString() ?? '',
+          'class': className,
           'teacher': '—',
-          'description': '-',
-        }).toList();
+          'description': s['description']?.toString() ?? '-',
+        });
       }
 
-      final sectionsJson = prefs.getString('academic_sections_list');
-      if (sectionsJson != null) {
-        _sectionsList = List<Map<String, dynamic>>.from(json.decode(sectionsJson));
+      // 3. Fetch Section list
+      final List<dynamic> sectionsRes = await client
+          .from('Section')
+          .select('*, Class(name)');
+      
+      final List<Map<String, dynamic>> loadedSections = [];
+      for (var sec in sectionsRes) {
+        final classData = sec['Class'] as Map?;
+        final className = classData != null ? classData['name']?.toString() ?? '—' : '—';
+        
+        final countRes = await client
+            .from('Student')
+            .select('id')
+            .eq('sectionId', sec['id']);
+            
+        loadedSections.add({
+          'id': sec['id'],
+          'name': sec['name']?.toString() ?? '',
+          'class': className,
+          'max_students': sec['maxStudents'] ?? 40,
+          'students': countRes.length,
+        });
       }
 
-      if (_sectionsList.isEmpty) {
-        final List<Map<String, dynamic>> defaultSections = [];
-        for (int gradeNum = 1; gradeNum <= 4; gradeNum++) {
-          defaultSections.add({
-            'name': 'Section A',
-            'class': 'Grade $gradeNum',
-            'max_students': 40,
-            'students': 0,
-          });
-          defaultSections.add({
-            'name': 'Section B',
-            'class': 'Grade $gradeNum',
-            'max_students': 40,
-            'students': 0,
-          });
-          defaultSections.add({
-            'name': 'Section C',
-            'class': 'Grade $gradeNum',
-            'max_students': 40,
-            'students': 0,
-          });
-        }
-        _sectionsList = defaultSections;
+      if (mounted) {
+        setState(() {
+          _classesList = loadedClasses;
+          _subjectsList = loadedSubjects;
+          _sectionsList = loadedSections;
+        });
       }
-
-      if (mounted) setState(() {});
-    } catch (_) {}
-  }
-
-  Future<void> _saveLocalData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('academic_classes_list', json.encode(_classesList));
-      await prefs.setString('academic_subjects_list', json.encode(_subjectsList));
-      await prefs.setString('academic_sections_list', json.encode(_sectionsList));
-    } catch (_) {}
+    } catch (e) {
+      dev.log('Error loading teacher database data: $e');
+    }
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -504,73 +542,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
     }).toList();
   }
 
-  void _showAllSubjectsSheet() {
-    final list = _getSubjects();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: EdgeInsets.all(24.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '📚 All Subjects',
-                  style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            SizedBox(height: 16.h),
-            ...list.map((sub) => Container(
-              margin: EdgeInsets.only(bottom: 12.h),
-              padding: EdgeInsets.all(16.r),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: const Color(0xFFE2EAF4)),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(10.r),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(10.r),
-                    ),
-                    child: Icon(Icons.book_outlined, color: const Color(0xFF0076F6), size: 18.sp),
-                  ),
-                  SizedBox(width: 14.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(sub['name'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
-                        Text('Code: ${sub['code']} • Type: ${sub['type'] ?? 'CORE'}', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90))),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )),
-            SizedBox(height: 12.h),
-          ],
-        ),
-      ),
-    );
-  }
+
 
   void _showAllTimetablesSheet() {
     Navigator.push(
@@ -853,6 +825,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   Widget _buildTimetableCard() {
+    // ignore: unused_local_variable
     final list = _getTimetableSlots();
 
     return Container(
@@ -2042,19 +2015,31 @@ class _AcademicScreenState extends State<AcademicScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
-            onPressed: () {
+            onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
-              setState(() {
-                _classesList.add({
+              final navigator = Navigator.of(ctx);
+              try {
+                final client = Supabase.instance.client;
+                final acYears = await client.from('Class').select('academicYearId').limit(1);
+                final academicYearId = acYears.isNotEmpty ? acYears.first['academicYearId'] : null;
+
+                await client.from('Class').insert({
                   'name': nameCtrl.text.trim(),
                   'level': levelCtrl.text.trim(),
-                  'academic_year': yearCtrl.text.trim(),
-                  'class_teacher': teacherCtrl.text.trim(),
-                  'students': int.tryParse(studentsCtrl.text.trim()) ?? 0,
+                  'academicYearId': academicYearId,
                 });
-              });
-              _saveLocalData();
-              Navigator.pop(ctx);
+                
+                if (mounted) {
+                  showToast(context, 'Class Created Successfully!');
+                  navigator.pop();
+                  _loadLocalData();
+                }
+              } catch (e) {
+                dev.log('Error creating class: $e');
+                if (mounted) {
+                  showToast(context, 'Failed to create class', isError: true);
+                }
+              }
             },
             child: const Text('Create', style: TextStyle(color: Colors.white)),
           ),
@@ -2095,19 +2080,45 @@ class _AcademicScreenState extends State<AcademicScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
-            onPressed: () {
+            onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
-              setState(() {
-                _subjectsList.add({
+              final navigator = Navigator.of(ctx);
+              try {
+                final className = classCtrl.text.trim();
+                final client = Supabase.instance.client;
+                final classes = await client.from('Class').select('id').eq('name', className).limit(1);
+                final classId = classes.isNotEmpty ? classes.first['id'] : null;
+                
+                String? targetClassId = classId;
+                if (targetClassId == null) {
+                  final insertRes = await client.from('Class').insert({
+                    'name': className,
+                    'level': 'Standard',
+                  }).select('id').single();
+                  targetClassId = insertRes['id'] as String;
+                }
+
+                await client.from('Subject').insert({
                   'name': nameCtrl.text.trim(),
                   'code': codeCtrl.text.trim(),
-                  'class': classCtrl.text.trim(),
-                  'teacher': teacherCtrl.text.trim(),
+                  'classId': targetClassId,
                   'description': descCtrl.text.trim(),
+                  'type': 'CORE',
+                  'totalMarks': 100,
+                  'passMarks': 33,
                 });
-              });
-              _saveLocalData();
-              Navigator.pop(ctx);
+
+                if (mounted) {
+                  showToast(context, 'Subject Created Successfully!');
+                  navigator.pop();
+                  _loadLocalData();
+                }
+              } catch (e) {
+                dev.log('Error creating subject: $e');
+                if (mounted) {
+                  showToast(context, 'Failed to create subject', isError: true);
+                }
+              }
             },
             child: const Text('Create', style: TextStyle(color: Colors.white)),
           ),
@@ -2145,18 +2156,41 @@ class _AcademicScreenState extends State<AcademicScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
-            onPressed: () {
+            onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
-              setState(() {
-                _sectionsList.add({
+              final navigator = Navigator.of(ctx);
+              try {
+                final className = classCtrl.text.trim();
+                final client = Supabase.instance.client;
+                final classes = await client.from('Class').select('id').eq('name', className).limit(1);
+                final classId = classes.isNotEmpty ? classes.first['id'] : null;
+                
+                String? targetClassId = classId;
+                if (targetClassId == null) {
+                  final insertRes = await client.from('Class').insert({
+                    'name': className,
+                    'level': 'Standard',
+                  }).select('id').single();
+                  targetClassId = insertRes['id'] as String;
+                }
+
+                await client.from('Section').insert({
                   'name': nameCtrl.text.trim(),
-                  'class': classCtrl.text.trim(),
-                  'max_students': int.tryParse(maxCtrl.text.trim()) ?? 40,
-                  'students': int.tryParse(studentsCtrl.text.trim()) ?? 0,
+                  'classId': targetClassId,
+                  'maxStudents': int.tryParse(maxCtrl.text.trim()) ?? 40,
                 });
-              });
-              _saveLocalData();
-              Navigator.pop(ctx);
+
+                if (mounted) {
+                  showToast(context, 'Section Created Successfully!');
+                  navigator.pop();
+                  _loadLocalData();
+                }
+              } catch (e) {
+                dev.log('Error creating section: $e');
+                if (mounted) {
+                  showToast(context, 'Failed to create section', isError: true);
+                }
+              }
             },
             child: const Text('Create', style: TextStyle(color: Colors.white)),
           ),

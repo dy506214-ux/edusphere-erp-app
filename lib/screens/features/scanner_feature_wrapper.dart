@@ -51,6 +51,7 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
           _selectedLocation = mainScanner['location'] ?? 'Main Entrance';
           _isLoading = false;
         });
+      } else {
         // No scanners exist. Let's create a default one in Supabase so it's fully working!
         final currentUser = Supabase.instance.client.auth.currentUser;
         final insertRes = await Supabase.instance.client

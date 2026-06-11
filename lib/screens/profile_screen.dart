@@ -455,6 +455,191 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _loadStudentDataFromSupabase() async {
     try {
+      final client = Supabase.instance.client;
+      Map<String, dynamic>? studentRes;
+
+      if (widget.studentId != null) {
+        final res = await client
+            .from('Student')
+            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*, User(*)))')
+            .eq('id', widget.studentId!)
+            .maybeSingle();
+        if (res != null) {
+          studentRes = Map<String, dynamic>.from(res);
+        }
+      } else {
+        final currentUser = client.auth.currentUser;
+        if (currentUser != null) {
+          final res = await client
+              .from('Student')
+              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*, User(*)))')
+              .eq('userId', currentUser.id)
+              .maybeSingle();
+          if (res != null) {
+            studentRes = Map<String, dynamic>.from(res);
+          }
+        }
+      }
+
+      if (studentRes != null) {
+        final studentData = studentRes;
+        final userMap = studentData['User'] as Map<String, dynamic>? ?? {};
+        final classMap = studentData['Class'] as Map<String, dynamic>? ?? {};
+        final sectionMap = studentData['Section'] as Map<String, dynamic>? ?? {};
+        
+        final String firstName = userMap['firstName'] as String? ?? '';
+        final String lastName = userMap['lastName'] as String? ?? '';
+        
+        setState(() {
+          _studentName = '$firstName $lastName'.trim();
+          if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
+          
+          _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
+          _admissionNo = studentData['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
+          
+          final String rawClassName = classMap['name']?.toString() ?? widget.studentClass ?? '—';
+          if (rawClassName.contains(' - ')) {
+            final parts = rawClassName.split(' - ');
+            _studentClass = parts[0];
+            _section = parts[1];
+          } else {
+            _studentClass = rawClassName;
+            _section = sectionMap['name']?.toString() ?? '—';
+          }
+          
+          _rollNo = studentData['rollNumber']?.toString() ?? '—';
+          // Derive batch from AcademicYear linked to the Class
+          final academicYear = classMap['AcademicYear'] as Map<String, dynamic>?;
+          _batch = academicYear?['name'] as String? ?? '—';
+          _medium = studentData['medium'] as String? ?? '—';
+          
+          final joinDateStr = studentData['joiningDate'] as String?;
+          if (joinDateStr != null) {
+            try {
+              final parsed = DateTime.parse(joinDateStr);
+              _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
+            } catch (_) {
+              _studentJoinedDate = '—';
+            }
+          } else {
+            _studentJoinedDate = '—';
+          }
+          
+          _emergencyInfo = studentData['emergencyPhone'] as String? ?? studentData['emergencyContact'] as String? ?? '—';
+          if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
+          
+          final rawGender = userMap['gender'] as String? ?? '—';
+          if (rawGender.toUpperCase() == 'MALE') {
+            _studentGender = 'Male';
+          } else if (rawGender.toUpperCase() == 'FEMALE') {
+            _studentGender = 'Female';
+          } else {
+            _studentGender = rawGender;
+          }
+          
+          final dobStr = userMap['dateOfBirth'] as String?;
+          if (dobStr != null) {
+            try {
+              final parsed = DateTime.parse(dobStr);
+              _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            } catch (_) {
+              _studentDob = dobStr;
+            }
+          } else {
+            _studentDob = '—';
+          }
+          
+          _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
+          _religion = studentData['religion'] as String? ?? '—';
+          _casteGroup = studentData['caste'] as String? ?? '—';
+          _nationality = studentData['nationality'] as String? ?? '—';
+          _dbQrCode = userMap['qrCode'] as String?;
+          
+          // Extract Parent details
+          String father = '—';
+          String mother = '—';
+          String guardianPhoneVal = studentData['emergencyPhone'] as String? ?? '—';
+ 
+          final studentParentList = studentData['StudentParent'] as List<dynamic>? ?? [];
+          if (studentParentList.isNotEmpty) {
+            for (var sp in studentParentList) {
+              final spMap = sp as Map<String, dynamic>;
+              final rel = spMap['relationship'] as String?;
+              final parentObj = spMap['Parent'] as Map<String, dynamic>?;
+              if (parentObj != null) {
+                final userObj = parentObj['User'] as Map<String, dynamic>?;
+                final pFullName = userObj != null
+                    ? '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim()
+                    : '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pPhone = userObj?['phone'] as String? ?? parentObj['phone'] as String? ?? '—';
+                if (rel == 'FATHER') {
+                  father = pFullName;
+                  if (guardianPhoneVal == '—') guardianPhoneVal = pPhone;
+                } else if (rel == 'MOTHER') {
+                  mother = pFullName;
+                  if (guardianPhoneVal == '—') guardianPhoneVal = pPhone;
+                }
+              }
+            }
+          }
+ 
+          if (father == '—' && mother == '—') {
+            father = studentData['emergencyContact'] as String? ?? '—';
+          }
+ 
+          _fatherName = father;
+          _motherName = mother;
+          _guardianPhone = guardianPhoneVal;
+ 
+          // Extract documents
+          List<Map<String, String>> docs = [];
+          final studentDocList = studentData['StudentDocument'] as List<dynamic>? ?? [];
+          if (studentDocList.isNotEmpty) {
+            docs = studentDocList.map((d) {
+              final dMap = d as Map<String, dynamic>;
+              final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+              final String? uploadDateStr = dMap['uploadedAt'] as String?;
+              String dateStr = '—';
+              if (uploadDateStr != null) {
+                try {
+                  final parsed = DateTime.parse(uploadDateStr);
+                  dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
+                } catch (_) {}
+              }
+              return {
+                'name': docName,
+                'date': dateStr,
+                'id': dMap['id']?.toString() ?? '',
+              };
+            }).toList();
+          }
+          _uploadedDocuments = docs;
+        });
+ 
+        final studentId = studentData['id'] as String;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('student_id', studentId);
+ 
+        final String? sectionId = studentData['sectionId'] as String?;
+        _loadAllTabDetails(studentId, sectionId);
+ 
+        if (userMap['id'] != null) {
+          try {
+            final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
+            if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+              final qr = qrRes['qrCode'] as String?;
+              if (qr != null && qr.isNotEmpty) {
+                setState(() {
+                  _dbQrCode = qr;
+                });
+                await prefs.setString('student_qrcode', qr);
+              }
+            }
+          } catch (_) {}
+        }
+        return;
+      }
+
       final response = widget.studentId != null
           ? await ApiService.instance.get('students/${widget.studentId}')
           : await ApiService.instance.get('students/me');
@@ -464,41 +649,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final studentRes = response['student'] as Map<String, dynamic>;
-      final userMap = studentRes['user'] as Map<String, dynamic>? ?? {};
-      final classMap = studentRes['currentClass'] as Map<String, dynamic>? ?? {};
-      final sectionMap = studentRes['section'] as Map<String, dynamic>? ?? {};
+      final studentResMap = response['student'] as Map<String, dynamic>;
+      final userMap = studentResMap['user'] as Map<String, dynamic>? ?? {};
+      final classMap = studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
+      final sectionMap = studentResMap['section'] as Map<String, dynamic>? ?? {};
       
       final String firstName = userMap['firstName'] as String? ?? '';
       final String lastName = userMap['lastName'] as String? ?? '';
       
       setState(() {
         _studentName = '$firstName $lastName'.trim();
-        if (_studentName.isEmpty) _studentName = 'Alex Rivera';
+        if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
         
-        _studentEmail = userMap['email'] as String? ?? 'alex.rivera@edusmart.edu';
-        _admissionNo = studentRes['admissionNumber'] as String? ?? 'ADM-2026-024';
-        _studentClass = classMap['name'] as String? ?? 'Grade 12';
-        _section = sectionMap['name'] as String? ?? 'A';
-        _rollNo = studentRes['rollNumber']?.toString() ?? '24';
+        _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
+        _admissionNo = studentResMap['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
+        _studentClass = classMap['name'] as String? ?? widget.studentClass ?? '—';
+        _section = sectionMap['name'] as String? ?? '—';
+        _rollNo = studentResMap['rollNumber']?.toString() ?? '—';
         
-        _batch = '2024-25';
-        _medium = studentRes['medium'] as String? ?? 'ENGLISH';
+        _batch = '—';
+        _medium = studentResMap['medium'] as String? ?? '—';
         
-        final joinDateStr = studentRes['joiningDate'] as String?;
+        final joinDateStr = studentResMap['joiningDate'] as String?;
         if (joinDateStr != null) {
           try {
             final parsed = DateTime.parse(joinDateStr);
             _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
           } catch (_) {
-            _studentJoinedDate = '6/1/2024';
+            _studentJoinedDate = '—';
           }
         } else {
-          _studentJoinedDate = '6/1/2024';
+          _studentJoinedDate = '—';
         }
         
-        _emergencyInfo = studentRes['emergencyPhone'] as String? ?? 'UNSET';
-        if (_emergencyInfo.isEmpty) _emergencyInfo = 'UNSET';
+        _emergencyInfo = studentResMap['emergencyPhone'] as String? ?? '—';
+        if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
         
         final rawGender = userMap['gender'] as String? ?? '—';
         if (rawGender.toUpperCase() == 'MALE') {
@@ -522,9 +707,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         
         _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
-        _religion = studentRes['religion'] as String? ?? 'HINDU';
-        _casteGroup = studentRes['caste'] as String? ?? 'GENERAL';
-        _nationality = studentRes['nationality'] as String? ?? 'INDIAN';
+        _religion = studentResMap['religion'] as String? ?? '—';
+        _casteGroup = studentResMap['caste'] as String? ?? '—';
+        _nationality = studentResMap['nationality'] as String? ?? '—';
         _dbQrCode = userMap['qrCode'] as String?;
       });
 
@@ -548,21 +733,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       // Store student ID for later use
-      final studentId = studentRes['id'] as String;
+      final studentId = studentResMap['id'] as String;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('student_id', studentId);
 
-      final String? sectionId = studentRes['sectionId'] as String?;
+      final String? sectionId = studentResMap['sectionId'] as String?;
       _loadAllTabDetails(studentId, sectionId);
 
       // Extract Parent details from the included parents array
       try {
-        final parentsList = studentRes['parents'] as List<dynamic>? ?? [];
+        final parentsList = studentResMap['parents'] as List<dynamic>? ?? [];
         if (parentsList.isNotEmpty) {
           String father = '—';
           String mother = '—';
           String guardianPhone = '—';
-          
 
           for (var sp in parentsList) {
             final spMap = sp as Map<String, dynamic>;
@@ -596,7 +780,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Extract uploaded documents from included documents array
       try {
-        final docsList = studentRes['documents'] as List<dynamic>? ?? [];
+        final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
         setState(() {
           _uploadedDocuments = docsList.map((d) {
             final dMap = d as Map<String, dynamic>;

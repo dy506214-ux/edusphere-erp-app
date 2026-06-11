@@ -19,11 +19,49 @@ class _TeacherOverdueManagementScreenState
     extends State<TeacherOverdueManagementScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _overdueIssues = [];
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _loadOverdueData();
+    _connectRealtime();
+  }
+
+  void _connectRealtime() {
+    try {
+      final client = Supabase.instance.client;
+      _realtimeChannel = client.channel('public:teacher_overdue_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'LibraryIssue',
+          callback: (payload) {
+            if (mounted) _loadOverdueData();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'Book',
+          callback: (payload) {
+            if (mounted) _loadOverdueData();
+          },
+        );
+      _realtimeChannel!.subscribe();
+    } catch (e) {
+      debugPrint('Error subscribing to overdue management realtime: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
   }
 
   Future<void> _loadOverdueData() async {

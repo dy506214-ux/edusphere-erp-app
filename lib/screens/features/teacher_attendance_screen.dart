@@ -104,12 +104,44 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   final List<Map<String, dynamic>> _createdSlots = [];
 
   final _supabase = Supabase.instance.client;
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
     super.initState();
     _loadApiClasses();
     _loadExistingSlotsForDate();
+    _connectRealtime();
+  }
+
+  void _connectRealtime() {
+    try {
+      _realtimeChannel = _supabase.channel('public:teacher_attendance_sync')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'AttendanceRecord',
+          callback: (payload) {
+            if (mounted) {
+              _loadExistingSlotsForDate();
+              _loadAnalytics();
+            }
+          },
+        );
+      _realtimeChannel!.subscribe();
+    } catch (e) {
+      dev.log('Error subscribing to teacher attendance realtime: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_realtimeChannel != null) {
+      try {
+        _supabase.removeChannel(_realtimeChannel!);
+      } catch (_) {}
+    }
+    super.dispose();
   }
 
   String _mapClassName(String dbName) {
@@ -460,7 +492,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               ],
             )
           : null,
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 3),
+      bottomNavigationBar: widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 3) : null,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),

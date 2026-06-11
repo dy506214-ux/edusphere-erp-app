@@ -447,15 +447,19 @@ class _MainScreenState extends State<MainScreen> {
                             return IconButton(
                               icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
                               onPressed: () async {
+                                final navigator = Navigator.of(context);
+                                final RenderBox? button = context.findRenderObject() as RenderBox?;
+                                final RenderBox? overlay = navigator.overlay?.context.findRenderObject() as RenderBox?;
+
                                 final prefs = await SharedPreferences.getInstance();
                                 final now = DateTime.now();
                                 await prefs.setString('last_seen_announcement_time', now.toIso8601String());
+                                if (!context.mounted) return;
                                 setState(() {
                                   _lastSeenAnnouncementTime = now;
                                 });
                                 
-                                final RenderBox button = context.findRenderObject() as RenderBox;
-                                final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+                                if (button == null || overlay == null) return;
                                 final RelativeRect position = RelativeRect.fromRect(
                                   Rect.fromPoints(
                                     button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
