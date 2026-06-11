@@ -43,6 +43,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   int pendingFee = 0;
   int booksDue = 0;
   int pendingCount = 0;
+  bool _isRefreshing = false;
 
   // Calendar State
   late DateTime _selectedMonth;
@@ -163,6 +164,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     setState(() {
       studentName = savedName;
       studentEmail = savedEmail;
+      _isRefreshing = true;
     });
 
     // ── 1. Fetch full student profile from backend ─────────────────────────
@@ -276,6 +278,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
       dev.log('Error loading student data from backend API: $e');
       // Fallback: load from SharedPreferences only
       if (mounted) setState(() { _attendanceLoaded = true; });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -538,9 +546,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 900;
+    final now = DateTime.now();
+    final dateFormatted = "${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][now.weekday - 1]}, ${now.day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.month - 1]} ${now.year}";
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFFF0F9FF), // Updated background color
       body: RefreshIndicator(
         onRefresh: _loadStudentData,
         color: AppColors.studentPrimary,
@@ -553,6 +563,76 @@ class _StudentDashboardState extends State<StudentDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // New Header Row for responsive inline layout
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'Hi, ${studentName.split(' ').first} ',
+                                    style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text('👋', style: TextStyle(fontSize: 22.sp)),
+                              ],
+                            ),
+                            SizedBox(height: 4.h),
+                            Text("Here's your personal summary.", style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _isRefreshing ? null : _loadStudentData,
+                            icon: _isRefreshing 
+                              ? SizedBox(
+                                  width: 14.sp, 
+                                  height: 14.sp, 
+                                  child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.textMedium)
+                                )
+                              : Icon(Icons.history_rounded, size: 14.sp, color: AppColors.textMedium),
+                            label: Text('Refresh', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
+                              side: const BorderSide(color: Color(0xFFCBD5E1)),
+                              backgroundColor: Colors.white,
+                            ),
+                          ),
+                          SizedBox(width: 6.w),
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(6.r),
+                              border: Border.all(color: const Color(0xFF93C5FD)),
+                            ),
+                            child: Text(
+                              dateFormatted,
+                              style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF2563EB)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 24.h),
+                  
                   // Profile Banner Section
                   _buildProfileBanner(isDesktop),
                   SizedBox(height: 24.h),
@@ -597,11 +677,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         borderRadius: BorderRadius.circular(24.r),
         border: Border.all(color: AppColors.border),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 16.r,
-            offset: Offset(0, 4.h),
-          )
+          BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 4.r, offset: Offset(0, 2.h)),
         ],
       ),
       padding: EdgeInsets.all(24.r),
@@ -628,6 +704,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
                           studentName,
@@ -637,11 +714,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                             color: AppColors.textDark,
                           ),
                         ),
-                        SizedBox(width: 10.w),
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
+                            color: const Color(0xFF22C55E),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
@@ -649,7 +725,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                             style: GoogleFonts.inter(
                               fontSize: 10.sp,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF15803D),
+                              color: Colors.white,
                             ),
                           ),
                         ),
@@ -674,7 +750,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           SizedBox(height: 24.h),
           Container(
             height: 1.h,
-            color: AppColors.border,
+            color: const Color(0xFFE0F2FE),
           ),
           SizedBox(height: 20.h),
           if (isDesktop)
@@ -778,48 +854,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
               Expanded(child: _metricCard(
                 title: 'ATTENDANCE',
                 value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
-                leftBorderColor: const Color(0xFF3B82F6),
-                subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
-                subtitleColor: AppColors.textLight,
-                trailing: Padding(
-                  padding: EdgeInsets.only(top: 6.h),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4.r),
-                    child: LinearProgressIndicator(
-                      value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
-                      backgroundColor: const Color(0xFFEFF6FF),
-                      color: const Color(0xFF3B82F6),
-                      minHeight: 5.h,
-                    ),
-                  ),
-                ),
+                lineColor: const Color(0xFF3B82F6),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
               )),
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'PENDING FEE',
-                value: '₹$pendingFee',
-                leftBorderColor: const Color(0xFFEF4444),
-                subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
-                subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                value: '$pendingFee',
+                lineColor: const Color(0xFFEF4444),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'BOOKS DUE',
                 value: '$booksDue',
-                leftBorderColor: const Color(0xFF6366F1),
-                subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
-                subtitleColor: AppColors.textLight,
+                lineColor: const Color(0xFF6366F1),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'RESULTS',
-                value: 'View',
-                leftBorderColor: const Color(0xFF8B5CF6),
-                subtitle: 'Academic report',
-                subtitleColor: AppColors.textLight,
+                value: 'View Report',
+                lineColor: const Color(0xFF0EA5E9),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
               )),
             ],
@@ -831,30 +887,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Expanded(child: _metricCard(
                     title: 'ATTENDANCE',
                     value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
-                    leftBorderColor: const Color(0xFF3B82F6),
-                    subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
-                    subtitleColor: AppColors.textLight,
-                    trailing: Padding(
-                      padding: EdgeInsets.only(top: 6.h),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4.r),
-                        child: LinearProgressIndicator(
-                          value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
-                          backgroundColor: const Color(0xFFEFF6FF),
-                          color: const Color(0xFF3B82F6),
-                          minHeight: 5.h,
-                        ),
-                      ),
-                    ),
+                    lineColor: const Color(0xFF3B82F6),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
                   )),
                   SizedBox(width: 16.w),
                   Expanded(child: _metricCard(
                     title: 'PENDING FEE',
-                    value: '₹$pendingFee',
-                    leftBorderColor: const Color(0xFFEF4444),
-                    subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
-                    subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                    value: '$pendingFee',
+                    lineColor: const Color(0xFFEF4444),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
                   )),
                 ],
@@ -865,18 +905,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Expanded(child: _metricCard(
                     title: 'BOOKS DUE',
                     value: '$booksDue',
-                    leftBorderColor: const Color(0xFF6366F1),
-                    subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
-                    subtitleColor: AppColors.textLight,
+                    lineColor: const Color(0xFF6366F1),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
                   )),
                   SizedBox(width: 16.w),
                   Expanded(child: _metricCard(
                     title: 'RESULTS',
-                    value: 'Report',
-                    leftBorderColor: const Color(0xFF8B5CF6),
-                    subtitle: 'Academic perf...',
-                    subtitleColor: AppColors.textLight,
+                    value: 'View Report',
+                    lineColor: const Color(0xFF0EA5E9),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
                   )),
                 ],
@@ -888,61 +924,53 @@ class _StudentDashboardState extends State<StudentDashboard> {
   Widget _metricCard({
     required String title,
     required String value,
-    required Color leftBorderColor,
+    required Color lineColor,
     required VoidCallback onTap,
-    String? subtitle,
-    Color? subtitleColor,
-    Widget? trailing,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
+          borderRadius: BorderRadius.circular(16.r),
           border: Border.all(color: AppColors.border),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10.r, offset: Offset(0, 4.h)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 4.r, offset: Offset(0, 2.h)),
           ],
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(20.r),
-          child: Container(
-            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 5.w))),
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.8),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  value,
-                  style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (subtitle != null) ...[
-                  SizedBox(height: 2.h),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 16.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
                   Text(
-                    subtitle,
-                    style: GoogleFonts.inter(
-                      fontSize: 10.sp,
-                      color: subtitleColor ?? AppColors.textLight,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    title,
+                    style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textMedium, letterSpacing: 0.8),
                   ),
+                  Icon(Icons.arrow_forward_rounded, size: 14.sp, color: AppColors.textMedium),
                 ],
-                if (trailing != null) trailing,
-              ],
-            ),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                value,
+                style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              SizedBox(height: 8.h),
+              Container(
+                height: 3.h,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: lineColor,
+                  borderRadius: BorderRadius.circular(2.r),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1243,7 +1271,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     Icon(Icons.event_busy_rounded, color: Colors.white.withValues(alpha: 0.25), size: 36.sp),
                     SizedBox(height: 10.h),
                     Text(
-                      'No upcoming events',
+                      'No upcoming events scheduled',
                       style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w600),
                     ),
                     SizedBox(height: 4.h),
@@ -1409,37 +1437,34 @@ class _StudentDashboardState extends State<StudentDashboard> {
               );
             }).toList()),
 
-          if (_upcomingEvents.isNotEmpty) ...[
-            SizedBox(height: 6.h),
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 11.h),
-                decoration: BoxDecoration(
-                  color: widget.theme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: widget.theme.primary.withValues(alpha: 0.25)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'View Full Calendar',
-                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: widget.theme.primary),
-                    ),
-                    SizedBox(width: 4.w),
-                    Icon(Icons.arrow_forward_ios_rounded, size: 10.sp, color: widget.theme.primary),
-                  ],
-                ),
+          SizedBox(height: 6.h),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()),
+              );
+            },
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 14.h),
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'View Full Schedule',
+                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0284C7)),
+                  ),
+                  SizedBox(width: 4.w),
+                  Icon(Icons.arrow_forward_ios_rounded, size: 12.sp, color: const Color(0xFF0284C7)),
+                ],
               ),
             ),
-          ],
+          ),
         ],
       ),
     );

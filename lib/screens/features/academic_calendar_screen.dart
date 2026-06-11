@@ -3,6 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:gal/gal.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../services/api_service.dart';
 import 'dart:developer' as dev;
 import '../main_screen.dart';
@@ -71,9 +74,13 @@ class AcademicCalendarScreen extends StatefulWidget {
 class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  late DateTime _focusedMonth;
+  late DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _selectedDay;
   bool _isMonthView = true;
+  bool _isLoading = false;
+
+  String _selectedFilter = 'All Categories';
+  final ScreenshotController _screenshotController = ScreenshotController();
 
   // Events keyed by "year-month-day"
   final Map<String, List<CalendarEvent>> _events = {};
@@ -212,8 +219,13 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   String _eventKey(int year, int month, int day) => '$year-$month-$day';
 
-  List<CalendarEvent> _eventsForDay(int year, int month, int day) =>
-      _events[_eventKey(year, month, day)] ?? [];
+  List<CalendarEvent> _eventsForDay(int year, int month, int day) {
+    final evs = _events[_eventKey(year, month, day)] ?? [];
+    if (_selectedFilter == 'All Categories') return evs;
+    return evs.where((e) {
+      return e.type.label.toLowerCase() == _selectedFilter.toLowerCase();
+    }).toList();
+  }
 
   void _goToPreviousMonth() => setState(() {
         _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
@@ -245,6 +257,56 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       }
     }
     return result;
+  }
+
+  Future<void> _exportCalendar() async {
+    try {
+      // Request gallery permission via gal
+      bool hasAccess = await Gal.hasAccess();
+      if (!hasAccess) {
+        hasAccess = await Gal.requestAccess();
+        if (!hasAccess) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Gallery permission is required to save the calendar.'), backgroundColor: Colors.red),
+            );
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      dev.log("Permission request error: $e");
+    }
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Capturing calendar...'), duration: Duration(seconds: 1), backgroundColor: Colors.blue),
+        );
+      }
+      
+      final imageBytes = await _screenshotController.capture(delay: const Duration(milliseconds: 100));
+      if (imageBytes != null) {
+        await Gal.putImageBytes(
+          imageBytes,
+          name: "Academic_Calendar_${DateTime.now().millisecondsSinceEpoch}"
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Calendar exported to Gallery successfully!'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      dev.log("Export failed: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -287,25 +349,31 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               ],
             )
           : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              SizedBox(height: 18.h),
-              _buildCalendarCard(),
-              SizedBox(height: 14.h),
-              _buildEventHorizons(),
-              SizedBox(height: 14.h),
-              _buildLegend(),
-              SizedBox(height: 80.h),
-            ],
-          ),
-        ),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Screenshot(
+              controller: _screenshotController,
+              child: Container(
+                color: const Color(0xFFF0F4F8),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      SizedBox(height: 18.h),
+                      _buildCalendarCard(),
+                      SizedBox(height: 14.h),
+                      _buildEventHorizons(),
+                      SizedBox(height: 14.h),
+                      _buildLegend(),
+                      SizedBox(height: 80.h),
+                    ],
+                  ),
+                ),
+              ),
+            ),
       bottomNavigationBar: widget.showAppBar
           ? const TeacherBottomNavBar(activeIndex: 1)
           : null,
@@ -363,9 +431,116 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Academic Calendar',
+                style: GoogleFonts.outfit(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0077D6),
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'Institutional schedule, public holidays, and event horizons.',
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PopupMenuButton<String>(
+              onSelected: (value) {
+                setState(() => _selectedFilter = value);
+              },
+              offset: const Offset(0, 40),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+              ),
+              color: Colors.white,
+              elevation: 4,
+              itemBuilder: (context) {
+                final options = [
+                  'All Categories',
+                  'Holiday',
+                  'Event',
+                  'Exam',
+                  'Emergency',
+                  'Notice'
+                ];
+                return options.map((choice) {
+                  final isSelected = choice == _selectedFilter;
+                  return PopupMenuItem<String>(
+                    value: choice,
+                    height: 36.h,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: isSelected
+                          ? BoxDecoration(
+                              color: const Color(0xFFE0F2FE),
+                              borderRadius: BorderRadius.circular(6.r),
+                            )
+                          : null,
+                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                      child: Text(
+                        choice,
+                        style: GoogleFonts.inter(
+                          fontSize: 13.sp,
+                          color: const Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList();
+              },
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.filter_alt_outlined, size: 14.sp, color: const Color(0xFF475569)),
+                    SizedBox(width: 4.w),
+                    Text(
+                      _selectedFilter == 'All Categories' ? 'Filters' : _selectedFilter,
+                      style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF475569)),
+                    ),
+                    SizedBox(width: 4.w),
+                    Icon(Icons.keyboard_arrow_down_rounded, size: 14.sp, color: const Color(0xFF475569)),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(width: 8.w),
+            OutlinedButton.icon(
+              onPressed: _exportCalendar,
+              icon: Icon(Icons.upload_outlined, size: 14.sp, color: const Color(0xFF475569)),
+              label: Text('Export', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF475569))),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                side: const BorderSide(color: Color(0xFFE2E8F0)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -516,92 +691,135 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     final totalCells   = startOffset + daysInMonth;
     final rows         = (totalCells / 7).ceil();
 
+    return Column(
+      children: [
+        _buildCalendarHeader(year, month),
+        SizedBox(height: 14.h),
+        if (_isMonthView)
+          Container(
+            clipBehavior: Clip.hardEdge,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18.r),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _buildWeekdayRow(),
+                // Calendar rows
+                Column(
+                  children: List.generate(rows, (row) {
+                    return _buildCalendarRow(row, startOffset, daysInMonth, year, month, rows);
+                  }),
+                ),
+              ],
+            ),
+          )
+        else
+          _buildListView(),
+      ],
+    );
+  }
+
+  Widget _buildListView() {
+    final events = _monthEventHorizons;
+    
+    if (events.isEmpty) {
+      return Container(
+        height: 400.h,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.calendar_today_outlined, size: 70.sp, color: const Color(0xFFCBD5E1)),
+            SizedBox(height: 24.h),
+            Text(
+              'No events found for this month.',
+              style: GoogleFonts.inter(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF94A3B8),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
       ),
+      padding: EdgeInsets.all(16.r),
       child: Column(
-        children: [
-          _buildCalendarHeader(year, month),
-          _buildWeekdayRow(),
-          SizedBox(height: 4.h),
-          // Calendar rows
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w),
-            child: Column(
-              children: List.generate(rows, (row) {
-                return _buildCalendarRow(row, startOffset, daysInMonth, year, month);
-              }),
-            ),
-          ),
-          SizedBox(height: 10.h),
-        ],
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: events.map((e) => _buildListEventItem(e)).toList(),
       ),
     );
   }
 
-  // Calendar top bar: < June 2026 > Today  [Month] [List]
-  Widget _buildCalendarHeader(int year, int month) {
+  Widget _buildListEventItem(MapEntry<DateTime, CalendarEvent> entry) {
+    final date = entry.key;
+    final event = entry.value;
     return Padding(
-      padding: EdgeInsets.fromLTRB(12.w, 14.h, 12.w, 10.h),
+      padding: EdgeInsets.only(bottom: 12.h),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Prev button
-          _navBtn(Icons.chevron_left_rounded, _goToPreviousMonth),
-          SizedBox(width: 8.w),
-          Flexible(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                DateFormat('MMMM yyyy').format(_focusedMonth),
-                style: GoogleFonts.outfit(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: 8.w),
-          // Next button
-          _navBtn(Icons.chevron_right_rounded, _goToNextMonth),
-          SizedBox(width: 12.w),
-          // Today link
-          GestureDetector(
-            onTap: _goToToday,
-            child: Text(
-              'Today',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0066CC),
-              ),
-            ),
-          ),
-          const Spacer(),
-          // Month / List toggle
           Container(
-            padding: EdgeInsets.all(3.r),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8.r),
+              color: event.type.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12.r),
             ),
-            child: Row(
+            child: Column(
               children: [
-                _toggleBtn('Month', _isMonthView,
-                    () => setState(() => _isMonthView = true)),
-                _toggleBtn('List', !_isMonthView,
-                    () => setState(() => _isMonthView = false)),
+                Text(
+                  DateFormat('MMM').format(date).toUpperCase(),
+                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: event.type.color),
+                ),
+                Text(
+                  '${date.day}',
+                  style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: event.type.color),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(height: 6.h),
+                Text(
+                  event.title,
+                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                ),
+                if (event.time != null) ...[
+                  SizedBox(height: 4.h),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time_rounded, size: 12.sp, color: const Color(0xFF64748B)),
+                      SizedBox(width: 4.w),
+                      Text(event.time!, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -610,16 +828,76 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     );
   }
 
+  // Calendar top bar: < June 2026 > Today  [Month] [List]
+  Widget _buildCalendarHeader(int year, int month) {
+    return Row(
+      children: [
+        // Left container for < June 2026 > Today
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8.r),
+          ),
+          child: Row(
+            children: [
+              _navBtn(Icons.chevron_left_rounded, _goToPreviousMonth),
+              SizedBox(width: 12.w),
+              Text(
+                DateFormat('MMMM yyyy').format(_focusedMonth),
+                style: GoogleFonts.outfit(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              _navBtn(Icons.chevron_right_rounded, _goToNextMonth),
+              SizedBox(width: 12.w),
+              GestureDetector(
+                onTap: _goToToday,
+                child: Text(
+                  'Today',
+                  style: GoogleFonts.inter(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0066CC),
+                  ),
+                ),
+              ),
+              SizedBox(width: 8.w),
+            ],
+          ),
+        ),
+        const Spacer(),
+        // Month / List toggle
+        Container(
+          padding: EdgeInsets.all(3.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              _toggleBtn('Month', _isMonthView,
+                  () => setState(() => _isMonthView = true)),
+              _toggleBtn('List', !_isMonthView,
+                  () => setState(() => _isMonthView = false)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _navBtn(IconData icon, VoidCallback onTap) => GestureDetector(
         onTap: onTap,
         child: Container(
           width: 28.w,
           height: 28.w,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F5F9),
-            borderRadius: BorderRadius.circular(6.r),
-          ),
-          child: Icon(icon, size: 18.sp, color: const Color(0xFF475569)),
+          color: Colors.transparent,
+          child: Icon(icon, size: 20.sp, color: const Color(0xFF0F172A)),
         ),
       );
 
@@ -628,17 +906,17 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 5.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
         decoration: BoxDecoration(
           color: active ? const Color(0xFF0066CC) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.r),
+          borderRadius: BorderRadius.circular(16.r),
         ),
         child: Text(
           label,
           style: GoogleFonts.inter(
-            fontSize: 11.sp,
+            fontSize: 12.sp,
             fontWeight: FontWeight.w700,
-            color: active ? Colors.white : const Color(0xFF64748B),
+            color: active ? Colors.white : const Color(0xFF475569),
           ),
         ),
       ),
@@ -649,37 +927,38 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   Widget _buildWeekdayRow() {
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 8.w),
-      padding: EdgeInsets.symmetric(vertical: 8.h),
       decoration: const BoxDecoration(
         border: Border(
-          top: BorderSide(color: Color(0xFFF1F5F9), width: 1),
-          bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+          bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1),
         ),
       ),
       child: Row(
-        children: days
-            .map((d) => Expanded(
-                  child: Center(
-                    child: Text(
-                      d,
-                      style: GoogleFonts.inter(
-                        fontSize: 9.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF94A3B8),
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ))
-            .toList(),
+        children: days.asMap().entries.map((e) => Expanded(
+          child: Container(
+            padding: EdgeInsets.symmetric(vertical: 14.h),
+            decoration: BoxDecoration(
+              border: e.key < 6 ? const Border(right: BorderSide(color: Color(0xFFE2E8F0), width: 1)) : null,
+            ),
+            child: Center(
+              child: Text(
+                e.value,
+                style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF94A3B8),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        )).toList(),
       ),
     );
   }
 
   // One row of 7 cells
   Widget _buildCalendarRow(
-      int row, int startOffset, int daysInMonth, int year, int month) {
+      int row, int startOffset, int daysInMonth, int year, int month, int rows) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -687,12 +966,25 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           final cellIndex = row * 7 + col;
           final day = cellIndex - startOffset + 1;
 
+          final isLastCol = col == 6;
+          final isLastRow = row == rows - 1;
+          
+          BoxDecoration cellDecoration(bool isSel, bool isT) {
+            return BoxDecoration(
+              color: isSel && !isT ? const Color(0xFFEFF6FF) : Colors.transparent,
+              border: Border(
+                right: isLastCol ? BorderSide.none : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                bottom: isLastRow ? BorderSide.none : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+              ),
+            );
+          }
+
           if (day < 1 || day > daysInMonth) {
             // Empty cell
             return Expanded(
               child: Container(
-                margin: EdgeInsets.all(1.r),
-                constraints: BoxConstraints(minHeight: 54.h),
+                constraints: BoxConstraints(minHeight: 64.h),
+                decoration: cellDecoration(false, false),
               ),
             );
           }
@@ -714,75 +1006,42 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedDay = DateTime(year, month, day)),
               child: Container(
-                margin: EdgeInsets.all(1.r),
-                constraints: BoxConstraints(minHeight: 54.h),
-                decoration: BoxDecoration(
-                  color: isSelected && !isToday
-                      ? const Color(0xFFEFF6FF)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8.r),
-                  border: isSelected && !isToday
-                      ? Border.all(
-                          color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
-                          width: 1)
-                      : null,
-                ),
+                constraints: BoxConstraints(minHeight: 64.h),
+                decoration: cellDecoration(isSelected, isToday),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Day number row
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(4.w, 4.h, 4.w, 2.h),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 22.w,
-                            height: 22.w,
-                            decoration: isToday
-                                ? const BoxDecoration(
-                                    color: Color(0xFF0066CC),
-                                    shape: BoxShape.circle,
-                                  )
-                                : null,
-                            child: Center(
-                              child: Text(
-                                '$day',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11.sp,
-                                  fontWeight: isToday || isSelected
-                                      ? FontWeight.w800
-                                      : FontWeight.w500,
-                                  color: isToday
-                                      ? Colors.white
-                                      : const Color(0xFF1E293B),
-                                ),
-                              ),
-                            ),
+                    if (hasEvents) SizedBox(height: 6.h) else const Spacer(),
+                    Container(
+                      width: 32.w,
+                      height: 32.w,
+                      decoration: isToday
+                          ? const BoxDecoration(
+                              color: Color(0xFF0066CC),
+                              shape: BoxShape.circle,
+                            )
+                          : null,
+                      child: Center(
+                        child: Text(
+                          '$day',
+                          style: GoogleFonts.inter(
+                            fontSize: 13.sp,
+                            fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                            color: isToday
+                                ? Colors.white
+                                : const Color(0xFF1E293B),
                           ),
-                          if (hasEvents)
-                            Expanded(
-                              child: Text(
-                                '${dayEvents.length} ${dayEvents.length == 1 ? 'Item' : 'Items'}',
-                                textAlign: TextAlign.right,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.inter(
-                                  fontSize: 7.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF94A3B8),
-                                ),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
-                    // Event chips
                     if (hasEvents && _isMonthView) ...[
+                      SizedBox(height: 4.h),
                       for (final ev in dayEvents.take(2))
                         _buildEventChip(ev),
-                    ],
+                      SizedBox(height: 4.h),
+                    ] else
+                      const Spacer(),
                   ],
                 ),
               ),
@@ -831,15 +1090,15 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           Row(
             children: [
               Container(
-                padding: EdgeInsets.all(6.r),
+                padding: EdgeInsets.all(8.r),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Icon(
-                  Icons.event_note_rounded,
-                  size: 16.sp,
-                  color: const Color(0xFF94A3B8),
+                  Icons.calendar_today_outlined,
+                  size: 20.sp,
+                  color: const Color(0xFF0077D6),
                 ),
               ),
               SizedBox(width: 10.w),
@@ -855,7 +1114,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                     ),
                   ),
                   Text(
-                    'Chronological list of milestones',
+                    'Chronological list of milestones.',
                     style: GoogleFonts.inter(
                       fontSize: 10.sp,
                       color: const Color(0xFF64748B),
@@ -870,18 +1129,17 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           if (horizons.isEmpty) ...[
             Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 20.h),
+                padding: EdgeInsets.symmetric(vertical: 30.h),
                 child: Column(
                   children: [
                     Icon(Icons.calendar_today_outlined,
-                        size: 30.sp, color: const Color(0xFF1C2541)),
-                    SizedBox(height: 8.h),
+                        size: 36.sp, color: const Color(0xFF475569)),
+                    SizedBox(height: 12.h),
                     Text(
-                      'No events this month',
+                      'No events in horizon',
                       style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontStyle: FontStyle.italic,
-                        color: const Color(0xFF475569),
+                        fontSize: 13.sp,
+                        color: const Color(0xFF64748B),
                       ),
                     ),
                   ],
@@ -999,14 +1257,6 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   // ── Institutional Legend ───────────────────────────────────────────────────
   Widget _buildLegend() {
-    const items = [
-      (Color(0xFFEF4444), 'Holiday'),
-      (Color(0xFF3B82F6), 'Event'),
-      (Color(0xFFF59E0B), 'Exam'),
-      (Color(0xFF8B5CF6), 'Emergency'),
-      (Color(0xFF94A3B8), 'Notice'),
-    ];
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1020,26 +1270,45 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           ),
         ],
       ),
-      padding: EdgeInsets.all(16.r),
+      padding: EdgeInsets.all(20.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'INSTITUTIONAL LEGEND',
-            style: GoogleFonts.inter(
-              fontSize: 9.sp,
+            'Institutional Legend',
+            style: GoogleFonts.outfit(
+              fontSize: 16.sp,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF94A3B8),
-              letterSpacing: 0.8,
+              color: const Color(0xFF0F172A),
             ),
           ),
-          SizedBox(height: 14.h),
-          Wrap(
-            spacing: 20.w,
-            runSpacing: 10.h,
-            children: items
-                .map((item) => _legendItem(item.$1, item.$2))
-                .toList(),
+          SizedBox(height: 16.h),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _legendItem(const Color(0xFFEF4444), 'Holiday'),
+                    SizedBox(height: 12.h),
+                    _legendItem(const Color(0xFF3B82F6), 'Event'),
+                    SizedBox(height: 12.h),
+                    _legendItem(const Color(0xFFF59E0B), 'Exam'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _legendItem(const Color(0xFFDC2626), 'Emergency'),
+                    SizedBox(height: 12.h),
+                    _legendItem(const Color(0xFF475569), 'Notice'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

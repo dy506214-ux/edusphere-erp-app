@@ -371,94 +371,35 @@ class _TransportScreenState extends State<TransportScreen> {
         padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 40.h),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(24.r),
-          border: Border.all(color: const Color(0xFFE9F0F8), width: 1.5.w),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFE2EAF4).withValues(alpha: 0.35),
-              blurRadius: 20.r,
-              offset: Offset(0, 8.h),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 100.w,
-              height: 100.w,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F7FB),
-                borderRadius: BorderRadius.circular(20.r),
-                border: Border.all(color: const Color(0xFFEDF2F7), width: 1.2),
-              ),
-              child: Icon(
-                Icons.directions_bus_outlined,
-                color: const Color(0xFFBACADB),
-                size: 48.sp,
-              ),
+            Icon(
+              Icons.directions_bus_outlined,
+              color: const Color(0xFFCBD5E1),
+              size: 32.sp,
             ),
-            SizedBox(height: 24.h),
+            SizedBox(height: 16.h),
             Text(
               'No Transport Assigned',
               style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2547),
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF334155),
               ),
             ),
             SizedBox(height: 8.h),
             Text(
-              'You are not currently allocated to any\nschool transport route.',
+              'You are not currently allocated to any school transport route.\nPlease contact the administration.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                color: const Color(0xFF6B7A90),
+                fontSize: 11.sp,
+                color: const Color(0xFF64748B),
                 fontWeight: FontWeight.w500,
-                height: 1.4,
-              ),
-            ),
-            SizedBox(height: 28.h),
-            GestureDetector(
-              onTap: _requestTransport,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0076F6),
-                  borderRadius: BorderRadius.circular(14.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0076F6).withValues(alpha: 0.25),
-                      blurRadius: 12.r,
-                      offset: Offset(0, 4.h),
-                    ),
-                  ],
-                ),
-                child: _isRequesting
-                    ? SizedBox(
-                        width: 18.w,
-                        height: 18.w,
-                        child: const CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, color: Colors.white, size: 18.sp),
-                          SizedBox(width: 6.w),
-                          Text(
-                            'Request Transport',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
+                height: 1.5,
               ),
             ),
           ],

@@ -92,8 +92,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Assignments channel: $e', name: 'AssignmentsScreen');
     }
     
-    // Polling fallback every 30 seconds for robust silent updates
-    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+    // Polling fallback every 2 seconds for robust real-time updates
+    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
         _loadAssignmentsData(showLoading: false);
       }
@@ -272,35 +272,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     final filtered = _getFilteredAssignments();
 
     return Scaffold(
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-        leading: IconButton(
-          icon: const Icon(Icons.menu, size: 28),
-          onPressed: () {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-            MainScreen.openDrawer();
-          },
-        ),
-        title: Text(
-          'EduSphere',
-          style: GoogleFonts.outfit(
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, size: 28),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-
       backgroundColor: const Color(0xFFF3F8FC),
       body: SafeArea(
         child: Stack(

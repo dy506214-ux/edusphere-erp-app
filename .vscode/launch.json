@@ -1,0 +1,1 @@
+{ "version": "0.2.0", "configurations": [ { "name": "Flutter Web (No CORS)", "request": "launch", "type": "dart", "args": ["--web-browser-flag", "--disable-web-security"] } ] }

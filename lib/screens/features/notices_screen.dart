@@ -1,170 +1,355 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-class NoticesScreen extends StatelessWidget {
+class NoticesScreen extends StatefulWidget {
   const NoticesScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final notices = [
-      {
-        'title': 'Holiday Notice — May 15th',
-        'date': 'May 1, 2026',
-        'category': 'Holiday',
-        'emoji': '🎉',
-        'important': true,
-        'desc': 'The school will remain closed on May 15th, 2026, on account of the annual local festival. All classes will be suspended for the day.'
-      },
-      {
-        'title': 'Final Exam Schedule Released',
-        'date': 'Apr 30, 2026',
-        'category': 'Exam',
-        'emoji': '📋',
-        'important': true,
-        'desc': 'The final examination schedule for Term 2 has been released. Please collect your admit cards from the administrative office by May 10th.'
-      },
-      {
-        'title': 'Annual Sports Day Registration',
-        'date': 'Apr 28, 2026',
-        'category': 'Event',
-        'emoji': '🏃',
-        'important': false,
-        'desc': 'Registration for the Annual Sports Day is now open. Interested students can sign up for various track and field events at the PE department.'
-      },
-      {
-        'title': 'Library Timing Change',
-        'date': 'Apr 25, 2026',
-        'category': 'Info',
-        'emoji': '📚',
-        'important': false,
-        'desc': 'Starting from next week, the library will be open from 8:00 AM to 6:00 PM on weekdays and 9:00 AM to 1:00 PM on Saturdays.'
-      },
-      {
-        'title': 'Parent-Teacher Meeting',
-        'date': 'Apr 20, 2026',
-        'category': 'Meeting',
-        'emoji': '👨‍👩‍👧',
-        'important': false,
-        'desc': 'A Parent-Teacher Meeting is scheduled for April 25th to discuss the academic progress of students. Attendance is mandatory for all parents.'
-      },
-      {
-        'title': 'New Canteen Menu',
-        'date': 'Apr 18, 2026',
-        'category': 'Info',
-        'emoji': '🍱',
-        'important': false,
-        'desc': 'We are excited to announce a new healthy canteen menu featuring more organic and nutritious meal options for students.'
-      },
-    ];
+  State<NoticesScreen> createState() => _NoticesScreenState();
+}
 
-    void showNoticeDetail(BuildContext context, Map<String, dynamic> notice) {
-      showModalBottomSheet(
-        context: context,
-        backgroundColor: Colors.transparent,
-        isScrollControlled: true,
-        builder: (context) => Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
-          ),
-          padding: EdgeInsets.all(24.r),
+class _NoticesScreenState extends State<NoticesScreen> {
+  final _supabase = Supabase.instance.client;
+
+  Stream<List<Map<String, dynamic>>> _getNoticesStream() {
+    try {
+      return _supabase
+          .from('Notices')
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false);
+    } catch (e) {
+      debugPrint('Error connecting to Notices table: $e');
+      return Stream.value([]);
+    }
+  }
+
+  Color _getDotColor(String priority, String type) {
+    if (priority.toUpperCase() == 'HIGH') return const Color(0xFFEF4444);
+    if (type.toUpperCase() == 'EXAM') return const Color(0xFF10B981);
+    return const Color(0xFF0076F6);
+  }
+
+  Color _getBgColor(String priority, String type) {
+    if (priority.toUpperCase() == 'HIGH') return const Color(0xFFFEE2E2);
+    if (type.toUpperCase() == 'EXAM') return const Color(0xFFD1FAE5);
+    return const Color(0xFFE0E7FF);
+  }
+
+  IconData _getIcon(String priority, String type) {
+    if (priority.toUpperCase() == 'HIGH') return Icons.campaign_outlined;
+    if (type.toUpperCase() == 'EXAM') return Icons.calendar_today_outlined;
+    return Icons.emoji_events_outlined;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F8FC),
+      body: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 40.w, height: 4.h, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2.r)))),
-              SizedBox(height: 24.h),
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(notice['emoji'] as String, style: TextStyle(fontSize: 40.sp)),
-                  SizedBox(width: 16.w),
+                  if (Navigator.canPop(context)) ...[
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        margin: EdgeInsets.only(top: 4.h),
+                        width: 36.w,
+                        height: 36.w,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10.r),
+                          border: Border.all(color: const Color(0xFFE2EAF4)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 6.r,
+                            )
+                          ],
+                        ),
+                        child: Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0D233A), size: 16.sp),
+                      ),
+                    ),
+                    SizedBox(width: 14.w),
+                  ],
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                          decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(8.r)),
-                          child: Text(notice['category'] as String, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w900, color: AppColors.studentPrimary)),
+                        Text(
+                          'Notices & Announcements',
+                          style: GoogleFonts.inter(
+                            fontSize: 22.sp,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0076F6),
+                          ),
                         ),
-                        SizedBox(height: 4.h),
-                        Text(notice['date'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textLight)),
+                        SizedBox(height: 6.h),
+                        Text(
+                          'Stay updated with the latest school news.',
+                          style: GoogleFonts.inter(
+                            fontSize: 13.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF6B7A90),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                 ],
               ),
               SizedBox(height: 24.h),
-              Text(notice['title'] as String, style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
-              SizedBox(height: 16.h),
-              Text(notice['desc'] as String, style: GoogleFonts.inter(fontSize: 15.sp, color: AppColors.textMedium, height: 1.6.h)),
-              SizedBox(height: 32.h),
-              SizedBox(
-                width: double.infinity,
-                child: LoadingButton(label: 'Close', color: AppColors.studentPrimary, onPressed: () async => Navigator.pop(context)),
+              
+              Expanded(
+                child: StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: _getNoticesStream(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final notices = snapshot.data ?? [];
+
+                    if (snapshot.hasError || notices.isEmpty) {
+                      // EMPTY STATE (Second Image)
+                      return Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.symmetric(vertical: 60.h),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 10.r,
+                                offset: Offset(0, 4.h),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.notifications_none_rounded,
+                                color: const Color(0xFF334155),
+                                size: 48.sp,
+                              ),
+                              SizedBox(height: 16.h),
+                              Text(
+                                'No announcements',
+                                style: GoogleFonts.inter(
+                                  fontSize: 15.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F2547),
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Create your first announcement to notify users',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12.sp,
+                                  color: const Color(0xFF6B7A90),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+
+                    // POPULATED LIST (First Image)
+                    return ListView.builder(
+                      physics: const BouncingScrollPhysics(),
+                      itemCount: notices.length,
+                      itemBuilder: (context, index) {
+                        final notice = notices[index];
+                        final title = notice['title']?.toString() ?? 'Untitled';
+                        final desc = notice['description']?.toString() ?? '';
+                        final priority = notice['priority']?.toString() ?? 'NORMAL';
+                        final type = notice['type']?.toString() ?? 'EVENT';
+                        
+                        // Parse tags
+                        List<String> tags = [];
+                        if (notice['tags'] is List) {
+                          tags = List<String>.from(notice['tags']);
+                        } else if (notice['tags'] is String) {
+                          tags = (notice['tags'] as String).split(',').map((e) => e.trim()).toList();
+                        } else {
+                          tags = ['STUDENT', 'PARENTS'];
+                        }
+                        
+                        // Parse date
+                        String dateStr = 'N/A';
+                        if (notice['date'] != null) {
+                          try {
+                            final dt = DateTime.parse(notice['date'].toString());
+                            dateStr = '${dt.day}/${dt.month}/${dt.year}';
+                          } catch (_) {
+                            dateStr = notice['date'].toString();
+                          }
+                        } else if (notice['created_at'] != null) {
+                          try {
+                            final dt = DateTime.parse(notice['created_at'].toString());
+                            dateStr = '${dt.day}/${dt.month}/${dt.year}';
+                          } catch (_) {}
+                        }
+
+                        final dotColor = _getDotColor(priority, type);
+                        final bgColor = _getBgColor(priority, type);
+                        final icon = _getIcon(priority, type);
+                        
+                        final isHigh = priority.toUpperCase() == 'HIGH';
+                        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+                        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
+
+                        return Container(
+                          margin: EdgeInsets.only(bottom: 16.h),
+                          padding: EdgeInsets.all(20.r),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20.r),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 10.r,
+                                offset: Offset(0, 4.h),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                margin: EdgeInsets.only(top: 14.h),
+                                width: 8.w,
+                                height: 8.w,
+                                decoration: BoxDecoration(
+                                  color: dotColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Container(
+                                width: 48.w,
+                                height: 48.w,
+                                decoration: BoxDecoration(
+                                  color: bgColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(icon, color: dotColor, size: 24.sp),
+                              ),
+                              SizedBox(width: 16.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            title,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 15.sp,
+                                              fontWeight: FontWeight.w800,
+                                              color: const Color(0xFF0F2547),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 8.w),
+                                        Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                                          decoration: BoxDecoration(
+                                            color: priorityBg,
+                                            borderRadius: BorderRadius.circular(12.r),
+                                          ),
+                                          child: Text(
+                                            priority.toUpperCase(),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10.sp,
+                                              fontWeight: FontWeight.w800,
+                                              color: priorityTextColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 12.h),
+                                    if (tags.isNotEmpty) ...[
+                                      Wrap(
+                                        spacing: 8.w,
+                                        runSpacing: 8.h,
+                                        children: tags.map((t) => Container(
+                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8.r),
+                                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                                          ),
+                                          child: Text(
+                                            t.toUpperCase(),
+                                            style: GoogleFonts.inter(
+                                              fontSize: 10.sp,
+                                              fontWeight: FontWeight.w700,
+                                              color: const Color(0xFF475569),
+                                            ),
+                                          ),
+                                        )).toList(),
+                                      ),
+                                      SizedBox(height: 12.h),
+                                    ],
+                                    Row(
+                                      children: [
+                                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
+                                        SizedBox(width: 6.w),
+                                        Text(
+                                          dateStr,
+                                          style: GoogleFonts.inter(
+                                            fontSize: 12.sp,
+                                            color: const Color(0xFF6B7A90),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 12.h),
+                                    Text(
+                                      desc,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 13.sp,
+                                        color: const Color(0xFF475569),
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
               ),
-              SizedBox(height: 16.h),
             ],
           ),
         ),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Column(
-        children: [
-          PageHeader(title: 'Notices & Announcements', theme: roleThemes['student']!),
-          Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.all(16.r),
-              itemCount: notices.length,
-              itemBuilder: (_, i) {
-                final n = notices[i];
-                return GestureDetector(
-                  onTap: () => showNoticeDetail(context, n),
-                  child: Container(
-                    margin: EdgeInsets.only(bottom: 12.h),
-                    padding: EdgeInsets.all(16.r),
-                    decoration: BoxDecoration(
-                      color: Colors.white, borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(color: n['important'] == true ? Colors.red.shade200 : AppColors.border, width: n['important'] == true ? 2 : 1),
-                    ),
-                    child: Row(children: [
-                      Text(n['emoji'] as String, style: TextStyle(fontSize: 28.sp)),
-                      SizedBox(width: 14.w),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          if (n['important'] == true) ...[
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                              decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6.r)),
-                              child: Text('IMPORTANT', style: GoogleFonts.inter(fontSize: 8.sp, fontWeight: FontWeight.w900, color: Colors.white)),
-                            ),
-                            SizedBox(width: 6.w),
-                          ],
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
-                            decoration: BoxDecoration(color: AppColors.studentLight, borderRadius: BorderRadius.circular(6.r)),
-                            child: Text(n['category'] as String, style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: AppColors.studentPrimary)),
-                          ),
-                        ]),
-                        SizedBox(height: 6.h),
-                        Text(n['title'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 13.sp)),
-                        SizedBox(height: 3.h),
-                        Text(n['date'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
-                      ])),
-                      Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 20.sp),
-                    ]),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
     );
   }

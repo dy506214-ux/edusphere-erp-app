@@ -831,40 +831,52 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Widget _buildStudentEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: EdgeInsets.all(24.r),
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8F1FB),
-              shape: BoxShape.circle,
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(vertical: 60.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 10.r,
+              offset: Offset(0, 4.h),
             ),
-            child: Icon(
-              Icons.notifications_off_outlined,
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.notifications_none_rounded,
+              color: const Color(0xFF334155),
               size: 48.sp,
-              color: const Color(0xFF1A6FDB),
             ),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'No notices available',
-            style: GoogleFonts.outfit(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F2547),
+            SizedBox(height: 16.h),
+            Text(
+              'No announcements',
+              style: GoogleFonts.inter(
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F2547),
+              ),
             ),
-          ),
-          SizedBox(height: 6.h),
-          Text(
-            'Check back later for any updates.',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF6B7A90),
+            SizedBox(height: 8.h),
+            Text(
+              'Create your first announcement to notify users',
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                color: const Color(0xFF6B7A90),
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -885,17 +897,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             .map((e) => e.trim().toUpperCase())
             .where((e) => e.isNotEmpty)
             .toList();
+            
+        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
 
         return Container(
-          padding: EdgeInsets.all(20.r),
           margin: EdgeInsets.only(bottom: 16.h),
+          padding: EdgeInsets.all(20.r),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(24.r),
-            border: Border.all(
-              color: isHigh ? const Color(0xFFEF4444).withValues(alpha: 0.15) : const Color(0xFFE2EAF4),
-              width: isHigh ? 1.5.w : 1.w,
-            ),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -907,55 +919,40 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Colored dot next to circular icon container
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8.w,
-                    height: 8.w,
-                    decoration: BoxDecoration(
-                      color: color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  SizedBox(width: 8.w),
-                  Container(
-                    width: 40.w,
-                    height: 40.w,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Icon(
-                        icon,
-                        color: color,
-                        size: 20.sp,
-                      ),
-                    ),
-                  ),
-                ],
+              Container(
+                margin: EdgeInsets.only(top: 14.h),
+                width: 8.w,
+                height: 8.w,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Container(
+                width: 48.w,
+                height: 48.w,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24.sp),
               ),
               SizedBox(width: 16.w),
-              
-              // Text Content Column
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title & Priority Badge Row
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: Text(
                             ann.title,
                             style: GoogleFonts.inter(
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF0F172A),
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F2547),
                             ),
                           ),
                         ),
@@ -963,76 +960,65 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         Container(
                           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
-                            color: isHigh ? const Color(0xFFFEF2F2) : const Color(0xFFFFF1E6),
-                            borderRadius: BorderRadius.circular(16.r),
+                            color: priorityBg,
+                            borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
                             ann.priority.toUpperCase(),
                             style: GoogleFonts.inter(
-                              fontSize: 9.sp,
+                              fontSize: 10.sp,
                               fontWeight: FontWeight.w800,
-                              color: isHigh ? const Color(0xFFEF4444) : const Color(0xFFE8590C),
+                              color: priorityTextColor,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(height: 8.h),
-                    
-                    // Audience Tags Wrap
-                    Wrap(
-                      spacing: 6.w,
-                      runSpacing: 4.h,
-                      children: audienceTags.map((tag) {
-                        return Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    SizedBox(height: 12.h),
+                    if (audienceTags.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 8.w,
+                        runSpacing: 8.h,
+                        children: audienceTags.map((t) => Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(color: const Color(0xFFEFF2F6)),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
                           ),
                           child: Text(
-                            tag == 'ALL' ? 'EVERYONE' : tag,
+                            t == 'ALL' ? 'EVERYONE' : t,
                             style: GoogleFonts.inter(
-                              fontSize: 9.5.sp,
+                              fontSize: 10.sp,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF475569),
                             ),
                           ),
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 12.h),
-                    
-                    // Date Row
+                        )).toList(),
+                      ),
+                      SizedBox(height: 12.h),
+                    ],
                     Row(
                       children: [
-                        Icon(
-                          Icons.calendar_today_outlined,
-                          size: 13.sp,
-                          color: const Color(0xFF64748B),
-                        ),
+                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
                         SizedBox(width: 6.w),
                         Text(
                           ann.date,
                           style: GoogleFonts.inter(
-                            fontSize: 11.sp,
+                            fontSize: 12.sp,
+                            color: const Color(0xFF6B7A90),
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xFF64748B),
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 12.h),
-                    
-                    // Content/Description
                     Text(
                       ann.content,
                       style: GoogleFonts.inter(
                         fontSize: 13.sp,
-                        fontWeight: FontWeight.w500,
                         color: const Color(0xFF475569),
-                        height: 1.4,
+                        height: 1.5,
                       ),
                     ),
                   ],
@@ -1184,41 +1170,44 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget _buildEmptyStateCard() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 32.h),
+      padding: EdgeInsets.symmetric(vertical: 60.h),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10.r,
+            offset: Offset(0, 4.h),
+          ),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Styled Bell Circle
-          Container(
-            padding: EdgeInsets.all(20.r),
-            decoration: const BoxDecoration(
-              color: Color(0xFFEFF6FF),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.notifications_active_outlined, size: 48.sp, color: const Color(0xFF2563EB)),
+          Icon(
+            Icons.notifications_none_rounded,
+            color: const Color(0xFF334155),
+            size: 48.sp,
           ),
           SizedBox(height: 16.h),
           Text(
             'No announcements',
             style: GoogleFonts.inter(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
+              fontSize: 15.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF0F2547),
             ),
           ),
           SizedBox(height: 8.h),
           Text(
-            "Create your first announcement\nto notify users",
-            textAlign: TextAlign.center,
+            'Create your first announcement to notify users',
             style: GoogleFonts.inter(
               fontSize: 12.sp,
+              color: const Color(0xFF6B7A90),
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF64748B),
-              height: 1.4,
             ),
           ),
           SizedBox(height: 20.h),
@@ -1250,89 +1239,151 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       separatorBuilder: (_, __) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         final ann = _announcements[index];
+        final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
+        final color = _getNoticeColor(ann.priority, ann.title);
+        final icon = _getNoticeIcon(ann.title, ann.priority);
 
-        // Priority colors
-        Color badgeBg = const Color(0xFFF1F5F9);
-        Color badgeText = const Color(0xFF475569);
-        if (ann.priority == 'HIGH') {
-          badgeBg = const Color(0xFFFEF2F2);
-          badgeText = Colors.redAccent;
-        } else if (ann.priority == 'NORMAL') {
-          badgeBg = const Color(0xFFEFF6FF);
-          badgeText = const Color(0xFF2563EB);
-        }
+        // Split audience into individual tags
+        final List<String> audienceTags = ann.audience
+            .split(',')
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList();
+            
+        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
 
         return Container(
-          padding: EdgeInsets.all(16.r),
+          padding: EdgeInsets.all(20.r),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10.r,
+                offset: Offset(0, 4.h),
+              ),
+            ],
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                    decoration: BoxDecoration(
-                      color: badgeBg,
-                      borderRadius: BorderRadius.circular(6.r),
-                    ),
-                    child: Text(
-                      ann.priority,
-                      style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: badgeText),
-                    ),
-                  ),
-                  Text(
-                    ann.date,
-                    style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w500, color: AppColors.textMedium),
-                  ),
-                ],
-              ),
-              SizedBox(height: 10.h),
-              Text(
-                ann.title,
-                style: GoogleFonts.inter(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
+              Container(
+                margin: EdgeInsets.only(top: 14.h),
+                width: 8.w,
+                height: 8.w,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
                 ),
               ),
-              SizedBox(height: 6.h),
-              Text(
-                ann.content,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textMedium,
-                  height: 1.4,
+              SizedBox(width: 12.w),
+              Container(
+                width: 48.w,
+                height: 48.w,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
                 ),
+                child: Icon(icon, color: color, size: 24.sp),
               ),
-              SizedBox(height: 12.h),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(6.r),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            ann.title,
+                            style: GoogleFonts.inter(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: priorityBg,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Text(
+                            ann.priority.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w800,
+                              color: priorityTextColor,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    child: Text(
-                      "For: ${ann.audience == 'ALL' ? 'Everyone' : (ann.audience == 'STUDENTS' ? 'Students' : 'Teachers')}",
-                      style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+                    SizedBox(height: 12.h),
+                    if (audienceTags.isNotEmpty) ...[
+                      Wrap(
+                        spacing: 8.w,
+                        runSpacing: 8.h,
+                        children: audienceTags.map((t) => Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8.r),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                          ),
+                          child: Text(
+                            t == 'ALL' ? 'EVERYONE' : t,
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF475569),
+                            ),
+                          ),
+                        )).toList(),
+                      ),
+                      SizedBox(height: 12.h),
+                    ],
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
+                        SizedBox(width: 6.w),
+                        Text(
+                          ann.date,
+                          style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            color: const Color(0xFF6B7A90),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                    icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18.sp),
-                    onPressed: () => _deleteAnnouncement(ann.id),
-                  ),
-                ],
+                    SizedBox(height: 12.h),
+                    Text(
+                      ann.content,
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        color: const Color(0xFF475569),
+                        height: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 18.sp),
+                        onPressed: () => _deleteAnnouncement(ann.id),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

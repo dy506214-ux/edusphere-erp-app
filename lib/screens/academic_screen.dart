@@ -704,46 +704,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
             ],
           ),
         ),
-        SizedBox(width: 12.w),
-        // Refresh Button
-        GestureDetector(
-          onTap: _handleRefreshButtonClick,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-            decoration: BoxDecoration(
-              color: _isRefreshButtonPressed ? const Color(0xFF0076F6) : Colors.white,
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: _isRefreshButtonPressed ? const Color(0xFF0076F6) : const Color(0xFFE2EAF4)),
-              boxShadow: [
-                BoxShadow(
-                  color: _isRefreshButtonPressed 
-                      ? const Color(0xFF0076F6).withValues(alpha: 0.3) 
-                      : Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 6.r,
-                )
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.refresh_rounded, 
-                  color: _isRefreshButtonPressed ? Colors.white : const Color(0xFF0F2547), 
-                  size: 16.sp
-                ),
-                SizedBox(width: 6.w),
-                Text(
-                  'Refresh',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                    color: _isRefreshButtonPressed ? Colors.white : const Color(0xFF0F2547),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
       ],
     );
   }

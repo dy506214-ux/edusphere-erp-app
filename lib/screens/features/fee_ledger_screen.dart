@@ -10,8 +10,10 @@ import 'dart:developer' as dev;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../services/api_service.dart';
-
 class FeeLedgerScreen extends StatefulWidget {
   final RoleTheme theme;
   final bool showBackButton;
@@ -495,11 +497,50 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
-      // Open native share/save dialog — user can save to Files, WhatsApp, Drive, etc.
-      await Printing.sharePdf(
-        bytes: pdfBytes,
-        filename: fileName,
-      );
+      // Ask for permissions
+      var status = await Permission.storage.request();
+      if (!status.isGranted && Platform.isAndroid) {
+        // Try requesting manageExternalStorage for Android 11+
+        final manageStatus = await Permission.manageExternalStorage.request();
+        if (manageStatus.isGranted) {
+          status = PermissionStatus.granted;
+        } else {
+          // Also try photos as a fallback to trigger a dialog if requested
+          await Permission.photos.request();
+        }
+      }
+
+      // Try to save directly to Downloads on Android or Documents on iOS
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) {
+          directory = await getExternalStorageDirectory();
+        }
+      } else {
+        directory = await getApplicationDocumentsDirectory();
+      }
+
+      if (directory != null) {
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsBytes(pdfBytes);
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Statement saved to Downloads folder',
+                style: GoogleFonts.inter(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+            backgroundColor: const Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // Fallback to share dialog if directory is null
+        await Printing.sharePdf(
+          bytes: pdfBytes,
+          filename: fileName,
+        );
+      }
 
     } catch (e) {
       dev.log('❌ PDF generation error: $e', name: 'FeeLedgerScreen');
@@ -712,12 +753,12 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             child: SizedBox(
-              width: 600.w,
+              width: 650.w, // Wide enough to perfectly fit all columns like the first image
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                     decoration: const BoxDecoration(
                       color: Color(0xFFF8FAFC),
                       border: Border(
@@ -754,7 +795,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                     }
 
                     return Container(
-                      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                       decoration: const BoxDecoration(
                         border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
                       ),
@@ -904,10 +945,13 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
           ),
           SizedBox(height: 24.h),
           if (_paymentHistory.isEmpty)
-            Center(
-              child: Text(
-                'No transaction history',
-                style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.h),
+              child: Center(
+                child: Text(
+                  'No transaction history',
+                  style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                ),
               ),
             )
           else
@@ -968,23 +1012,24 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                     ),
                   );
                 }),
-                SizedBox(height: 16.h),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _downloadStatement,
-                    icon: Icon(Icons.picture_as_pdf_outlined, color: const Color(0xFF1A6FDB), size: 18.sp),
-                    label: Text(
-                      'Download Statement (PDF)',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A6FDB),
-                      ),
-                    ),
-                  ),
-                ),
               ],
             ),
+            
+          SizedBox(height: 16.h),
+          Center(
+            child: TextButton.icon(
+              onPressed: _downloadStatement,
+              icon: Icon(Icons.picture_as_pdf_outlined, color: const Color(0xFF1A6FDB), size: 18.sp),
+              label: Text(
+                'Download Statement (PDF)',
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1A6FDB),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
