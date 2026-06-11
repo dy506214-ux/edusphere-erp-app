@@ -374,14 +374,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
             children: [
               Icon(
                 Icons.calendar_today_outlined,
-                size: 32.sp,
-                color: Colors.grey.shade400,
+                size: 40.sp,
+                color: Colors.grey.shade300,
               ),
-              SizedBox(height: 8.h),
+              SizedBox(height: 12.h),
               Text(
                 'No events scheduled',
                 style: GoogleFonts.inter(
-                  fontSize: 12.sp,
+                  fontSize: 13.sp,
                   color: Colors.grey.shade500,
                   fontStyle: FontStyle.italic,
                   fontWeight: FontWeight.w500,
@@ -553,10 +553,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Greeting Header
-                  _buildGreetingHeader(),
-                  SizedBox(height: 20.h),
-                  
                   // Profile Banner Section
                   _buildProfileBanner(isDesktop),
                   SizedBox(height: 24.h),
@@ -593,113 +589,20 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
-  // ── GREETING HEADER WIDGET ─────────────────────────────────────────────────
-  Widget _buildGreetingHeader() {
-    final firstName = studentName.split(' ').first;
-    
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Hi, $firstName 👋',
-                style: GoogleFonts.inter(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: -0.5,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              SizedBox(height: 4.h),
-              Text(
-                'Here\'s your personal summary.',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
-        SizedBox(width: 8.w),
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _loadStudentData,
-              icon: Icon(Icons.history_rounded, size: 16.sp, color: const Color(0xFF64748B)),
-              label: Text(
-                'Refresh',
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                side: BorderSide(color: Colors.grey.shade300),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-            SizedBox(width: 6.w),
-            StreamBuilder<DateTime>(
-              stream: Stream.periodic(const Duration(minutes: 1), (_) => DateTime.now()),
-              initialData: DateTime.now(),
-              builder: (context, snapshot) {
-                final now = snapshot.data!;
-                final dateFormatted = '${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][now.weekday % 7]}, ${now.day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.month - 1]} ${now.year}';
-                return OutlinedButton(
-                  onPressed: () {}, // Interactive just like the refresh button
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                    backgroundColor: const Color(0xFFE0F2FE),
-                    side: const BorderSide(color: Color(0xFFBAE6FD)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    dateFormatted,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF0284C7),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   // ── PROFILE BANNER WIDGET ──────────────────────────────────────────────────
   Widget _buildProfileBanner(bool isDesktop) {
-    String formattedDob = dob;
-    try {
-      final d = DateTime.parse(dob);
-      formattedDob = '${d.day}/${d.month}/${d.year}';
-    } catch (_) {}
-
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F9FF),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: const Color(0xFFE0F2FE)),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 16.r,
+            offset: Offset(0, 4.h),
+          )
+        ],
       ),
       padding: EdgeInsets.all(24.r),
       child: Column(
@@ -713,157 +616,100 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 width: 60.w,
                 height: 60.w,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFDBEAFE),
+                  color: const Color(0xFFE0F2FE),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.w),
+                  border: Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
                 ),
-                child: Icon(Icons.school_rounded, color: const Color(0xFF3B82F6), size: 28.sp),
+                child: Icon(Icons.school_rounded, color: const Color(0xFF0284C7), size: 28.sp),
               ),
               SizedBox(width: 16.w),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      studentName,
-                      style: GoogleFonts.inter(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    SizedBox(height: 4.h),
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                    Row(
                       children: [
                         Text(
-                          'ADM: $admissionNo',
+                          studentName,
                           style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF64748B),
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.textDark,
                           ),
                         ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w),
+                        SizedBox(width: 10.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
                           child: Text(
-                            '•',
+                            'ACTIVE',
                             style: GoogleFonts.inter(
-                              fontSize: 11.sp,
+                              fontSize: 10.sp,
                               fontWeight: FontWeight.w800,
-                              color: const Color(0xFF94A3B8),
+                              color: const Color(0xFF15803D),
                             ),
-                          ),
-                        ),
-                        Text(
-                          '$className - $sectionName',
-                          style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF0EA5E9),
                           ),
                         ),
                       ],
                     ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'ADM: $admissionNo  •  $className - $sectionName',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textLight,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF10B981),
-                  borderRadius: BorderRadius.circular(12.r),
-                ),
-                child: Text(
-                  'ACTIVE',
-                  style: GoogleFonts.inter(
-                    fontSize: 9.sp,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    letterSpacing: 0.5,
-                  ),
                 ),
               ),
             ],
           ),
           
-          SizedBox(height: 20.h),
+          // Info Grid Separator and Columns
+          SizedBox(height: 24.h),
           Container(
             height: 1.h,
-            color: const Color(0xFFE2E8F0),
+            color: AppColors.border,
           ),
           SizedBox(height: 20.h),
-          
-          // Info Grid
-          isDesktop 
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: _buildInfoColumn('PERSONAL', [
-                      _buildInfoRow('DOB', formattedDob),
-                      _buildInfoRow('Gender', gender.toUpperCase()),
-                    ]),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: _buildInfoColumn('FAMILY', [
-                      _buildInfoRow('Father', fatherName),
-                      _buildInfoRow('Ph', familyPhone),
-                    ]),
-                  ),
-                  Expanded(
-                    flex: 3,
-                    child: _buildInfoColumn('CONTACT', [
-                      _buildInfoRow('Email', studentEmail),
-                      _buildInfoRow('Phone', studentPhone),
-                    ]),
-                  ),
-                  Expanded(
-                    flex: 2,
-                    child: _buildInfoColumn('ADDRESS', [
-                      _buildInfoText(address),
-                    ]),
-                  ),
-                ],
-              )
-            : Wrap(
-                spacing: 16.w,
-                runSpacing: 20.h,
-                alignment: WrapAlignment.start,
-                children: [
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width / 2 - 48.w,
-                    child: _buildInfoColumn('PERSONAL', [
-                      _buildInfoRow('DOB', dob),
-                      _buildInfoRow('Gender', gender.toUpperCase()),
-                    ]),
-                  ),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width / 2 - 48.w,
-                    child: _buildInfoColumn('FAMILY', [
-                      _buildInfoRow('Father', fatherName),
-                      _buildInfoRow('Ph', familyPhone),
-                    ]),
-                  ),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width - 72.w,
-                    child: _buildInfoColumn('CONTACT', [
-                      _buildInfoRow('Email', studentEmail),
-                      _buildInfoRow('Phone', studentPhone),
-                    ]),
-                  ),
-                  SizedBox(
-                    width: MediaQuery.of(context).size.width - 72.w,
-                    child: _buildInfoColumn('ADDRESS', [
-                      _buildInfoText(address),
-                    ]),
-                  ),
-                ],
-              ),
+          if (isDesktop)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)])),
+                Expanded(child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)])),
+                Expanded(child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)])),
+                Expanded(child: _buildInfoColumn('ADDRESS', [_buildInfoText(address)])),
+              ],
+            )
+          else
+            Wrap(
+              spacing: 24.w,
+              runSpacing: 20.h,
+              children: [
+                SizedBox(
+                  width: 140.w,
+                  child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)]),
+                ),
+                SizedBox(
+                  width: 140.w,
+                  child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)]),
+                ),
+                SizedBox(
+                  width: 200.w,
+                  child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)]),
+                ),
+                SizedBox(
+                  width: 200.w,
+                  child: _buildInfoColumn('ADDRESS', [_buildInfoText(address)]),
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -876,13 +722,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
         Text(
           title,
           style: GoogleFonts.inter(
-            fontSize: 9.sp,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF94A3B8),
-            letterSpacing: 0.5,
+            fontSize: 10.sp,
+            fontWeight: FontWeight.w800,
+            color: AppColors.textLight,
+            letterSpacing: 0.8,
           ),
         ),
-        SizedBox(height: 6.h),
+        SizedBox(height: 8.h),
         ...children,
       ],
     );
@@ -894,17 +740,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
       child: RichText(
         text: TextSpan(
           style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            color: const Color(0xFF475569),
+            fontSize: 12.sp,
+            color: AppColors.textDark,
           ),
           children: [
             TextSpan(
               text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.w500, color: Color(0xFF64748B)),
+              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textMedium),
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(fontWeight: FontWeight.w700),
             ),
           ],
         ),
@@ -916,10 +762,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return Text(
       value,
       style: GoogleFonts.inter(
-        fontSize: 11.sp,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFF475569),
-        height: 1.4,
+        fontSize: 12.sp,
+        fontWeight: FontWeight.w700,
+        color: AppColors.textDark,
+        height: 1.3,
       ),
     );
   }
@@ -933,15 +779,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 title: 'ATTENDANCE',
                 value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
                 leftBorderColor: const Color(0xFF3B82F6),
-                bottomWidget: Padding(
-                  padding: EdgeInsets.only(top: 8.h),
+                subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
+                subtitleColor: AppColors.textLight,
+                trailing: Padding(
+                  padding: EdgeInsets.only(top: 6.h),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(4.r),
                     child: LinearProgressIndicator(
                       value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
                       backgroundColor: const Color(0xFFEFF6FF),
                       color: const Color(0xFF3B82F6),
-                      minHeight: 4.h,
+                      minHeight: 5.h,
                     ),
                   ),
                 ),
@@ -950,23 +798,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'PENDING FEE',
-                value: '$pendingFee',
+                value: '₹$pendingFee',
                 leftBorderColor: const Color(0xFFEF4444),
-                valueColor: const Color(0xFFEF4444),
+                subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
+                subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'BOOKS DUE',
                 value: '$booksDue',
-                leftBorderColor: const Color(0xFF64748B),
+                leftBorderColor: const Color(0xFF6366F1),
+                subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
+                subtitleColor: AppColors.textLight,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
               Expanded(child: _metricCard(
                 title: 'RESULTS',
-                value: 'View Report',
+                value: 'View',
                 leftBorderColor: const Color(0xFF8B5CF6),
+                subtitle: 'Academic report',
+                subtitleColor: AppColors.textLight,
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
               )),
             ],
@@ -979,15 +832,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     title: 'ATTENDANCE',
                     value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
                     leftBorderColor: const Color(0xFF3B82F6),
-                    bottomWidget: Padding(
-                      padding: EdgeInsets.only(top: 8.h),
+                    subtitle: _attendanceLoaded ? 'This month' : 'Loading...',
+                    subtitleColor: AppColors.textLight,
+                    trailing: Padding(
+                      padding: EdgeInsets.only(top: 6.h),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(4.r),
                         child: LinearProgressIndicator(
                           value: _attendanceLoaded ? attendanceRate / 100.0 : 0,
                           backgroundColor: const Color(0xFFEFF6FF),
                           color: const Color(0xFF3B82F6),
-                          minHeight: 4.h,
+                          minHeight: 5.h,
                         ),
                       ),
                     ),
@@ -996,9 +851,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   SizedBox(width: 16.w),
                   Expanded(child: _metricCard(
                     title: 'PENDING FEE',
-                    value: '$pendingFee',
+                    value: '₹$pendingFee',
                     leftBorderColor: const Color(0xFFEF4444),
-                    valueColor: const Color(0xFFEF4444),
+                    subtitle: pendingFee > 0 ? 'Balance Due' : 'Fully Paid',
+                    subtitleColor: pendingFee > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
                   )),
                 ],
@@ -1009,14 +865,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   Expanded(child: _metricCard(
                     title: 'BOOKS DUE',
                     value: '$booksDue',
-                    leftBorderColor: const Color(0xFF64748B),
+                    leftBorderColor: const Color(0xFF6366F1),
+                    subtitle: booksDue > 0 ? 'Return books' : 'No overdue',
+                    subtitleColor: AppColors.textLight,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
                   )),
                   SizedBox(width: 16.w),
                   Expanded(child: _metricCard(
                     title: 'RESULTS',
-                    value: 'View Report',
+                    value: 'Report',
                     leftBorderColor: const Color(0xFF8B5CF6),
+                    subtitle: 'Academic perf...',
+                    subtitleColor: AppColors.textLight,
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
                   )),
                 ],
@@ -1030,51 +890,57 @@ class _StudentDashboardState extends State<StudentDashboard> {
     required String value,
     required Color leftBorderColor,
     required VoidCallback onTap,
-    Color? valueColor,
-    Widget? bottomWidget,
+    String? subtitle,
+    Color? subtitleColor,
+    Widget? trailing,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: AppColors.border),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10.r, offset: Offset(0, 4.h)),
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(16.r),
+          borderRadius: BorderRadius.circular(20.r),
           child: Container(
-            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 4.w))),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            decoration: BoxDecoration(border: Border(left: BorderSide(color: leftBorderColor, width: 5.w))),
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      title,
-                      style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF64748B), letterSpacing: 0.8),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                Text(
+                  title,
+                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.8),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null) ...[
+                  SizedBox(height: 2.h),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.inter(
+                      fontSize: 10.sp,
+                      color: subtitleColor ?? AppColors.textLight,
+                      fontWeight: FontWeight.w700,
                     ),
-                    Icon(Icons.arrow_forward_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
-                  ],
-                ),
-                SizedBox(height: 8.h),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    value,
-                    style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: valueColor ?? const Color(0xFF0F172A)),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                if (bottomWidget != null) bottomWidget,
+                ],
+                if (trailing != null) trailing,
               ],
             ),
           ),
@@ -1239,7 +1105,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     color: isSelected
                         ? const Color(0xFF0077D6)
                         : (isToday ? const Color(0xFF0077D6).withValues(alpha: 0.15) : Colors.transparent),
-                    borderRadius: BorderRadius.circular(8.r),
+                    shape: BoxShape.circle,
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -1371,21 +1237,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
           else if (_upcomingEvents.isEmpty)
             Center(
               child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 30.h),
+                padding: EdgeInsets.symmetric(vertical: 24.h),
                 child: Column(
                   children: [
-                    Container(
-                      padding: EdgeInsets.all(12.r),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.calendar_today_outlined, color: Colors.white.withValues(alpha: 0.25), size: 28.sp),
-                    ),
-                    SizedBox(height: 12.h),
+                    Icon(Icons.event_busy_rounded, color: Colors.white.withValues(alpha: 0.25), size: 36.sp),
+                    SizedBox(height: 10.h),
                     Text(
-                      'No upcoming events scheduled',
-                      style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w500),
+                      'No upcoming events',
+                      style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w600),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Check back later for new events',
+                      style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.25), fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -1545,7 +1409,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
               );
             }).toList()),
 
-          SizedBox(height: 6.h),
+          if (_upcomingEvents.isNotEmpty) ...[
+            SizedBox(height: 6.h),
             GestureDetector(
               onTap: () {
                 Navigator.push(
@@ -1555,15 +1420,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
               },
               child: Container(
                 width: double.infinity,
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                decoration: const BoxDecoration(
-                  color: Colors.transparent,
+                padding: EdgeInsets.symmetric(vertical: 11.h),
+                decoration: BoxDecoration(
+                  color: widget.theme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12.r),
+                  border: Border.all(color: widget.theme.primary.withValues(alpha: 0.25)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'View Full Schedule',
+                      'View Full Calendar',
                       style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: widget.theme.primary),
                     ),
                     SizedBox(width: 4.w),
@@ -1573,6 +1440,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ),
           ],
+        ],
       ),
     );
   }

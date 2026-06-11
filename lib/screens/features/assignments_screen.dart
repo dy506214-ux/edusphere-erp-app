@@ -26,6 +26,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
   final List<Map<String, dynamic>> _assignments = [];
   final String _selectedSubject = 'All';
+  final List<String> _subjects = ['All', 'Hindi', 'English', 'Math', 'Science', 'Computer'];
 
   RealtimeChannel? _assignmentsChannel;
   Timer? _assignmentsPollTimer;

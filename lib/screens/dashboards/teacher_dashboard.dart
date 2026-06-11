@@ -76,7 +76,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
-  void _connectRealTime() {
+  Future<void> _connectRealTime() async {
     try {
       final client = Supabase.instance.client;
       _teacherDashChannel = client.channel('public:teacher_dash_events')
@@ -861,6 +861,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 SizedBox(height: 24.h),
                 GestureDetector(
                   onTap: () => MainScreen.navigateTo(context, 1),
+                  onTap: () {
+                    final isDesktop = MediaQuery.of(context).size.width > 900;
+                    if (isDesktop) {
+                      MainScreen.navigateTo(context, 1);
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()));
+                    }
+                  },
                   child: Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(vertical: 12.h),
