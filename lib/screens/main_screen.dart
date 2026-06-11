@@ -459,7 +459,7 @@ class _MainScreenState extends State<MainScreen> {
                                 final RelativeRect position = RelativeRect.fromRect(
                                   Rect.fromPoints(
                                     button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
-                                    button.localToGlobal(button.size.bottomRight(Offset(0, 8)), ancestor: overlay),
+                                    button.localToGlobal(button.size.bottomRight(const Offset(0, 8)), ancestor: overlay),
                                   ),
                                   Offset.zero & overlay.size,
                                 );

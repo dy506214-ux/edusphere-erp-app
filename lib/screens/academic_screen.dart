@@ -93,7 +93,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
 
   // ── Selected day for timetable ──
-  int _selectedTimetableDay = DateTime.now().weekday;
+  final int _selectedTimetableDay = DateTime.now().weekday;
 
   final Map<int, List<Map<String, dynamic>>> _mockTimetable = {
     1: [ // Monday

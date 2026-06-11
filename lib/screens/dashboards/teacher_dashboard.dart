@@ -76,40 +76,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
     }
   }
 
-  void _connectRealTime() {
+  Future<void> _connectRealTime() async {
     try {
-      final data = await ApiService.instance.get('dashboard/stats');
-      if (data != null && data['success'] == true && data['stats'] != null) {
-        final stats = data['stats'];
-        final totalStudents = stats['totalStudents'] ?? stats['myClassStudents'] ?? 0;
-        
-        // Calculate attendance percent based on attendanceDetails if available, or fallback
-        String attendanceRate = '—%';
-        if (stats['attendanceDetails'] != null) {
-          final attDetails = stats['attendanceDetails'];
-          final marked = attDetails['marked'] ?? 0;
-          final total = attDetails['total'] ?? 0;
-          if (total > 0) {
-            attendanceRate = '${((marked / total) * 100).toStringAsFixed(0)}%';
-          } else {
-            attendanceRate = '100%'; // Default when no classes are scheduled/all marked
-          }
-        } else if (stats['attendanceToday'] != null) {
-          attendanceRate = '${stats['attendanceToday']}%';
-        }
-        
-        final pendingFee = stats['pendingFeeCount'] ?? 0;
-        final overdueBooks = stats['overdueBooks'] ?? 0;
-
-        if (mounted) {
-          setState(() {
-            _myStudentsCount = totalStudents;
-            _attendanceRateToday = attendanceRate;
-            _pendingAttendanceCount = pendingFee; // Using pending fee/pending items count
-            _overdueBooksCount = overdueBooks;
-          });
-        }
-      }
       final client = Supabase.instance.client;
       _teacherDashChannel = client.channel('public:teacher_dash_events')
         .onPostgresChanges(
@@ -348,39 +316,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildMetricsGrid() {
-    double? attPercent;
-    if (_attendanceRateToday != '—%') {
-      try {
-        attPercent = double.parse(_attendanceRateToday.replaceAll('%', '')) / 100.0;
-      } catch (_) {}
-    }
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16.w,
-      mainAxisSpacing: 16.h,
-      childAspectRatio: 1.5,
-      children: [
-        _buildStatCard(
-            'ATTENDANCE TODAY', _attendanceRateToday, Icons.people_outline_rounded,
-            const Color(0xFF0EA5E9), const Color(0xFFE0F2FE), attPercent),
-        _buildStatCard(
-            'MY STUDENTS', '$_myStudentsCount', Icons.school_outlined,
-            const Color(0xFF0EA5E9), const Color(0xFFE0F2FE), null),
-        _buildStatCard(
-            'PENDING FEES', '$_pendingAttendanceCount', Icons.payments_outlined,
-            const Color(0xFFF59E0B), const Color(0xFFFEF3C7), null),
-        _buildStatCard(
-            'OVERDUE BOOKS', '$_overdueBooksCount', Icons.menu_book_rounded,
-            const Color(0xFFEF4444), const Color(0xFFFEE2E2), null),
-      ],
       ),
     );
   }
@@ -928,24 +863,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 })(),
                 SizedBox(height: 24.h),
                 GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen())),
-                Center(
-                  child: Column(
-                    children: [
-                      Icon(Icons.calendar_today_rounded,
-                          color: const Color(0xFFCBD5E1), size: 32.sp),
-                      SizedBox(height: 12.h),
-                      Text('No events scheduled',
-                          style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontStyle: FontStyle.italic,
-                              color: const Color(0xFF64748B))),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 24.h),
-                GestureDetector(
-                  onTap: () => MainScreen.navigateTo(context, 1),
+                  onTap: () {
+                    final isDesktop = MediaQuery.of(context).size.width > 900;
+                    if (isDesktop) {
+                      MainScreen.navigateTo(context, 1);
+                    } else {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()));
+                    }
+                  },
                   child: Container(
                     width: double.infinity,
                     padding: EdgeInsets.symmetric(vertical: 12.h),

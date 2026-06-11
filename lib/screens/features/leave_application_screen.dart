@@ -41,7 +41,7 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen> with Si
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         leading: IconButton(
-          icon: Icon(Icons.menu, size: 28),
+          icon: const Icon(Icons.menu, size: 28),
           onPressed: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
             MainScreen.openDrawer();
@@ -57,10 +57,10 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen> with Si
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.notifications_none_rounded, size: 28),
+            icon: const Icon(Icons.notifications_none_rounded, size: 28),
             onPressed: () {},
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
         ],
       ),
 

@@ -25,7 +25,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   String _sectionStr = 'A';
 
   final List<Map<String, dynamic>> _assignments = [];
-  String _selectedSubject = 'All';
+  final String _selectedSubject = 'All';
   final List<String> _subjects = ['All', 'Hindi', 'English', 'Math', 'Science', 'Computer'];
 
   RealtimeChannel? _assignmentsChannel;
@@ -278,7 +278,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
         leading: IconButton(
-          icon: Icon(Icons.menu, size: 28),
+          icon: const Icon(Icons.menu, size: 28),
           onPressed: () {
             Navigator.of(context).popUntil((route) => route.isFirst);
             MainScreen.openDrawer();
@@ -294,10 +294,10 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.notifications_none_rounded, size: 28),
+            icon: const Icon(Icons.notifications_none_rounded, size: 28),
             onPressed: () {},
           ),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
         ],
       ),
 
