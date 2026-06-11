@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../profile_screen.dart';
 import '../../theme/colors.dart';
-import '../../services/api_service.dart';
+
 
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
@@ -21,6 +22,13 @@ class StudentRecord {
     required this.email,
     required this.status,
   });
+
+  String get formattedAdmissionNo {
+    if (admissionNo.startsWith('ADM24') && admissionNo.length == 9) {
+      return 'ADM-2024${admissionNo.substring(5)}';
+    }
+    return admissionNo;
+  }
 
   String get initials {
     final parts = name.trim().split(RegExp(r'\s+'));
@@ -69,43 +77,30 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       _errorMessage = null;
     });
     try {
-      // Fetch from live Render API — same DB as web app
-      final data = await ApiService.instance.get(
-        'students',
-        queryParams: {'limit': '200'},
-      );
-
-      final List<dynamic> rawList = data is List
-          ? data
-          : (data['students'] ?? data['data'] ?? data['items'] ?? []);
+      final response = await Supabase.instance.client
+          .from('Student')
+          .select('id, admissionNumber, currentClassId, status, User(firstName, lastName, email), Class(name), Section(name)');
 
       final List<StudentRecord> loadedStudents = [];
-      for (var item in rawList) {
-        final user = item['user'] as Map? ?? item['User'] as Map? ?? {};
-        final cls = item['currentClass'] as Map? ??
-            item['class'] as Map? ??
-            item['Class'] as Map? ??
-            {};
-        final firstName =
-            user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
-        final lastName =
-            user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
+      for (var item in response) {
+        final user = item['User'] as Map?;
+        final classData = item['Class'] as Map?;
+        final sectionData = item['Section'] as Map?;
+        final firstName = user?['firstName'] ?? '';
+        final lastName = user?['lastName'] ?? '';
         final fullName = '$firstName $lastName'.trim();
-        final className = cls['name'] ?? cls['className'] ?? 'N/A';
-        final email = user['email'] ?? item['email'] ?? '';
-        final admission = item['admissionNumber'] ??
-            item['admission_number'] ??
-            item['admissionNo'] ??
-            '';
-        final status = item['status'] ?? 'ACTIVE';
+        
+        final rawClassName = classData?['name']?.toString() ?? 'Class 8';
+        final sectionName = sectionData?['name']?.toString() ?? 'A';
+        final displayClassName = '${rawClassName.replaceAll('Class', 'Grade')} - $sectionName';
 
         loadedStudents.add(StudentRecord(
           id: item['id']?.toString() ?? '',
-          admissionNo: admission,
-          name: fullName.isNotEmpty ? fullName : (email.isNotEmpty ? email.split('@')[0] : 'Unknown'),
-          className: className,
-          email: email,
-          status: status,
+          admissionNo: item['admissionNumber'] ?? '',
+          name: fullName.isNotEmpty ? fullName : 'Unknown',
+          className: displayClassName,
+          email: user?['email'] ?? '',
+          status: item['status'] ?? 'ACTIVE',
         ));
       }
 
@@ -125,6 +120,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       }
     }
   }
+
 
   @override
   void dispose() {
@@ -209,38 +205,21 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   Widget _buildHeaderRow() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Students',
-              style: GoogleFonts.outfit(
-                fontSize: 20.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'Manage all student records and information',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B)),
-            ),
-          ],
+        Text(
+          'Students',
+          style: GoogleFonts.outfit(
+            fontSize: 24.sp,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0F172A),
+          ),
         ),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8.r),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: IconButton(
-            icon: Icon(Icons.refresh_rounded, color: const Color(0xFF64748B), size: 20.sp),
-            onPressed: _fetchStudents,
-            tooltip: 'Refresh',
-          ),
+        SizedBox(height: 4.h),
+        Text(
+          'Manage all student records and information',
+          style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
         ),
       ],
     );
@@ -368,26 +347,23 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
                             ),
                             Expanded(
-                              flex: 6,
+                              flex: 5,
                               child: Text('Email',
                                   style: GoogleFonts.inter(
                                       fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 3,
-                              child: Center(
-                                child: Text('Status',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                              ),
+                              child: Text('Status',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 2,
-                              child: Center(
-                                child: Text('Actions',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
-                              ),
+                              child: Text('Actions',
+                                  style: GoogleFonts.inter(
+                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                                  textAlign: TextAlign.center),
                             ),
                           ],
                         ),
@@ -444,146 +420,164 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           itemCount: paginated.length,
                           itemBuilder: (context, idx) {
                             final student = paginated[idx];
-                            return Container(
-                              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                              decoration: const BoxDecoration(
-                                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
-                              ),
-                              child: Row(
-                                children: [
-                                  // Admission No
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      student.admissionNo,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.sp,
-                                        fontWeight: FontWeight.w800,
-                                        color: const Color(0xFF0F172A),
-                                      ),
+                            return GestureDetector(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ProfileScreen(
+                                      role: 'student',
+                                      theme: roleThemes['student']!,
+                                      studentId: student.id,
+                                      studentName: student.name,
+                                      studentEmail: student.email,
+                                      studentClass: student.className,
+                                      admissionNo: student.admissionNo,
+                                      showAppBar: true,
+                                      onBack: () => Navigator.pop(context),
                                     ),
                                   ),
-                                  // Name + Avatar
-                                  Expanded(
-                                    flex: 5,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 28.w,
-                                          height: 28.h,
-                                          decoration: const BoxDecoration(
-                                            color: Color(0xFFEFF6FF),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Center(
-                                            child: Text(
-                                              student.initials,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 9.sp,
-                                                fontWeight: FontWeight.w700,
-                                                color: const Color(0xFF1E6091),
+                                );
+                              },
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                                decoration: const BoxDecoration(
+                                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Admission No
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        student.formattedAdmissionNo,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.sp,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF0F172A),
+                                        ),
+                                      ),
+                                    ),
+                                    // Name + Avatar
+                                    Expanded(
+                                      flex: 5,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 28.w,
+                                            height: 28.h,
+                                            decoration: const BoxDecoration(
+                                              color: Color(0xFFEFF6FF),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                student.initials,
+                                                style: GoogleFonts.inter(
+                                                  fontSize: 9.sp,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: const Color(0xFF1E6091),
+                                                ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                        SizedBox(width: 8.w),
-                                        Expanded(
-                                          child: Text(
-                                            student.name,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10.sp,
-                                              fontWeight: FontWeight.w600,
-                                              color: const Color(0xFF475569),
+                                          SizedBox(width: 8.w),
+                                          Expanded(
+                                            child: Text(
+                                              student.name,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: GoogleFonts.inter(
+                                                fontSize: 10.sp,
+                                                fontWeight: FontWeight.w600,
+                                                color: const Color(0xFF475569),
+                                              ),
                                             ),
                                           ),
+                                        ],
+                                      ),
+                                    ),
+                                    // Class
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        student.className,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.sp,
+                                          fontWeight: FontWeight.w500,
+                                          color: const Color(0xFF64748B),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  // Class
-                                  Expanded(
-                                    flex: 3,
-                                    child: Text(
-                                      student.className,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.sp,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF64748B),
                                       ),
                                     ),
-                                  ),
-                                  // Email
-                                  Expanded(
-                                    flex: 6,
-                                    child: Text(
-                                      student.email,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.sp,
-                                        color: const Color(0xFF64748B),
+                                    // Email
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(
+                                        student.email,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 10.sp,
+                                          color: const Color(0xFF64748B),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  // Status
-                                  Expanded(
-                                    flex: 3,
-                                    child: Center(
+                                    // Status
+                                    Expanded(
+                                      flex: 3,
                                       child: Container(
                                         padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                                         decoration: BoxDecoration(
                                           color: student.status == 'ACTIVE'
-                                              ? const Color(0xFFECFDF5)
-                                              : const Color(0xFFFEF2F2),
-                                          borderRadius: BorderRadius.circular(6.r),
+                                              ? const Color(0xFFDCFCE7)
+                                              : const Color(0xFFFEE2E2),
+                                          borderRadius: BorderRadius.circular(12.r),
                                         ),
                                         child: Text(
                                           student.status,
+                                          textAlign: TextAlign.center,
                                           style: GoogleFonts.inter(
-                                            fontSize: 8.sp,
-                                            fontWeight: FontWeight.w800,
+                                            fontSize: 9.sp,
+                                            fontWeight: FontWeight.w700,
                                             color: student.status == 'ACTIVE'
-                                                ? const Color(0xFF10B981)
-                                                : const Color(0xFFEF4444),
+                                                ? const Color(0xFF16A34A)
+                                                : const Color(0xFFDC2626),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  // Actions (Eye Icon)
-                                  Expanded(
-                                    flex: 2,
-                                    child: Center(
-                                      child: IconButton(
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        icon: Icon(
-                                          Icons.visibility_outlined,
-                                          size: 16.sp,
-                                          color: const Color(0xFF64748B),
-                                        ),
-                                        onPressed: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => ProfileScreen(
-                                                role: 'student',
-                                                theme: roleThemes['student']!,
-                                                studentId: student.id,
-                                                studentName: student.name,
-                                                studentEmail: student.email,
-                                                studentClass: student.className,
-                                                admissionNo: student.admissionNo,
-                                                showAppBar: true,
-                                                onBack: () => Navigator.pop(context),
-                                              ),
-                                            ),
-                                          );
-                                        },
+                                    // Actions
+                                    Expanded(
+                                      flex: 2,
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => ProfileScreen(
+                                                    role: 'student',
+                                                    theme: roleThemes['student']!,
+                                                    studentId: student.id,
+                                                    studentName: student.name,
+                                                    studentEmail: student.email,
+                                                    studentClass: student.className,
+                                                    admissionNo: student.admissionNo,
+                                                    showAppBar: true,
+                                                    onBack: () => Navigator.pop(context),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            child: Icon(Icons.remove_red_eye_outlined, size: 18.sp, color: const Color(0xFF64748B)),
+                                          ),
+                                          SizedBox(width: 8.w),
+                                          Icon(Icons.more_vert_rounded, size: 18.sp, color: const Color(0xFF94A3B8)),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
                           },

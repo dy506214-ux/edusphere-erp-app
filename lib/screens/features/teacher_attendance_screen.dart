@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:developer' as dev;
 import '../../services/api_service.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -38,19 +39,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   final List<String> _sections = ['All Sections'];
 
   List<Map<String, dynamic>> _apiClasses = [];
-  bool _classesLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadApiClasses();
-  }
 
   Future<void> _loadApiClasses() async {
     if (!mounted) return;
-    setState(() {
-      _classesLoading = true;
-    });
     try {
       final res = await ApiService.instance.get('academic/classes');
       if (res != null && res['success'] == true) {
@@ -69,17 +60,11 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               _selectedClass = _classes.first;
               _updateSectionsForSelectedClass();
             }
-            _classesLoading = false;
           });
         }
       }
     } catch (e) {
       debugPrint('Error loading API classes: $e');
-      if (mounted) {
-        setState(() {
-          _classesLoading = false;
-        });
-      }
     }
   }
 
@@ -119,6 +104,170 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   final List<Map<String, dynamic>> _createdSlots = [];
 
   final _supabase = Supabase.instance.client;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadApiClasses();
+    _loadExistingSlotsForDate();
+  }
+
+  String _mapClassName(String dbName) {
+    return dbName.replaceAll('Class', 'Grade');
+  }
+
+  Future<void> _loadExistingSlotsForDate() async {
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _createdSlots.clear();
+      });
+    }
+    try {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+      // 1. Fetch all classes
+      final classesRes = await _supabase.from('Class').select('id, name');
+
+      // 2. Fetch all attendance records for the selected date
+      final attendanceRecords = await _supabase
+          .from('AttendanceRecord')
+          .select('studentId, status, Student(id, currentClassId, sectionId, admissionNumber, User(firstName, lastName, email))')
+          .eq('date', dateStr);
+
+      // Group attendance records by classId
+      Map<String, List<Map<String, dynamic>>> classRecords = {};
+      for (var record in attendanceRecords) {
+        final student = record['Student'] as Map<String, dynamic>?;
+        if (student == null) continue;
+        final classId = student['currentClassId']?.toString();
+        if (classId == null) continue;
+        classRecords.putIfAbsent(classId, () => []).add(record);
+      }
+
+      final markedClassIds = classRecords.keys.toSet();
+
+      for (var c in classesRes) {
+        final classId = c['id']?.toString();
+        final dbClassName = c['name']?.toString();
+        if (classId == null || dbClassName == null) continue;
+
+        final displayClassName = _mapClassName(dbClassName);
+
+        if (markedClassIds.contains(classId)) {
+          final records = classRecords[classId]!;
+          
+          final studentRes = await _supabase
+              .from('Student')
+              .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+              .eq('currentClassId', classId);
+
+          final List<Map<String, dynamic>> studentList = [];
+          for (var s in studentRes) {
+            final user = s['User'] as Map<String, dynamic>? ?? {};
+            final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+            studentList.add({
+              'id': s['id']?.toString() ?? '',
+              'name': name.isNotEmpty ? name : 'Unknown',
+              'email': user['email']?.toString() ?? '',
+              'class_name': displayClassName,
+              'admission_no': s['admissionNumber']?.toString() ?? '',
+            });
+          }
+          studentList.sort((a, b) => a['name'].compareTo(b['name']));
+
+          Map<String, String> statusMap = {};
+          for (var record in records) {
+            final sId = record['studentId']?.toString() ?? '';
+            final statusVal = record['status']?.toString() ?? '';
+
+            String localStatus = 'P';
+            if (statusVal == 'ABSENT') localStatus = 'A';
+            if (statusVal == 'LATE') localStatus = 'L';
+
+            if (sId.isNotEmpty) statusMap[sId] = localStatus;
+          }
+
+          _createdSlots.add({
+            'class': displayClassName,
+            'section': 'All Sections',
+            'date': _selectedDate,
+            'students': studentList,
+            'attendanceStatus': statusMap,
+            'isSubmitted': true,
+          });
+        }
+      }
+
+      if (_createdSlots.isEmpty) {
+        await _seedDemoSlots();
+      }
+    } catch (e) {
+      dev.log('Error loading existing slots: $e');
+      await _seedDemoSlots();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _seedDemoSlots() async {
+    final demoClasses = ['Grade 10', 'Grade 9', 'Grade 8'];
+    for (var className in demoClasses) {
+      List<Map<String, dynamic>> studentList = [];
+      try {
+        final dbClassName = className.replaceAll('Grade', 'Class');
+        final classRes = await _supabase
+            .from('Class')
+            .select('id')
+            .eq('name', dbClassName)
+            .maybeSingle();
+
+        if (classRes != null) {
+          final classId = classRes['id'] as String;
+          final studentRes = await _supabase
+              .from('Student')
+              .select('id, admissionNumber, currentClassId, User(firstName, lastName, email)')
+              .eq('currentClassId', classId);
+
+          for (var s in studentRes) {
+            final user = s['User'] as Map<String, dynamic>? ?? {};
+            final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+            studentList.add({
+              'id': s['id']?.toString() ?? '',
+              'name': name.isNotEmpty ? name : 'Unknown',
+              'email': user['email']?.toString() ?? '',
+              'class_name': className,
+              'admission_no': s['admissionNumber']?.toString() ?? '',
+            });
+          }
+        }
+      } catch (_) {}
+
+      if (studentList.isEmpty) {
+        studentList = _getDemoStudents();
+      }
+
+      studentList.sort((a, b) => a['name'].compareTo(b['name']));
+
+      Map<String, String> statusMap = {};
+      for (var s in studentList) {
+        statusMap[s['id']] = 'P';
+      }
+
+      _createdSlots.add({
+        'class': className,
+        'section': 'All Sections',
+        'date': _selectedDate,
+        'students': studentList,
+        'attendanceStatus': statusMap,
+        'isSubmitted': true,
+      });
+    }
+  }
 
 
 
@@ -179,9 +328,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final student = record['Student'] as Map<String, dynamic>? ?? {};
         final classData = student['Class'] as Map<String, dynamic>? ?? {};
         final className = classData['name']?.toString() ?? 'Unknown';
+        final mappedClassName = _mapClassName(className);
 
         // Class filter
-        if (_analyticsClass != 'All Classes' && className != _analyticsClass) continue;
+        if (_analyticsClass != 'All Classes' && mappedClassName != _analyticsClass) continue;
 
         final userMap = student['User'] as Map<String, dynamic>? ?? {};
         final firstName = userMap['firstName']?.toString() ?? '';
@@ -196,7 +346,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
         // Date grouping
         if (!grouped.containsKey(date)) {
-          grouped[date] = {'date': date, 'className': className, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
+          grouped[date] = {'date': date, 'className': mappedClassName, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
         }
         if (isPresent) grouped[date]!['P'] = (grouped[date]!['P'] as int) + 1;
         if (isAbsent) grouped[date]!['A'] = (grouped[date]!['A'] as int) + 1;
@@ -205,7 +355,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
         // Student grouping
         if (studentId.isNotEmpty) {
-          studentMap[studentId] ??= {'name': studentName, 'class': className, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
+          studentMap[studentId] ??= {'name': studentName, 'class': mappedClassName, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
           if (isPresent) studentMap[studentId]!['P'] = (studentMap[studentId]!['P'] as int) + 1;
           if (isAbsent) studentMap[studentId]!['A'] = (studentMap[studentId]!['A'] as int) + 1;
           if (isLate) studentMap[studentId]!['L'] = (studentMap[studentId]!['L'] as int) + 1;
@@ -270,6 +420,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       setState(() {
         _selectedDate = picked;
       });
+      _loadExistingSlotsForDate();
     }
   }
 
@@ -309,6 +460,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               ],
             )
           : null,
+      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 3),
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -355,22 +507,30 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // TAB TOGGLE
   // ═════════════════════════════════════════════════════════════════════════
   Widget _buildTabToggle() {
-    return Row(
-      children: [
-        _buildTabBtn(
-          icon: Icons.check_rounded,
-          label: 'Mark Attendance',
-          isSelected: _activeTab == 0,
-          onTap: () => setState(() => _activeTab = 0),
-        ),
-        SizedBox(width: 10.w),
-        _buildTabBtn(
-          icon: Icons.bar_chart_rounded,
-          label: 'Analytics',
-          isSelected: _activeTab == 1,
-          onTap: () => setState(() => _activeTab = 1),
-        ),
-      ],
+    return Container(
+      padding: EdgeInsets.all(4.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildTabBtn(
+            icon: Icons.check_rounded,
+            label: 'Mark Attendance',
+            isSelected: _activeTab == 0,
+            onTap: () => setState(() => _activeTab = 0),
+          ),
+          SizedBox(width: 4.w),
+          _buildTabBtn(
+            icon: Icons.bar_chart_rounded,
+            label: 'Analytics',
+            isSelected: _activeTab == 1,
+            onTap: () => setState(() => _activeTab = 1),
+          ),
+        ],
+      ),
     );
   }
 
@@ -383,21 +543,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 10.h),
+        duration: const Duration(milliseconds: 150),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.teacherPrimary : Colors.white,
+          color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(
-            color: isSelected
-                ? AppColors.teacherPrimary
-                : const Color(0xFFE2E8F0),
-          ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.teacherPrimary.withValues(alpha: 0.3),
-                    blurRadius: 8,
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
                     offset: const Offset(0, 2),
                   )
                 ]
@@ -409,7 +564,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             Icon(
               icon,
               size: 16.sp,
-              color: isSelected ? Colors.white : const Color(0xFF64748B),
+              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
             ),
             SizedBox(width: 6.w),
             Text(
@@ -417,7 +572,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               style: GoogleFonts.inter(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
-                color: isSelected ? Colors.white : const Color(0xFF64748B),
+                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
               ),
             ),
           ],
@@ -500,10 +655,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             hint: 'Select Class',
             items: _classes,
             onChanged: (val) {
-              setState(() {
-                _selectedClass = val;
-                _updateSectionsForSelectedClass();
-              });
+              if (val != null) {
+                setState(() {
+                  _selectedClass = val;
+                  _updateSectionsForSelectedClass();
+                });
+                _createNewSlotFromSelection();
+              }
             },
           ),
           SizedBox(height: 16.h),
@@ -534,15 +692,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
+                color: const Color(0xFFEFF6FF),
                 borderRadius: BorderRadius.circular(12.r),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
+                border: Border.all(color: const Color(0xFFD0E1F9)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined,
-                      size: 18.sp, color: const Color(0xFF94A3B8)),
-                  SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
                       _dateStr,
@@ -553,8 +708,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       ),
                     ),
                   ),
-                  Icon(Icons.calendar_month_rounded,
-                      size: 20.sp, color: const Color(0xFF94A3B8)),
+                  Icon(Icons.calendar_today_outlined,
+                      size: 18.sp, color: const Color(0xFF0F172A)),
                 ],
               ),
             ),
@@ -627,6 +782,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
 
   Widget _buildAttendanceSlotsCard() {
+    final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
@@ -653,10 +809,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.access_time_rounded, size: 18.sp, color: const Color(0xFF0F172A)),
+                        Icon(Icons.calendar_today_outlined, size: 18.sp, color: const Color(0xFF0F172A)),
                         SizedBox(width: 8.w),
                         Text(
-                          'Attendance Slots',
+                          "Today's Attendance Overview",
                           style: GoogleFonts.outfit(
                             fontSize: 16.sp,
                             fontWeight: FontWeight.w800,
@@ -667,33 +823,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     ),
                     SizedBox(height: 2.h),
                     Text(
-                      "Today's attendance slots",
+                      "student slots created for today ($dateFormatted)",
                       style: GoogleFonts.inter(
                         fontSize: 11.sp,
                         color: const Color(0xFF94A3B8),
                       ),
                     ),
                   ],
-                ),
-              ),
-              ElevatedButton.icon(
-                onPressed: _createNewSlotFromSelection,
-                icon: Icon(Icons.add, size: 16.sp, color: Colors.white),
-                label: Text(
-                  'Create Slot',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0D7DDC),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                  elevation: 0,
                 ),
               ),
             ],
@@ -751,6 +887,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     ? (slot['students'] as List).length
                     : 0;
 
+                final rawClass = slot['class'] as String;
+                final displayClass = rawClass.replaceAll('Class', 'Grade');
+                final String displayTitle = (slot['section'] == 'All Sections' || (slot['section'] as String).isEmpty)
+                    ? displayClass
+                    : '$displayClass - ${slot['section']}';
+
                 return GestureDetector(
                   onTap: () async {
                     final result = await Navigator.push(
@@ -801,53 +943,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         Container(
                           padding: EdgeInsets.all(10.r),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE0E7FF),
-                            borderRadius: BorderRadius.circular(10.r),
+                            color: isSub ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.people_outline,
-                              color: const Color(0xFF4F46E5), size: 20.sp),
+                          child: Icon(
+                            isSub ? Icons.check_rounded : Icons.access_time_rounded,
+                            color: isSub ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            size: 20.sp,
+                          ),
                         ),
                         SizedBox(width: 14.w),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    '${slot['class']} - ${slot['section']}',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w700,
-                                      color: const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  SizedBox(width: 8.w),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 8.w, vertical: 2.h),
-                                    decoration: BoxDecoration(
-                                      color: isSub
-                                          ? const Color(0xFFD1FAE5)
-                                          : const Color(0xFFFEF3C7),
-                                      borderRadius: BorderRadius.circular(12.r),
-                                    ),
-                                    child: Text(
-                                      isSub ? 'Submitted' : 'Open',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.sp,
-                                        fontWeight: FontWeight.w700,
-                                        color: isSub
-                                            ? const Color(0xFF065F46)
-                                            : const Color(0xFF92400E),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                displayTitle,
+                                style: GoogleFonts.inter(
+                                  fontSize: 14.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF0F172A),
+                                ),
                               ),
                               SizedBox(height: 4.h),
                               Text(
-                                '$totalRecs records',
+                                isSub ? '$totalRecs records marked' : '$totalRecs records',
                                 style: GoogleFonts.inter(
                                   fontSize: 12.sp,
                                   color: const Color(0xFF64748B),
@@ -856,23 +976,41 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             ],
                           ),
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.delete_outline_rounded,
-                            color: const Color(0xFFEF4444),
-                            size: 20.sp,
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: isSub ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            borderRadius: BorderRadius.circular(12.r),
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _createdSlots.removeAt(index);
-                            });
-                          },
+                          child: Text(
+                            isSub ? 'Done' : 'Open',
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w700,
+                              color: isSub ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
                 );
               },
+            ),
+            SizedBox(height: 16.h),
+            Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                child: Text(
+                  'Select a class above to create a new slot or\nview/update existing attendance',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 11.sp,
+                    color: const Color(0xFF94A3B8),
+                    height: 1.5,
+                  ),
+                ),
+              ),
             ),
           ],
         ],
@@ -902,16 +1040,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             DateFormat('yyyy-MM-dd').format(_selectedDate));
 
     if (exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Attendance slot already exists for this class & section',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-          backgroundColor: AppColors.warning,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: EdgeInsets.all(16.r),
-        ),
-      );
       return;
     }
 

@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_code_scanner/qr_code_scanner.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
 
@@ -34,6 +36,22 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
   String _teacherName = 'Vikram Yadav';
   final bool _showBotBubble = true;
   bool _isSimulating = false;
+  
+  // QR Scanner State
+  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
+  QRViewController? _qrController;
+  bool _isProcessingQR = false;
+
+  bool get _isDesktopOrWeb {
+    if (kIsWeb) return true;
+    try {
+      const platform = String.fromEnvironment('FLUTTER_PLATFORM', defaultValue: '');
+      if (platform.isNotEmpty) return false;
+    } catch (_) {}
+    return defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+  }
 
   @override
   void initState() {
@@ -52,7 +70,95 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _qrController?.dispose();
     super.dispose();
+  }
+
+  void _onQRViewCreated(QRViewController controller) {
+    setState(() {
+      _qrController = controller;
+    });
+    controller.scannedDataStream.listen((scanData) async {
+      if (_isProcessingQR) return;
+      final code = scanData.code?.trim() ?? '';
+      if (code.isEmpty) return;
+      await _processQRData(code);
+    });
+  }
+
+  Future<void> _processQRData(String rawCode) async {
+    if (_isProcessingQR) return;
+    setState(() => _isProcessingQR = true);
+    await _qrController?.pauseCamera();
+
+    try {
+      final admissionNo = rawCode.trim();
+      final studentRes = await Supabase.instance.client
+          .from('Student')
+          .select('id, user:User(firstName, lastName)')
+          .eq('admissionNumber', admissionNo)
+          .maybeSingle();
+
+      if (studentRes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Student not found for QR: $admissionNo'), backgroundColor: AppColors.error),
+          );
+        }
+        return;
+      }
+
+      final studentId = studentRes['id'].toString();
+      final user = studentRes['user'] as Map<String, dynamic>? ?? {};
+      final studentName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+      
+      final dateStr = widget.sessionDate != null
+          ? widget.sessionDate!.toIso8601String().substring(0, 10)
+          : DateTime.now().toIso8601String().substring(0, 10);
+          
+      final isCheckIn = widget.sessionAction?.toLowerCase() == 'check-in' || widget.sessionAction?.toLowerCase() == 'check_in';
+      
+      final Map<String, dynamic> scanData = {
+        'attendeeType': 'STUDENT',
+        'studentId': studentId,
+        'date': dateStr,
+        'status': 'PRESENT',
+        'scannedByQR': true,
+        'scannerId': widget.scannerId,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      if (isCheckIn) {
+        scanData['checkInTime'] = DateTime.now().toIso8601String();
+      } else {
+        scanData['checkOutTime'] = DateTime.now().toIso8601String();
+      }
+
+      await Supabase.instance.client.from('AttendanceRecord').insert(scanData);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully scanned: $studentName'), backgroundColor: AppColors.success),
+        );
+      }
+      await _loadLiveFeed();
+    } catch (e) {
+      debugPrint('Error processing QR: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error marking attendance: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isProcessingQR = false);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted && !_isDesktopOrWeb) {
+            _qrController?.resumeCamera();
+          }
+        });
+      }
+    }
   }
 
   Future<void> _loadTeacherName() async {
@@ -206,6 +312,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
           'status': 'PRESENT',
           'scannedByQR': true,
           'scannerId': widget.scannerId,
+          'updatedAt': DateTime.now().toIso8601String(),
         };
 
         if (isCheckIn) {
@@ -322,6 +429,34 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     final isDesktop = size.width > 800;
 
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        leading: IconButton(
+          icon: Icon(Icons.menu, size: 28),
+          onPressed: () {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            MainScreen.openDrawer();
+          },
+        ),
+        title: Text(
+          'EduSphere',
+          style: GoogleFonts.outfit(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.notifications_none_rounded, size: 28),
+            onPressed: () {},
+          ),
+          SizedBox(width: 8),
+        ],
+      ),
+
       backgroundColor: const Color(0xFFF8FAFC),
       bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 5),
       body: _isLoading
@@ -697,57 +832,108 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.warning_amber_rounded,
-            size: 48.sp,
-            color: const Color(0xFFF97316),
-          ),
-          SizedBox(height: 12.h),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.w),
-            child: Text(
-              'Camera access denied — check browser camera permissions',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF475569),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          SizedBox(height: 24.h),
-          ElevatedButton.icon(
-            onPressed: _simulateScan,
-            icon: _isSimulating
-                ? SizedBox(
-                    width: 16.w,
-                    height: 16.w,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.w,
+      child: _isDesktopOrWeb
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.desktop_windows_rounded,
+                  size: 48.sp,
+                  color: const Color(0xFF94A3B8),
+                ),
+                SizedBox(height: 12.h),
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  child: Text(
+                    'Camera scanning is not supported on this device/browser.\nPlease use the simulate button below for testing.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF64748B),
                     ),
-                  )
-                : Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 18.sp),
-            label: Text(
-              _isSimulating ? 'Simulating Scan...' : 'Simulate Scan (Test Mode)',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w800,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                SizedBox(height: 24.h),
+                _buildSimulateButton(),
+              ],
+            )
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16.r),
+                  child: QRView(
+                    key: qrKey,
+                    onQRViewCreated: _onQRViewCreated,
+                    overlay: QrScannerOverlayShape(
+                      borderColor: widget.theme.primary,
+                      borderRadius: 16,
+                      borderLength: 30,
+                      borderWidth: 6,
+                      cutOutSize: 250.w,
+                    ),
+                  ),
+                ),
+                if (_isProcessingQR)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(16.r),
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 12.h),
+                          Text(
+                            'Processing...',
+                            style: GoogleFonts.inter(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                Positioned(
+                  bottom: 20.h,
+                  child: _buildSimulateButton(),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildSimulateButton() {
+    return ElevatedButton.icon(
+      onPressed: _simulateScan,
+      icon: _isSimulating
+          ? SizedBox(
+              width: 16.w,
+              height: 16.w,
+              child: CircularProgressIndicator(
                 color: Colors.white,
+                strokeWidth: 2.w,
               ),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: widget.theme.primary,
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.r),
-              ),
-            ),
-          ),
-        ],
+            )
+          : Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 18.sp),
+      label: Text(
+        _isSimulating ? 'Simulating Scan...' : 'Simulate Scan (Test Mode)',
+        style: GoogleFonts.inter(
+          fontSize: 12.sp,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+        ),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: widget.theme.primary,
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10.r),
+        ),
       ),
     );
   }

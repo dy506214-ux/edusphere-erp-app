@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'ai_generator_screen.dart';
+import '../main_screen.dart';
 
 class AddLessonScreen extends StatefulWidget {
   const AddLessonScreen({super.key});
@@ -16,6 +17,35 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
+        leading: IconButton(
+          icon: Icon(Icons.menu, size: 28),
+          onPressed: () {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+            MainScreen.openDrawer();
+          },
+        ),
+        title: Text(
+          'EduSphere',
+          style: GoogleFonts.outfit(
+            fontSize: 22,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.notifications_none_rounded, size: 28),
+            onPressed: () {},
+          ),
+          SizedBox(width: 8),
+        ],
+      ),
+
       backgroundColor: const Color(0xFFF1F5F9),
       body: Column(
         children: [

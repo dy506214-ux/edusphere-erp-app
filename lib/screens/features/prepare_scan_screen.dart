@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
-import 'teacher_scan_screen.dart';
+import 'scanner_live_screen.dart';
 
 class PrepareScanScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -347,7 +347,7 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => TeacherScanScreen(
+                                        builder: (context) => ScannerLiveScreen(
                                           theme: widget.theme,
                                           scannerId: widget.scannerId,
                                           sessionDate: _selectedDate,
