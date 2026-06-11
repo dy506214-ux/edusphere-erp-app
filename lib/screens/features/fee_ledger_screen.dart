@@ -705,15 +705,15 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     );
   }
 
-  Widget _buildMockStatementSummary() {
+  Widget _buildStatementSummary() {
     final double completionPercent = _totalFee == 0 ? 0.0 : (_totalPaid / _totalFee).clamp(0.0, 1.0);
-    final String progressText = "${(completionPercent * 100).toStringAsFixed(0)}% Complete";
+    final String progressText = "${(completionPercent * 100).toStringAsFixed(0)}% Completed";
 
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -727,75 +727,55 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 40.w,
-                    height: 40.h,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEFF6FF),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: const Icon(
-                      Icons.description_outlined,
-                      color: Color(0xFF1A6FDB),
-                    ),
-                  ),
-                  SizedBox(width: 12.w),
-                  Text(
-                    'Statement Summary',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
-                      fontSize: 16.sp,
-                    ),
-                  ),
-                ],
+              Container(
+                padding: EdgeInsets.all(8.r),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: Icon(
+                  Icons.currency_rupee_rounded,
+                  color: const Color(0xFF1A6FDB),
+                  size: 20.sp,
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.more_horiz_rounded, color: Color(0xFF64748B)),
-                onPressed: () {},
-              ),
-            ],
-          ),
-          SizedBox(height: 20.h),
-          Row(
-            children: [
-              Expanded(
-                child: _summaryStatColumn('Total Fees', _formatCurrency(_totalFee), const Color(0xFF0F172A)),
-              ),
-              Container(width: 1.w, height: 40.h, color: AppColors.border),
-              Expanded(
-                child: _summaryStatColumn('Total Paid', _formatCurrency(_totalPaid), const Color(0xFF10B981)),
-              ),
-              Container(width: 1.w, height: 40.h, color: AppColors.border),
-              Expanded(
-                child: _summaryStatColumn(
-                  'Outstanding Due',
-                  _formatCurrency(_balance),
-                  _balance > 0 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+              SizedBox(width: 12.w),
+              Text(
+                'Statement Summary',
+                style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                  fontSize: 16.sp,
                 ),
               ),
             ],
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 24.h),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _summaryStatColumn('Total Fees (Year)', _formatCurrency(_totalFee), const Color(0xFF0F172A)),
+              _summaryStatColumn('Total Paid', _formatCurrency(_totalPaid), const Color(0xFF10B981)),
+              _summaryStatColumn('Outstanding Due', _formatCurrency(_balance), const Color(0xFFEF4444)),
+            ],
+          ),
+          SizedBox(height: 24.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 'Payment Progress',
                 style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 11.sp,
+                  fontWeight: FontWeight.w600,
                   color: const Color(0xFF64748B),
                 ),
               ),
               Text(
                 progressText,
                 style: GoogleFonts.inter(
-                  fontSize: 12.sp,
+                  fontSize: 11.sp,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFF1A6FDB),
                 ),
@@ -819,21 +799,22 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
 
   Widget _summaryStatColumn(String label, String value, Color valueColor) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
           style: GoogleFonts.inter(
-            fontSize: 12.sp,
+            fontSize: 11.sp,
             color: const Color(0xFF64748B),
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
           ),
         ),
         SizedBox(height: 6.h),
         Text(
           value,
           style: GoogleFonts.inter(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w700,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w800,
             color: valueColor,
           ),
         ),
@@ -841,12 +822,12 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     );
   }
 
-  Widget _buildMockDetailedLedger() {
+  Widget _buildDetailedLedger() {
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -860,162 +841,76 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r, 12.r),
+            padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r, 16.r),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 40.w,
-                        height: 40.h,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(12.r),
-                        ),
-                        child: const Icon(
-                          Icons.menu_book_outlined,
-                          color: Color(0xFF1A6FDB),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Detailed Fee Ledger',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F172A),
-                                fontSize: 16.sp,
-                              ),
-                            ),
-                            Text(
-                              'Breakdown by fee structure name',
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF64748B),
-                                fontSize: 12.sp,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                Container(
+                  padding: EdgeInsets.all(8.r),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  child: Icon(
+                    Icons.description_outlined,
+                    color: const Color(0xFF1A6FDB),
+                    size: 20.sp,
                   ),
                 ),
-                TextButton(
-                  onPressed: _showAllFeeHeadsBottomSheet,
-                  child: Text(
-                    'View All',
-                    style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A6FDB),
-                      fontSize: 13.sp,
+                SizedBox(width: 12.w),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Detailed Fee Ledger',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A),
+                        fontSize: 16.sp,
+                      ),
                     ),
-                  ),
+                    Text(
+                      'Breakdown by fee structure items',
+                      style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF64748B),
+                        fontSize: 12.sp,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           
-          // Scrollable Table content
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
             child: SizedBox(
-              width: 540.w, // Ample width for all columns to display cleanly on mobile
+              width: 600.w,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header row
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                    color: const Color(0xFFF8FAFC),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8FAFC),
+                      border: Border(
+                        top: BorderSide(color: Color(0xFFF1F5F9)),
+                        bottom: BorderSide(color: Color(0xFFF1F5F9)),
+                      ),
+                    ),
                     child: Row(
                       children: [
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            'Fee Structure',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Total',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Paid',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Due',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Status',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            'Action',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        ),
+                        Expanded(flex: 3, child: _headerText('Fee Structure')),
+                        Expanded(flex: 2, child: _headerText('Total', align: TextAlign.center)),
+                        Expanded(flex: 2, child: _headerText('Paid', align: TextAlign.center)),
+                        Expanded(flex: 2, child: _headerText('Due', align: TextAlign.center)),
+                        Expanded(flex: 2, child: _headerText('Status', align: TextAlign.center)),
+                        Expanded(flex: 2, child: _headerText('Action', align: TextAlign.center)),
                       ],
                     ),
                   ),
-                  
-                  // Table rows
-                  ..._feeHeads.asMap().entries.map((entry) {
-                    final head = entry.value;
+                  ..._feeHeads.map((head) {
                     final name = head['name'] as String;
                     final amount = head['amount'] as double;
                     final paid = head['paid'] as double;
@@ -1046,77 +941,26 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                               children: [
                                 Text(
                                   name,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 13.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF0F172A),
-                                  ),
+                                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
                                 ),
                                 SizedBox(height: 2.h),
                                 Text(
                                   'TUITION',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF94A3B8),
-                                  ),
+                                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
                                 ),
                               ],
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              _formatCurrency(amount),
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF0F172A),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              _formatCurrency(paid),
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF10B981),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              _formatCurrency(due),
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFFEF4444),
-                              ),
-                            ),
-                          ),
+                          Expanded(flex: 2, child: Text(_formatCurrency(amount), textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)))),
+                          Expanded(flex: 2, child: Text(_formatCurrency(paid), textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF10B981)))),
+                          Expanded(flex: 2, child: Text(_formatCurrency(due), textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFFEF4444)))),
                           Expanded(
                             flex: 2,
                             child: Center(
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                                decoration: BoxDecoration(
-                                  color: statusBg,
-                                  borderRadius: BorderRadius.circular(6.r),
-                                ),
-                                child: Text(
-                                  status,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 9.sp,
-                                    fontWeight: FontWeight.w800,
-                                    color: statusColor,
-                                  ),
-                                ),
+                                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                                decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6.r)),
+                                child: Text(status, style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: statusColor)),
                               ),
                             ),
                           ),
@@ -1131,10 +975,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                                           backgroundColor: const Color(0xFF1A6FDB),
                                           foregroundColor: Colors.white,
                                           elevation: 0,
-                                          padding: EdgeInsets.symmetric(horizontal: 10.w),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8.r),
-                                          ),
+                                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
                                         ),
                                         onPressed: () {
                                           Navigator.push(
@@ -1151,20 +993,10 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                                             ),
                                           ).then((_) => _loadLedgerData());
                                         },
-                                        child: Text(
-                                          'Pay Now',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 11.sp,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
+                                        child: Text('Pay Now', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700)),
                                       ),
                                     )
-                                  : const Icon(
-                                      Icons.check_circle_rounded,
-                                      color: Color(0xFF10B981),
-                                      size: 20,
-                                    ),
+                                  : const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20),
                             ),
                           ),
                         ],
@@ -1180,12 +1012,20 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
     );
   }
 
-  Widget _buildMockRecentHistory() {
+  Widget _headerText(String text, {TextAlign align = TextAlign.left}) {
+    return Text(
+      text,
+      textAlign: align,
+      style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF64748B)),
+    );
+  }
+
+  Widget _buildRecentHistory() {
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24.r),
+        borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
@@ -1201,15 +1041,15 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
           Row(
             children: [
               Container(
-                width: 40.w,
-                height: 40.h,
+                padding: EdgeInsets.all(8.r),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3E8FF),
-                  borderRadius: BorderRadius.circular(12.r),
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(8.r),
                 ),
-                child: const Icon(
-                  Icons.history_rounded,
-                  color: Color(0xFF8B5CF6),
+                child: Icon(
+                  Icons.access_time_rounded,
+                  color: const Color(0xFF1A6FDB),
+                  size: 20.sp,
                 ),
               ),
               SizedBox(width: 12.w),
@@ -1219,13 +1059,13 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                   Text(
                     'Recent History',
                     style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: const Color(0xFF0F172A),
                       fontSize: 16.sp,
                     ),
                   ),
                   Text(
-                    'Last 5 transactions',
+                    'Last 3 transactions',
                     style: GoogleFonts.inter(
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF64748B),
@@ -1237,132 +1077,64 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
             ],
           ),
           SizedBox(height: 24.h),
-          if (_paymentHistory.isEmpty) ...[
+          if (_paymentHistory.isEmpty)
             Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 80.w,
-                    height: 80.h,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.receipt_long_outlined,
-                      size: 40,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
-                  Text(
-                    'No transaction history',
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                  SizedBox(height: 24.h),
-                  Divider(height: 1.h, color: AppColors.border),
-                  SizedBox(height: 16.h),
-                  TextButton.icon(
-                    onPressed: _downloadStatement,
-                    icon: const Icon(Icons.download_outlined, color: Color(0xFF1A6FDB), size: 18),
-                    label: Text(
-                      'Download Statement (PDF)',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF1A6FDB),
-                      ),
-                    ),
-                  ),
-                ],
+              child: Text(
+                'No transaction history',
+                style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
               ),
-            ),
-          ] else ...[
+            )
+          else
             Column(
               children: [
-                ..._paymentHistory.take(5).toList().asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final payment = entry.value;
+                ..._paymentHistory.take(3).map((payment) {
                   final date = _formatDate(payment['date'] as String?);
                   final amount = payment['amount'] as double;
-                  final method = payment['method'] as String;
                   final receipt = payment['receipt'] as String;
-                  final isLast = index == _paymentHistory.length - 1 || index == 4;
 
                   return Container(
-                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 16.w),
+                    margin: EdgeInsets.only(bottom: 12.h),
                     decoration: BoxDecoration(
-                      border: isLast ? null : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFE2EAF4)),
+                      borderRadius: BorderRadius.circular(8.r),
                     ),
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Container(
-                          width: 40.w,
-                          height: 40.h,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(10.r),
-                          ),
-                          child: const Icon(
-                            Icons.receipt_long_outlined,
-                            color: Color(0xFF1A6FDB),
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                method,
-                                style: GoogleFonts.inter(
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0F172A),
-                                  fontSize: 13.sp,
-                                ),
-                              ),
-                              SizedBox(height: 2.h),
-                              Text(
-                                '$date • $receipt',
-                                style: GoogleFonts.inter(
-                                  fontSize: 11.sp,
-                                  color: const Color(0xFF64748B),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _formatCurrency(amount),
+                              style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: const Color(0xFF0F172A), fontSize: 14.sp),
+                            ),
+                            SizedBox(height: 4.h),
+                            Text(
+                              date,
+                              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(
-                              _formatCurrency(amount),
-                              style: GoogleFonts.inter(
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F172A),
-                                fontSize: 13.sp,
+                            Container(
+                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFECFDF5),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: Text(
+                                'PAID',
+                                style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
                               ),
                             ),
-                            SizedBox(height: 3.h),
-                            Row(
-                              children: [
-                                const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 12),
-                                SizedBox(width: 3.w),
-                                Text(
-                                  'Success',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF10B981),
-                                  ),
-                                ),
-                              ],
+                            SizedBox(height: 4.h),
+                            Text(
+                              'REF: $receipt',
+                              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
                             ),
                           ],
                         ),
@@ -1371,23 +1143,22 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                   );
                 }),
                 SizedBox(height: 16.h),
-                Divider(height: 1.h, color: AppColors.border),
-                SizedBox(height: 16.h),
-                TextButton.icon(
-                  onPressed: _downloadStatement,
-                  icon: const Icon(Icons.download_outlined, color: Color(0xFF1A6FDB), size: 18),
-                  label: Text(
-                    'Download Statement (PDF)',
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1A6FDB),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: _downloadStatement,
+                    icon: Icon(Icons.picture_as_pdf_outlined, color: const Color(0xFF1A6FDB), size: 18.sp),
+                    label: Text(
+                      'Download Statement (PDF)',
+                      style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1A6FDB),
+                      ),
                     ),
                   ),
                 ),
               ],
             ),
-          ],
         ],
       ),
     );
@@ -1437,8 +1208,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                           'Finance Overview',
                           style: GoogleFonts.inter(
                             fontSize: 24.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF1A6FDB),
                           ),
                         ),
                         SizedBox(height: 2.h),
@@ -1469,11 +1240,11 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildMockStatementSummary(),
+                            _buildStatementSummary(),
                             SizedBox(height: 20.h),
-                            _buildMockDetailedLedger(),
+                            _buildDetailedLedger(),
                             SizedBox(height: 20.h),
-                            _buildMockRecentHistory(),
+                            _buildRecentHistory(),
                             SizedBox(height: 40.h),
                           ],
                         ),

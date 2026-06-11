@@ -237,26 +237,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         });
       }
 
-      // Add mock English assignment to list to match user request / first image mockup
-      final bool isMockSubmitted = prefs.getBool('mock_sub_chapter_1') ?? false;
-      final String? mockFileName = prefs.getString('mock_file_chapter_1');
-      final String? mockSubAt = prefs.getString('mock_date_chapter_1');
-
-      tempAssignments.add({
-        'id': 'mock-chapter-1-assignment-id',
-        'title': 'Chapter 1 Assignment',
-        'subject': 'English',
-        'description': 'Complete exercises from Chapter 1',
-        'due': 'Sep 30, 2024',
-        'urgent': false,
-        'isOverdue': !isMockSubmitted,
-        'isSubmitted': isMockSubmitted,
-        'submittedAt': mockSubAt ?? 'Recently',
-        'grade': 'Pending',
-        'score': 'Not Graded',
-        'fileName': mockFileName,
-      });
-
+      // Mock assignment removed to match real-time empty state matching target design.
       if (mounted) {
         setState(() {
           _assignments.clear();
@@ -298,173 +279,99 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Page Title Row with Filter Icon
+                // Page Title
                 Padding(
                   padding: EdgeInsets.fromLTRB(24.w, 24.h, 24.w, 16.h),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'My Assignments',
-                              style: GoogleFonts.inter(
-                                fontSize: 22.sp,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF0F2547),
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              'View and submit your classwork',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF6B7A90),
-                              ),
-                            ),
-                          ],
+                      Text(
+                        'My Assignments',
+                        style: GoogleFonts.inter(
+                          fontSize: 22.sp,
+                          fontWeight: FontWeight.w900,
+                          color: const Color(0xFF0066CC),
                         ),
                       ),
-                      PopupMenuButton<String>(
-                        icon: Container(
-                          padding: EdgeInsets.all(10.r),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
-                          ),
-                          child: Icon(Icons.filter_alt_outlined, color: const Color(0xFF2E7DF7), size: 20.sp),
+                      SizedBox(height: 2.h),
+                      Text(
+                        'View and submit your classwork',
+                        style: GoogleFonts.inter(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF6B7A90),
                         ),
-                        offset: Offset(0, 50.h),
-                        onSelected: (String sub) {
-                          setState(() {
-                            _selectedSubject = sub;
-                          });
-                        },
-                        itemBuilder: (BuildContext context) {
-                          return _subjects.map((String sub) {
-                            final bool isSelected = _selectedSubject == sub;
-                            return PopupMenuItem<String>(
-                              value: sub,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isSelected ? Icons.check_circle_rounded : Icons.radio_button_off_rounded,
-                                    color: isSelected ? const Color(0xFF2E7DF7) : const Color(0xFF94A3B8),
-                                    size: 18.sp,
-                                  ),
-                                  SizedBox(width: 8.w),
-                                  Text(
-                                    sub,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13.sp,
-                                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                                      color: isSelected ? const Color(0xFF0F2547) : const Color(0xFF475569),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList();
-                        },
                       ),
                     ],
                   ),
                 ),
 
-                // Top Header Card
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: _buildHeaderCard(),
-                ),
-                SizedBox(height: 16.h),
-
-                // Assignments List Content
+                // Main Content Card
                 Expanded(
-                  child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7DF7)))
-                      : RefreshIndicator(
-                          onRefresh: () => _loadAssignmentsData(showLoading: true),
-                          color: const Color(0xFF2E7DF7),
-                          child: filtered.isEmpty
-                              ? _buildEmptyState()
-                              : ListView.builder(
-                                  padding: EdgeInsets.only(bottom: 100.h),
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    return _buildAssignmentCard(filtered[index]);
-                                  },
-                                ),
-                        ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(24.w, 0, 24.w, 24.h),
+                    child: Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(20.r),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.01),
+                            blurRadius: 10.r,
+                            offset: Offset(0, 4.h),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Academic Assignments',
+                            style: GoogleFonts.inter(
+                              fontSize: 14.5.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF0F2547),
+                            ),
+                          ),
+                          SizedBox(height: 3.h),
+                          Text(
+                            'Click on an assignment to submit your work or view grades.',
+                            style: GoogleFonts.inter(
+                              fontSize: 11.5.sp,
+                              color: const Color(0xFF6B7A90),
+                              height: 1.3,
+                            ),
+                          ),
+                          SizedBox(height: 24.h),
+                          Expanded(
+                            child: _isLoading
+                                ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7DF7)))
+                                : RefreshIndicator(
+                                    onRefresh: () => _loadAssignmentsData(showLoading: true),
+                                    color: const Color(0xFF2E7DF7),
+                                    child: filtered.isEmpty
+                                        ? _buildEmptyState()
+                                        : ListView.builder(
+                                            physics: const AlwaysScrollableScrollPhysics(),
+                                            itemCount: filtered.length,
+                                            itemBuilder: (context, index) {
+                                              return _buildAssignmentCard(filtered[index]);
+                                            },
+                                          ),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-
-
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard() {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.01),
-            blurRadius: 10.r,
-            offset: Offset(0, 4.h),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Circle notebook icon container
-          Container(
-            width: 40.w,
-            height: 40.w,
-            decoration: const BoxDecoration(
-              color: Color(0xFFE8F1FB),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.menu_book_rounded, color: const Color(0xFF2E7DF7), size: 20.sp),
-          ),
-          SizedBox(width: 14.w),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Academic Assignments',
-                  style: GoogleFonts.inter(
-                    fontSize: 14.5.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F2547),
-                  ),
-                ),
-                SizedBox(height: 3.h),
-                Text(
-                  'Click on an assignment to submit your work or view grades.',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.5.sp,
-                    color: const Color(0xFF6B7A90),
-                    height: 1.3,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -689,49 +596,33 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Container(
-        margin: EdgeInsets.all(24.r),
-        padding: EdgeInsets.symmetric(vertical: 48.h, horizontal: 24.w),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: const Color(0xFFE9F0F8), width: 1.5.w),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: EdgeInsets.all(16.r),
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: CustomPaint(
+        painter: _DashedBorderPainter(),
+        child: Container(
+          width: double.infinity,
+          padding: EdgeInsets.symmetric(vertical: 80.h, horizontal: 24.w),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.description_outlined,
+                color: const Color(0xFFCBD5E1),
+                size: 48.sp,
               ),
-              child: Icon(
-                Icons.assignment_outlined,
-                color: const Color(0xFF94A3B8),
-                size: 44.sp,
+              SizedBox(height: 16.h),
+              Text(
+                'No assignments found for your class.',
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF475569),
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              'No assignments found',
-              style: GoogleFonts.inter(
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              'No tasks matched the selected subject filter.',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                color: const Color(0xFF64748B),
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1411,4 +1302,30 @@ class DashedRectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(DashedRectPainter oldDelegate) => false;
+}
+
+class _DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFE2EAF4)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12)));
+
+    final dashPath = Path();
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        dashPath.addPath(metric.extractPath(distance, distance + 6), Offset.zero);
+        distance += 12;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

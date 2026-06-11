@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+
 import '../main_screen.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -71,6 +77,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   late DateTime _focusedMonth;
   DateTime? _selectedDay;
   bool _isMonthView = true;
+  String _selectedFilter = 'All Categories';
+  final GlobalKey _calendarKey = GlobalKey();
 
   // Events keyed by "year-month-day"
   final Map<String, List<CalendarEvent>> _events = {};
@@ -85,21 +93,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   void _loadEvents() {
-    final now = DateTime.now();
-    final y = now.year;
-    final m = now.month;
-
-    // Pre-loaded institutional events
-    _addEvent(y, m, 1,  const CalendarEvent('Start of Academic Year 2025-2026', EventType.event));
-    _addEvent(y, m, 15, const CalendarEvent('Science Fair 2026', EventType.event, time: '10:00 AM'));
-    _addEvent(y, m, 20, const CalendarEvent('National Holiday', EventType.holiday));
-    _addEvent(y, m, 25, const CalendarEvent('Mid-Term Examinations', EventType.exam));
-
-    // Next month events
-    _addEvent(y, m + 1, 5,  const CalendarEvent('Parents Meeting', EventType.event));
-    _addEvent(y, m + 1, 14, const CalendarEvent('Independence Day', EventType.holiday));
-    _addEvent(y, m + 1, 22, const CalendarEvent('Annual Sports Day', EventType.event));
-    _addEvent(y, m + 1, 28, const CalendarEvent('Chemistry Lab Exam', EventType.exam));
+    // Events should be loaded from real-time database here.
+    // Currently cleared to reflect actual state (no events) matching the design.
   }
 
   void _addEvent(int year, int month, int day, CalendarEvent event) {
@@ -109,8 +104,11 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   String _eventKey(int year, int month, int day) => '$year-$month-$day';
 
-  List<CalendarEvent> _eventsForDay(int year, int month, int day) =>
-      _events[_eventKey(year, month, day)] ?? [];
+  List<CalendarEvent> _eventsForDay(int year, int month, int day) {
+    final evs = _events[_eventKey(year, month, day)] ?? [];
+    if (_selectedFilter == 'All Categories') return evs;
+    return evs.where((e) => e.type.label == _selectedFilter).toList();
+  }
 
   void _goToPreviousMonth() => setState(() {
         _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
@@ -209,26 +207,203 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Column(
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          'Academic Calendar',
-          style: GoogleFonts.outfit(
-            fontSize: 24.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Academic Calendar',
+                style: GoogleFonts.outfit(
+                  fontSize: 24.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                'Institutional schedule, public holidays, and event horizons.',
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
           ),
         ),
-        SizedBox(height: 4.h),
-        Text(
-          'Institutional schedule, public holidays, and event horizons.',
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            color: const Color(0xFF64748B),
-          ),
-        ),
+        Row(
+          children: [
+            Builder(
+              builder: (context) {
+                final isFilterActive = _selectedFilter != 'All Categories';
+                return _actionBtn(
+                  Icons.filter_alt_outlined, 
+                  isFilterActive ? _selectedFilter : 'Filters',
+                  trailingIcon: Icons.keyboard_arrow_down,
+                  isActive: isFilterActive,
+                  onTap: () {
+                    final RenderBox button = context.findRenderObject() as RenderBox;
+                    _showFiltersMenu(context, button);
+                  }
+                );
+              }
+            ),
+            SizedBox(width: 8.w),
+            _actionBtn(
+              Icons.file_upload_outlined, 
+              'Export',
+              onTap: _exportCalendar,
+            ),
+          ],
+        )
       ],
+    );
+  }
+
+  void _showFiltersMenu(BuildContext context, RenderBox button) {
+    final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(Offset(0, 8)), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+      color: Colors.white,
+      elevation: 4,
+      items: [
+        'All Categories',
+        'Holiday',
+        'Event',
+        'Exam',
+        'Emergency',
+        'Notice'
+      ].map((String choice) {
+        final isSelected = choice == _selectedFilter;
+        return PopupMenuItem<String>(
+          value: choice,
+          padding: EdgeInsets.zero,
+          child: Container(
+            width: 140.w,
+            margin: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFE0F2FE) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Text(
+              choice,
+              style: GoogleFonts.inter(
+                fontSize: 13.sp,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? const Color(0xFF0066CC) : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null) {
+        setState(() {
+          _selectedFilter = value;
+        });
+      }
+    });
+  }
+
+  Future<void> _exportCalendar() async {
+    final bool? granted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Storage Permission', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        content: Text('EduSphere needs access to your files and gallery to save the exported calendar.', style: GoogleFonts.inter()),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Deny', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF0066CC),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              elevation: 0,
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Allow', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+
+    if (granted != true) return;
+
+    try {
+      final boundary = _calendarKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      final pngBytes = byteData!.buffer.asUint8List();
+
+      final pdfDoc = pw.Document();
+      final pdfImage = pw.MemoryImage(pngBytes);
+
+      pdfDoc.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Center(child: pw.Image(pdfImage));
+          },
+        ),
+      );
+
+      final pdfBytes = await pdfDoc.save();
+      await Printing.sharePdf(bytes: pdfBytes, filename: 'academic_calendar.pdf');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to export calendar')));
+      }
+    }
+  }
+
+  Widget _actionBtn(IconData icon, String label, {IconData? trailingIcon, VoidCallback? onTap, bool isActive = false}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFE0F2FE) : Colors.white,
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(color: isActive ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16.sp, color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569)),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569),
+              ),
+            ),
+            if (trailingIcon != null) ...[
+              SizedBox(width: 6.w),
+              Icon(trailingIcon, size: 16.sp, color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569)),
+            ]
+          ],
+        ),
+      ),
     );
   }
 
@@ -243,36 +418,43 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     final totalCells   = startOffset + daysInMonth;
     final rows         = (totalCells / 7).ceil();
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
+    return RepaintBoundary(
+      key: _calendarKey,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
         children: [
           _buildCalendarHeader(year, month),
-          _buildWeekdayRow(),
-          SizedBox(height: 4.h),
-          // Calendar rows
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8.w),
-            child: Column(
-              children: List.generate(rows, (row) {
-                return _buildCalendarRow(row, startOffset, daysInMonth, year, month);
-              }),
+          if (_isMonthView) ...[
+            _buildWeekdayRow(),
+            SizedBox(height: 4.h),
+            // Calendar rows
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.w),
+              child: Column(
+                children: List.generate(rows, (row) {
+                  return _buildCalendarRow(row, startOffset, daysInMonth, year, month);
+                }),
+              ),
             ),
-          ),
-          SizedBox(height: 10.h),
+            SizedBox(height: 10.h),
+          ] else ...[
+            _buildListView(),
+          ]
         ],
       ),
+    ),
     );
   }
 
@@ -538,6 +720,105 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     );
   }
 
+  // ── List View ──────────────────────────────────────────────────────────────
+  Widget _buildListView() {
+    final horizons = _monthEventHorizons;
+
+    if (horizons.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 120.h),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.calendar_month_outlined,
+                size: 64.sp,
+                color: const Color(0xFFCBD5E1),
+              ),
+              SizedBox(height: 16.h),
+              Text(
+                'No events found for this month.',
+                style: GoogleFonts.inter(
+                  fontSize: 14.sp,
+                  color: const Color(0xFF94A3B8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+      child: Column(
+        children: horizons.map((h) {
+          final date = h.key;
+          final event = h.value;
+          return Container(
+            margin: EdgeInsets.only(bottom: 12.h),
+            padding: EdgeInsets.all(16.r),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48.w,
+                  height: 48.w,
+                  decoration: BoxDecoration(
+                    color: event.type.bgColor,
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(DateFormat('MMM').format(date).toUpperCase(), style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: event.type.color)),
+                        Text('${date.day}', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: event.type.color)),
+                      ],
+                    ),
+                  ),
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(event.title, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A))),
+                      if (event.time != null) ...[
+                        SizedBox(height: 4.h),
+                        Row(
+                          children: [
+                            Icon(Icons.schedule_rounded, size: 12.sp, color: const Color(0xFF64748B)),
+                            SizedBox(width: 4.w),
+                            Text(event.time!, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                          ],
+                        ),
+                      ]
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: event.type.color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6.r),
+                  ),
+                  child: Text(event.type.label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w600, color: event.type.color)),
+                )
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   // ── Event Horizons Panel ───────────────────────────────────────────────────
   Widget _buildEventHorizons() {
     final horizons = _monthEventHorizons;
@@ -749,12 +1030,11 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'INSTITUTIONAL LEGEND',
-            style: GoogleFonts.inter(
-              fontSize: 9.sp,
+            'Institutional Legend',
+            style: GoogleFonts.outfit(
+              fontSize: 15.sp,
               fontWeight: FontWeight.w800,
-              color: const Color(0xFF94A3B8),
-              letterSpacing: 0.8,
+              color: const Color(0xFF1E293B),
             ),
           ),
           SizedBox(height: 14.h),

@@ -66,6 +66,7 @@ class _MainScreenState extends State<MainScreen> {
   String _userName = 'Alex Rivera';
   String? _profilePhotoUrl;
   int _idx = 0;
+  DateTime? _lastSeenAnnouncementTime;
 
   String _getLabelForIndex(int index, bool isDesktop) {
     if (widget.role == 'teacher') {
@@ -221,6 +222,10 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadUserName() async {
     final prefs = await SharedPreferences.getInstance();
+    final timeStr = prefs.getString('last_seen_announcement_time');
+    if (timeStr != null) {
+      _lastSeenAnnouncementTime = DateTime.tryParse(timeStr);
+    }
     setState(() {
       _userName = prefs.getString('${widget.role}_name') ?? 
                   (widget.role == 'teacher' ? prefs.getString('teacher_name') : null) ??
@@ -389,7 +394,148 @@ class _MainScreenState extends State<MainScreen> {
               leading: IconButton(icon: Icon(Icons.menu, size: 28.sp), onPressed: () => _scaffoldKey.currentState?.openDrawer()),
               title: Text('EduSphere', style: GoogleFonts.outfit(fontSize: 22.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
               actions: [
-                IconButton(icon: Icon(Icons.notifications_none_rounded, size: 28.sp), onPressed: () {}),
+                IconButton(
+                  icon: Icon(Icons.notifications_off_outlined, size: 28.sp),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Text('Mute Notifications', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                        content: Text('Are you sure you want to mute notifications?', style: GoogleFonts.inter()),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.w600)),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFEF4444),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                              elevation: 0,
+                            ),
+                            onPressed: () {
+                              Navigator.pop(context);
+                              showToast(context, 'Notifications muted');
+                            },
+                            child: Text('Mute', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: Supabase.instance.client.from('Announcement').stream(primaryKey: ['id']),
+                  builder: (context, snapshot) {
+                    bool hasNew = false;
+                    if (snapshot.hasData && snapshot.data!.isNotEmpty) {
+                      final announcements = List<Map<String, dynamic>>.from(snapshot.data!);
+                      announcements.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+                      final newestStr = announcements.first['createdAt'] as String?;
+                      if (newestStr != null) {
+                        final newestTime = DateTime.tryParse(newestStr);
+                        if (newestTime != null) {
+                          if (_lastSeenAnnouncementTime == null || newestTime.isAfter(_lastSeenAnnouncementTime!)) {
+                            hasNew = true;
+                          }
+                        }
+                      }
+                    }
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Builder(
+                          builder: (context) {
+                            return IconButton(
+                              icon: Icon(Icons.notifications_none_rounded, size: 28.sp),
+                              onPressed: () async {
+                                final prefs = await SharedPreferences.getInstance();
+                                final now = DateTime.now();
+                                await prefs.setString('last_seen_announcement_time', now.toIso8601String());
+                                setState(() {
+                                  _lastSeenAnnouncementTime = now;
+                                });
+                                
+                                final RenderBox button = context.findRenderObject() as RenderBox;
+                                final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+                                final RelativeRect position = RelativeRect.fromRect(
+                                  Rect.fromPoints(
+                                    button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
+                                    button.localToGlobal(button.size.bottomRight(Offset(0, 8)), ancestor: overlay),
+                                  ),
+                                  Offset.zero & overlay.size,
+                                );
+
+                                showMenu(
+                                  context: context,
+                                  position: position,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                  color: Colors.white,
+                                  elevation: 4,
+                                  items: [
+                                    PopupMenuItem(
+                                      enabled: false,
+                                      padding: EdgeInsets.zero,
+                                      child: SizedBox(
+                                        width: 320.w,
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Padding(
+                                              padding: EdgeInsets.all(16.r),
+                                              child: Text('Notifications', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+                                            ),
+                                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 40.h, horizontal: 16.w),
+                                              child: Center(
+                                                child: Column(
+                                                  children: [
+                                                    Container(
+                                                      padding: EdgeInsets.all(16.r),
+                                                      decoration: const BoxDecoration(
+                                                        color: Color(0xFFF1F5F9),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                      child: Icon(Icons.notifications_off_outlined, color: const Color(0xFF94A3B8), size: 32.sp),
+                                                    ),
+                                                    SizedBox(height: 16.h),
+                                                    Text('All caught up!', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
+                                                    SizedBox(height: 8.h),
+                                                    Text('No new notifications to show.', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8))),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          }
+                        ),
+                        if (hasNew)
+                          Positioned(
+                            right: 12.w,
+                            top: 12.h,
+                            child: Container(
+                              width: 10.w,
+                              height: 10.h,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFFEF4444),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
                 SizedBox(width: 8.w),
               ],
             )
@@ -407,17 +553,9 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: isDesktop ? null : SafeArea(
         child: Container(
-          margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(30.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              )
-            ],
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),

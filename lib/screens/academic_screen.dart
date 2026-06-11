@@ -17,6 +17,7 @@ import 'profile_screen.dart';
 import 'community_screen.dart';
 import 'features/create_assignment_screen.dart';
 import 'features/schedule_screen.dart';
+import 'features/student_timetable_screen.dart';
 import 'features/announcements_screen.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -572,63 +573,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   void _showAllTimetablesSheet() {
-    final list = _getTimetableSlots();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Container(
-        padding: EdgeInsets.all(24.r),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '📅 Weekly Timetables',
-                  style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
-                ),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            SizedBox(height: 16.h),
-            ...list.map((slot) => Container(
-              margin: EdgeInsets.only(bottom: 12.h),
-              padding: EdgeInsets.all(16.r),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF3F8FC),
-                borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: const Color(0xFFE9F0F7)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.schedule_rounded, color: const Color(0xFF0076F6), size: 18.sp),
-                  SizedBox(width: 12.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(slot['title'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
-                        Text(slot['time'] as String, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF5D7290), fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )),
-            SizedBox(height: 12.h),
-          ],
-        ),
-      ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const StudentTimetableScreen()),
     );
   }
 
@@ -768,14 +715,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 style: GoogleFonts.inter(
                   fontSize: 24.sp,
                   fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F2547),
+                  color: const Color(0xFF0066CC),
                 ),
               ),
               SizedBox(height: 4.h),
               Text(
-                _studentName.isNotEmpty
-                    ? 'Welcome, $_studentName'
-                    : 'Manage your academic journey',
+                'Manage your academic journey',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: GoogleFonts.inter(
@@ -941,18 +886,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               );
             },
           ),
-          SizedBox(height: 16.h),
-
-          // Bottom Action Button
-          Center(
-            child: GestureDetector(
-              onTap: _showAllSubjectsSheet,
-              child: Text(
-                'View All Subjects',
-                style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0076F6)),
-              ),
-            ),
-          ),
+          SizedBox(height: 8.h),
         ],
       ),
     );
@@ -1005,132 +939,31 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
             ],
           ),
-          SizedBox(height: 20.h),
-
-          // Horizontal Day Selector
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            physics: const AlwaysScrollableScrollPhysics(), // Ensures scrolling is always active & responsive
-            child: Row(
-              children: [1, 2, 3, 4, 5, 6, 7].map((dayNum) {
-                final Map<int, String> dayNames = {
-                  1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun'
-                };
-                final isSelected = _selectedTimetableDay == dayNum;
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _selectedTimetableDay = dayNum;
-                    });
-                  },
-                  child: Container(
-                    margin: EdgeInsets.only(right: 8.w),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h), // Increased padding slightly for easier touch target
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF0076F6) : const Color(0xFFF1F5F9),
-                      borderRadius: BorderRadius.circular(12.r),
-                    ),
-                    child: Text(
-                      dayNames[dayNum]!,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w800,
-                        color: isSelected ? Colors.white : const Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+          // Sub-card
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${_className.split(' ')[0]} - A Weekly Routine',
+                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  'Class A',
+                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
           ),
-          SizedBox(height: 16.h),
-
-          // Timetable Cards List
-          if (list.isEmpty)
-            Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
-              child: Center(
-                child: Text(
-                  'No classes scheduled for today',
-                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF6B7A90)),
-                ),
-              ),
-            )
-          else
-            ...list.map((slot) => Container(
-              width: double.infinity,
-              margin: EdgeInsets.only(bottom: 12.h),
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: const Color(0xFFE2EAF4)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(6.r),
-                              ),
-                              child: Text(
-                                slot['code'] ?? 'CORE',
-                                style: GoogleFonts.inter(
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: const Color(0xFF0076F6),
-                                ),
-                              ),
-                            ),
-                            const Spacer(),
-                            Row(
-                              children: [
-                                Icon(Icons.meeting_room_outlined, size: 12.sp, color: const Color(0xFF6B7A90)),
-                                SizedBox(width: 4.w),
-                                Text(
-                                  slot['room'] ?? 'Room 101',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF6B7A90),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 6.h),
-                        Text(
-                          slot['subject'] ?? 'Subject',
-                          style: GoogleFonts.inter(
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F2547),
-                          ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          slot['time'] ?? '',
-                          style: GoogleFonts.inter(
-                            fontSize: 11.5.sp,
-                            color: const Color(0xFF6B7A90),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          SizedBox(height: 12.h),
+          SizedBox(height: 20.h),
 
           // Bottom Action Button
           GestureDetector(
@@ -1144,7 +977,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
               child: Center(
                 child: Text(
-                  'View All Timetables',
+                  'View All',
                   style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0076F6)),
                 ),
               ),
