@@ -860,7 +860,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 })(),
                 SizedBox(height: 24.h),
                 GestureDetector(
-                  onTap: () => MainScreen.navigateTo(context, 1),
                   onTap: () {
                     final isDesktop = MediaQuery.of(context).size.width > 900;
                     if (isDesktop) {

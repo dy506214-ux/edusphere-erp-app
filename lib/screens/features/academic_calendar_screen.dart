@@ -78,6 +78,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   // Events keyed by "year-month-day"
   final Map<String, List<CalendarEvent>> _events = {};
   RealtimeChannel? _realtimeChannel;
+  String _selectedFilter = 'All Categories';
 
   @override
   void initState() {
@@ -238,7 +239,9 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     for (int d = 1; d <= daysInMonth; d++) {
       final events = _eventsForDay(year, month, d);
       for (var e in events) {
-        result.add(MapEntry(DateTime(year, month, d), e));
+        if (_selectedFilter == 'All Categories' || e.type.label == _selectedFilter) {
+          result.add(MapEntry(DateTime(year, month, d), e));
+        }
       }
     }
     return result;
@@ -309,44 +312,113 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     );
   }
 
+  Widget _actionBtn(
+    IconData icon,
+    String label, {
+    IconData? trailingIcon,
+    bool isActive = false,
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFE0F2FE) : Colors.white,
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(
+            color: isActive ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16.sp,
+              color: isActive ? const Color(0xFF0066CC) : const Color(0xFF64748B),
+            ),
+            SizedBox(width: 6.w),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? const Color(0xFF0066CC) : const Color(0xFF0F172A),
+              ),
+            ),
+            if (trailingIcon != null) ...[
+              SizedBox(width: 4.w),
+              Icon(
+                trailingIcon,
+                size: 16.sp,
+                color: isActive ? const Color(0xFF0066CC) : const Color(0xFF64748B),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Academic Calendar',
-          style: GoogleFonts.outfit(
-            fontSize: 24.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Builder(
-              builder: (context) {
-                final isFilterActive = _selectedFilter != 'All Categories';
-                return _actionBtn(
-                  Icons.filter_alt_outlined, 
-                  isFilterActive ? _selectedFilter : 'Filters',
-                  trailingIcon: Icons.keyboard_arrow_down,
-                  isActive: isFilterActive,
-                  onTap: () {
-                    final RenderBox button = context.findRenderObject() as RenderBox;
-                    _showFiltersMenu(context, button);
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Academic Calendar',
+                    style: GoogleFonts.outfit(
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Institutional schedule, public holidays, and event horizons.',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.sp,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Row(
+              children: [
+                Builder(
+                  builder: (context) {
+                    final isFilterActive = _selectedFilter != 'All Categories';
+                    return _actionBtn(
+                      Icons.filter_alt_outlined, 
+                      isFilterActive ? _selectedFilter : 'Filters',
+                      trailingIcon: Icons.keyboard_arrow_down,
+                      isActive: isFilterActive,
+                      onTap: () {
+                        final RenderBox button = context.findRenderObject() as RenderBox;
+                        _showFiltersMenu(context, button);
+                      }
+                    );
                   }
-                );
-              }
-            ),
-            SizedBox(width: 8.w),
-            _actionBtn(
-              Icons.file_upload_outlined, 
-              'Export',
-              onTap: _exportCalendar,
-            ),
+                ),
+                SizedBox(width: 8.w),
+                _actionBtn(
+                  Icons.file_upload_outlined, 
+                  'Export',
+                  onTap: _exportCalendar,
+                ),
+              ],
+            )
           ],
-        )
+        ),
       ],
     );
   }
@@ -408,7 +480,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   Future<void> _exportCalendar() async {
-    final bool? granted = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Storage Permission', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
@@ -427,15 +499,9 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text('Allow', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w600)),
-        SizedBox(height: 4.h),
-        Text(
-          'Institutional schedule, public holidays, and event horizons.',
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            color: const Color(0xFF64748B),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -638,7 +704,10 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               month == _selectedDay!.month &&
               year == _selectedDay!.year;
 
-          final dayEvents = _eventsForDay(year, month, day);
+          final rawEvents = _eventsForDay(year, month, day);
+          final dayEvents = _selectedFilter == 'All Categories'
+              ? rawEvents
+              : rawEvents.where((e) => e.type.label == _selectedFilter).toList();
           final hasEvents = dayEvents.isNotEmpty;
 
           return Expanded(
