@@ -12,6 +12,7 @@ import 'dart:developer' as dev;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 
 class StudentDashboard extends StatefulWidget {
   final RoleTheme theme;
@@ -21,7 +22,8 @@ class StudentDashboard extends StatefulWidget {
   State<StudentDashboard> createState() => _StudentDashboardState();
 }
 
-class _StudentDashboardState extends State<StudentDashboard> {
+class _StudentDashboardState extends State<StudentDashboard>
+    with WidgetsBindingObserver {
   // Student Profile Data
   String studentName = 'Test Student';
   String studentEmail = 'eduspherestudent@gmail.com';
@@ -30,7 +32,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   String className = 'Class 1';
   String sectionName = 'Section A';
   String rollNo = '24';
-  
+
   String dob = '—';
   String gender = '—';
   String fatherName = '—';
@@ -54,9 +56,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final now = DateTime.now();
     _selectedMonth = DateTime(now.year, now.month, 1);
     _selectedDay = now;
@@ -66,15 +70,42 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _dashboardPollTimer?.cancel();
     if (_dashboardChannel != null) {
       try {
         Supabase.instance.client.removeChannel(_dashboardChannel!);
       } catch (_) {}
     }
+
+    // Clean up Socket.IO listeners
+    try {
+      final socketEvents = [
+        'STUDENT_UPDATED',
+        'ATTENDANCE_UPDATED',
+        'FEE_UPDATED',
+        'RESULT_UPDATED',
+        'CALENDAR_UPDATED',
+        'DASHBOARD_STATS_CHANGED'
+      ];
+      for (var event in socketEvents) {
+        SocketService().off(event);
+      }
+    } catch (e) {
+      dev.log('Error unregistering Socket.IO events: $e',
+          name: 'StudentDashboard');
+    }
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      dev.log('🔄 App resumed from background. Refreshing student dashboard...',
+          name: 'StudentDashboard');
+      _loadStudentData();
+    }
+  }
 
   void _connectRealTime() {
     try {
@@ -82,70 +113,118 @@ class _StudentDashboardState extends State<StudentDashboard> {
       if (_dashboardChannel != null) {
         client.removeChannel(_dashboardChannel!);
       }
-      
-      _dashboardChannel = client.channel('public:student_dashboard_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Assignment',
-          callback: (_) {
-            if (mounted) _loadStudentData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AssignmentSubmission',
-          callback: (_) {
-            if (mounted) _loadStudentData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AttendanceRecord',
-          callback: (_) {
-            if (mounted) _loadStudentData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'StudentFeeLedger',
-          callback: (_) {
-            if (mounted) _loadStudentData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'LibraryIssue',
-          callback: (_) {
-            if (mounted) _loadStudentData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'SchoolCalendar',
-          callback: (_) {
-            if (mounted) {
-              _loadCalendarEvents();
-              _loadUpcomingEvents();
-            }
-          },
-        );
-      
+
+      _dashboardChannel = client
+          .channel('public:student_dashboard_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Assignment',
+            callback: (_) {
+              dev.log('⚡ Supabase Postgres change received on Assignment table',
+                  name: 'StudentDashboard');
+              if (mounted) _loadStudentData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AssignmentSubmission',
+            callback: (_) {
+              dev.log(
+                  '⚡ Supabase Postgres change received on AssignmentSubmission table',
+                  name: 'StudentDashboard');
+              if (mounted) _loadStudentData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AttendanceRecord',
+            callback: (_) {
+              dev.log(
+                  '⚡ Supabase Postgres change received on AttendanceRecord table',
+                  name: 'StudentDashboard');
+              if (mounted) _loadStudentData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'StudentFeeLedger',
+            callback: (_) {
+              dev.log(
+                  '⚡ Supabase Postgres change received on StudentFeeLedger table',
+                  name: 'StudentDashboard');
+              if (mounted) _loadStudentData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'LibraryIssue',
+            callback: (_) {
+              dev.log(
+                  '⚡ Supabase Postgres change received on LibraryIssue table',
+                  name: 'StudentDashboard');
+              if (mounted) _loadStudentData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'SchoolCalendar',
+            callback: (_) {
+              dev.log(
+                  '⚡ Supabase Postgres change received on SchoolCalendar table',
+                  name: 'StudentDashboard');
+              if (mounted) {
+                _loadCalendarEvents();
+                _loadUpcomingEvents();
+              }
+            },
+          );
+
       _dashboardChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Student Dashboard channel status: $status', name: 'StudentDashboard');
+        dev.log(
+            '📡 Supabase Realtime Student Dashboard channel status: $status',
+            name: 'StudentDashboard');
         if (error != null) {
-          dev.log('❌ Supabase Realtime Student Dashboard subscription error: $error', name: 'StudentDashboard');
+          dev.log(
+              '❌ Supabase Realtime Student Dashboard subscription error: $error',
+              name: 'StudentDashboard');
         }
       });
     } catch (e) {
       dev.log('Error connecting realtime in dashboard: $e');
     }
-    
+
+    // Connect Socket.IO events
+    try {
+      final socketEvents = [
+        'STUDENT_UPDATED',
+        'ATTENDANCE_UPDATED',
+        'FEE_UPDATED',
+        'RESULT_UPDATED',
+        'CALENDAR_UPDATED',
+        'DASHBOARD_STATS_CHANGED'
+      ];
+
+      for (var event in socketEvents) {
+        SocketService().on(event, (data) {
+          dev.log(
+              '⚡ [SOCKET.IO EVENT] Realtime event received: $event | Data: $data',
+              name: 'StudentDashboard');
+          if (mounted) {
+            _loadStudentData();
+          }
+        });
+      }
+    } catch (e) {
+      dev.log('Error registering Socket.IO events: $e',
+          name: 'StudentDashboard');
+    }
+
     // Polling fallback every 30 seconds
     _dashboardPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
@@ -158,8 +237,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
-    final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
-    final savedName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Student';
+    final savedEmail =
+        prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
+    final savedName = prefs.getString('student_name') ??
+        prefs.getString('user_name') ??
+        'Student';
 
     setState(() {
       studentName = savedName;
@@ -189,8 +271,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
         String parentPhone = '—';
         final parents = s['parents'] as List? ?? [];
         if (parents.isNotEmpty) {
-          final parentMap = (parents.first as Map? ?? {})['parent'] as Map? ?? {};
-          parentName = '${parentMap['firstName'] ?? ''} ${parentMap['lastName'] ?? ''}'.trim();
+          final parentMap =
+              (parents.first as Map? ?? {})['parent'] as Map? ?? {};
+          parentName =
+              '${parentMap['firstName'] ?? ''} ${parentMap['lastName'] ?? ''}'
+                  .trim();
           parentPhone = parentMap['phone'] as String? ?? '—';
         }
 
@@ -214,7 +299,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
         // ── 2. Attendance % (current month) ───────────────────────────────
         try {
           final now = DateTime.now();
-          final monthStart = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+          final monthStart =
+              '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
           final attRes = await ApiService.instance.get(
             'students/$studentId/attendance',
             queryParams: {'startDate': monthStart},
@@ -222,35 +308,57 @@ class _StudentDashboardState extends State<StudentDashboard> {
           if (attRes['success'] == true) {
             final stats = attRes['stats'] as Map? ?? {};
             final pct = (stats['percentage'] ?? 0) as num;
-            if (mounted) setState(() { attendanceRate = pct.toDouble(); _attendanceLoaded = true; });
+            if (mounted)
+              setState(() {
+                attendanceRate = pct.toDouble();
+                _attendanceLoaded = true;
+              });
           } else {
-            if (mounted) setState(() { attendanceRate = 100.0; _attendanceLoaded = true; });
+            if (mounted)
+              setState(() {
+                attendanceRate = 100.0;
+                _attendanceLoaded = true;
+              });
           }
         } catch (e) {
           dev.log('Error loading attendance from API: $e');
-          if (mounted) setState(() { attendanceRate = 100.0; _attendanceLoaded = true; });
+          if (mounted)
+            setState(() {
+              attendanceRate = 100.0;
+              _attendanceLoaded = true;
+            });
         }
 
         // ── 3. Pending Assignments ─────────────────────────────────────────
         try {
-          final assignRes = await ApiService.instance.get('assignments/student');
+          final assignRes =
+              await ApiService.instance.get('assignments/student');
           final assignments = (assignRes['assignments'] as List? ?? []);
           final pending = assignments.where((a) {
             final subs = a['submissions'] as List? ?? [];
             return subs.isEmpty;
           }).length;
-          if (mounted) setState(() { pendingCount = pending.clamp(0, 99); });
+          if (mounted)
+            setState(() {
+              pendingCount = pending.clamp(0, 99);
+            });
         } catch (e) {
           dev.log('Error loading assignments from API: $e');
         }
 
         // ── 4. Pending Fees ────────────────────────────────────────────────
         try {
-          final feeRes = await ApiService.instance.get('fees/students/me/status');
+          final feeRes =
+              await ApiService.instance.get('fees/students/me/status');
           if (feeRes['success'] == true) {
             final summary = feeRes['summary'] as Map? ?? feeRes;
-            final outstanding = (summary['totalOutstanding'] ?? summary['totalPending'] ?? 0) as num;
-            if (mounted) setState(() { pendingFee = outstanding.toInt().clamp(0, 999999); });
+            final outstanding = (summary['totalOutstanding'] ??
+                summary['totalPending'] ??
+                0) as num;
+            if (mounted)
+              setState(() {
+                pendingFee = outstanding.toInt().clamp(0, 999999);
+              });
           }
         } catch (e) {
           dev.log('Error loading fees from API: $e');
@@ -264,7 +372,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
           );
           if (libRes['success'] == true) {
             final issues = libRes['issues'] as List? ?? [];
-            if (mounted) setState(() { booksDue = issues.length; });
+            if (mounted)
+              setState(() {
+                booksDue = issues.length;
+              });
           }
         } catch (e) {
           dev.log('Error loading library from API: $e');
@@ -277,7 +388,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
     } catch (e) {
       dev.log('Error loading student data from backend API: $e');
       // Fallback: load from SharedPreferences only
-      if (mounted) setState(() { _attendanceLoaded = true; });
+      if (mounted)
+        setState(() {
+          _attendanceLoaded = true;
+        });
     } finally {
       if (mounted) {
         setState(() {
@@ -298,7 +412,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
       );
       if (res['success'] == true && mounted) {
         final events = res['events'] as List? ?? [];
-        setState(() { _calendarEvents = events; });
+        setState(() {
+          _calendarEvents = events;
+        });
       }
     } catch (e) {
       dev.log('Error loading calendar events from API: $e');
@@ -307,20 +423,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   Future<void> _loadUpcomingEvents() async {
     try {
-      final res = await ApiService.instance.get('calendar/upcoming', queryParams: {'limit': '10'});
+      final res = await ApiService.instance
+          .get('calendar/upcoming', queryParams: {'limit': '10'});
       if (res['success'] == true && mounted) {
         final events = res['events'] as List? ?? [];
         setState(() {
           _upcomingEvents = events;
           _upcomingEventsLoaded = true;
         });
-        dev.log('📅 Loaded ${events.length} upcoming events from API', name: 'StudentDashboard');
+        dev.log('📅 Loaded ${events.length} upcoming events from API',
+            name: 'StudentDashboard');
       } else {
-        if (mounted) setState(() { _upcomingEventsLoaded = true; });
+        if (mounted)
+          setState(() {
+            _upcomingEventsLoaded = true;
+          });
       }
     } catch (e) {
       dev.log('Error loading upcoming events from API: $e');
-      if (mounted) setState(() { _upcomingEventsLoaded = true; });
+      if (mounted)
+        setState(() {
+          _upcomingEventsLoaded = true;
+        });
     }
   }
 
@@ -344,30 +468,47 @@ class _StudentDashboardState extends State<StudentDashboard> {
     if (dayEvents.isEmpty) {
       return isToday ? const Color(0xFF0077D6) : AppColors.textDark;
     }
-    
+
     // Prioritize holiday, then exam
-    final hasHoliday = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
+    final hasHoliday =
+        dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
     if (hasHoliday) return const Color(0xFFEF4444);
-    
-    final hasExam = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
+
+    final hasExam =
+        dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
     if (hasExam) return const Color(0xFFF59E0B);
-    
+
     return AppColors.textDark;
   }
 
   Color? _getEventDotColor(List<dynamic> dayEvents) {
     if (dayEvents.isEmpty) return null;
-    final hasHoliday = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
+    final hasHoliday =
+        dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'HOLIDAY');
     if (hasHoliday) return const Color(0xFFEF4444);
-    
-    final hasExam = dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
+
+    final hasExam =
+        dayEvents.any((e) => e['type']?.toString().toUpperCase() == 'EXAM');
     if (hasExam) return const Color(0xFFF59E0B);
-    
+
     return const Color(0xFF0077D6); // Default/Event blue dot
   }
 
   String _getMonthAbbreviation(int month) {
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC'
+    ];
     return months[month - 1];
   }
 
@@ -409,7 +550,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       itemBuilder: (context, index) {
         final event = dayEvents[index];
         final type = event['type']?.toString().toUpperCase() ?? 'EVENT';
-        
+
         Color accentColor;
         switch (type) {
           case 'HOLIDAY':
@@ -460,7 +601,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                 ),
                               ),
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w, vertical: 3.h),
                                 decoration: BoxDecoration(
                                   color: accentColor.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8.r),
@@ -476,7 +618,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                               ),
                             ],
                           ),
-                          if (event['description'] != null && event['description'].toString().isNotEmpty) ...[
+                          if (event['description'] != null &&
+                              event['description'].toString().isNotEmpty) ...[
                             SizedBox(height: 4.h),
                             Text(
                               event['description'],
@@ -547,7 +690,28 @@ class _StudentDashboardState extends State<StudentDashboard> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 900;
     final now = DateTime.now();
-    final dateFormatted = "${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][now.weekday - 1]}, ${now.day} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.month - 1]} ${now.year}";
+    final dateFormatted = "${[
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun'
+    ][now.weekday - 1]}, ${now.day} ${[
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ][now.month - 1]} ${now.year}";
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F9FF), // Updated background color
@@ -579,7 +743,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                 Flexible(
                                   child: Text(
                                     'Hi, ${studentName.split(' ').first} ',
-                                    style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 22.sp,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppColors.textDark),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -587,7 +754,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
                               ],
                             ),
                             SizedBox(height: 4.h),
-                            Text("Here's your personal summary.", style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium, fontWeight: FontWeight.w500)),
+                            Text("Here's your personal summary.",
+                                style: GoogleFonts.inter(
+                                    fontSize: 13.sp,
+                                    color: AppColors.textMedium,
+                                    fontWeight: FontWeight.w500)),
                           ],
                         ),
                       ),
@@ -597,34 +768,47 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         children: [
                           OutlinedButton.icon(
                             onPressed: _isRefreshing ? null : _loadStudentData,
-                            icon: _isRefreshing 
-                              ? SizedBox(
-                                  width: 14.sp, 
-                                  height: 14.sp, 
-                                  child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.textMedium)
-                                )
-                              : Icon(Icons.history_rounded, size: 14.sp, color: AppColors.textMedium),
-                            label: Text('Refresh', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
+                            icon: _isRefreshing
+                                ? SizedBox(
+                                    width: 14.sp,
+                                    height: 14.sp,
+                                    child: const CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: AppColors.textMedium))
+                                : Icon(Icons.history_rounded,
+                                    size: 14.sp, color: AppColors.textMedium),
+                            label: Text('Refresh',
+                                style: GoogleFonts.inter(
+                                    fontSize: 11.sp,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textMedium)),
                             style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 10.w, vertical: 8.h),
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(6.r)),
                               side: const BorderSide(color: Color(0xFFCBD5E1)),
                               backgroundColor: Colors.white,
                             ),
                           ),
                           SizedBox(width: 6.w),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 8.h),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(6.r),
-                              border: Border.all(color: const Color(0xFF93C5FD)),
+                              border:
+                                  Border.all(color: const Color(0xFF93C5FD)),
                             ),
                             child: Text(
                               dateFormatted,
-                              style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF2563EB)),
+                              style: GoogleFonts.inter(
+                                  fontSize: 11.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF2563EB)),
                             ),
                           ),
                         ],
@@ -632,15 +816,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     ],
                   ),
                   SizedBox(height: 24.h),
-                  
+
                   // Profile Banner Section
                   _buildProfileBanner(isDesktop),
                   SizedBox(height: 24.h),
-                  
+
                   // Metrics Grid Row
                   _buildMetricsRow(isDesktop),
                   SizedBox(height: 24.h),
-                  
+
                   // Bottom grid/stack
                   if (isDesktop)
                     Row(
@@ -677,7 +861,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
         borderRadius: BorderRadius.circular(24.r),
         border: Border.all(color: AppColors.border),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 4.r, offset: Offset(0, 2.h)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.01),
+              blurRadius: 4.r,
+              offset: Offset(0, 2.h)),
         ],
       ),
       padding: EdgeInsets.all(24.r),
@@ -694,9 +881,11 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFE0F2FE),
                   shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
+                  border:
+                      Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
                 ),
-                child: Icon(Icons.school_rounded, color: const Color(0xFF0284C7), size: 28.sp),
+                child: Icon(Icons.school_rounded,
+                    color: const Color(0xFF0284C7), size: 28.sp),
               ),
               SizedBox(width: 16.w),
               Expanded(
@@ -715,7 +904,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 10.w, vertical: 3.h),
                           decoration: BoxDecoration(
                             color: const Color(0xFF22C55E),
                             borderRadius: BorderRadius.circular(12.r),
@@ -745,7 +935,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
             ],
           ),
-          
+
           // Info Grid Separator and Columns
           SizedBox(height: 24.h),
           Container(
@@ -757,10 +947,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)])),
-                Expanded(child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)])),
-                Expanded(child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)])),
-                Expanded(child: _buildInfoColumn('ADDRESS', [_buildInfoText(address)])),
+                Expanded(
+                    child: _buildInfoColumn('PERSONAL', [
+                  _buildInfoRow('DOB', dob),
+                  _buildInfoRow('Gender', gender)
+                ])),
+                Expanded(
+                    child: _buildInfoColumn('FAMILY', [
+                  _buildInfoRow('Father', fatherName),
+                  _buildInfoRow('Ph', familyPhone)
+                ])),
+                Expanded(
+                    child: _buildInfoColumn('CONTACT', [
+                  _buildInfoRow('Email', studentEmail),
+                  _buildInfoRow('Phone', studentPhone)
+                ])),
+                Expanded(
+                    child:
+                        _buildInfoColumn('ADDRESS', [_buildInfoText(address)])),
               ],
             )
           else
@@ -770,15 +974,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
               children: [
                 SizedBox(
                   width: 140.w,
-                  child: _buildInfoColumn('PERSONAL', [_buildInfoRow('DOB', dob), _buildInfoRow('Gender', gender)]),
+                  child: _buildInfoColumn('PERSONAL', [
+                    _buildInfoRow('DOB', dob),
+                    _buildInfoRow('Gender', gender)
+                  ]),
                 ),
                 SizedBox(
                   width: 140.w,
-                  child: _buildInfoColumn('FAMILY', [_buildInfoRow('Father', fatherName), _buildInfoRow('Ph', familyPhone)]),
+                  child: _buildInfoColumn('FAMILY', [
+                    _buildInfoRow('Father', fatherName),
+                    _buildInfoRow('Ph', familyPhone)
+                  ]),
                 ),
                 SizedBox(
                   width: 200.w,
-                  child: _buildInfoColumn('CONTACT', [_buildInfoRow('Email', studentEmail), _buildInfoRow('Phone', studentPhone)]),
+                  child: _buildInfoColumn('CONTACT', [
+                    _buildInfoRow('Email', studentEmail),
+                    _buildInfoRow('Phone', studentPhone)
+                  ]),
                 ),
                 SizedBox(
                   width: 200.w,
@@ -822,7 +1035,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
           children: [
             TextSpan(
               text: '$label: ',
-              style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textMedium),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: AppColors.textMedium),
             ),
             TextSpan(
               text: value,
@@ -851,32 +1065,52 @@ class _StudentDashboardState extends State<StudentDashboard> {
     return isDesktop
         ? Row(
             children: [
-              Expanded(child: _metricCard(
+              Expanded(
+                  child: _metricCard(
                 title: 'ATTENDANCE',
-                value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
+                value: _attendanceLoaded
+                    ? '${attendanceRate.toStringAsFixed(0)}%'
+                    : '—%',
                 lineColor: const Color(0xFF3B82F6),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AttendanceScreen())),
               )),
               SizedBox(width: 16.w),
-              Expanded(child: _metricCard(
+              Expanded(
+                  child: _metricCard(
                 title: 'PENDING FEE',
                 value: '$pendingFee',
                 lineColor: const Color(0xFFEF4444),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => FeeLedgerScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
-              Expanded(child: _metricCard(
+              Expanded(
+                  child: _metricCard(
                 title: 'BOOKS DUE',
                 value: '$booksDue',
                 lineColor: const Color(0xFF6366F1),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            LibraryOverdueScreen(theme: widget.theme))),
               )),
               SizedBox(width: 16.w),
-              Expanded(child: _metricCard(
+              Expanded(
+                  child: _metricCard(
                 title: 'RESULTS',
                 value: 'View Report',
                 lineColor: const Color(0xFF0EA5E9),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            ExamReportCardScreen(theme: widget.theme))),
               )),
             ],
           )
@@ -884,36 +1118,57 @@ class _StudentDashboardState extends State<StudentDashboard> {
             children: [
               Row(
                 children: [
-                  Expanded(child: _metricCard(
+                  Expanded(
+                      child: _metricCard(
                     title: 'ATTENDANCE',
-                    value: _attendanceLoaded ? '${attendanceRate.toStringAsFixed(0)}%' : '—%',
+                    value: _attendanceLoaded
+                        ? '${attendanceRate.toStringAsFixed(0)}%'
+                        : '—%',
                     lineColor: const Color(0xFF3B82F6),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AttendanceScreen())),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AttendanceScreen())),
                   )),
                   SizedBox(width: 16.w),
-                  Expanded(child: _metricCard(
+                  Expanded(
+                      child: _metricCard(
                     title: 'PENDING FEE',
                     value: '$pendingFee',
                     lineColor: const Color(0xFFEF4444),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FeeLedgerScreen(theme: widget.theme))),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                FeeLedgerScreen(theme: widget.theme))),
                   )),
                 ],
               ),
               SizedBox(height: 16.h),
               Row(
                 children: [
-                  Expanded(child: _metricCard(
+                  Expanded(
+                      child: _metricCard(
                     title: 'BOOKS DUE',
                     value: '$booksDue',
                     lineColor: const Color(0xFF6366F1),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LibraryOverdueScreen(theme: widget.theme))),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                LibraryOverdueScreen(theme: widget.theme))),
                   )),
                   SizedBox(width: 16.w),
-                  Expanded(child: _metricCard(
+                  Expanded(
+                      child: _metricCard(
                     title: 'RESULTS',
                     value: 'View Report',
                     lineColor: const Color(0xFF0EA5E9),
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                ExamReportCardScreen(theme: widget.theme))),
                   )),
                 ],
               ),
@@ -935,7 +1190,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
           borderRadius: BorderRadius.circular(16.r),
           border: Border.all(color: AppColors.border),
           boxShadow: [
-            BoxShadow(color: Colors.black.withValues(alpha: 0.01), blurRadius: 4.r, offset: Offset(0, 2.h)),
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.01),
+                blurRadius: 4.r,
+                offset: Offset(0, 2.h)),
           ],
         ),
         child: Padding(
@@ -949,15 +1207,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textMedium, letterSpacing: 0.8),
+                    style: GoogleFonts.inter(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textMedium,
+                        letterSpacing: 0.8),
                   ),
-                  Icon(Icons.arrow_forward_rounded, size: 14.sp, color: AppColors.textMedium),
+                  Icon(Icons.arrow_forward_rounded,
+                      size: 14.sp, color: AppColors.textMedium),
                 ],
               ),
               SizedBox(height: 12.h),
               Text(
                 value,
-                style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: AppColors.textDark),
+                style: GoogleFonts.inter(
+                    fontSize: 22.sp,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.textDark),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -979,10 +1245,25 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   // ── SCHOOL CALENDAR CARD WIDGET ────────────────────────────────────────────
   Widget _buildSchoolCalendar() {
-    final daysInMonth = DateUtils.getDaysInMonth(_selectedMonth.year, _selectedMonth.month);
-    final firstDayOffset = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday % 7;
+    final daysInMonth =
+        DateUtils.getDaysInMonth(_selectedMonth.year, _selectedMonth.month);
+    final firstDayOffset =
+        DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday % 7;
     final totalCells = daysInMonth + firstDayOffset;
-    final monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][_selectedMonth.month - 1];
+    final monthName = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ][_selectedMonth.month - 1];
 
     return Container(
       padding: EdgeInsets.all(24.r),
@@ -1046,12 +1327,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
               Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.chevron_left_rounded, size: 22.sp, color: AppColors.textMedium),
+                    icon: Icon(Icons.chevron_left_rounded,
+                        size: 22.sp, color: AppColors.textMedium),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () {
                       setState(() {
-                        _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+                        _selectedMonth = DateTime(
+                            _selectedMonth.year, _selectedMonth.month - 1, 1);
                       });
                     },
                   ),
@@ -1066,12 +1349,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   ),
                   SizedBox(width: 8.w),
                   IconButton(
-                    icon: Icon(Icons.chevron_right_rounded, size: 22.sp, color: AppColors.textMedium),
+                    icon: Icon(Icons.chevron_right_rounded,
+                        size: 22.sp, color: AppColors.textMedium),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                     onPressed: () {
                       setState(() {
-                        _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+                        _selectedMonth = DateTime(
+                            _selectedMonth.year, _selectedMonth.month + 1, 1);
                       });
                     },
                   ),
@@ -1080,23 +1365,27 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ],
           ),
           SizedBox(height: 20.h),
-          
+
           // Days Header (Sun - Sat)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) {
+            children:
+                ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((d) {
               return Expanded(
                 child: Center(
                   child: Text(
                     d,
-                    style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textLight),
+                    style: GoogleFonts.inter(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textLight),
                   ),
                 ),
               );
             }).toList(),
           ),
           SizedBox(height: 12.h),
-          
+
           // Calendar Grid
           GridView.builder(
             shrinkWrap: true,
@@ -1111,15 +1400,21 @@ class _StudentDashboardState extends State<StudentDashboard> {
             itemBuilder: (context, index) {
               if (index < firstDayOffset) return const SizedBox.shrink();
               final dayVal = index - firstDayOffset + 1;
-              final cellDate = DateTime(_selectedMonth.year, _selectedMonth.month, dayVal);
-              final isSelected = cellDate.year == _selectedDay.year && cellDate.month == _selectedDay.month && cellDate.day == _selectedDay.day;
-              
+              final cellDate =
+                  DateTime(_selectedMonth.year, _selectedMonth.month, dayVal);
+              final isSelected = cellDate.year == _selectedDay.year &&
+                  cellDate.month == _selectedDay.month &&
+                  cellDate.day == _selectedDay.day;
+
               final now = DateTime.now();
-              final isToday = cellDate.year == now.year && cellDate.month == now.month && cellDate.day == now.day;
+              final isToday = cellDate.year == now.year &&
+                  cellDate.month == now.month &&
+                  cellDate.day == now.day;
 
               final dayEvents = _getEventsForDay(cellDate);
               final dotColor = _getEventDotColor(dayEvents);
-              final textColor = _getDateTextColor(cellDate, isSelected, isToday);
+              final textColor =
+                  _getDateTextColor(cellDate, isSelected, isToday);
 
               return GestureDetector(
                 onTap: () {
@@ -1132,7 +1427,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   decoration: BoxDecoration(
                     color: isSelected
                         ? const Color(0xFF0077D6)
-                        : (isToday ? const Color(0xFF0077D6).withValues(alpha: 0.15) : Colors.transparent),
+                        : (isToday
+                            ? const Color(0xFF0077D6).withValues(alpha: 0.15)
+                            : Colors.transparent),
                     shape: BoxShape.circle,
                   ),
                   child: Column(
@@ -1142,7 +1439,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         dayVal.toString(),
                         style: GoogleFonts.inter(
                           fontSize: 13.sp,
-                          fontWeight: isSelected || isToday ? FontWeight.w900 : FontWeight.w700,
+                          fontWeight: isSelected || isToday
+                              ? FontWeight.w900
+                              : FontWeight.w700,
                           color: textColor,
                         ),
                       ),
@@ -1167,7 +1466,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
           SizedBox(height: 20.h),
           const Divider(color: AppColors.border, thickness: 1),
           SizedBox(height: 16.h),
-          
+
           // Header: EVENTS FOR X
           Text(
             'EVENTS FOR ${_selectedDay.day} ${_getMonthAbbreviation(_selectedDay.month)}',
@@ -1179,12 +1478,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
           ),
           SizedBox(height: 16.h),
-          
+
           // Event list
           _buildDayEventsList(_selectedDay),
-          
+
           SizedBox(height: 24.h),
-          
+
           // View Full Academic Schedule Button
           _buildViewScheduleButton(),
         ],
@@ -1200,7 +1499,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
         color: const Color(0xFF0F172A),
         borderRadius: BorderRadius.circular(24.r),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 16.r, offset: Offset(0, 8.h)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 16.r,
+              offset: Offset(0, 8.h)),
         ],
       ),
       child: Column(
@@ -1212,11 +1514,15 @@ class _StudentDashboardState extends State<StudentDashboard> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.event_note_rounded, color: widget.theme.primary, size: 20.sp),
+                  Icon(Icons.event_note_rounded,
+                      color: widget.theme.primary, size: 20.sp),
                   SizedBox(width: 8.w),
                   Text(
                     'Upcoming Events',
-                    style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: Colors.white),
+                    style: GoogleFonts.inter(
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white),
                   ),
                 ],
               ),
@@ -1234,7 +1540,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                   SizedBox(width: 4.w),
                   Text(
                     'LIVE',
-                    style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF22C55E)),
+                    style: GoogleFonts.inter(
+                        fontSize: 9.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF22C55E)),
                   ),
                 ],
               ),
@@ -1243,7 +1552,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
           SizedBox(height: 2.h),
           Text(
             'School activities & schedule',
-            style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.5), fontWeight: FontWeight.w600),
+            style: GoogleFonts.inter(
+                fontSize: 11.sp,
+                color: Colors.white.withValues(alpha: 0.5),
+                fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 16.h),
 
@@ -1268,16 +1580,24 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 padding: EdgeInsets.symmetric(vertical: 24.h),
                 child: Column(
                   children: [
-                    Icon(Icons.event_busy_rounded, color: Colors.white.withValues(alpha: 0.25), size: 36.sp),
+                    Icon(Icons.event_busy_rounded,
+                        color: Colors.white.withValues(alpha: 0.25),
+                        size: 36.sp),
                     SizedBox(height: 10.h),
                     Text(
                       'No upcoming events scheduled',
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.4), fontWeight: FontWeight.w600),
+                      style: GoogleFonts.inter(
+                          fontSize: 13.sp,
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontWeight: FontWeight.w600),
                     ),
                     SizedBox(height: 4.h),
                     Text(
                       'Check back later for new events',
-                      style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.25), fontWeight: FontWeight.w500),
+                      style: GoogleFonts.inter(
+                          fontSize: 11.sp,
+                          color: Colors.white.withValues(alpha: 0.25),
+                          fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -1293,12 +1613,36 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
               // Parse date
               DateTime? parsedDate;
-              try { parsedDate = DateTime.parse(rawDate).toLocal(); } catch (_) {}
+              try {
+                parsedDate = DateTime.parse(rawDate).toLocal();
+              } catch (_) {}
               final displayDate = parsedDate != null
-                  ? '${parsedDate.day} ${['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parsedDate.month]}'
+                  ? '${parsedDate.day} ${[
+                      '',
+                      'Jan',
+                      'Feb',
+                      'Mar',
+                      'Apr',
+                      'May',
+                      'Jun',
+                      'Jul',
+                      'Aug',
+                      'Sep',
+                      'Oct',
+                      'Nov',
+                      'Dec'
+                    ][parsedDate.month]}'
                   : rawDate.split('T')[0];
               final dayName = parsedDate != null
-                  ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][parsedDate.weekday - 1]
+                  ? [
+                      'Mon',
+                      'Tue',
+                      'Wed',
+                      'Thu',
+                      'Fri',
+                      'Sat',
+                      'Sun'
+                    ][parsedDate.weekday - 1]
                   : '';
 
               // Type-based color & icon
@@ -1333,7 +1677,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.08)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1350,11 +1695,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         children: [
                           Text(
                             parsedDate != null ? '${parsedDate.day}' : '—',
-                            style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: typeColor),
+                            style: GoogleFonts.inter(
+                                fontSize: 16.sp,
+                                fontWeight: FontWeight.w900,
+                                color: typeColor),
                           ),
                           Text(
-                            ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][parsedDate?.month ?? 1],
-                            style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w700, color: typeColor),
+                            [
+                              '',
+                              'Jan',
+                              'Feb',
+                              'Mar',
+                              'Apr',
+                              'May',
+                              'Jun',
+                              'Jul',
+                              'Aug',
+                              'Sep',
+                              'Oct',
+                              'Nov',
+                              'Dec'
+                            ][parsedDate?.month ?? 1],
+                            style: GoogleFonts.inter(
+                                fontSize: 9.sp,
+                                fontWeight: FontWeight.w700,
+                                color: typeColor),
                           ),
                         ],
                       ),
@@ -1370,14 +1735,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
                               Expanded(
                                 child: Text(
                                   title,
-                                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: Colors.white),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               SizedBox(width: 6.w),
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 7.w, vertical: 2.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 7.w, vertical: 2.h),
                                 decoration: BoxDecoration(
                                   color: typeBg,
                                   borderRadius: BorderRadius.circular(6.r),
@@ -1385,11 +1754,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(typeIcon, size: 9.sp, color: typeColor),
+                                    Icon(typeIcon,
+                                        size: 9.sp, color: typeColor),
                                     SizedBox(width: 3.w),
                                     Text(
-                                      type == 'EVENT' ? 'Event' : type[0] + type.substring(1).toLowerCase(),
-                                      style: GoogleFonts.inter(fontSize: 8.5.sp, fontWeight: FontWeight.w800, color: typeColor),
+                                      type == 'EVENT'
+                                          ? 'Event'
+                                          : type[0] +
+                                              type.substring(1).toLowerCase(),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 8.5.sp,
+                                          fontWeight: FontWeight.w800,
+                                          color: typeColor),
                                     ),
                                   ],
                                 ),
@@ -1400,7 +1776,10 @@ class _StudentDashboardState extends State<StudentDashboard> {
                             SizedBox(height: 3.h),
                             Text(
                               description,
-                              style: GoogleFonts.inter(fontSize: 10.5.sp, color: Colors.white.withValues(alpha: 0.55), fontWeight: FontWeight.w500),
+                              style: GoogleFonts.inter(
+                                  fontSize: 10.5.sp,
+                                  color: Colors.white.withValues(alpha: 0.55),
+                                  fontWeight: FontWeight.w500),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1408,20 +1787,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
                           SizedBox(height: 5.h),
                           Row(
                             children: [
-                              Icon(Icons.calendar_today_outlined, size: 10.sp, color: Colors.white.withValues(alpha: 0.4)),
+                              Icon(Icons.calendar_today_outlined,
+                                  size: 10.sp,
+                                  color: Colors.white.withValues(alpha: 0.4)),
                               SizedBox(width: 4.w),
                               Text(
                                 '$dayName, $displayDate',
-                                style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white.withValues(alpha: 0.45), fontWeight: FontWeight.w600),
+                                style: GoogleFonts.inter(
+                                    fontSize: 10.sp,
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                    fontWeight: FontWeight.w600),
                               ),
                               if (location != null && location.isNotEmpty) ...[
                                 SizedBox(width: 8.w),
-                                Icon(Icons.place_outlined, size: 10.sp, color: Colors.white.withValues(alpha: 0.4)),
+                                Icon(Icons.place_outlined,
+                                    size: 10.sp,
+                                    color: Colors.white.withValues(alpha: 0.4)),
                                 SizedBox(width: 3.w),
                                 Expanded(
                                   child: Text(
                                     location,
-                                    style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white.withValues(alpha: 0.45), fontWeight: FontWeight.w600),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 10.sp,
+                                        color: Colors.white
+                                            .withValues(alpha: 0.45),
+                                        fontWeight: FontWeight.w600),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1442,7 +1832,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const AcademicCalendarScreen()),
               );
             },
             child: Container(
@@ -1457,10 +1848,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 children: [
                   Text(
                     'View Full Schedule',
-                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0284C7)),
+                    style: GoogleFonts.inter(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0284C7)),
                   ),
                   SizedBox(width: 4.w),
-                  Icon(Icons.arrow_forward_ios_rounded, size: 12.sp, color: const Color(0xFF0284C7)),
+                  Icon(Icons.arrow_forward_ios_rounded,
+                      size: 12.sp, color: const Color(0xFF0284C7)),
                 ],
               ),
             ),

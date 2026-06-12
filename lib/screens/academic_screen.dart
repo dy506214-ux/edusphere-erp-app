@@ -73,24 +73,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   List<Map<String, dynamic>> _attendanceRecords = [];
   double _attendanceRate = 100.0;
   bool _hasAttendanceData = false;
-  bool _isRefreshButtonPressed = false;
   final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
-
-  Future<void> _handleRefreshButtonClick() async {
-    if (_isRefreshButtonPressed) return;
-    setState(() => _isRefreshButtonPressed = true);
-    
-    // Visually trigger the page's pull-to-refresh spinner.
-    // This will automatically execute _loadStudentOverviewData(showLoading: false) via onRefresh.
-    _refreshIndicatorKey.currentState?.show();
-    
-    // Keep the button blue for a short duration so it's noticeable
-    await Future.delayed(const Duration(milliseconds: 400));
-    
-    if (mounted) {
-      setState(() => _isRefreshButtonPressed = false);
-    }
-  }
 
 
   // ── Selected day for timetable ──
@@ -370,8 +353,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e', name: 'AcademicScreen');
     }
 
-    // Polling fallback for robust background sync
-    _realtimePollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // Polling fallback every 30 seconds
+    _realtimePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         if (widget.role == 'student') {
           _loadStudentOverviewData(showLoading: false);

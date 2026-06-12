@@ -42,8 +42,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
   double _attendanceTodayPercentage = 90.0;
 
   DateTime? _lastRefreshTime;
-  String _lastTriggerSource = 'None';
-  String? _lastRealtimeEvent;
 
   @override
   void initState() {
@@ -224,7 +222,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
   }
 
   Future<void> _fetchDashboardData(String triggerSource, {String? eventName}) async {
-    final apiUrl = 'dashboard/stats';
+    const apiUrl = 'dashboard/stats';
     dev.log('📡 FETCHING Teacher Dashboard stats...', name: 'TeacherDashboard');
     dev.log('🔗 API URL Path: $apiUrl', name: 'TeacherDashboard');
     dev.log('👉 Trigger Source: $triggerSource', name: 'TeacherDashboard');
@@ -262,12 +260,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
             _attendanceTodayPercentage = attendancePct;
             _pendingAttendance = pendingAttend;
             _lastRefreshTime = DateTime.now();
-            _lastTriggerSource = triggerSource;
-            _lastRealtimeEvent = eventName;
           });
         }
         
-        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()}', name: 'TeacherDashboard');
+        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()} | Trigger: $triggerSource | Event: $eventName', name: 'TeacherDashboard');
       }
     } catch (e) {
       dev.log('❌ Error fetching dashboard REST API: $e', name: 'TeacherDashboard');
