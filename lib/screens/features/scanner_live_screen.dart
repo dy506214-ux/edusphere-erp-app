@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_code_scanner/qr_code_scanner.dart';
+import '../../config/supabase_config.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
 
@@ -32,15 +32,17 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
   Map<String, dynamic>? _scannerDetails;
   List<Map<String, dynamic>> _scanEvents = [];
   Timer? _refreshTimer;
-  List<Map<String, dynamic>> _availableStudents = [];
   String _teacherName = 'Vikram Yadav';
   final bool _showBotBubble = true;
-  bool _isSimulating = false;
+  RealtimeChannel? _realtimeChannel;
   
   // QR Scanner State
   final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
   QRViewController? _qrController;
   bool _isProcessingQR = false;
+  
+  // Manual scanner entry for desktop/fallback
+  final TextEditingController _manualScanCtrl = TextEditingController();
 
   bool get _isDesktopOrWeb {
     if (kIsWeb) return true;
@@ -58,6 +60,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     super.initState();
     _loadLiveDashboard();
     _loadTeacherName();
+    _setupRealtimeSubscription();
     
     // Set up active polling synchronization every 10 seconds for real-time monitoring
     _refreshTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
@@ -67,10 +70,81 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     });
   }
 
+  void _setupRealtimeSubscription() {
+    try {
+      final supabaseUrl = SupabaseConfig.supabaseUrl;
+      debugPrint('⚡ [Realtime Subscription Status] Subscribing to AttendanceRecord realtime changes. URL: $supabaseUrl');
+      
+      _realtimeChannel = Supabase.instance.client
+          .channel('public:AttendanceRecord')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AttendanceRecord',
+            callback: (payload) {
+              debugPrint('⚡ [Realtime Change Received] Event: ${payload.eventType}, Payload: ${payload.newRecord}');
+              if (mounted) {
+                _loadLiveFeed();
+              }
+            },
+          );
+      _realtimeChannel!.subscribe((status, [error]) {
+        debugPrint('⚡ [Realtime Subscription Status] Connection state: $status ${error != null ? "- Error: $error" : ""}');
+      });
+    } catch (e) {
+      debugPrint('⚡ [Realtime Subscription Error] Failed to subscribe: $e');
+    }
+  }
+
+  Future<void> _ensureScannerExists(String scannerId) async {
+    debugPrint('🔍 [QRScanner Lookup] Checking database for scannerId: $scannerId');
+    try {
+      final res = await Supabase.instance.client
+          .from('QRScanner')
+          .select('*')
+          .eq('id', scannerId)
+          .maybeSingle();
+
+      debugPrint('🔍 [QRScanner Lookup Result] Lookup response: $res');
+      if (res == null) {
+        debugPrint('🆕 [QRScanner Auto-create] Scanner $scannerId not found. Creating default QRScanner in DB...');
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        final creatorId = currentUser?.id ?? 'e8f5de9c-114f-4ffd-9698-49f349208bfb';
+        
+        final newScanner = {
+          'id': scannerId,
+          'name': 'main gate scanner',
+          'location': 'Main Gate',
+          'scannerType': 'ENTRY',
+          'isActive': true,
+          'createdBy': creatorId,
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+        debugPrint('🆕 [QRScanner Auto-create] Insert Payload: $newScanner');
+        final insertRes = await Supabase.instance.client
+            .from('QRScanner')
+            .insert(newScanner)
+            .select()
+            .single();
+        debugPrint('🆕 [QRScanner Auto-create Result] Auto-creation response: $insertRes');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [QRScanner Auto-create Error] Error: $e');
+    }
+  }
+
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _qrController?.dispose();
+    _manualScanCtrl.dispose();
+    if (_realtimeChannel != null) {
+      try {
+        Supabase.instance.client.removeChannel(_realtimeChannel!);
+      } catch (e) {
+        debugPrint('⚠️ [Realtime Dispose Error] Failed to remove channel: $e');
+      }
+    }
     super.dispose();
   }
 
@@ -91,6 +165,11 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     setState(() => _isProcessingQR = true);
     await _qrController?.pauseCamera();
 
+    debugPrint('================================================================');
+    debugPrint('📸 [QR SCAN INITIATED]');
+    debugPrint('📍 Current scannerId: ${widget.scannerId}');
+    debugPrint('📦 QR payload: $rawCode');
+
     try {
       final admissionNo = rawCode.trim();
       final studentRes = await Supabase.instance.client
@@ -100,6 +179,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
           .maybeSingle();
 
       if (studentRes == null) {
+        debugPrint('❌ [QR SCAN ERROR] Student not found for QR payload: $admissionNo');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Student not found for QR: $admissionNo'), backgroundColor: AppColors.error),
@@ -112,6 +192,11 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
       final user = studentRes['user'] as Map<String, dynamic>? ?? {};
       final studentName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
       
+      debugPrint('👤 Student Identified - ID: $studentId, Name: $studentName');
+
+      // Ensure the scanner exists in the database
+      await _ensureScannerExists(widget.scannerId);
+
       final dateStr = widget.sessionDate != null
           ? widget.sessionDate!.toIso8601String().substring(0, 10)
           : DateTime.now().toIso8601String().substring(0, 10);
@@ -134,7 +219,15 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
         scanData['checkOutTime'] = DateTime.now().toIso8601String();
       }
 
-      await Supabase.instance.client.from('AttendanceRecord').insert(scanData);
+      debugPrint('📤 Attendance insert request payload: $scanData');
+      
+      final insertResponse = await Supabase.instance.client
+          .from('AttendanceRecord')
+          .insert(scanData)
+          .select()
+          .single();
+
+      debugPrint('📥 Attendance insert response: $insertResponse');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -143,13 +236,14 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
       }
       await _loadLiveFeed();
     } catch (e) {
-      debugPrint('Error processing QR: $e');
+      debugPrint('❌ [QR SCAN EXCEPTION] Error processing QR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error marking attendance: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
+      debugPrint('================================================================');
       if (mounted) {
         setState(() => _isProcessingQR = false);
         Future.delayed(const Duration(seconds: 2), () {
@@ -199,26 +293,12 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
 
       // 2. Fetch live scans list
       await _loadLiveFeed();
-
-      // 3. Pre-fetch available students for simulation
-      await _loadAvailableStudents();
     } catch (e) {
       debugPrint('Error loading live dashboard details: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
       }
-    }
-  }
-
-  Future<void> _loadAvailableStudents() async {
-    try {
-      final res = await Supabase.instance.client
-          .from('Student')
-          .select('id, user:User(firstName, lastName)');
-      _availableStudents = List<Map<String, dynamic>>.from(res);
-        } catch (e) {
-      debugPrint('Error loading students for simulation: $e');
     }
   }
 
@@ -287,97 +367,11 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     }
   }
 
-  Future<void> _simulateScan() async {
-    if (_isSimulating) return;
-    setState(() => _isSimulating = true);
-
-    try {
-      if (_availableStudents.isEmpty) {
-        await _loadAvailableStudents();
-      }
-
-      if (_availableStudents.isNotEmpty) {
-        final student = _availableStudents[Random().nextInt(_availableStudents.length)];
-        
-        final dateStr = widget.sessionDate != null
-            ? widget.sessionDate!.toIso8601String().substring(0, 10)
-            : DateTime.now().toIso8601String().substring(0, 10);
-            
-        final isCheckIn = widget.sessionAction?.toLowerCase() == 'check-in' || widget.sessionAction?.toLowerCase() == 'check_in';
-        
-        final Map<String, dynamic> scanData = {
-          'attendeeType': 'STUDENT',
-          'studentId': student['id'],
-          'date': dateStr,
-          'status': 'PRESENT',
-          'scannedByQR': true,
-          'scannerId': widget.scannerId,
-          'updatedAt': DateTime.now().toIso8601String(),
-        };
-
-        if (isCheckIn) {
-          scanData['checkInTime'] = DateTime.now().toIso8601String();
-        } else {
-          scanData['checkOutTime'] = DateTime.now().toIso8601String();
-        }
-
-        await Supabase.instance.client
-            .from('AttendanceRecord')
-            .insert(scanData);
-
-        final studentName = student['user'] != null
-            ? '${student['user']['firstName'] ?? ''} ${student['user']['lastName'] ?? ''}'.trim()
-            : 'Student';
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Successfully scanned QR for $studentName'),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-        await _loadLiveFeed();
-      } else {
-        // Fallback: Mock in-memory scan if no students found in DB
-        final mockName = 'Test Student ${Random().nextInt(100) + 1}';
-        final mockEvent = {
-          'id': 'mock_${DateTime.now().millisecondsSinceEpoch}',
-          'name': mockName,
-          'time': DateTime.now().toIso8601String(),
-          'action': widget.sessionAction?.toUpperCase().replaceAll('-', '_') ?? 'CHECK_IN',
-          'status': 'PRESENT',
-          'type': 'STUDENT',
-        };
-        setState(() {
-          _scanEvents.insert(0, mockEvent);
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Successfully simulated scan for $mockName (local mode)'),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      debugPrint('Error simulating scan: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to simulate scan record: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSimulating = false);
-      }
-    }
+  Future<void> _submitManualScan() async {
+    final code = _manualScanCtrl.text.trim();
+    if (code.isEmpty) return;
+    _manualScanCtrl.clear();
+    await _processQRData(code);
   }
 
   String _getAttendeeName(Map<String, dynamic> record) {
@@ -843,19 +837,19 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
                 ),
                 SizedBox(height: 12.h),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
+                  padding: EdgeInsets.symmetric(horizontal: 24.w),
                   child: Text(
-                    'Camera scanning is not supported on this device/browser.\nPlease use the simulate button below for testing.',
+                    'Camera scanning is not supported on this device/browser. Please type student QR payload below to verify & scan.',
                     style: GoogleFonts.inter(
-                      fontSize: 13.sp,
+                      fontSize: 12.sp,
                       fontWeight: FontWeight.w500,
                       color: const Color(0xFF64748B),
                     ),
                     textAlign: TextAlign.center,
                   ),
                 ),
-                SizedBox(height: 24.h),
-                _buildSimulateButton(),
+                SizedBox(height: 20.h),
+                _buildManualEntryField(),
               ],
             )
           : Stack(
@@ -898,42 +892,68 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
                       ),
                     ),
                   ),
-                Positioned(
-                  bottom: 20.h,
-                  child: _buildSimulateButton(),
-                ),
               ],
             ),
     );
   }
 
-  Widget _buildSimulateButton() {
-    return ElevatedButton.icon(
-      onPressed: _simulateScan,
-      icon: _isSimulating
-          ? SizedBox(
-              width: 16.w,
-              height: 16.w,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2.w,
+  Widget _buildManualEntryField() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24.w),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+            ),
+            child: TextField(
+              controller: _manualScanCtrl,
+              style: GoogleFonts.inter(
+                fontSize: 14.sp,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF0F172A),
               ),
-            )
-          : Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 18.sp),
-      label: Text(
-        _isSimulating ? 'Simulating Scan...' : 'Simulate Scan (Test Mode)',
-        style: GoogleFonts.inter(
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w800,
-          color: Colors.white,
-        ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: widget.theme.primary,
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10.r),
-        ),
+              decoration: InputDecoration(
+                hintText: 'Enter Student QR Payload (e.g. ADM-2023-0681)',
+                hintStyle: GoogleFonts.inter(
+                  color: const Color(0xFF94A3B8),
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+                prefixIcon: const Icon(Icons.qr_code_2_rounded, color: Color(0xFF64748B)),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              ),
+              onSubmitted: (_) => _submitManualScan(),
+            ),
+          ),
+          SizedBox(height: 12.h),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _submitManualScan,
+              icon: const Icon(Icons.search, color: Colors.white, size: 18),
+              label: Text(
+                'Verify & Scan',
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.theme.primary,
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

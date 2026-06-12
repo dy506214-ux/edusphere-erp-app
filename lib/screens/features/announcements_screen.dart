@@ -6,6 +6,8 @@ import 'dart:developer' as dev;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../config/supabase_config.dart';
 
 
 class AnnouncementModel {
@@ -69,14 +71,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   RealtimeChannel? _announcementsChannel;
 
-
-
+  String _studentId = '';
+  String _teacherId = '';
+  String _classId = '';
+  String _userRole = '';
 
   @override
   void initState() {
     super.initState();
+    _loadIds();
     _loadAnnouncements(showLoading: true);
     _connectRealTime();
+  }
+
+  Future<void> _loadIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _studentId = prefs.getString('student_id') ?? '';
+        _teacherId = prefs.getString('teacher_id') ?? '';
+        _classId = prefs.getString('student_class') ?? '';
+        _userRole = prefs.getString('user_role') ?? widget.role;
+      });
+      dev.log(
+        '📋 [ANNOUNCEMENTS INFO] Loaded user: $_userRole | studentId: $_studentId | teacherId: $_teacherId | classId: $_classId',
+        name: 'AnnouncementsScreen',
+      );
+    } catch (e) {
+      dev.log('⚠️ Error loading IDs in AnnouncementsScreen: $e', name: 'AnnouncementsScreen');
+    }
   }
 
   @override
@@ -96,14 +119,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         client.removeChannel(_announcementsChannel!);
       }
       
-      dev.log('📡 Subscribing to Supabase Realtime changes for Announcements Screen...', name: 'AnnouncementsScreen');
+      dev.log('📡 [ANNOUNCEMENTS SUBSCRIBE] Connecting to Supabase Realtime channel for Table: Announcement on URL: ${SupabaseConfig.supabaseUrl}', name: 'AnnouncementsScreen');
       _announcementsChannel = client.channel('public:announcements_screen_sync')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'Announcement',
           callback: (payload) {
-            dev.log('🔥 Real-time announcement event payload: $payload', name: 'AnnouncementsScreen');
+            dev.log('🔥 [ANNOUNCEMENTS EVENT] Real-time event type: ${payload.eventType} | Payload: $payload', name: 'AnnouncementsScreen');
             if (mounted) {
               _loadAnnouncements(showLoading: false);
             }
@@ -111,13 +134,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         );
       
       _announcementsChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Announcements channel status: $status', name: 'AnnouncementsScreen');
+        dev.log('📡 [ANNOUNCEMENTS STATUS] Subscription status: $status | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId', name: 'AnnouncementsScreen');
         if (error != null) {
-          dev.log('❌ Supabase Realtime Announcements subscription error: $error', name: 'AnnouncementsScreen');
+          dev.log('❌ [ANNOUNCEMENTS SUBSCRIPTION ERROR] Error: $error', name: 'AnnouncementsScreen');
         }
       });
     } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime Announcements channel: $e', name: 'AnnouncementsScreen');
+      dev.log('⚠️ [ANNOUNCEMENTS ERROR] Error connecting Realtime channel: $e', name: 'AnnouncementsScreen');
     }
   }
 
@@ -155,57 +178,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
     try {
       final client = Supabase.instance.client;
+      dev.log('📡 [ANNOUNCEMENTS FETCH] Querying Announcement table on Supabase URL: ${SupabaseConfig.supabaseUrl}', name: 'AnnouncementsScreen');
       var res = await client.from('Announcement').select().order('createdAt', ascending: false);
       var data = List<Map<String, dynamic>>.from(res);
 
-      if (data.isEmpty) {
-        // Seed default announcements to database to match mock data
-        final listToInsert = [
-          {
-            'id': 'ann-sports-day',
-            'title': 'Sports Day Announcement',
-            'content': 'Annual Sports Day will be held on 15th November 2025. All students are encouraged to participate.',
-            'targetAudience': ['STUDENT', 'PARENTS', 'TEACHERS'],
-            'classIds': [],
-            'priority': 'NORMAL',
-            'isPublished': true,
-            'publishedAt': DateTime(2025, 6, 5).toIso8601String(),
-            'createdBy': 'system',
-            'createdAt': DateTime(2025, 6, 5).toIso8601String(),
-            'updatedAt': DateTime(2025, 6, 5).toIso8601String(),
-          },
-          {
-            'id': 'ann-half-yearly-exams',
-            'title': 'Half Yearly Exams Schedule',
-            'content': 'Half Yearly Examinations will be held from 10th September to 20th September 2025. Admit card will be distributed next week.',
-            'targetAudience': ['STUDENT', 'PARENTS'],
-            'classIds': [],
-            'priority': 'NORMAL',
-            'isPublished': true,
-            'publishedAt': DateTime(2025, 6, 5).toIso8601String(),
-            'createdBy': 'system',
-            'createdAt': DateTime(2025, 6, 5).toIso8601String(),
-            'updatedAt': DateTime(2025, 6, 5).toIso8601String(),
-          },
-          {
-            'id': 'ann-welcome',
-            'title': 'Welcome to Academic Year 2025-26',
-            'content': 'We are pleased to welcome all students and parents to the new academic year. Classes begin on 1st April 2025.',
-            'targetAudience': ['STUDENT', 'PARENTS', 'STAFF', 'NEW'],
-            'classIds': [],
-            'priority': 'HIGH',
-            'isPublished': true,
-            'publishedAt': DateTime(2025, 5, 5).toIso8601String(),
-            'createdBy': 'system',
-            'createdAt': DateTime(2025, 5, 5).toIso8601String(),
-            'updatedAt': DateTime(2025, 5, 5).toIso8601String(),
-          }
-        ];
-
-        await client.from('Announcement').insert(listToInsert);
-        res = await client.from('Announcement').select().order('createdAt', ascending: false);
-        data = List<Map<String, dynamic>>.from(res);
-      }
+      final latestNoticeId = data.isNotEmpty ? data.first['id'] : 'NONE';
+      final latestNoticeTime = data.isNotEmpty ? data.first['createdAt'] ?? data.first['created_at'] : 'NONE';
+      dev.log(
+        '📥 [ANNOUNCEMENTS RECEIVE] Supabase URL: ${SupabaseConfig.supabaseUrl} | Table: Announcement | Rows: ${data.length} | Latest Notice ID: $latestNoticeId | Latest Notice CreatedAt: $latestNoticeTime | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId',
+        name: 'AnnouncementsScreen',
+      );
 
       if (mounted) {
         setState(() {
@@ -232,7 +214,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         });
       }
     } catch (e) {
-      dev.log('Error loading announcements from Supabase: $e', name: 'AnnouncementsScreen');
+      dev.log('❌ [ANNOUNCEMENTS FETCH ERROR] Error loading from Supabase: $e', name: 'AnnouncementsScreen');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

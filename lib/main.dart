@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config/supabase_config.dart';
+import 'config/api_config.dart';
 import 'app.dart';
 
 class MyHttpOverrides extends HttpOverrides {
@@ -26,6 +27,12 @@ void main() async {
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
   );
+
+  // Application Startup Backend Configurations Logging
+  debugPrint('🚀 [APP STARTUP] Current Base URL: ${ApiConfig.serverBaseUrl}');
+  debugPrint('🚀 [APP STARTUP] Current Environment: Production');
+  debugPrint('🚀 [APP STARTUP] Current API Endpoint: ${ApiConfig.apiUrl}');
+  debugPrint('🚀 [APP STARTUP] Current Supabase URL: ${SupabaseConfig.supabaseUrl}');
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

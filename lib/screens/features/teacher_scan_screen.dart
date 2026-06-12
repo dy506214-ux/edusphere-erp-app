@@ -100,6 +100,43 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
     });
   }
 
+  Future<void> _ensureScannerExists(String scannerId) async {
+    debugPrint('🔍 [QRScanner Lookup] Checking database for scannerId: $scannerId');
+    try {
+      final res = await Supabase.instance.client
+          .from('QRScanner')
+          .select('*')
+          .eq('id', scannerId)
+          .maybeSingle();
+
+      debugPrint('🔍 [QRScanner Lookup Result] Lookup response: $res');
+      if (res == null) {
+        debugPrint('🆕 [QRScanner Auto-create] Scanner $scannerId not found. Creating default QRScanner in DB...');
+        final currentUser = Supabase.instance.client.auth.currentUser;
+        final creatorId = currentUser?.id ?? 'e8f5de9c-114f-4ffd-9698-49f349208bfb';
+        
+        final newScanner = {
+          'id': scannerId,
+          'name': 'main gate scanner',
+          'location': 'Main Gate',
+          'scannerType': 'ENTRY',
+          'isActive': true,
+          'createdBy': creatorId,
+          'updatedAt': DateTime.now().toIso8601String(),
+        };
+        debugPrint('🆕 [QRScanner Auto-create] Insert Payload: $newScanner');
+        final insertRes = await Supabase.instance.client
+            .from('QRScanner')
+            .insert(newScanner)
+            .select()
+            .single();
+        debugPrint('🆕 [QRScanner Auto-create Result] Auto-creation response: $insertRes');
+      }
+    } catch (e) {
+      debugPrint('⚠️ [QRScanner Auto-create Error] Error: $e');
+    }
+  }
+
   // ── Process QR payload (admission no) ──
   Future<void> _processQRData(String rawCode) async {
     if (_isProcessing) return;
@@ -107,6 +144,11 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
 
     // Pause camera while processing
     await _qrController?.pauseCamera();
+
+    debugPrint('================================================================');
+    debugPrint('📸 [QR SCAN INITIATED (TeacherScanScreen)]');
+    debugPrint('📍 Current scannerId: ${widget.scannerId}');
+    debugPrint('📦 QR payload: $rawCode');
 
     try {
       // QR data = admission number (e.g. "ADM-2023-0681")
@@ -120,6 +162,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           .maybeSingle();
 
       if (studentRes == null) {
+        debugPrint('❌ [QR SCAN ERROR] Student not found for QR payload: $admissionNo');
         _showResult(_ScanResult(
           success: false,
           message: 'Student not found for QR: $admissionNo',
@@ -134,6 +177,11 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
       final today = DateTime.now().toIso8601String().substring(0, 10);
 
+      debugPrint('👤 Student Identified - ID: $studentId, Name: $studentName');
+
+      // Ensure scanner exists in DB
+      await _ensureScannerExists(widget.scannerId);
+
       // 2. Check if already marked today
       final existing = await Supabase.instance.client
           .from('AttendanceRecord')
@@ -144,6 +192,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           .maybeSingle();
 
       if (existing != null) {
+        debugPrint('⚠️ [QR SCAN ALREADY MARKED] studentId $studentId already marked today');
         _showResult(_ScanResult(
           success: false,
           message: '$studentName already marked today',
@@ -153,15 +202,32 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         return;
       }
 
-      // 3. Insert attendance record
-      await Supabase.instance.client.from('AttendanceRecord').insert({
+      final Map<String, dynamic> insertPayload = {
         'attendeeType': 'STUDENT',
         'studentId': studentId,
         'date': today,
         'status': 'PRESENT',
         'scannedByQR': true,
-        'checkInTime': DateTime.now().toIso8601String(),
-      });
+        'scannerId': widget.scannerId,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+      
+      if (widget.sessionAction.toLowerCase() == 'check-in' || widget.sessionAction.toLowerCase() == 'check_in') {
+        insertPayload['checkInTime'] = DateTime.now().toIso8601String();
+      } else {
+        insertPayload['checkOutTime'] = DateTime.now().toIso8601String();
+      }
+
+      debugPrint('📤 Attendance insert request payload: $insertPayload');
+
+      // 3. Insert attendance record
+      final insertResponse = await Supabase.instance.client
+          .from('AttendanceRecord')
+          .insert(insertPayload)
+          .select()
+          .single();
+
+      debugPrint('📥 Attendance insert response: $insertResponse');
 
       _showResult(_ScanResult(
         success: true,
@@ -182,6 +248,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         if (_recentScans.length > 10) _recentScans.removeLast();
       });
     } catch (e) {
+      debugPrint('❌ [QR SCAN EXCEPTION] Error: $e');
       _showResult(_ScanResult(
         success: false,
         message: 'Error: ${e.toString()}',
@@ -189,6 +256,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         color: Colors.red,
       ));
     } finally {
+      debugPrint('================================================================');
       setState(() => _isProcessing = false);
     }
   }
