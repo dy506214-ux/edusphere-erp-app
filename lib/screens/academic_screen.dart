@@ -354,8 +354,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
       dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e', name: 'AcademicScreen');
     }
 
-    // Polling fallback for robust background sync
-    _realtimePollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    // Polling fallback every 30 seconds
+    _realtimePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
         if (widget.role == 'student') {
           _loadStudentOverviewData(showLoading: false);

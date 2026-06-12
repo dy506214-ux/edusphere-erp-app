@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:gal/gal.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../services/api_service.dart';
 import 'dart:developer' as dev;
 import '../main_screen.dart';
@@ -77,6 +76,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   late DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _selectedDay;
   bool _isMonthView = true;
+  // ignore: prefer_final_fields
   bool _isLoading = false;
 
   String _selectedFilter = 'All Categories';
@@ -384,7 +384,6 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   Widget _buildHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
@@ -395,7 +394,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: 24.sp,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0077D6),
+                  color: const Color(0xFF0F172A),
                 ),
               ),
               SizedBox(height: 4.h),
@@ -410,93 +409,91 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           ),
         ),
         Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                setState(() => _selectedFilter = value);
-              },
-              offset: const Offset(0, 40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12.r),
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-              ),
-              color: Colors.white,
-              elevation: 4,
-              itemBuilder: (context) {
-                final options = [
-                  'All Categories',
-                  'Holiday',
-                  'Event',
-                  'Exam',
-                  'Emergency',
-                  'Notice'
-                ];
-                return options.map((choice) {
-                  final isSelected = choice == _selectedFilter;
-                  return PopupMenuItem<String>(
-                    value: choice,
-                    height: 36.h,
-                    child: Container(
-                      width: double.infinity,
-                      decoration: isSelected
-                          ? BoxDecoration(
-                              color: const Color(0xFFE0F2FE),
-                              borderRadius: BorderRadius.circular(6.r),
-                            )
-                          : null,
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
-                      child: Text(
-                        choice,
-                        style: GoogleFonts.inter(
-                          fontSize: 13.sp,
-                          color: const Color(0xFF0F172A),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList();
-              },
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                  borderRadius: BorderRadius.circular(8.r),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.filter_alt_outlined, size: 14.sp, color: const Color(0xFF475569)),
-                    SizedBox(width: 4.w),
-                    Text(
-                      _selectedFilter == 'All Categories' ? 'Filters' : _selectedFilter,
-                      style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF475569)),
-                    ),
-                    SizedBox(width: 4.w),
-                    Icon(Icons.keyboard_arrow_down_rounded, size: 14.sp, color: const Color(0xFF475569)),
-                  ],
-                ),
-              ),
+            Builder(
+              builder: (context) {
+                final isFilterActive = _selectedFilter != 'All Categories';
+                return _actionBtn(
+                  Icons.filter_alt_outlined, 
+                  isFilterActive ? _selectedFilter : 'Filters',
+                  trailingIcon: Icons.keyboard_arrow_down,
+                  isActive: isFilterActive,
+                  onTap: () {
+                    final RenderBox button = context.findRenderObject() as RenderBox;
+                    _showFiltersMenu(context, button);
+                  }
+                );
+              }
             ),
             SizedBox(width: 8.w),
-            OutlinedButton.icon(
-              onPressed: _exportCalendar,
-              icon: Icon(Icons.upload_outlined, size: 14.sp, color: const Color(0xFF475569)),
-              label: Text('Export', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF475569))),
-              style: OutlinedButton.styleFrom(
-                backgroundColor: Colors.white,
-                side: const BorderSide(color: Color(0xFFE2E8F0)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+            _actionBtn(
+              Icons.file_upload_outlined, 
+              'Export',
+              onTap: _exportCalendar,
             ),
           ],
-        ),
+        )
       ],
     );
   }
+
+  void _showFiltersMenu(BuildContext context, RenderBox button) {
+    final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final RelativeRect position = RelativeRect.fromRect(
+      Rect.fromPoints(
+        button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(const Offset(0, 8)), ancestor: overlay),
+      ),
+      Offset.zero & overlay.size,
+    );
+
+    showMenu<String>(
+      context: context,
+      position: position,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+      color: Colors.white,
+      elevation: 4,
+      items: [
+        'All Categories',
+        'Holiday',
+        'Event',
+        'Exam',
+        'Emergency',
+        'Notice'
+      ].map((String choice) {
+        final isSelected = choice == _selectedFilter;
+        return PopupMenuItem<String>(
+          value: choice,
+          padding: EdgeInsets.zero,
+          child: Container(
+            width: 140.w,
+            margin: EdgeInsets.symmetric(horizontal: 4.w, vertical: 2.h),
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFE0F2FE) : Colors.transparent,
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Text(
+              choice,
+              style: GoogleFonts.inter(
+                fontSize: 13.sp,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                color: isSelected ? const Color(0xFF0066CC) : const Color(0xFF0F172A),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    ).then((value) {
+      if (value != null) {
+        setState(() {
+          _selectedFilter = value;
+        });
+      }
+    });
+  }
+
+
 
   // ── Full Calendar Card ─────────────────────────────────────────────────────
   Widget _buildCalendarCard() {

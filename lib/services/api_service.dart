@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
@@ -44,14 +45,79 @@ class ApiService {
     await prefs.remove('api_token');
   }
 
+  // Helper method to wrap HTTP requests with DNS fallback and logging
+  Future<http.Response> _requestWrapper(
+    String method,
+    Uri uri,
+    Map<String, String> headers, {
+    Object? body,
+  }) async {
+    dev.log('📡 [API REQUEST] Method: $method | URL: $uri', name: 'ApiService');
+    dev.log('📡 [API REQUEST] Headers: $headers', name: 'ApiService');
+    if (body != null) {
+      dev.log('📡 [API REQUEST] Body: $body', name: 'ApiService');
+    }
+
+    http.Response response;
+
+    Future<http.Response> runHttp(Uri targetUri, Map<String, String> targetHeaders) async {
+      if (method == 'GET') {
+        return await http.get(targetUri, headers: targetHeaders);
+      } else if (method == 'POST') {
+        return await http.post(targetUri, headers: targetHeaders, body: body);
+      } else if (method == 'PUT') {
+        return await http.put(targetUri, headers: targetHeaders, body: body);
+      } else if (method == 'DELETE') {
+        return await http.delete(targetUri, headers: targetHeaders);
+      } else {
+        throw UnsupportedError('Unsupported HTTP method: $method');
+      }
+    }
+
+    try {
+      response = await runHttp(uri, headers);
+    } catch (e) {
+      if (e is SocketException && uri.host == 'edusphere-erp.onrender.com') {
+        dev.log('⚠️ [API WARNING] DNS resolution failed for edusphere-erp.onrender.com. Trying fallback IP 216.24.57.9...', name: 'ApiService');
+        try {
+          final fallbackUri = uri.replace(host: '216.24.57.9');
+          final fallbackHeaders = Map<String, String>.from(headers);
+          fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
+          dev.log('📡 [API FALLBACK] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
+          response = await runHttp(fallbackUri, fallbackHeaders);
+        } catch (e2) {
+          dev.log('⚠️ [API WARNING] Fallback to 216.24.57.9 failed. Trying fallback IP 216.24.57.8...', name: 'ApiService');
+          try {
+            final fallbackUri = uri.replace(host: '216.24.57.8');
+            final fallbackHeaders = Map<String, String>.from(headers);
+            fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
+            dev.log('📡 [API FALLBACK 2] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
+            response = await runHttp(fallbackUri, fallbackHeaders);
+          } catch (e3) {
+            dev.log('❌ [API ERROR] All fallback IPs failed: $e3', name: 'ApiService');
+            rethrow;
+          }
+        }
+      } else {
+        dev.log('❌ [API ERROR] Network request failed: $e', name: 'ApiService');
+        rethrow;
+      }
+    }
+
+    dev.log('📥 [API RESPONSE] Status: ${response.statusCode} for $method ${uri.path}', name: 'ApiService');
+    dev.log('📥 [API RESPONSE] Body: ${response.body}', name: 'ApiService');
+
+    return response;
+  }
+
   // Perform backend login
   Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse('${ApiConfig.apiUrl}/auth/login');
-    dev.log('📡 POST to $url', name: 'ApiService');
     
-    final response = await http.post(
+    final response = await _requestWrapper(
+      'POST',
       url,
-      headers: {
+      {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -61,7 +127,6 @@ class ApiService {
       }),
     );
 
-    dev.log('📥 Response status: ${response.statusCode}', name: 'ApiService');
     final Map<String, dynamic> data = jsonDecode(response.body);
 
     if (response.statusCode == 200 && data['success'] == true) {
@@ -103,10 +168,8 @@ class ApiService {
     }
 
     final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint').replace(queryParameters: cleanedParams);
-    dev.log('📡 GET to $uri', name: 'ApiService');
 
-    final response = await http.get(uri, headers: _getHeaders());
-    dev.log('📥 Response status: ${response.statusCode} for GET /$endpoint', name: 'ApiService');
+    final response = await _requestWrapper('GET', uri, _getHeaders());
 
     if (response.statusCode == 401) {
       // Token might be expired
@@ -121,14 +184,13 @@ class ApiService {
   Future<dynamic> post(String endpoint, {Map<String, dynamic>? body}) async {
     await init();
     final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint');
-    dev.log('📡 POST to $uri', name: 'ApiService');
 
-    final response = await http.post(
+    final response = await _requestWrapper(
+      'POST',
       uri,
-      headers: _getHeaders(),
+      _getHeaders(),
       body: body != null ? jsonEncode(body) : null,
     );
-    dev.log('📥 Response status: ${response.statusCode} for POST /$endpoint', name: 'ApiService');
 
     if (response.statusCode == 401) {
       await clearToken();
@@ -142,14 +204,13 @@ class ApiService {
   Future<dynamic> put(String endpoint, {Map<String, dynamic>? body}) async {
     await init();
     final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint');
-    dev.log('📡 PUT to $uri', name: 'ApiService');
 
-    final response = await http.put(
+    final response = await _requestWrapper(
+      'PUT',
       uri,
-      headers: _getHeaders(),
+      _getHeaders(),
       body: body != null ? jsonEncode(body) : null,
     );
-    dev.log('📥 Response status: ${response.statusCode} for PUT /$endpoint', name: 'ApiService');
 
     if (response.statusCode == 401) {
       await clearToken();
@@ -163,10 +224,8 @@ class ApiService {
   Future<dynamic> delete(String endpoint) async {
     await init();
     final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint');
-    dev.log('📡 DELETE to $uri', name: 'ApiService');
 
-    final response = await http.delete(uri, headers: _getHeaders());
-    dev.log('📥 Response status: ${response.statusCode} for DELETE /$endpoint', name: 'ApiService');
+    final response = await _requestWrapper('DELETE', uri, _getHeaders());
 
     if (response.statusCode == 401) {
       await clearToken();

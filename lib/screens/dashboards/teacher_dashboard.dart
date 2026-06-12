@@ -272,7 +272,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
           });
         }
         
-        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()}', name: 'TeacherDashboard');
+        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()} | Trigger: $triggerSource | Event: $eventName', name: 'TeacherDashboard');
       }
     } catch (e) {
       dev.log('❌ Error fetching dashboard REST API: $e', name: 'TeacherDashboard');

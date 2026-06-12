@@ -642,7 +642,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _bloodGroup = _studentBloodGroup;
           _address = userMap['address'] as String? ?? '—';
           _rollNumber = _rollNo;
-          _className = sectionMap['name'] != null ? '$_studentClass - ${_section}' : _studentClass;
+          _className = sectionMap['name'] != null ? '$_studentClass - $_section' : _studentClass;
           _admissionId = _admissionNo;
           
           String father = '—';
@@ -816,7 +816,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bloodGroup = _studentBloodGroup;
         _address = userMap['address'] as String? ?? '—';
         _rollNumber = _rollNo;
-        _className = sectionMap['name'] != null ? '$_studentClass - ${_section}' : _studentClass;
+        _className = sectionMap['name'] != null ? '$_studentClass - $_section' : _studentClass;
         _admissionId = _admissionNo;
         _isProfileLoading = false;
       });

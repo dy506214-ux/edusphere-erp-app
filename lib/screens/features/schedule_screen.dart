@@ -156,54 +156,43 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         };
       }).toList();
 
-      dynamic response = {
-        'success': true,
-        'schedule': rawSchedule,
+      const Map<int, String> weekdayToName = {
+        1: 'Mon',
+        2: 'Tue',
+        3: 'Wed',
+        4: 'Thu',
+        5: 'Fri',
+        6: 'Sat',
+        7: 'Sun',
       };
 
-      if (response != null && response['success'] == true) {
-        final rawScheduleList = response['schedule'] as List<dynamic>? ?? [];
-        final Map<int, String> weekdayToName = {
-          1: 'Mon',
-          2: 'Tue',
-          3: 'Wed',
-          4: 'Thu',
-          5: 'Fri',
-          6: 'Sat',
-          7: 'Sun',
+      _allEntries = rawSchedule.map((sMap) {
+        final teacherObj = sMap['teacher'] as Map<String, dynamic>?;
+        final userObj = teacherObj?['user'] as Map<String, dynamic>?;
+        String resolvedTeacherName = 'Class Teacher';
+        if (userObj != null) {
+          resolvedTeacherName = '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim();
+        } else if (teacherObj?['name'] != null) {
+          resolvedTeacherName = teacherObj!['name'] as String;
+        }
+
+        final roomObj = sMap['room'] as Map<String, dynamic>?;
+        final sectionObj = sMap['section'] as Map<String, dynamic>?;
+        final classObj = sectionObj?['class'] as Map<String, dynamic>?;
+
+        return {
+          'day_of_week': weekdayToName[sMap['dayOfWeek']] ?? 'Mon',
+          'start_time': sMap['startTime'] ?? '08:00',
+          'end_time': sMap['endTime'] ?? '08:45',
+          'room_number': roomObj?['name'] ?? 'Room 101',
+          'class_name': classObj?['name'] ?? '',
+          'section': sectionObj?['name'] ?? '',
+          'subject': sMap['subject'],
+          'teacher': {
+            'name': resolvedTeacherName,
+          },
         };
-
-        _allEntries = rawSchedule.map((slot) {
-          final sMap = slot as Map<String, dynamic>;
-          final teacherObj = sMap['teacher'] as Map<String, dynamic>?;
-          final userObj = teacherObj?['user'] as Map<String, dynamic>?;
-          String resolvedTeacherName = 'Class Teacher';
-          if (userObj != null) {
-            resolvedTeacherName = '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim();
-          } else if (teacherObj?['name'] != null) {
-            resolvedTeacherName = teacherObj!['name'] as String;
-          }
-
-          final roomObj = sMap['room'] as Map<String, dynamic>?;
-          final sectionObj = sMap['section'] as Map<String, dynamic>?;
-          final classObj = sectionObj?['class'] as Map<String, dynamic>?;
-
-          return {
-            'day_of_week': weekdayToName[sMap['dayOfWeek']] ?? 'Mon',
-            'start_time': sMap['startTime'] ?? '08:00',
-            'end_time': sMap['endTime'] ?? '08:45',
-            'room_number': roomObj?['name'] ?? 'Room 101',
-            'class_name': classObj?['name'] ?? '',
-            'section': sectionObj?['name'] ?? '',
-            'subject': sMap['subject'],
-            'teacher': {
-              'name': resolvedTeacherName,
-            },
-          };
-        }).toList();
-      } else {
-        throw Exception(response?['message'] ?? 'Failed to load timetable response');
-      }
+      }).toList();
 
       _applyFilters();
     } catch (e) {

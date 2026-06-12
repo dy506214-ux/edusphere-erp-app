@@ -393,13 +393,34 @@ class _TransportScreenState extends State<TransportScreen> {
             ),
             SizedBox(height: 8.h),
             Text(
-              'You are not currently allocated to any school transport route.\nPlease contact the administration.',
+              'You are not currently allocated to any school transport route.\nPlease contact the administration or request below.',
               textAlign: TextAlign.center,
               style: GoogleFonts.inter(
                 fontSize: 11.sp,
                 color: const Color(0xFF64748B),
                 fontWeight: FontWeight.w500,
                 height: 1.5,
+              ),
+            ),
+            SizedBox(height: 20.h),
+            ElevatedButton.icon(
+              onPressed: _isRequesting ? null : _requestTransport,
+              icon: _isRequesting
+                  ? SizedBox(
+                      width: 16.w,
+                      height: 16.w,
+                      child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Icon(Icons.directions_bus_rounded, size: 18.sp),
+              label: Text(
+                _isRequesting ? 'Requesting...' : 'Request Transport',
+                style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0076F6),
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
               ),
             ),
           ],
