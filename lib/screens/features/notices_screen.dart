@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'dart:developer' as dev;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../config/supabase_config.dart';
 
 class NoticesScreen extends StatefulWidget {
   const NoticesScreen({super.key});
@@ -13,14 +16,47 @@ class NoticesScreen extends StatefulWidget {
 class _NoticesScreenState extends State<NoticesScreen> {
   final _supabase = Supabase.instance.client;
 
+  String _studentId = '';
+  String _teacherId = '';
+  String _classId = '';
+  String _userRole = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadIds();
+  }
+
+  Future<void> _loadIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _studentId = prefs.getString('student_id') ?? '';
+        _teacherId = prefs.getString('teacher_id') ?? '';
+        _classId = prefs.getString('student_class') ?? '';
+        _userRole = prefs.getString('user_role') ?? '';
+      });
+      dev.log(
+        '📋 [NOTICES INFO] Loaded user: $_userRole | studentId: $_studentId | teacherId: $_teacherId | classId: $_classId',
+        name: 'NoticesScreen',
+      );
+    } catch (e) {
+      dev.log('⚠️ Error loading IDs in NoticesScreen: $e', name: 'NoticesScreen');
+    }
+  }
+
   Stream<List<Map<String, dynamic>>> _getNoticesStream() {
     try {
+      dev.log(
+        '📡 [NOTICES SUBSCRIBE] Connecting stream to Table: Announcement on Supabase URL: ${SupabaseConfig.supabaseUrl}',
+        name: 'NoticesScreen',
+      );
       return _supabase
-          .from('Notices')
+          .from('Announcement')
           .stream(primaryKey: ['id'])
-          .order('created_at', ascending: false);
+          .order('createdAt', ascending: false);
     } catch (e) {
-      debugPrint('Error connecting to Notices table: $e');
+      dev.log('❌ [NOTICES ERROR] Error connecting to Announcement table stream: $e', name: 'NoticesScreen');
       return Stream.value([]);
     }
   }
@@ -117,6 +153,16 @@ class _NoticesScreenState extends State<NoticesScreen> {
 
                     final notices = snapshot.data ?? [];
 
+                    if (snapshot.hasData) {
+                      final list = snapshot.data!;
+                      final latestNoticeId = list.isNotEmpty ? list.first['id'] : 'NONE';
+                      final latestNoticeTime = list.isNotEmpty ? list.first['createdAt'] ?? list.first['created_at'] : 'NONE';
+                      dev.log(
+                        '📥 [NOTICES RECEIVE] Supabase URL: ${SupabaseConfig.supabaseUrl} | Table: Announcement | Rows: ${list.length} | Latest Notice ID: $latestNoticeId | Latest Notice CreatedAt: $latestNoticeTime | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId',
+                        name: 'NoticesScreen',
+                      );
+                    }
+
                     if (snapshot.hasError || notices.isEmpty) {
                       // EMPTY STATE (Second Image)
                       return Align(
@@ -176,14 +222,18 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       itemBuilder: (context, index) {
                         final notice = notices[index];
                         final title = notice['title']?.toString() ?? 'Untitled';
-                        final desc = notice['description']?.toString() ?? '';
+                        final desc = notice['content']?.toString() ?? notice['description']?.toString() ?? '';
                         final priority = notice['priority']?.toString() ?? 'NORMAL';
                         final type = notice['type']?.toString() ?? 'EVENT';
                         
                         // Parse tags
                         List<String> tags = [];
-                        if (notice['tags'] is List) {
+                        if (notice['targetAudience'] is List) {
+                          tags = List<String>.from(notice['targetAudience']);
+                        } else if (notice['tags'] is List) {
                           tags = List<String>.from(notice['tags']);
+                        } else if (notice['targetAudience'] is String) {
+                          tags = (notice['targetAudience'] as String).split(',').map((e) => e.trim()).toList();
                         } else if (notice['tags'] is String) {
                           tags = (notice['tags'] as String).split(',').map((e) => e.trim()).toList();
                         } else {
@@ -199,6 +249,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
                           } catch (_) {
                             dateStr = notice['date'].toString();
                           }
+                        } else if (notice['createdAt'] != null) {
+                          try {
+                            final dt = DateTime.parse(notice['createdAt'].toString());
+                            dateStr = '${dt.day}/${dt.month}/${dt.year}';
+                          } catch (_) {}
                         } else if (notice['created_at'] != null) {
                           try {
                             final dt = DateTime.parse(notice['created_at'].toString());
