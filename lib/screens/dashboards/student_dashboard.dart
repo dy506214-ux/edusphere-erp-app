@@ -233,7 +233,7 @@ class _StudentDashboardState extends State<StudentDashboard>
     });
   }
 
-  Future<void> _loadStudentData() async {
+  Future<void> _loadStudentData({bool showLoading = false}) async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 
@@ -246,7 +246,9 @@ class _StudentDashboardState extends State<StudentDashboard>
     setState(() {
       studentName = savedName;
       studentEmail = savedEmail;
-      _isRefreshing = true;
+      if (showLoading) {
+        _isRefreshing = true;
+      }
     });
 
     // ── 1. Fetch full student profile from backend ─────────────────────────
@@ -436,7 +438,7 @@ class _StudentDashboardState extends State<StudentDashboard>
         });
       }
     } finally {
-      if (mounted) {
+      if (mounted && showLoading) {
         setState(() {
           _isRefreshing = false;
         });
@@ -812,7 +814,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           OutlinedButton.icon(
-                            onPressed: _isRefreshing ? null : _loadStudentData,
+                            onPressed: _isRefreshing ? null : () => _loadStudentData(showLoading: true),
                             icon: _isRefreshing
                                 ? SizedBox(
                                     width: 14.sp,

@@ -236,21 +236,31 @@ class _AcademicScreenState extends State<AcademicScreen> {
           _attendanceRate = rawList.isNotEmpty ? (present / rawList.length) * 100 : 100.0;
           _hasAttendanceData = true;
 
-          // Sort descending by date
-          validRecords.sort((a, b) {
-            final dateA = a['date']?.toString() ?? '';
-            final dateB = b['date']?.toString() ?? '';
-            return dateB.compareTo(dateA); // Descending
-          });
-
           _attendanceRecords.clear();
-          // Take top 10
-          for (var i = 0; i < validRecords.length && i < 10; i++) {
-             final rec = validRecords[i];
-             _attendanceRecords.add({
-                ...rec,
-                'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
-             });
+          
+          final DateTime today = DateTime.now();
+          for (int i = 0; i < 7; i++) {
+             final date = today.subtract(Duration(days: i));
+             final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+             
+             final matchingRecord = validRecords.where((r) => r['date']?.toString().startsWith(dateStr) == true).toList();
+             final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
+             
+             if (matchingRecord.isNotEmpty) {
+                 final rec = matchingRecord.first;
+                 _attendanceRecords.add({
+                    ...rec,
+                    'date': dateStr, // normalized
+                    'isWeekend': isWeekend,
+                    'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
+                 });
+             } else {
+                 _attendanceRecords.add({
+                    'date': dateStr,
+                    'status': isWeekend ? 'WEEKEND' : 'NOT_MARKED',
+                    'isWeekend': isWeekend,
+                 });
+             }
           }
         } catch (e) {
           dev.log('❌ Error fetching Attendance from Supabase: $e', name: 'AcademicScreen');
@@ -1074,6 +1084,60 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
             )
           ] else ...[
+            // Table Header
+            Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Text(
+                    'Date',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Status',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: Text(
+                      'Marked By',
+                      style: GoogleFonts.inter(
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Check-in Time',
+                    style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF475569),
+                    ),
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
+            ),
+            Divider(color: const Color(0xFFE2E8F0), thickness: 1, height: 24.h),
+            
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1081,6 +1145,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
               itemBuilder: (ctx, index) {
                 final record = _attendanceRecords[index];
                 final rawDate = record['date']?.toString() ?? '';
+                final isWeekend = record['isWeekend'] == true;
                 final status = (record['status']?.toString() ?? 'PRESENT').toUpperCase();
                 
                 DateTime? parsedDate;
@@ -1089,90 +1154,159 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 } catch (_) {}
                 
                 final displayDate = parsedDate != null 
-                    ? intl.DateFormat('dd MMM yyyy').format(parsedDate)
+                    ? intl.DateFormat('EEE, MMM dd, yyyy').format(parsedDate)
                     : rawDate;
-                final dayName = parsedDate != null 
-                    ? intl.DateFormat('EEEE').format(parsedDate)
-                    : '';
                     
-                final checkIn = record['checkInTime'] != null 
-                    ? intl.DateFormat('hh:mm a').format(DateTime.parse(record['checkInTime'].toString()).toLocal())
-                    : '--:--';
-                final markedBy = record['markedBy']?.toString() ?? 'System';
-                    
+                String checkInStr = '—';
+                String markedByStr = '—';
+
+                final checkInVal = record['checkInTime'];
+                final createdAtVal = record['createdAt'];
+                final timeSource = checkInVal ?? createdAtVal;
+                if (timeSource != null) {
+                  try {
+                    final parsedTime = DateTime.parse(timeSource.toString());
+                    checkInStr = intl.DateFormat('hh:mm a').format(parsedTime.toLocal());
+                  } catch (_) {}
+                }
+
+                if (status != 'WEEKEND' && status != 'NOT_MARKED') {
+                  final scannedByQR = record['scannedByQR'] == true;
+                  final scannedByRFID = record['scannedByRFID'] == true;
+                  final markedByVal = record['markedBy']?.toString();
+                  if (scannedByQR) {
+                    markedByStr = 'QR Scan';
+                  } else if (scannedByRFID) {
+                    markedByStr = 'RFID';
+                  } else if (markedByVal != null && markedByVal.isNotEmpty) {
+                    markedByStr = markedByVal.length > 20 ? 'Teacher' : markedByVal;
+                  } else {
+                    markedByStr = 'System';
+                  }
+                }
+
                 // Determine badge style based on status
-                Color badgeBg;
-                Color badgeText;
-                String badgeLabel;
+                Color badgeBg = Colors.white;
+                Color badgeText = const Color(0xFF64748B);
+                String badgeLabel = 'Not Marked';
+
                 if (status == 'PRESENT' || status == 'P') {
-                  badgeBg = const Color(0xFFECFDF5);
-                  badgeText = const Color(0xFF10B981);
                   badgeLabel = 'Present';
+                  badgeBg = const Color(0xFFDCFCE7);
+                  badgeText = const Color(0xFF16A34A);
                 } else if (status == 'ABSENT' || status == 'A') {
-                  badgeBg = const Color(0xFFFFE4E6);
-                  badgeText = const Color(0xFFEF4444);
                   badgeLabel = 'Absent';
+                  badgeBg = const Color(0xFFFEE2E2);
+                  badgeText = const Color(0xFFDC2626);
                 } else if (status == 'LATE') {
-                  badgeBg = const Color(0xFFFEF3C7);
-                  badgeText = const Color(0xFFD97706);
                   badgeLabel = 'Late';
+                  badgeBg = const Color(0xFFFEF9C3);
+                  badgeText = const Color(0xFFCA8A04);
                 } else if (status == 'HALF_DAY') {
-                  badgeBg = const Color(0xFFEFF6FF);
-                  badgeText = const Color(0xFF3B82F6);
                   badgeLabel = 'Half Day';
-                } else if (status == 'LEAVE') {
-                  badgeBg = const Color(0xFFF5F3FF);
-                  badgeText = const Color(0xFF7C3AED);
+                  badgeBg = const Color(0xFFE0E7FF);
+                  badgeText = const Color(0xFF4F46E5);
+                } else if (status == 'LEAVE' || status == 'ON_LEAVE') {
                   badgeLabel = 'Leave';
+                  badgeBg = const Color(0xFFF3E8FF);
+                  badgeText = const Color(0xFF9333EA);
                 } else if (status == 'WEEKEND' || status == 'HOLIDAY') {
-                  badgeBg = const Color(0xFFF1F5F9);
-                  badgeText = const Color(0xFF6B7A90);
                   badgeLabel = 'Weekend';
-                } else if (status == 'NOT_MARKED') {
-                  badgeBg = Colors.white;
-                  badgeText = const Color(0xFF6B7A90);
-                  badgeLabel = '—';
-                } else {
                   badgeBg = const Color(0xFFF1F5F9);
                   badgeText = const Color(0xFF6B7A90);
+                } else if (status == 'NOT_MARKED') {
+                  badgeLabel = '—';
+                  badgeBg = Colors.transparent;
+                  badgeText = const Color(0xFF94A3B8);
+                } else {
                   badgeLabel = status;
+                  badgeBg = const Color(0xFFF1F5F9);
+                  badgeText = const Color(0xFF475569);
                 }
 
                 return Container(
-                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  padding: EdgeInsets.symmetric(vertical: 16.h),
                   decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1.0),
+                    ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      // Date Column
                       Expanded(
+                        flex: 3,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(displayDate, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
-                            SizedBox(height: 2.h),
                             Text(
-                              dayName.isNotEmpty ? '$dayName  •  Check In: $checkIn  •  Marked By: $markedBy' : 'Check In: $checkIn  •  Marked By: $markedBy',
-                              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90)),
+                              displayDate,
+                              style: GoogleFonts.inter(
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w700,
+                                color: const Color(0xFF0F2547),
+                              ),
                             ),
+                            if (isWeekend) ...[
+                              SizedBox(height: 2.h),
+                              Text(
+                                'HOLIDAY/WEEKEND',
+                                style: GoogleFonts.inter(
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      SizedBox(width: 8.w),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 5.h),
-                        decoration: BoxDecoration(
-                          color: badgeBg,
-                          borderRadius: BorderRadius.circular(8.r),
+                      // Status Column
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: badgeBg,
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Text(
+                            badgeLabel,
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w700,
+                              color: badgeText,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
                         ),
+                      ),
+                      // Marked By Column
+                      Expanded(
+                        flex: 2,
+                        child: Center(
+                          child: Text(
+                            markedByStr,
+                            style: GoogleFonts.inter(
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                              color: const Color(0xFF475569),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Time Column
+                      Expanded(
+                        flex: 2,
                         child: Text(
-                          badgeLabel,
+                          checkInStr,
                           style: GoogleFonts.inter(
                             fontSize: 11.sp,
-                            fontWeight: FontWeight.w700,
-                            color: badgeText,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFF475569),
                           ),
+                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],

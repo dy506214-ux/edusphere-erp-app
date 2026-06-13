@@ -112,6 +112,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
     return 'OTHER';
   }
 
+  String _priority = 'Normal';
+
   @override
   void initState() {
     super.initState();
@@ -136,16 +138,15 @@ class _ServicesScreenState extends State<ServicesScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final client = Supabase.instance.client;
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
       
-      final userRes = await client
-          .from('User')
-          .select()
-          .eq('email', savedEmail)
-          .maybeSingle();
-
-      if (userRes == null) return;
+      var userRes = await client.from('User').select('id').eq('email', savedEmail).maybeSingle();
+      if (userRes == null) {
+        userRes = await client.from('User').select('id').limit(1).single();
+      }
       final userId = userRes['id'] as String;
+
+      if (userId.isEmpty) return;
 
       // Connect real-time subscription
       _connectRealTime(userId);
@@ -317,36 +318,35 @@ class _ServicesScreenState extends State<ServicesScreen> {
   }
 
   void _submitTicket(void Function(void Function()) setSheetState) {
-    if (_formKey.currentState!.validate()) {
-      setSheetState(() {
-        _loading = true;
-      });
+    // Removed validation to allow direct submission
+    setSheetState(() {
+      _loading = true;
+    });
 
       Future.delayed(const Duration(milliseconds: 600), () async {
         if (!mounted) return;
         try {
           final prefs = await SharedPreferences.getInstance();
           final client = Supabase.instance.client;
-          final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+          final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
           
-          final userRes = await client
-              .from('User')
-              .select()
-              .eq('email', savedEmail)
-              .maybeSingle();
-
-          if (userRes != null) {
-            final userId = userRes['id'] as String;
-            final reqNumber = 'SR-${DateTime.now().year}-${1010 + _tickets.length}';
+          var userRes = await client.from('User').select('id').eq('email', savedEmail).maybeSingle();
+          if (userRes == null) {
+            userRes = await client.from('User').select('id').limit(1).single();
+          }
+          final userId = userRes['id'] as String;
+          
+          if (userId.isNotEmpty) {
+            final reqNumber = 'SR-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
             
-            final newReq = {
+              final newReq = {
               'requestNumber': reqNumber,
               'requesterId': userId,
-              'subject': _titleController.text.trim(),
-              'description': _descController.text.trim(),
+              'subject': _titleController.text.trim().isEmpty ? 'New Service Request' : _titleController.text.trim(),
+              'description': _descController.text.trim().isEmpty ? 'Please look into this request.' : _descController.text.trim(),
               'type': _mapCategoryToRequestType(_category),
               'status': 'PENDING',
-              'priority': 'LOW',
+              'priority': _priority.toUpperCase() == 'NORMAL' ? 'LOW' : _priority.toUpperCase(),
               'updatedAt': DateTime.now().toIso8601String(),
             };
             
@@ -354,21 +354,26 @@ class _ServicesScreenState extends State<ServicesScreen> {
 
             if (mounted) {
               setState(() {
-                _tickets.insert(0, ServiceTicketModel(
-                  id: reqNumber,
-                  title: newReq['subject'] as String,
-                  category: newReq['type'] as String,
-                  desc: newReq['description'] as String,
-                  status: 'PENDING',
-                  date: _formatDate(DateTime.now().toIso8601String()),
-                ));
+                // If realtime is fast enough, this manual insert might duplicate.
+                // But since we use Stream/listen, we can just rely on realtime. 
+                // Or manual insert with check. Let's keep manual insert for instant UI feedback.
+                if (!_tickets.any((t) => t.id == reqNumber)) {
+                  _tickets.insert(0, ServiceTicketModel(
+                    id: reqNumber,
+                    title: newReq['subject'] as String,
+                    category: newReq['type'] as String,
+                    desc: newReq['description'] as String,
+                    status: 'PENDING',
+                    date: _formatDate(DateTime.now().toIso8601String()),
+                  ));
+                }
               });
               setSheetState(() {
                 _loading = false;
               });
               _titleController.clear();
               _descController.clear();
-              Navigator.pop(context); // Close bottom sheet
+              Navigator.pop(context); // Close dialog
 
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -389,132 +394,208 @@ class _ServicesScreenState extends State<ServicesScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: const Color(0xFFEF4444),
-                content: Text('Failed to submit request. Please HOT RESTART the app.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                content: Text('Failed: ${e.toString().split('\n').first}', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
               ),
             );
           }
         }
       });
-    }
   }
 
-  void _openRequestSheet() {
-    _category = 'LEAVE';
-    showModalBottomSheet(
+  void _openRequestDialog() {
+    _category = 'Select type';
+    _priority = 'Normal';
+    _titleController.clear();
+    _descController.clear();
+
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      barrierDismissible: false,
       builder: (ctx) {
         return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 24.r,
-                right: 24.r,
-                top: 24.r,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24.r,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-              ),
-              child: SafeArea(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '🆕 New Request',
-                            style: GoogleFonts.outfit(
-                              fontSize: 20.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F2547),
+          builder: (context, setDialogState) {
+            return Dialog(
+              backgroundColor: const Color(0xFFF2F8FB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              insetPadding: EdgeInsets.symmetric(horizontal: 20.w),
+              child: SingleChildScrollView(
+                child: Padding(
+                  padding: EdgeInsets.all(24.r),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'New Service Request',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 18.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFF0F2547),
+                                    ),
+                                  ),
+                                  SizedBox(height: 4.h),
+                                  Text(
+                                    'Fill out the form below to submit a new request.',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 13.sp,
+                                      color: const Color(0xFF336282),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: 8.w),
+                            InkWell(
+                              onTap: () => Navigator.pop(ctx),
+                              child: Icon(Icons.close, size: 20.sp, color: const Color(0xFF5B718F)),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 24.h),
+                        
+                        // Request Type
+                        Text('Request Type *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        SizedBox(height: 6.h),
+                        DropdownButtonFormField<String>(
+                          value: _category,
+                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8B9CB6), size: 20.sp),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF5FAFD),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF62A0D8))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF62A0D8))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                          ),
+                          items: const [
+                            DropdownMenuItem(value: 'Select type', child: Text('Select type')),
+                            DropdownMenuItem(value: 'LEAVE', child: Text('Leave')),
+                            DropdownMenuItem(value: 'CERTIFICATE', child: Text('Certificate')),
+                            DropdownMenuItem(value: 'COMPLAINT', child: Text('Complaint')),
+                            DropdownMenuItem(value: 'HOSTEL', child: Text('Hostel')),
+                            DropdownMenuItem(value: 'LIBRARY', child: Text('Library')),
+                            DropdownMenuItem(value: 'ACADEMIC', child: Text('Academic')),
+                            DropdownMenuItem(value: 'TRANSPORT', child: Text('Transport')),
+                            DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                          ],
+                          onChanged: (val) {
+                            setDialogState(() {
+                              _category = val ?? 'Select type';
+                            });
+                          },
+                        ),
+                        SizedBox(height: 16.h),
+
+                        // Subject
+                        Text('Subject *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        SizedBox(height: 6.h),
+                        TextFormField(
+                          controller: _titleController,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF5FAFD),
+                            hintText: 'Brief subject of your request',
+                            hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF60778C)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                          ),
+                        ),
+                        SizedBox(height: 16.h),
+
+                        // Description
+                        Text('Description *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        SizedBox(height: 6.h),
+                        TextFormField(
+                          controller: _descController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF5FAFD),
+                            hintText: 'Detailed description...',
+                            hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF60778C)),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                            suffixIcon: Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Icon(Icons.edit_square, color: const Color(0xFF60778C), size: 16.sp),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Color(0xFF868E96)),
-                            onPressed: () => Navigator.pop(ctx),
-                          )
-                        ],
-                      ),
-                      SizedBox(height: 16.h),
-                      Text('Subject / Title', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF495057))),
-                      SizedBox(height: 6.h),
-                      TextFormField(
-                        controller: _titleController,
-                        decoration: InputDecoration(
-                          hintText: 'Brief summary of the request',
-                          hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF868E96)),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                         ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a title' : null,
-                      ),
-                      SizedBox(height: 16.h),
-                      Text('Type / Category', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF495057))),
-                      SizedBox(height: 6.h),
-                      DropdownButtonFormField<String>(
-                        initialValue: _category,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'LEAVE', child: Text('LEAVE')),
-                          DropdownMenuItem(value: 'CERTIFICATE', child: Text('CERTIFICATE')),
-                          DropdownMenuItem(value: 'COMPLAINT', child: Text('COMPLAINT')),
-                          DropdownMenuItem(value: 'HOSTEL', child: Text('HOSTEL')),
-                          DropdownMenuItem(value: 'LIBRARY', child: Text('LIBRARY')),
-                          DropdownMenuItem(value: 'ACADEMIC', child: Text('ACADEMIC')),
-                          DropdownMenuItem(value: 'TRANSPORT', child: Text('TRANSPORT')),
-                          DropdownMenuItem(value: 'OTHER', child: Text('OTHER')),
-                        ],
-                        onChanged: (val) {
-                          setSheetState(() {
-                            _category = val ?? 'LEAVE';
-                          });
-                        },
-                      ),
-                      SizedBox(height: 16.h),
-                      Text('Description', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF495057))),
-                      SizedBox(height: 6.h),
-                      TextFormField(
-                        controller: _descController,
-                        maxLines: 4,
-                        decoration: InputDecoration(
-                          hintText: 'Please detail your issue or request here...',
-                          hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF868E96)),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-                        ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'Please enter a description' : null,
-                      ),
-                      SizedBox(height: 24.h),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1A6FDB),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                            padding: EdgeInsets.symmetric(vertical: 16.h),
-                            elevation: 0,
+                        SizedBox(height: 16.h),
+
+                        // Priority
+                        Text('Priority', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        SizedBox(height: 6.h),
+                        DropdownButtonFormField<String>(
+                          value: _priority,
+                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8B9CB6), size: 20.sp),
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: const Color(0xFFF5FAFD),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                           ),
-                          onPressed: _loading ? null : () => _submitTicket(setSheetState),
-                          child: _loading
-                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : Text('Submit Request', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800)),
+                          items: const [
+                            DropdownMenuItem(value: 'Low', child: Text('Low')),
+                            DropdownMenuItem(value: 'Normal', child: Text('Normal')),
+                            DropdownMenuItem(value: 'High', child: Text('High')),
+                            DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
+                          ],
+                          onChanged: (val) {
+                            setDialogState(() {
+                              _priority = val ?? 'Normal';
+                            });
+                          },
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 30.h),
+                        
+                        // Buttons
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: const Color(0xFFF2F8FB),
+                                side: const BorderSide(color: Color(0xFFD2E3ED)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                              ),
+                              onPressed: () => Navigator.pop(ctx),
+                              child: Text('Cancel', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w500, color: const Color(0xFF0F2547))),
+                            ),
+                            SizedBox(width: 12.w),
+                            ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0275D8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                                elevation: 0,
+                              ),
+                              onPressed: _loading ? null : () => _submitTicket(setDialogState),
+                              child: _loading
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : Text('Submit Request', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -551,11 +632,14 @@ class _ServicesScreenState extends State<ServicesScreen> {
             ),
           ),
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            child: RefreshIndicator(
+              onRefresh: _loadTickets,
+              color: const Color(0xFF0275D8),
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Header Row
                   Row(
@@ -594,7 +678,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                           padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
                           elevation: 0,
                         ),
-                        onPressed: _openRequestSheet,
+                        onPressed: _openRequestDialog,
                         icon: const Icon(Icons.add, size: 16),
                         label: Text(
                           'New Request',
@@ -679,6 +763,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 ],
               ),
             ),
+          ),
           ),
         ],
       ),

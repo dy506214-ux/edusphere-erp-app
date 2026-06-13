@@ -84,6 +84,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   List<AnnouncementModel> _announcements = [];
   bool _isLoading = true;
+  String? _errorMessage;
 
   RealtimeChannel? _announcementsChannel;
 
@@ -266,7 +267,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   // --- Load Announcements ---
   Future<void> _loadAnnouncements({bool showLoading = true}) async {
     if (showLoading) {
-      setState(() => _isLoading = true);
+      setState(() { 
+        _isLoading = true;
+        _errorMessage = null;
+      });
     }
     try {
       final client = Supabase.instance.client;
@@ -332,11 +336,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             return b.date.compareTo(a.date);
           });
 
-          _announcements = fetched;
+      _announcements = fetched;
         });
       }
     } catch (e) {
       dev.log('❌ [ANNOUNCEMENTS FETCH ERROR] Error loading from Supabase: $e', name: 'AnnouncementsScreen');
+      if (mounted) {
+        setState(() => _errorMessage = 'Unable to load announcements. Please check your internet connection.');
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -1133,12 +1140,28 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     // Notice list
                     Expanded(
                       child: _isLoading
-                          ? const Center(
-                              child: CircularProgressIndicator(
-                                  color: Color(0xFF1A6FDB)))
-                          : _announcements.isEmpty
-                              ? _buildStudentEmptyState()
-                              : _buildStudentAnnouncementsList(),
+                          ? _buildSkeletonLoader()
+                          : _errorMessage != null
+                              ? Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.wifi_off_rounded, size: 48.sp, color: const Color(0xFF94A3B8)),
+                                        SizedBox(height: 16.h),
+                                        Text(
+                                          _errorMessage!,
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF64748B)),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              : _announcements.isEmpty
+                                  ? _buildStudentEmptyState()
+                                  : _buildStudentAnnouncementsList(),
                     ),
                   ],
                 ),
@@ -1148,6 +1171,84 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSkeletonLoader() {
+    return ListView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 4,
+      itemBuilder: (context, index) {
+        return Container(
+          margin: EdgeInsets.only(bottom: 12.h),
+          padding: EdgeInsets.all(16.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 48.w,
+                height: 48.w,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: 16.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+                    Container(
+                      width: 150.w,
+                      height: 12.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(4.r),
+                      ),
+                    ),
+                    SizedBox(height: 12.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 60.w,
+                          height: 24.h,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Container(
+                          width: 80.w,
+                          height: 24.h,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1212,7 +1313,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             ),
             SizedBox(height: 16.h),
             Text(
-              'No announcements',
+              'No Announcements Available',
               style: GoogleFonts.inter(
                 fontSize: 15.sp,
                 fontWeight: FontWeight.w700,
@@ -1221,7 +1322,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             ),
             SizedBox(height: 8.h),
             Text(
-              'Create your first announcement to notify users',
+              'There are currently no announcements for your class.',
               style: GoogleFonts.inter(
                 fontSize: 12.sp,
                 color: const Color(0xFF6B7A90),
