@@ -9,7 +9,7 @@ import 'package:intl/intl.dart' as intl;
 import '../theme/colors.dart';
 import 'features/exam_schedule_screen.dart';
 import 'features/exam_terms_screen.dart';
-import 'features/exam_report_card_screen.dart';
+import 'features/results_screen.dart';
 import 'main_screen.dart';
 import 'welcome_screen.dart';
 import 'profile_screen.dart';
@@ -181,6 +181,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
             _className = studentRes['currentClass']['name'] as String? ?? 'Grade 1';
           }
         }
+      } else {
+        // Fallback for demo student if no database record exists
+        if (_studentEmail == 'student1@demoschool.com') {
+          _studentId = 'demo-1';
+          _studentName = 'Priya Singh';
+          _className = 'Grade 10';
+        }
       }
 
       // 2. Fetch Subjects assigned to their class
@@ -205,24 +212,48 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
       // 4. Fetch Attendance records
       if (_studentId.isNotEmpty) {
-        final List<dynamic> attendanceRes = await Supabase.instance.client
-            .from('AttendanceRecord')
-            .select()
-            .eq('studentId', _studentId)
-            .order('date', ascending: false);
+        try {
+          final List<dynamic> rawList = await Supabase.instance.client
+              .from('AttendanceRecord')
+              .select()
+              .eq('studentId', _studentId);
 
-        _attendanceRecords = List<Map<String, dynamic>>.from(attendanceRes);
-        if (_attendanceRecords.isNotEmpty) {
           int present = 0;
-          for (var record in _attendanceRecords) {
-            final status = record['status'] as String? ?? '';
-            if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'LEAVE') {
-              present++;
-            }
+          List<Map<String, dynamic>> validRecords = [];
+
+          for (var r in rawList) {
+             final dateStr = r['date']?.toString() ?? '';
+             if (dateStr.isEmpty) continue;
+             
+             validRecords.add(Map<String, dynamic>.from(r));
+             
+             final status = r['status']?.toString() ?? '';
+             if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'HALF_DAY') {
+               present++;
+             }
           }
-          _attendanceRate = (present / _attendanceRecords.length) * 100;
+
+          _attendanceRate = rawList.isNotEmpty ? (present / rawList.length) * 100 : 100.0;
           _hasAttendanceData = true;
-        } else {
+
+          // Sort descending by date
+          validRecords.sort((a, b) {
+            final dateA = a['date']?.toString() ?? '';
+            final dateB = b['date']?.toString() ?? '';
+            return dateB.compareTo(dateA); // Descending
+          });
+
+          _attendanceRecords.clear();
+          // Take top 10
+          for (var i = 0; i < validRecords.length && i < 10; i++) {
+             final rec = validRecords[i];
+             _attendanceRecords.add({
+                ...rec,
+                'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
+             });
+          }
+        } catch (e) {
+          dev.log('❌ Error fetching Attendance from Supabase: $e', name: 'AcademicScreen');
           _hasAttendanceData = false;
         }
       }
@@ -332,6 +363,21 @@ class _AcademicScreenState extends State<AcademicScreen> {
           table: 'Section',
           callback: (payload) {
             dev.log('🔥 Real-time section change payload: $payload', name: 'AcademicScreen');
+            if (mounted) {
+              if (widget.role == 'student') {
+                _loadStudentOverviewData(showLoading: false);
+              } else {
+                _loadLocalData();
+              }
+            }
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'AttendanceRecord',
+          callback: (payload) {
+            dev.log('🔥 Real-time attendance change payload: $payload', name: 'AcademicScreen');
             if (mounted) {
               if (widget.role == 'student') {
                 _loadStudentOverviewData(showLoading: false);
@@ -1008,7 +1054,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
           ),
           SizedBox(height: 24.h),
 
-          // If attendance list empty, show calendar empty state illustration
           if (_attendanceRecords.isEmpty) ...[
             Center(
               child: Column(
@@ -1029,7 +1074,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ),
             )
           ] else ...[
-            // Renders clean list of dynamic attendance records
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1039,7 +1083,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 final rawDate = record['date']?.toString() ?? '';
                 final status = (record['status']?.toString() ?? 'PRESENT').toUpperCase();
                 
-                // Parse date safely - handle both ISO datetime and date-only strings
                 DateTime? parsedDate;
                 try {
                   parsedDate = DateTime.parse(rawDate).toLocal();
@@ -1055,6 +1098,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 final checkIn = record['checkInTime'] != null 
                     ? intl.DateFormat('hh:mm a').format(DateTime.parse(record['checkInTime'].toString()).toLocal())
                     : '--:--';
+                final markedBy = record['markedBy']?.toString() ?? 'System';
                     
                 // Determine badge style based on status
                 Color badgeBg;
@@ -1080,6 +1124,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   badgeBg = const Color(0xFFF5F3FF);
                   badgeText = const Color(0xFF7C3AED);
                   badgeLabel = 'Leave';
+                } else if (status == 'WEEKEND' || status == 'HOLIDAY') {
+                  badgeBg = const Color(0xFFF1F5F9);
+                  badgeText = const Color(0xFF6B7A90);
+                  badgeLabel = 'Weekend';
+                } else if (status == 'NOT_MARKED') {
+                  badgeBg = Colors.white;
+                  badgeText = const Color(0xFF6B7A90);
+                  badgeLabel = '—';
                 } else {
                   badgeBg = const Color(0xFFF1F5F9);
                   badgeText = const Color(0xFF6B7A90);
@@ -1101,7 +1153,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             Text(displayDate, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
                             SizedBox(height: 2.h),
                             Text(
-                              dayName.isNotEmpty ? '$dayName  •  Check In: $checkIn' : 'Check In: $checkIn',
+                              dayName.isNotEmpty ? '$dayName  •  Check In: $checkIn  •  Marked By: $markedBy' : 'Check In: $checkIn  •  Marked By: $markedBy',
                               style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90)),
                             ),
                           ],
@@ -1118,11 +1170,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
                           badgeLabel,
                           style: GoogleFonts.inter(
                             fontSize: 11.sp,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: badgeText,
                           ),
                         ),
-                      )
+                      ),
                     ],
                   ),
                 );
@@ -1720,7 +1772,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
           subtitle: 'Principal review and approval of generated student report cards.',
           buttonLabel: 'Pending Review',
           isPrimary: false,
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamReportCardScreen(theme: widget.theme))),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
         ),
       ],
     );

@@ -8,16 +8,20 @@ import '../../theme/colors.dart';
 import '../main_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/supabase_config.dart';
+import 'announcement_details_screen.dart';
 
 
 class AnnouncementModel {
   final String id;
   final String title;
   final String content;
-  final String priority; // 'HIGH' | 'NORMAL' | 'LOW'
+  final String priority; // 'URGENT' | 'HIGH' | 'NORMAL' | 'LOW'
   final String audience; // 'ALL' | 'STUDENTS' | 'TEACHERS'
   final String date;
   final String? expiresAt;
+  final String dateStr;
+  final DateTime date;
+  bool isRead;
 
   AnnouncementModel({
     required this.id,
@@ -25,8 +29,10 @@ class AnnouncementModel {
     required this.content,
     required this.priority,
     required this.audience,
+    required this.dateStr,
     required this.date,
     this.expiresAt,
+    this.isRead = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +43,9 @@ class AnnouncementModel {
         'audience': audience,
         'date': date,
         'expiresAt': expiresAt,
+        'dateStr': dateStr,
+        'date': date.toIso8601String(),
+        'isRead': isRead,
       };
 
   factory AnnouncementModel.fromJson(Map<String, dynamic> json) => AnnouncementModel(
@@ -47,6 +56,9 @@ class AnnouncementModel {
         audience: json['audience'] as String,
         date: json['date'] as String,
         expiresAt: json['expiresAt'] as String?,
+        dateStr: json['dateStr'] as String? ?? '',
+        date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+        isRead: json['isRead'] as bool? ?? false,
       );
 }
 
@@ -189,6 +201,25 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           callback: (payload) {
             dev.log('🔥 [ANNOUNCEMENTS EVENT] Real-time event type: ${payload.eventType} | Payload: $payload', name: 'AnnouncementsScreen');
             if (mounted) {
+              if (payload.eventType == PostgresChangeEvent.insert) {
+                final newRecord = payload.newRecord;
+                final title = newRecord['title'] ?? 'New Announcement';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Row(
+                      children: [
+                        const Icon(Icons.notifications_active_rounded, color: Colors.white),
+                        SizedBox(width: 8.w),
+                        Expanded(child: Text('New: $title', style: GoogleFonts.inter(fontWeight: FontWeight.w700))),
+                      ],
+                    ),
+                    backgroundColor: const Color(0xFF2563EB),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                    duration: const Duration(seconds: 4),
+                  ),
+                );
+              }
               _loadAnnouncements(showLoading: false);
             }
           },
@@ -243,28 +274,38 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       var res = await client.from('Announcement').select().order('createdAt', ascending: false);
       var data = List<Map<String, dynamic>>.from(res);
 
-      final latestNoticeId = data.isNotEmpty ? data.first['id'] : 'NONE';
-      final latestNoticeTime = data.isNotEmpty ? data.first['createdAt'] ?? data.first['created_at'] : 'NONE';
-      dev.log(
-        '📥 [ANNOUNCEMENTS RECEIVE] Supabase URL: ${SupabaseConfig.supabaseUrl} | Table: Announcement | Rows: ${data.length} | Latest Notice ID: $latestNoticeId | Latest Notice CreatedAt: $latestNoticeTime | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId',
-        name: 'AnnouncementsScreen',
-      );
+      final prefs = await SharedPreferences.getInstance();
+      final readIds = prefs.getStringList('read_announcements_$_studentId') ?? [];
 
       if (mounted) {
         setState(() {
-          _announcements = data.map((e) {
+          List<AnnouncementModel> fetched = [];
+          for (var e in data) {
             final List<dynamic> audRaw = e['targetAudience'] ?? [];
-            final List<String> aud = audRaw.map((e) => e.toString()).toList();
+            final List<String> aud = audRaw.map((x) => x.toString().toUpperCase()).toList();
             final String priorityStr = e['priority'] ?? 'NORMAL';
 
-            String formattedDate = '6/5/2025';
+            // Smart Filtering
+            if (widget.role == 'student') {
+              if (!aud.contains('ALL') && !aud.contains('STUDENTS') && !aud.contains('STUDENT') && !aud.contains(_classId.toUpperCase())) {
+                continue; // Skip if not targeted to student or their specific class
+              }
+            } else if (widget.role == 'teacher') {
+              if (!aud.contains('ALL') && !aud.contains('TEACHERS') && !aud.contains('TEACHER')) {
+                continue; // Skip if not targeted to teacher
+              }
+            }
+
+            String formattedDate = '';
+            DateTime parsedDate = DateTime.now();
             try {
-              final dateParsed = DateTime.parse(e['createdAt'] ?? e['publishedAt'] ?? DateTime.now().toIso8601String());
-              formattedDate = '${dateParsed.day}/${dateParsed.month}/${dateParsed.year}';
+              parsedDate = DateTime.parse(e['createdAt'] ?? e['publishedAt'] ?? DateTime.now().toIso8601String());
+              formattedDate = '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
             } catch (_) {}
 
-            return AnnouncementModel(
-              id: e['id'] as String,
+            final annId = e['id'] as String;
+            fetched.add(AnnouncementModel(
+              id: annId,
               title: e['title'] as String? ?? '',
               content: e['content'] as String? ?? '',
               priority: priorityStr,
@@ -273,6 +314,25 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               expiresAt: e['expiresAt'] as String?,
             );
           }).toList();
+              dateStr: formattedDate,
+              date: parsedDate,
+              isRead: readIds.contains(annId),
+            ));
+          }
+
+          // Ordering
+          fetched.sort((a, b) {
+            final pA = a.priority.toUpperCase();
+            final pB = b.priority.toUpperCase();
+            int weightA = pA == 'URGENT' ? 3 : (pA == 'HIGH' ? 2 : 1);
+            int weightB = pB == 'URGENT' ? 3 : (pB == 'HIGH' ? 2 : 1);
+            if (weightA != weightB) {
+              return weightB.compareTo(weightA);
+            }
+            return b.date.compareTo(a.date);
+          });
+
+          _announcements = fetched;
         });
       }
     } catch (e) {
@@ -692,6 +752,30 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                     fontWeight: FontWeight.w800,
                                     color: Colors.white,
                                   ),
+                              return;
+                            }
+
+                            final newAnn = AnnouncementModel(
+                              id: DateTime.now().millisecondsSinceEpoch.toString(),
+                              title: titleCtrl.text.trim(),
+                              content: contentCtrl.text.trim(),
+                              priority: selectedPriority,
+                              audience: selectedAudience,
+                              dateStr: "Today",
+                              date: DateTime.now(),
+                            );
+
+                            _addAnnouncement(newAnn);
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white),
+                                    SizedBox(width: 8.w),
+                                    Text('Announcement published!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                  ],
                                 ),
                               ),
                             ),
@@ -1151,14 +1235,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Widget _buildStudentAnnouncementsList() {
-    return ListView.builder(
-      physics: const BouncingScrollPhysics(),
-      itemCount: _announcements.length,
-      itemBuilder: (context, index) {
-        final ann = _announcements[index];
-        final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
-        final color = _getNoticeColor(ann.priority, ann.title);
-        final icon = _getNoticeIcon(ann.title, ann.priority);
+    return RefreshIndicator(
+      onRefresh: () => _loadAnnouncements(showLoading: false),
+      color: const Color(0xFF2563EB),
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        itemCount: _announcements.length,
+        itemBuilder: (context, index) {
+          final ann = _announcements[index];
+          final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
+          final color = _getNoticeColor(ann.priority, ann.title);
+          final icon = _getNoticeIcon(ann.title, ann.priority);
+          final bool isUnread = !ann.isRead;
 
         // Split audience into individual tags
         final List<String> audienceTags = ann.audience
@@ -1170,45 +1258,78 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
         final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
 
-        return Container(
-          margin: EdgeInsets.only(bottom: 16.h),
-          padding: EdgeInsets.all(20.r),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20.r),
-            border: Border.all(color: const Color(0xFFE2EAF4)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 10.r,
-                offset: Offset(0, 4.h),
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                margin: EdgeInsets.only(top: 14.h),
-                width: 8.w,
-                height: 8.w,
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
+        return GestureDetector(
+          onTap: () async {
+            // Mark as read
+            if (!ann.isRead) {
+              setState(() {
+                ann.isRead = true;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              final key = 'read_announcements_$_studentId';
+              final readIds = prefs.getStringList(key) ?? [];
+              if (!readIds.contains(ann.id)) {
+                readIds.add(ann.id);
+                await prefs.setStringList(key, readIds);
+              }
+            }
+
+            // Navigate to Details Screen
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AnnouncementDetailsScreen(
+                    announcement: ann,
+                    dateStr: ann.dateStr,
+                    tags: audienceTags,
+                    dotColor: color,
+                    bgColor: color.withValues(alpha: 0.15),
+                    icon: icon,
+                  ),
                 ),
-              ),
-              SizedBox(width: 12.w),
-              Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
+              );
+            }
+          },
+          child: Container(
+            margin: EdgeInsets.only(bottom: 16.h),
+            padding: EdgeInsets.all(20.r),
+            decoration: BoxDecoration(
+              color: isUnread ? const Color(0xFFF4F8FE) : Colors.white,
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: isUnread ? const Color(0xFF2563EB).withValues(alpha: 0.3) : const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10.r,
+                  offset: Offset(0, 4.h),
                 ),
-                child: Icon(icon, color: color, size: 24.sp),
-              ),
-              SizedBox(width: 16.w),
-              Expanded(
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: EdgeInsets.only(top: 14.h),
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: BoxDecoration(
+                    color: isUnread ? color : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Container(
+                  width: 48.w,
+                  height: 48.w,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 24.sp),
+                ),
+                SizedBox(width: 16.w),
+                Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1272,7 +1393,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
                         SizedBox(width: 6.w),
                         Text(
-                          ann.date,
+                          ann.dateStr,
                           style: GoogleFonts.inter(
                             fontSize: 12.sp,
                             color: const Color(0xFF6B7A90),
@@ -1295,9 +1416,10 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               ),
             ],
           ),
-        );
+        ), // Closes Container
+        ); // Closes GestureDetector
       },
-    );
+    ));
   }
 
 
@@ -1542,6 +1664,22 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             ),
                           ),
                         )),
+                        )).toList(),
+                      ),
+                      SizedBox(height: 12.h),
+                    ],
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
+                        SizedBox(width: 6.w),
+                        Text(
+                          ann.dateStr,
+                          style: GoogleFonts.inter(
+                            fontSize: 12.sp,
+                            color: const Color(0xFF6B7A90),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ],
                     ),
                   ),

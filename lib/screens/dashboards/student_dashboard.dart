@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../features/attendance_screen.dart';
-import '../features/exam_report_card_screen.dart';
+import '../features/results_screen.dart';
 import '../features/fee_ledger_screen.dart';
 import '../features/library_overdue_screen.dart';
 import '../features/academic_calendar_screen.dart';
@@ -301,10 +301,14 @@ class _StudentDashboardState extends State<StudentDashboard>
           final now = DateTime.now();
           final monthStart =
               '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+          
+          List<dynamic> records = [];
+          
           final attRes = await ApiService.instance.get(
             'students/$studentId/attendance',
             queryParams: {'startDate': monthStart},
           );
+          
           if (attRes['success'] == true) {
             final stats = attRes['stats'] as Map? ?? {};
             final pct = (stats['percentage'] ?? 0) as num;
@@ -324,9 +328,41 @@ class _StudentDashboardState extends State<StudentDashboard>
           }
         } catch (e) {
           dev.log('Error loading attendance from API: $e');
+            records = attRes['attendance'] as List? ?? [];
+          } else {
+            // Fallback to Supabase
+            try {
+              records = await Supabase.instance.client
+                  .from('AttendanceRecord')
+                  .select()
+                  .eq('studentId', studentId)
+                  .gte('date', monthStart)
+                  .order('date', ascending: false);
+            } catch (e) {
+              dev.log('Fallback attendance fetch failed: $e');
+            }
+          }
+          
+          double pct = 0.0;
+          if (records.isNotEmpty) {
+            final presentOrLate = records.where((r) {
+              final status = r['status']?.toString().toUpperCase();
+              return status == 'PRESENT' || status == 'LATE';
+            }).length;
+            pct = (presentOrLate / records.length) * 100.0;
+          }
+          
           if (mounted) {
             setState(() {
-              attendanceRate = 100.0;
+              attendanceRate = pct;
+              _attendanceLoaded = true;
+            });
+          }
+        } catch (e) {
+          dev.log('Error loading attendance: $e');
+          if (mounted) {
+            setState(() {
+              attendanceRate = 0.0;
               _attendanceLoaded = true;
             });
           }
@@ -1118,8 +1154,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                 onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                        builder: (_) =>
-                            ExamReportCardScreen(theme: widget.theme))),
+                        builder: (_) => const ResultsScreen())),
               )),
             ],
           )
@@ -1176,8 +1211,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                     onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (_) =>
-                                ExamReportCardScreen(theme: widget.theme))),
+                            builder: (_) => const ResultsScreen())),
                   )),
                 ],
               ),

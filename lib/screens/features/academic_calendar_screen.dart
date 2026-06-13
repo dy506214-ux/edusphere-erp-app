@@ -449,6 +449,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     final bg = isActive ? const Color(0xFFE0F2FE) : Colors.white;
     final borderCol = isActive ? const Color(0xFFBAE6FD) : const Color(0xFFE2E8F0);
 
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -464,6 +466,11 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               offset: const Offset(0, 2),
             ),
           ],
+          color: isActive ? const Color(0xFFE0F2FE) : Colors.white,
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(
+            color: isActive ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -473,6 +480,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               size: 16.sp,
               color: isActive ? activeColor : inactiveColor,
             ),
+            Icon(icon, size: 16.sp, color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569)),
             SizedBox(width: 6.w),
             Text(
               label,
@@ -480,6 +488,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w600,
                 color: isActive ? activeColor : const Color(0xFF0F172A),
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569),
               ),
             ),
             if (trailingIcon != null) ...[
@@ -489,6 +499,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 size: 16.sp,
                 color: isActive ? activeColor : inactiveColor,
               ),
+              Icon(trailingIcon, size: 16.sp, color: isActive ? const Color(0xFF0066CC) : const Color(0xFF475569)),
             ],
           ],
         ),
