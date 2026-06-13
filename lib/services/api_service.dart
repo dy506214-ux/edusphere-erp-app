@@ -61,14 +61,15 @@ class ApiService {
     http.Response response;
 
     Future<http.Response> runHttp(Uri targetUri, Map<String, String> targetHeaders) async {
+      const timeout = Duration(seconds: 45);
       if (method == 'GET') {
-        return await http.get(targetUri, headers: targetHeaders);
+        return await http.get(targetUri, headers: targetHeaders).timeout(timeout);
       } else if (method == 'POST') {
-        return await http.post(targetUri, headers: targetHeaders, body: body);
+        return await http.post(targetUri, headers: targetHeaders, body: body).timeout(timeout);
       } else if (method == 'PUT') {
-        return await http.put(targetUri, headers: targetHeaders, body: body);
+        return await http.put(targetUri, headers: targetHeaders, body: body).timeout(timeout);
       } else if (method == 'DELETE') {
-        return await http.delete(targetUri, headers: targetHeaders);
+        return await http.delete(targetUri, headers: targetHeaders).timeout(timeout);
       } else {
         throw UnsupportedError('Unsupported HTTP method: $method');
       }
