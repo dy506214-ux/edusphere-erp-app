@@ -111,22 +111,40 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
                 Scaffold.of(context).openDrawer();
               },
             ),
-      title: Text(
-        widget.title,
-        style: GoogleFonts.outfit(
-          fontSize: 22.sp,
-          fontWeight: FontWeight.w800,
-          color: const Color(0xFF0F172A),
-        ),
-      ),
+      title: const SizedBox.shrink(),
       actions: [
-        IconButton(
-          icon: Icon(
-            _isMuted ? Icons.notifications_off_outlined : Icons.notifications_active_outlined,
-            size: 26.sp,
-            color: _isMuted ? const Color(0xFFEF4444) : const Color(0xFF475569),
-          ),
-          onPressed: _toggleMute,
+        Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              margin: EdgeInsets.all(4.r),
+              decoration: const BoxDecoration(
+                color: Color(0xFFE0F2FE), // light blue background
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: Icon(
+                  _isMuted ? Icons.notifications_off_outlined : Icons.notifications_active_outlined,
+                  size: 20.sp,
+                  color: _isMuted ? const Color(0xFFEF4444) : const Color(0xFF0284C7), // blue icon
+                ),
+                onPressed: _toggleMute,
+              ),
+            ),
+            if (!_isMuted)
+              Positioned(
+                right: 8.w,
+                top: 8.h,
+                child: Container(
+                  width: 8.w,
+                  height: 8.h,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981), // green dot badge
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
         ),
         StreamBuilder<List<Map<String, dynamic>>>(
           stream: Supabase.instance.client.from('Announcement').stream(primaryKey: ['id']),

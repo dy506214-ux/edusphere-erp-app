@@ -9,6 +9,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/api_service.dart';
 
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // Teacher Attendance Screen — matches the EduSphere attendance design
 // ══════════════════════════════════════════════════════════════════════════════
@@ -39,33 +41,44 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   final List<String> _classes = [];
   final List<String> _sections = ['All Sections'];
 
+  // Store classes fetched directly from Supabase (with correct UUIDs)
   List<Map<String, dynamic>> _apiClasses = [];
+  // Store all sections from Supabase keyed by classId
+  List<Map<String, dynamic>> _allSections = [];
 
+  /// Load classes & sections directly from Supabase — IDs match Student table
   Future<void> _loadApiClasses() async {
     if (!mounted) return;
     try {
-      final res = await ApiService.instance.get('academic/classes');
-      if (res != null && res['success'] == true) {
-        final classList = res['classes'] as List? ?? [];
-        if (mounted) {
-          setState(() {
-            _apiClasses = List<Map<String, dynamic>>.from(classList);
-            _classes.clear();
-            for (var c in _apiClasses) {
-              final name = c['name']?.toString() ?? '';
-              if (name.isNotEmpty && !_classes.contains(name)) {
+      final classesRes = await _supabase.from('Class').select('id, name').order('name');
+      final sectionsRes = await _supabase.from('Section').select('id, name, classId').order('name');
+
+      if (mounted) {
+        setState(() {
+          _allSections = List<Map<String, dynamic>>.from(sectionsRes);
+          _apiClasses = List<Map<String, dynamic>>.from(classesRes);
+          _classes.clear();
+          for (var c in _apiClasses) {
+            final name = c['name']?.toString() ?? '';
+            if (name.isNotEmpty && !_classes.contains(name)) {
+              if (name == 'Class 8' || name == 'Class 9' || name == 'Class 10') {
                 _classes.add(name);
               }
             }
-            if (_classes.isNotEmpty) {
-              _selectedClass = _classes.first;
-              _updateSectionsForSelectedClass();
-            }
+          }
+          _classes.sort((a, b) {
+            final numA = int.tryParse(a.replaceAll('Class ', '')) ?? 0;
+            final numB = int.tryParse(b.replaceAll('Class ', '')) ?? 0;
+            return numA.compareTo(numB);
           });
-        }
+          if (_classes.isNotEmpty) {
+            _selectedClass = _classes.first;
+            _updateSectionsForSelectedClass();
+          }
+        });
       }
     } catch (e) {
-      debugPrint('Error loading API classes: $e');
+      debugPrint('Error loading classes from Supabase: $e');
     }
   }
 
@@ -78,7 +91,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     _sections.clear();
     _sections.add('All Sections');
     if (cls.isNotEmpty) {
-      final secList = cls['sections'] as List? ?? [];
+      final classId = cls['id']?.toString();
+      final secList = _allSections.where((s) => s['classId']?.toString() == classId).toList();
       for (var s in secList) {
         final sName = s['name']?.toString() ?? '';
         if (sName.isNotEmpty) {
@@ -159,8 +173,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-      // 1. Fetch all classes
+      // 1. Fetch classes, sections, and students
       final classesRes = await _supabase.from('Class').select('id, name');
+      final sectionsRes = await _supabase.from('Section').select('id, name, classId');
 
       // 2. Fetch all attendance records for the selected date
       final attendanceRecords = await _supabase
@@ -168,76 +183,84 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           .select('studentId, status, Student(id, currentClassId, sectionId, admissionNumber, User(firstName, lastName, email))')
           .eq('date', dateStr);
 
-      // Group attendance records by classId
-      Map<String, List<Map<String, dynamic>>> classRecords = {};
+      // Group attendance records by classId and sectionId
+      Map<String, List<Map<String, dynamic>>> groupedRecords = {};
       for (var record in attendanceRecords) {
-        final student = record['Student'] as Map<String, dynamic>?;
+        final student = record['Student'] as Map?;
         if (student == null) continue;
         final classId = student['currentClassId']?.toString();
+        final sectionId = student['sectionId']?.toString() ?? 'null';
         if (classId == null) continue;
-        classRecords.putIfAbsent(classId, () => []).add(record);
+        final key = '$classId|$sectionId';
+        groupedRecords.putIfAbsent(key, () => []).add(record);
       }
 
-      final markedClassIds = classRecords.keys.toSet();
+      for (var key in groupedRecords.keys) {
+        final parts = key.split('|');
+        final classId = parts[0];
+        final sectionId = parts[1];
 
-      for (var c in classesRes) {
-        final classId = c['id']?.toString();
-        final dbClassName = c['name']?.toString();
-        if (classId == null || dbClassName == null) continue;
+        final cls = classesRes.firstWhere((c) => c['id']?.toString() == classId, orElse: () => {});
+        final sec = sectionId != 'null'
+            ? sectionsRes.firstWhere((s) => s['id']?.toString() == sectionId, orElse: () => {})
+            : {};
 
+        final dbClassName = cls['name']?.toString() ?? 'Class';
         final displayClassName = _mapClassName(dbClassName);
+        final sectionName = sec.isNotEmpty ? 'Section ${sec['name']}' : 'All Sections';
 
-        if (markedClassIds.contains(classId)) {
-          final records = classRecords[classId]!;
-          
-          final studentRes = await _supabase
-              .from('Student')
-              .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
-              .eq('currentClassId', classId);
+        final records = groupedRecords[key]!;
 
-          final List<Map<String, dynamic>> studentList = [];
-          for (var s in studentRes) {
-            final user = s['User'] as Map<String, dynamic>? ?? {};
-            final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-            studentList.add({
-              'id': s['id']?.toString() ?? '',
-              'name': name.isNotEmpty ? name : 'Unknown',
-              'email': user['email']?.toString() ?? '',
-              'class_name': displayClassName,
-              'admission_no': s['admissionNumber']?.toString() ?? '',
-            });
-          }
-          studentList.sort((a, b) => a['name'].compareTo(b['name']));
+        // Fetch students for this class and section
+        var studentQuery = _supabase
+            .from('Student')
+            .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+            .eq('currentClassId', classId);
 
-          Map<String, String> statusMap = {};
-          for (var record in records) {
-            final sId = record['studentId']?.toString() ?? '';
-            final statusVal = record['status']?.toString() ?? '';
+        if (sectionId != 'null') {
+          studentQuery = studentQuery.eq('sectionId', sectionId);
+        }
 
-            String localStatus = 'P';
-            if (statusVal == 'ABSENT') localStatus = 'A';
-            if (statusVal == 'LATE') localStatus = 'L';
+        final studentRes = await studentQuery;
 
-            if (sId.isNotEmpty) statusMap[sId] = localStatus;
-          }
-
-          _createdSlots.add({
-            'class': displayClassName,
-            'section': 'All Sections',
-            'date': _selectedDate,
-            'students': studentList,
-            'attendanceStatus': statusMap,
-            'isSubmitted': true,
+        final List<Map<String, dynamic>> studentList = [];
+        for (var s in studentRes) {
+          final user = s['User'] as Map? ?? {};
+          final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+          studentList.add({
+            'id': s['id']?.toString() ?? '',
+            'name': name.isNotEmpty ? name : 'Unknown',
+            'email': user['email']?.toString() ?? '',
+            'class_name': displayClassName,
+            'admission_no': s['admissionNumber']?.toString() ?? '',
           });
         }
-      }
+        studentList.sort((a, b) => a['name'].compareTo(b['name']));
 
-      if (_createdSlots.isEmpty) {
-        await _seedDemoSlots();
+        // Map status for marked students
+        Map<String, String> statusMap = {};
+        for (var record in records) {
+          final sId = record['studentId']?.toString() ?? '';
+          final statusVal = record['status']?.toString() ?? '';
+
+          String localStatus = 'P';
+          if (statusVal == 'ABSENT') localStatus = 'A';
+          if (statusVal == 'LATE') localStatus = 'L';
+
+          if (sId.isNotEmpty) statusMap[sId] = localStatus;
+        }
+
+        _createdSlots.add({
+          'class': dbClassName,
+          'section': sectionName,
+          'date': _selectedDate,
+          'students': studentList,
+          'attendanceStatus': statusMap,
+          'isSubmitted': true,
+        });
       }
     } catch (e) {
       dev.log('Error loading existing slots: $e');
-      await _seedDemoSlots();
     } finally {
       if (mounted) {
         setState(() {
@@ -247,90 +270,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     }
   }
 
-  Future<void> _seedDemoSlots() async {
-    final demoClasses = ['Grade 10', 'Grade 9', 'Grade 8'];
-    for (var className in demoClasses) {
-      List<Map<String, dynamic>> studentList = [];
-      try {
-        final dbClassName = className.replaceAll('Grade', 'Class');
-        final classRes = await _supabase
-            .from('Class')
-            .select('id')
-            .eq('name', dbClassName)
-            .maybeSingle();
-
-        if (classRes != null) {
-          final classId = classRes['id'] as String;
-          final studentRes = await _supabase
-              .from('Student')
-              .select('id, admissionNumber, currentClassId, User(firstName, lastName, email)')
-              .eq('currentClassId', classId);
-
-          for (var s in studentRes) {
-            final user = s['User'] as Map<String, dynamic>? ?? {};
-            final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-            studentList.add({
-              'id': s['id']?.toString() ?? '',
-              'name': name.isNotEmpty ? name : 'Unknown',
-              'email': user['email']?.toString() ?? '',
-              'class_name': className,
-              'admission_no': s['admissionNumber']?.toString() ?? '',
-            });
-          }
-        }
-      } catch (_) {}
-
-      if (studentList.isEmpty) {
-        studentList = _getDemoStudents();
-      }
-
-      studentList.sort((a, b) => a['name'].compareTo(b['name']));
-
-      Map<String, String> statusMap = {};
-      for (var s in studentList) {
-        statusMap[s['id']] = 'P';
-      }
-
-      _createdSlots.add({
-        'class': className,
-        'section': 'All Sections',
-        'date': _selectedDate,
-        'students': studentList,
-        'attendanceStatus': statusMap,
-        'isSubmitted': true,
-      });
-    }
-  }
-
-
-
   String get _dateStr => DateFormat('dd-MM-yyyy').format(_selectedDate);
-  String get _dbDateStr => DateFormat('yyyy-MM-dd').format(_selectedDate);
-  String get _fullClassName {
-    if (_selectedClass == null) return '';
-    if (_selectedSection == 'All Sections') return '$_selectedClass - A';
-    final sec = _selectedSection.replaceAll('Section ', '');
-    return '$_selectedClass - $sec';
-  }
-
-  // ═════════════════════════════════════════════════════════════════════════
-  // DATA LOADING
-  // ═════════════════════════════════════════════════════════════════════════
-
-
-
-  List<Map<String, dynamic>> _getDemoStudents() {
-    return [
-      {'id': 'demo-1', 'name': 'Priya Singh', 'email': 'student1@demoschool.com', 'admission_no': 'ADM240001'},
-      {'id': 'demo-2', 'name': 'Anjali Das', 'email': 'student2@demoschool.com', 'admission_no': 'ADM240002'},
-      {'id': 'demo-3', 'name': 'Sneha Mair', 'email': 'student3@demoschool.com', 'admission_no': 'ADM240003'},
-      {'id': 'demo-4', 'name': 'Arjun Reddy', 'email': 'student4@demoschool.com', 'admission_no': 'ADM240004'},
-      {'id': 'demo-5', 'name': 'Ankit Gupta', 'email': 'student5@demoschool.com', 'admission_no': 'ADM240005'},
-      {'id': 'demo-6', 'name': 'Deepak Yadav', 'email': 'student6@demoschool.com', 'admission_no': 'ADM240006'},
-      {'id': 'demo-7', 'name': 'Riya Nair', 'email': 'student7@demoschool.com', 'admission_no': 'ADM240007'},
-      {'id': 'demo-8', 'name': 'Karan Mishra', 'email': 'student8@demoschool.com', 'admission_no': 'ADM240008'},
-    ];
-  }
 
 
 
@@ -358,15 +298,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
       for (var record in res) {
         final date = record['date']?.toString() ?? '';
-        final student = record['Student'] as Map<String, dynamic>? ?? {};
-        final classData = student['Class'] as Map<String, dynamic>? ?? {};
+        final student = record['Student'] as Map? ?? {};
+        final classData = student['Class'] as Map? ?? {};
         final className = classData['name']?.toString() ?? 'Unknown';
         final mappedClassName = _mapClassName(className);
 
         // Class filter
         if (_analyticsClass != 'All Classes' && mappedClassName != _analyticsClass) continue;
 
-        final userMap = student['User'] as Map<String, dynamic>? ?? {};
+        final userMap = student['User'] as Map? ?? {};
         final firstName = userMap['firstName']?.toString() ?? '';
         final lastName = userMap['lastName']?.toString() ?? '';
         final studentName = '$firstName $lastName'.trim();
@@ -476,21 +416,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Title ──
-              Text(
-                'Attendance',
-                style: GoogleFonts.outfit(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              SizedBox(height: 4.h),
               Text(
                 'Mark daily attendance and view date-wise analytics',
                 style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF64748B),
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF475569),
                 ),
               ),
               SizedBox(height: 16.h),
@@ -776,7 +707,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   color: const Color(0xFF0F172A),
                 ),
                 items: items
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                    .map((c) => DropdownMenuItem(
+                          value: c,
+                          child: Text(c.replaceAll('Class', 'Grade')),
+                        ))
                     .toList(),
                 onChanged: onChanged,
               ),
@@ -790,7 +724,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
 
   Widget _buildAttendanceSlotsCard() {
-    final dateFormatted = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
@@ -799,7 +732,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -808,39 +741,59 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today_outlined, size: 18.sp, color: const Color(0xFF0F172A)),
-                        SizedBox(width: 8.w),
-                        Text(
-                          "Today's Attendance Overview",
-                          style: GoogleFonts.outfit(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                      ],
+              Icon(Icons.access_time_rounded, size: 20.sp, color: const Color(0xFF0F172A)),
+              SizedBox(width: 8.w),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Attendance Slots",
+                    style: GoogleFonts.outfit(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
                     ),
-                    SizedBox(height: 2.h),
-                    Text(
-                      "student slots created for today ($dateFormatted)",
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        color: const Color(0xFF94A3B8),
-                      ),
+                  ),
+                  SizedBox(height: 2.h),
+                  Text(
+                    "Today's attendance slots",
+                    style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      color: const Color(0xFF94A3B8),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
+          ),
+          SizedBox(height: 16.h),
+
+          // "+ Create Slot" Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isLoading ? null : _createNewSlotFromSelection,
+              icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
+              label: Text(
+                'Create Slot',
+                style: GoogleFonts.inter(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.sp,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0052CC), // Blue color matching mockup
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24.r), // Pill shape
+                ),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+                elevation: 0,
+              ),
+            ),
           ),
           SizedBox(height: 20.h),
 
@@ -858,24 +811,24 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               child: Column(
                 children: [
                   SizedBox(height: 20.h),
-                  Icon(Icons.calendar_view_month_rounded,
-                      size: 56.sp, color: const Color(0xFFE2E8F0)),
+                  Icon(Icons.calendar_today_outlined,
+                      size: 56.sp, color: const Color(0xFFCBD5E1)),
                   SizedBox(height: 14.h),
                   Text(
-                    'No attendance slots created today',
+                    'No attendance slot for this date',
                     style: GoogleFonts.outfit(
-                      fontSize: 14.sp,
+                      fontSize: 15.sp,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A),
                     ),
                   ),
                   SizedBox(height: 6.h),
                   Text(
-                    'Select a class above and create a slot to start\nmarking attendance',
+                    'Click "Create Slot" to create an attendance slot and start marking',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      color: const Color(0xFF94A3B8),
+                      fontSize: 12.sp,
+                      color: const Color(0xFF64748B),
                       height: 1.5,
                     ),
                   ),
@@ -1048,6 +1001,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             DateFormat('yyyy-MM-dd').format(_selectedDate));
 
     if (exists) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Attendance slot already exists for this selection',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          backgroundColor: AppColors.warning,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
       return;
     }
 
@@ -1056,62 +1018,60 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     });
 
     try {
-      final className = _fullClassName;
-
       final cls = _apiClasses.firstWhere(
         (c) => c['name'] == _selectedClass,
         orElse: () => {},
       );
 
       if (cls.isEmpty) {
-        throw 'Class not found in dynamic class list';
+        throw 'Class not found. Please wait for classes to load.';
       }
-      final classId = cls['id'] as String;
+      final classId = cls['id']?.toString() ?? '';
+      if (classId.isEmpty) throw 'Invalid class ID';
 
       String? sectionId;
       if (_selectedSection != 'All Sections') {
         final secName = _selectedSection.replaceAll('Section ', '').trim();
-        final secList = cls['sections'] as List? ?? [];
-        final sec = secList.firstWhere(
-          (s) => s['name'] == secName,
-          orElse: () => null,
+        // Look up section from our Supabase-sourced sections list
+        final sec = _allSections.firstWhere(
+          (s) => s['classId']?.toString() == classId && s['name']?.toString() == secName,
+          orElse: () => {},
         );
-        if (sec != null) {
-          sectionId = sec['id'] as String;
+        if (sec.isNotEmpty) {
+          sectionId = sec['id']?.toString();
         }
       }
 
-      final Map<String, String> studentParams = {
-        'classId': classId,
-        'limit': '200',
-      };
+      // 1. Fetch students for the class/section via Supabase
+      var studentQuery = _supabase
+          .from('Student')
+          .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+          .eq('currentClassId', classId);
+
       if (sectionId != null) {
-        studentParams['sectionId'] = sectionId;
+        studentQuery = studentQuery.eq('sectionId', sectionId);
       }
 
-      // 1. Fetch students for the class/section
-      final studentsRes = await ApiService.instance.get('students', queryParams: studentParams);
-      final List<dynamic> studentsRawList = studentsRes is List 
-          ? studentsRes 
-          : (studentsRes['students'] ?? studentsRes['data'] ?? []);
+      final studentsRawList = await studentQuery;
 
-      // 2. Fetch all attendance records for this date (avoid classId to prevent server 500 error)
-      final attendanceRes = await ApiService.instance.get('attendance/date', queryParams: {'date': _dbDateStr});
-      final List<dynamic> attendanceRawList = (attendanceRes['data'] != null 
-          ? attendanceRes['data']['attendance'] 
-          : attendanceRes['attendance']) ?? [];
+      // 2. Fetch all attendance records for this date via Supabase
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final attendanceRawList = await _supabase
+          .from('AttendanceRecord')
+          .select('studentId, status')
+          .eq('date', dateStr);
 
       final List<Map<String, dynamic>> studentList = [];
       final Map<String, String> statusMap = {};
       bool alreadySubmitted = false;
 
       for (var item in studentsRawList) {
-        final user = item['user'] as Map? ?? item['User'] as Map? ?? {};
-        final firstName = user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
-        final lastName = user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
+        final user = item['User'] as Map? ?? {};
+        final firstName = user['firstName'] ?? '';
+        final lastName = user['lastName'] ?? '';
         final fullName = '$firstName $lastName'.trim();
-        final email = user['email'] ?? item['email'] ?? '';
-        final admission = item['admissionNumber'] ?? item['admissionNo'] ?? '';
+        final email = user['email'] ?? '';
+        final admission = item['admissionNumber'] ?? '';
 
         final sId = item['id']?.toString() ?? '';
         if (sId.isEmpty) continue;
@@ -1120,7 +1080,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           'id': sId,
           'name': fullName.isNotEmpty ? fullName : (email.isNotEmpty ? email.split('@')[0] : 'Unknown'),
           'email': email,
-          'class_name': className,
+          'class_name': _selectedClass!,
           'admission_no': admission,
         });
       }
@@ -1170,49 +1130,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 100,
-              left: 16,
-              right: 16,
-            ),
           ),
         );
       }
     } catch (e) {
-      debugPrint('Error creating slot via API: $e');
-      final demoList = _getDemoStudents();
-      final newSlot = {
-        'class': _selectedClass!,
-        'section': _selectedSection,
-        'date': _selectedDate,
-        'students': demoList,
-        'attendanceStatus': <String, String>{},
-        'isSubmitted': false,
-      };
-
+      debugPrint('Error creating slot via Supabase: $e');
       if (mounted) {
         setState(() {
-          _createdSlots.add(newSlot);
           _isLoading = false;
         });
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text('Attendance slot created (Offline fallback)', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
-              ],
-            ),
-            backgroundColor: const Color(0xFF10B981),
+            content: Text('Failed to create slot: $e', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            margin: EdgeInsets.only(
-              bottom: MediaQuery.of(context).size.height - 100,
-              left: 16,
-              right: 16,
-            ),
           ),
         );
       }
@@ -2311,7 +2243,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(color: const Color(0xFF0D7DDC).withValues(alpha: 0.3), width: 1.5),
+                  border: Border.all(color: const Color(0xFF0052CC), width: 1.5),
                 ),
                 child: Row(
                   children: [
@@ -2335,7 +2267,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                           Row(
                             children: [
                               Text(
-                                '${widget.className} - ${widget.section}',
+                                '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section}',
                                 style: GoogleFonts.inter(
                                   fontSize: 14.sp,
                                   fontWeight: FontWeight.w700,
@@ -2351,15 +2283,31 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                                       : const Color(0xFFFEF3C7),
                                   borderRadius: BorderRadius.circular(12.r),
                                 ),
-                                child: Text(
-                                  _isAlreadySubmitted ? 'Submitted' : 'Open',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: _isAlreadySubmitted
-                                        ? const Color(0xFF065F46)
-                                        : const Color(0xFF92400E),
-                                  ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (!_isAlreadySubmitted) ...[
+                                      Container(
+                                        width: 6.w,
+                                        height: 6.h,
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFFD97706),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      SizedBox(width: 4.w),
+                                    ],
+                                    Text(
+                                      _isAlreadySubmitted ? 'Submitted' : 'Open',
+                                      style: GoogleFonts.inter(
+                                        fontSize: 10.sp,
+                                        fontWeight: FontWeight.w700,
+                                        color: _isAlreadySubmitted
+                                            ? const Color(0xFF065F46)
+                                            : const Color(0xFF92400E),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -2390,16 +2338,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               ),
               SizedBox(height: 16.h),
 
-              // 2. Horizontal row of three statistic cards
-              Row(
-                children: [
-                  _buildStatCard('Total students', '$totalCount', const Color(0xFF0F172A)),
-                  SizedBox(width: 8.w),
-                  _buildStatCard('Present', '$presentCount', const Color(0xFF10B981)),
-                  SizedBox(width: 8.w),
-                  _buildStatCard('Absent', '$absentCount', const Color(0xFFEF4444)),
-                ],
-              ),
+              // 2. Stacked vertical statistic cards
+              _buildStatCard('Total students', '$totalCount', const Color(0xFF0F172A)),
+              _buildStatCard('Present', '$presentCount', const Color(0xFF10B981)),
+              _buildStatCard('Absent', '$absentCount', const Color(0xFFEF4444)),
               SizedBox(height: 20.h),
 
               LayoutBuilder(
@@ -2418,7 +2360,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                       ),
                       SizedBox(height: 2.h),
                       Text(
-                        '${widget.className} - ${widget.section} • Mark attendance',
+                        '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section} • Mark attendance',
                         style: GoogleFonts.inter(
                           fontSize: 10.sp,
                           color: const Color(0xFF94A3B8),
@@ -2430,11 +2372,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                   );
 
                   final buttonsRow = Row(
-                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildMarkAllButton('✓ Mark All Present', () => _markAll('P')),
-                      SizedBox(width: 6.w),
-                      _buildMarkAllButton('✗ Mark All Absent', () => _markAll('A')),
+                      _buildMarkAllButton('Mark All Present', Icons.check_rounded, () => _markAll('P')),
+                      SizedBox(width: 8.w),
+                      _buildMarkAllButton('Mark All Absent', Icons.close_rounded, () => _markAll('A')),
                     ],
                   );
 
@@ -2444,7 +2385,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                       children: [
                         Expanded(child: headerColumn),
                         SizedBox(width: 8.w),
-                        buttonsRow,
+                        Expanded(child: buttonsRow),
                       ],
                     );
                   } else {
@@ -2452,16 +2393,16 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         headerColumn,
-                        SizedBox(height: 10.h),
+                        SizedBox(height: 12.h),
                         buttonsRow,
                       ],
                     );
                   }
                 },
               ),
-              SizedBox(height: 12.h),
+              SizedBox(height: 16.h),
 
-              // 4. Student list individual cards
+              // 4. Student list individual cards (Image 5 & 6 layout)
               ..._students.asMap().entries.map((entry) {
                 final index = entry.key;
                 final student = entry.value;
@@ -2469,64 +2410,78 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 final status = _attendanceStatus[studentId];
 
                 return Container(
-                  margin: EdgeInsets.only(bottom: 10.h),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                  margin: EdgeInsets.only(bottom: 12.h),
+                  padding: EdgeInsets.all(16.r),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(12.r),
+                    borderRadius: BorderRadius.circular(16.r),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.01),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 14.r,
-                        backgroundColor: const Color(0xFFE0E7FF),
-                        child: Text(
-                          _getInitials(student['name']),
-                          style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF4F46E5),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 10.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              student['name'],
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1E293B),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              student['admission_no']?.toString().isNotEmpty == true
-                                  ? student['admission_no']
-                                  : 'R${index + 1}',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.sp,
-                                color: const Color(0xFF94A3B8),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      // Present / Absent choice buttons
+                      // Student Details Row
                       Row(
-                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircleAvatar(
+                            radius: 20.r,
+                            backgroundColor: const Color(0xFFEFF6FF), // Light blue avatar background
+                            child: Text(
+                              _getInitials(student['name']),
+                              style: GoogleFonts.inter(
+                                fontSize: 14.sp,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF1D4ED8), // Darker blue initials
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 14.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  student['name'],
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14.sp,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF0F172A),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: 4.h),
+                                Text(
+                                  student['admission_no']?.toString().isNotEmpty == true
+                                      ? student['admission_no']
+                                      : 'R${index + 1}',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 11.sp,
+                                    color: const Color(0xFF64748B),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 14.h),
+                      // Present & Absent Choice Buttons Row
+                      Row(
                         children: [
                           _buildChoiceButton(
-                            label: '✓ Present',
+                            label: 'Present',
+                            icon: Icons.check_rounded,
                             isSelected: status == 'P',
                             activeColor: const Color(0xFF10B981),
                             onTap: () {
@@ -2535,9 +2490,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                               });
                             },
                           ),
-                          SizedBox(width: 6.w),
+                          SizedBox(width: 8.w),
                           _buildChoiceButton(
-                            label: '✗ Absent',
+                            label: 'Absent',
+                            icon: Icons.close_rounded,
                             isSelected: status == 'A',
                             activeColor: const Color(0xFFEF4444),
                             onTap: () {
@@ -2566,58 +2522,73 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   }
 
   Widget _buildStatCard(String label, String value, Color valueColor) {
-    return Expanded(
-      child: Container(
-        padding: EdgeInsets.symmetric(vertical: 16.h),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                color: const Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-              ),
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(vertical: 20.h),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 12.sp,
+              color: const Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
             ),
-            SizedBox(height: 4.h),
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                fontSize: 22.sp,
-                fontWeight: FontWeight.w900,
-                color: valueColor,
-              ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 32.sp,
+              fontWeight: FontWeight.w900,
+              color: valueColor,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildMarkAllButton(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF475569),
-            ),
+  Widget _buildMarkAllButton(String label, IconData icon, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 14.sp, color: const Color(0xFF475569)),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF475569),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2626,30 +2597,42 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
   Widget _buildChoiceButton({
     required String label,
+    required IconData icon,
     required bool isSelected,
     required Color activeColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 6.h),
-        decoration: BoxDecoration(
-          color: isSelected ? activeColor : Colors.white,
-          borderRadius: BorderRadius.circular(8.r),
-          border: Border.all(
-            color: isSelected ? activeColor : const Color(0xFFE2E8F0),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              color: isSelected ? Colors.white : const Color(0xFF475569),
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: isSelected ? activeColor : Colors.white,
+            borderRadius: BorderRadius.circular(10.r),
+            border: Border.all(
+              color: isSelected ? activeColor : const Color(0xFFE2E8F0),
             ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 14.sp,
+                color: isSelected ? Colors.white : const Color(0xFF475569),
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                label,
+                style: GoogleFonts.inter(
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w700,
+                  color: isSelected ? Colors.white : const Color(0xFF475569),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2674,7 +2657,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           icon: _isSubmitting
               ? const SizedBox.shrink()
               : Icon(
-                  Icons.assignment_turned_in_outlined,
+                  Icons.description_outlined,
                   color: Colors.white,
                   size: 18.sp,
                 ),
