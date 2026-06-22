@@ -77,12 +77,12 @@ class ApiService {
     try {
       response = await runHttp(uri, headers);
     } catch (e) {
-      if (e is SocketException && uri.host == 'edusphere-erp.onrender.com') {
-        dev.log('⚠️ [API WARNING] DNS resolution failed for edusphere-erp.onrender.com. Trying fallback IP 216.24.57.9...', name: 'ApiService');
+      if (e is SocketException && uri.host == 'edusphere-erp-frontend.onrender.com') {
+        dev.log('⚠️ [API WARNING] DNS resolution failed for edusphere-erp-frontend.onrender.com. Trying fallback IP 216.24.57.9...', name: 'ApiService');
         try {
           final fallbackUri = uri.replace(host: '216.24.57.9');
           final fallbackHeaders = Map<String, String>.from(headers);
-          fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
+          fallbackHeaders['Host'] = 'edusphere-erp-frontend.onrender.com';
           dev.log('📡 [API FALLBACK] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
           response = await runHttp(fallbackUri, fallbackHeaders);
         } catch (e2) {
@@ -90,7 +90,7 @@ class ApiService {
           try {
             final fallbackUri = uri.replace(host: '216.24.57.8');
             final fallbackHeaders = Map<String, String>.from(headers);
-            fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
+            fallbackHeaders['Host'] = 'edusphere-erp-frontend.onrender.com';
             dev.log('📡 [API FALLBACK 2] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
             response = await runHttp(fallbackUri, fallbackHeaders);
           } catch (e3) {

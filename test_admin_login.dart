@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 void main() async {
-  final url = Uri.parse('https://edusphere-erp.onrender.com/api/v1/auth/login');
+  final url = Uri.parse('https://edusphere-erp-frontend.onrender.com/api/v1/auth/login');
   
   final passwords = ['admin', 'admin123', 'password', '123456'];
   

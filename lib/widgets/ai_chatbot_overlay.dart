@@ -41,21 +41,25 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     super.initState();
     _loadStudentDataAndPrefetch();
     AIChatbotOverlay.visible.addListener(_onVisibilityChanged);
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedIn) {
-        _loadStudentDataAndPrefetch();
+    try {
+      _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final event = data.event;
+        if (event == AuthChangeEvent.signedIn) {
+          _loadStudentDataAndPrefetch();
+          _startRefreshTimer();
+        } else if (event == AuthChangeEvent.signedOut) {
+          _stopRefreshTimer();
+          setState(() {
+            _firstName = 'User';
+            _initChat();
+          });
+        }
+      });
+      if (Supabase.instance.client.auth.currentUser != null) {
         _startRefreshTimer();
-      } else if (event == AuthChangeEvent.signedOut) {
-        _stopRefreshTimer();
-        setState(() {
-          _firstName = 'User';
-          _initChat();
-        });
       }
-    });
-    if (Supabase.instance.client.auth.currentUser != null) {
-      _startRefreshTimer();
+    } catch (e) {
+      debugPrint('Supabase not initialized: $e');
     }
   }
 

@@ -54,3 +54,6 @@ flutter:
   assets:
     - assets/images/logo.png
     - assets/images/qr_payment.png
+
+dependency_overrides:
+  path_provider_android: 2.2.12
