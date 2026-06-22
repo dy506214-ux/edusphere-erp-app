@@ -7,10 +7,18 @@ void main() async {
   );
   
   try {
-    final users = await supabase.from('User').select('email, id');
-    print('Users in DB: $users');
-    supabase.dispose();
+    print('Inserting mock document with fileUrl...');
+    final response = await supabase.from('StudentDocument').insert({
+      'studentId': '1ccfa480-a469-4c37-b732-bb126e2945dc',
+      'documentName': 'ReportCard_Class9.pdf',
+      'documentType': 'PDF',
+      'fileUrl': 'https://example.com/mock.pdf',
+      'uploadedAt': DateTime.now().toIso8601String(),
+    }).select();
+    print('SUCCESS! Inserted row: $response');
   } catch (e) {
     print('Error: $e');
+  } finally {
+    supabase.dispose();
   }
 }

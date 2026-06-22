@@ -124,22 +124,24 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       }
 
       if (_studentIdStr.isNotEmpty) {
-        final attendanceRes = await ApiService.instance.get('students/$_studentIdStr/attendance');
-        if (attendanceRes != null && attendanceRes['success'] == true) {
-          final List<dynamic> list = attendanceRes['attendance'] ?? [];
+        bool supabaseSuccess = false;
+        try {
+          final res = await Supabase.instance.client
+              .from('AttendanceRecord')
+              .select()
+              .eq('studentId', _studentIdStr);
           
+          final List<dynamic> list = res;
           final Map<int, Map<String, dynamic>> dbDailyRecords = {};
           int dbPresent = 0;
           int dbAbsent = 0;
           
           _datesInRange.clear();
-          // Generate dates in range
           DateTime curr = _startDate;
           while (!curr.isAfter(_endDate)) {
             _datesInRange.add(curr);
             curr = curr.add(const Duration(days: 1));
           }
-          // Reverse sort dates for list view
           _datesInRange = _datesInRange.reversed.toList();
 
           for (var record in list) {
@@ -148,7 +150,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             
             try {
               final date = DateTime.parse(dateStr);
-              // Normalize time to 00:00:00 for comparison
               final normalizedDate = DateTime(date.year, date.month, date.day);
               final normalizedStart = DateTime(_startDate.year, _startDate.month, _startDate.day);
               final normalizedEnd = DateTime(_endDate.year, _endDate.month, _endDate.day);
@@ -156,14 +157,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               if ((normalizedDate.isAfter(normalizedStart) || normalizedDate.isAtSameMomentAs(normalizedStart)) &&
                   (normalizedDate.isBefore(normalizedEnd) || normalizedDate.isAtSameMomentAs(normalizedEnd))) {
                 
-                // We use year-month-day string as key to handle multiple months correctly
                 final key = normalizedDate.millisecondsSinceEpoch;
                 
                 dbDailyRecords[key] = {
                   'status': status,
                   'checkInTime': record['checkInTime'],
                   'createdAt': record['createdAt'],
-                  'markedBy': record['markedByName'] ?? record['markedBy'],
+                  'markedBy': record['markedBy'],
                   'scannedByQR': record['scannedByQR'],
                   'scannedByRFID': record['scannedByRFID'],
                 };
@@ -179,12 +179,82 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
           final totalClasses = dbPresent + dbAbsent;
           
-          setState(() {
-            _dailyRecords = dbDailyRecords;
-            _presentCount = dbPresent;
-            _absentCount = dbAbsent;
-            _attendanceRate = totalClasses > 0 ? (dbPresent / totalClasses) * 100 : 100.0;
-          });
+          if (mounted) {
+            setState(() {
+              _dailyRecords = dbDailyRecords;
+              _presentCount = dbPresent;
+              _absentCount = dbAbsent;
+              _attendanceRate = totalClasses > 0 ? (dbPresent / totalClasses) * 100 : 100.0;
+            });
+          }
+          supabaseSuccess = true;
+          dev.log('✅ Loaded attendance screen records from Supabase in real-time.', name: 'AttendanceScreen');
+        } catch (e) {
+          dev.log('Error loading attendance from Supabase: $e', name: 'AttendanceScreen');
+        }
+
+        if (!supabaseSuccess) {
+          // Fallback to REST API
+          final attendanceRes = await ApiService.instance.get('students/$_studentIdStr/attendance');
+          if (attendanceRes != null && attendanceRes['success'] == true) {
+            final List<dynamic> list = attendanceRes['attendance'] ?? [];
+            
+            final Map<int, Map<String, dynamic>> dbDailyRecords = {};
+            int dbPresent = 0;
+            int dbAbsent = 0;
+            
+            _datesInRange.clear();
+            DateTime curr = _startDate;
+            while (!curr.isAfter(_endDate)) {
+              _datesInRange.add(curr);
+              curr = curr.add(const Duration(days: 1));
+            }
+            _datesInRange = _datesInRange.reversed.toList();
+
+            for (var record in list) {
+              final dateStr = record['date'] as String;
+              final status = record['status'] as String;
+              
+              try {
+                final date = DateTime.parse(dateStr);
+                final normalizedDate = DateTime(date.year, date.month, date.day);
+                final normalizedStart = DateTime(_startDate.year, _startDate.month, _startDate.day);
+                final normalizedEnd = DateTime(_endDate.year, _endDate.month, _endDate.day);
+
+                if ((normalizedDate.isAfter(normalizedStart) || normalizedDate.isAtSameMomentAs(normalizedStart)) &&
+                    (normalizedDate.isBefore(normalizedEnd) || normalizedDate.isAtSameMomentAs(normalizedEnd))) {
+                  
+                  final key = normalizedDate.millisecondsSinceEpoch;
+                  
+                  dbDailyRecords[key] = {
+                    'status': status,
+                    'checkInTime': record['checkInTime'],
+                    'createdAt': record['createdAt'],
+                    'markedBy': record['markedByName'] ?? record['markedBy'],
+                    'scannedByQR': record['scannedByQR'],
+                    'scannedByRFID': record['scannedByRFID'],
+                  };
+                  
+                  if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+                    dbPresent++;
+                  } else if (status == 'ABSENT' || status == 'A') {
+                    dbAbsent++;
+                  }
+                }
+              } catch (_) {}
+            }
+
+            final totalClasses = dbPresent + dbAbsent;
+            
+            if (mounted) {
+              setState(() {
+                _dailyRecords = dbDailyRecords;
+                _presentCount = dbPresent;
+                _absentCount = dbAbsent;
+                _attendanceRate = totalClasses > 0 ? (dbPresent / totalClasses) * 100 : 100.0;
+              });
+            }
+          }
         }
       }
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -147,6 +148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   // Student details state
+  String? _currentStudentDbId;
   String _studentName = 'Kavya Yadav';
   String _studentEmail = 'kavya.yadav@edusmart.edu';
   String _admissionNo = 'ADM-2023-0681';
@@ -220,6 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    _profilePollTimer?.cancel();
     for (var ch in _realtimeChannels) {
       try {
         Supabase.instance.client.removeChannel(ch);
@@ -515,7 +518,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (widget.studentId != null) {
         final res = await client
             .from('Student')
-            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
+            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*)), AcademicYear(*)')
             .eq('id', widget.studentId!)
             .maybeSingle();
         if (res != null) {
@@ -526,7 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (currentUser != null) {
           final res = await client
               .from('Student')
-              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
+              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*)), AcademicYear(*)')
               .eq('userId', currentUser.id)
               .maybeSingle();
           if (res != null) {
@@ -566,7 +569,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
           
           _rollNo = studentData['rollNumber']?.toString() ?? '—';
-          final academicYear = classMap['AcademicYear'] as Map<String, dynamic>?;
+          final academicYear = studentData['AcademicYear'] as Map<String, dynamic>? ?? classMap['AcademicYear'] as Map<String, dynamic>?;
           _batch = academicYear?['name'] as String? ?? '—';
           _medium = studentData['medium'] as String? ?? '—';
           
@@ -684,12 +687,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
             }).toList();
           }
           _uploadedDocuments = docs;
+          _currentStudentDbId = studentData['id'] as String?;
           _isProfileLoading = false;
         });
  
         final studentId = studentData['id'] as String;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('student_id', studentId);
+        
+        final bool localPush = prefs.getBool('push_notifications_enabled') ?? true;
+        final bool localInApp = prefs.getBool('in_app_notifications_enabled') ?? true;
+        if (mounted) {
+          setState(() {
+            _pushNotifications = localPush;
+            _inAppNotifications = localInApp;
+          });
+        }
  
         final String? sectionId = studentData['sectionId'] as String?;
         _loadAllTabDetails(studentId, sectionId);
@@ -731,6 +744,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final String lastName = userMap['lastName'] as String? ?? '';
       _studentUserId = studentResMap['userId']?.toString() ?? userMap['id']?.toString();
 
+      // Try to get batch from academicYear data (before setState)
+      final classAcademicYear = classMap['academicYear'] as Map? ??
+          classMap['AcademicYear'] as Map? ?? {};
+      final studentAcademicYear = studentResMap['academicYear'] as Map? ??
+          studentResMap['AcademicYear'] as Map? ?? {};
+      final prefs = await SharedPreferences.getInstance();
+      final batchFromPrefs = prefs.getString('student_batch');
+      final batchValue = classAcademicYear['name'] as String? ??
+          studentAcademicYear['name'] as String? ??
+          batchFromPrefs ??
+          '—';
+
       setState(() {
         _studentName = '$firstName $lastName'.trim();
         if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
@@ -741,7 +766,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _section = sectionMap['name'] as String? ?? '—';
         _rollNo = studentResMap['rollNumber']?.toString() ?? '—';
         
-        _batch = '—';
+        _batch = batchValue;
         _medium = studentResMap['medium'] as String? ?? '—';
         
         final joinDateStr = studentResMap['joiningDate'] as String?;
@@ -815,7 +840,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setState(() {
                 _dbQrCode = qr;
               });
-              final prefs = await SharedPreferences.getInstance();
               await prefs.setString('student_qrcode', qr);
             }
           }
@@ -825,7 +849,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
  
       final studentId = studentResMap['id'] as String;
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('student_id', studentId);
  
       final String? sectionId = studentResMap['sectionId'] as String?;
@@ -909,11 +932,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Timer? _profilePollTimer;
+
   void _connectRealTimeSync() {
     try {
       final client = Supabase.instance.client;
       final currentUser = client.auth.currentUser;
-      if (currentUser == null) return;
+
+      // If no Supabase auth, set up polling fallback (every 30s)
+      if (currentUser == null) {
+        _profilePollTimer?.cancel();
+        _profilePollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+          if (mounted && widget.role == 'student') {
+            _loadStudentDataFromSupabase();
+          }
+        });
+        // Also listen to Socket.IO events (no auth needed)
+        SocketService().on('STUDENT_UPDATED', (data) {
+          if (!mounted) return;
+          try {
+            if (widget.role == 'student') _loadStudentDataFromSupabase();
+          } catch (e) {
+            debugPrint('Error handling Socket.IO update: $e');
+          }
+        });
+        return;
+      }
 
       for (var ch in _realtimeChannels) {
         try {
@@ -1051,12 +1095,125 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveStudentDataToSupabase() async {
     try {
-      // Use backend API to update student profile
-      await ApiService.instance.put('students/me', body: {
-        'emergencyPhone': _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
-      });
+      final client = Supabase.instance.client;
+      final currentUser = client.auth.currentUser;
+      if (currentUser == null) return;
+
+      final nameParts = _studentName.trim().split(RegExp(r'\s+'));
+      final String first = nameParts.isNotEmpty ? nameParts[0] : '';
+      final String last = nameParts.length >= 2 ? nameParts.sublist(1).join(' ') : '';
+
+      String? dbGender;
+      if (_studentGender.toUpperCase().startsWith('M')) {
+        dbGender = 'MALE';
+      } else if (_studentGender.toUpperCase().startsWith('F')) {
+        dbGender = 'FEMALE';
+      }
+
+      String? dbDob;
+      if (_studentDob.isNotEmpty && _studentDob != '—') {
+        try {
+          if (_studentDob.contains('/')) {
+            final dobParts = _studentDob.split('/');
+            if (dobParts.length == 3) {
+              dbDob = '${dobParts[2]}-${dobParts[1].padLeft(2, '0')}-${dobParts[0].padLeft(2, '0')}';
+            }
+          } else {
+            dbDob = DateTime.parse(_studentDob).toIso8601String().split('T').first;
+          }
+        } catch (_) {
+          dbDob = null;
+        }
+      }
+
+      final String targetUserId = _studentUserId ?? currentUser.id;
+      final String? targetStudentId = widget.studentId ?? _currentStudentDbId;
+
+      // Find Class ID
+      String? classId;
+      if (_studentClass.isNotEmpty && _studentClass != '—') {
+        final classList = await client
+            .from('Class')
+            .select('id')
+            .ilike('name', _studentClass.trim())
+            .limit(1);
+        if (classList.isNotEmpty) {
+          classId = classList[0]['id'] as String?;
+        }
+      }
+
+      // Find Section ID
+      String? sectionId;
+      if (_section.isNotEmpty && _section != '—' && classId != null) {
+        final sectionList = await client
+            .from('Section')
+            .select('id')
+            .ilike('name', _section.trim())
+            .eq('classId', classId)
+            .limit(1);
+        if (sectionList.isNotEmpty) {
+          sectionId = sectionList[0]['id'] as String?;
+        }
+      }
+
+      // Find Academic Year ID (Batch)
+      String? academicYearId;
+      if (_batch.isNotEmpty && _batch != '—') {
+        final batchSearch = _batch.trim();
+        var yearList = await client
+            .from('AcademicYear')
+            .select('id')
+            .ilike('name', batchSearch)
+            .limit(1);
+        
+        if (yearList.isEmpty && batchSearch.contains('-')) {
+          // Handle format like "2024-25" -> "2024-2025"
+          final parts = batchSearch.split('-');
+          if (parts.length == 2 && parts[1].length == 2) {
+            final fullYearSearch = '${parts[0]}-20${parts[1]}';
+            yearList = await client
+                .from('AcademicYear')
+                .select('id')
+                .ilike('name', fullYearSearch)
+                .limit(1);
+          }
+        }
+
+        if (yearList.isNotEmpty) {
+          academicYearId = yearList[0]['id'] as String?;
+        }
+      }
+
+      // 1. Update User table
+      await client.from('User').update({
+        if (first.isNotEmpty) 'firstName': first,
+        'lastName': last,
+        if (dbGender != null) 'gender': dbGender,
+        if (dbDob != null) 'dateOfBirth': dbDob,
+        'bloodGroup': _studentBloodGroup == '—' || _studentBloodGroup == 'N/A' ? null : _studentBloodGroup,
+      }).eq('id', targetUserId);
+
+      // 2. Update Student table
+      await client.from('Student').update({
+        'admissionNumber': _admissionNo == '—' ? null : _admissionNo,
+        'rollNumber': _rollNo == '—' ? null : _rollNo,
+        'emergencyPhone': _emergencyInfo == '—' || _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
+        'religion': _religion == '—' ? null : _religion.toUpperCase(),
+        'caste': _casteGroup == '—' ? null : _casteGroup.toUpperCase(),
+        'nationality': _nationality == '—' ? null : _nationality.toUpperCase(),
+        if (classId != null) 'currentClassId': classId,
+        if (sectionId != null) 'sectionId': sectionId,
+        if (academicYearId != null) 'academicYearId': academicYearId,
+      }).eq(targetStudentId != null ? 'id' : 'userId', targetStudentId ?? targetUserId);
+
+      // 3. Update backend API too
+      if (widget.studentId == null) {
+        await ApiService.instance.put('students/me', body: {
+          'emergencyPhone': _emergencyInfo == '—' || _emergencyInfo == 'UNSET' ? null : _emergencyInfo,
+        });
+      }
     } catch (e) {
-      debugPrint('Error saving student profile to API: $e');
+      debugPrint('Error saving student profile to Supabase: $e');
     }
   }
 
@@ -1135,7 +1292,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.setString('student_uploaded_documents', encoded);
   }
 
+  void _togglePushNotifications(bool val) async {
+    setState(() {
+      _pushNotifications = val;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('push_notifications_enabled', val);
+  }
+
+  void _toggleInAppNotifications(bool val) async {
+    setState(() {
+      _inAppNotifications = val;
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('in_app_notifications_enabled', val);
+  }
+
   void _simulateDocumentUpload() async {
+    final String? studentId = widget.studentId ?? _currentStudentDbId;
+    if (studentId == null || studentId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Student details not fully loaded yet.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isUploadingDoc = true;
     });
@@ -1149,16 +1335,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (result != null) {
         final platformFile = result.files.single;
         final String docName = platformFile.name;
-        final now = DateTime.now();
-        final String dateStr = '${now.month}/${now.day}/${now.year}';
+        final String ext = platformFile.extension?.toUpperCase() ?? 'PDF';
 
-        setState(() {
-          _uploadedDocuments.add({
-            'name': docName,
-            'date': dateStr,
-          });
+        final client = Supabase.instance.client;
+        await client.from('StudentDocument').insert({
+          'studentId': studentId,
+          'documentName': docName,
+          'documentType': ext,
+          'fileUrl': 'https://example.com/mock_$docName',
+          'uploadedAt': DateTime.now().toIso8601String(),
+          'fileSize': platformFile.size,
         });
-        _saveStudentData();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1170,7 +1357,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Error picking file: $e');
+      debugPrint('Error uploading file: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Upload failed: $e', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -1183,28 +1378,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _removeDocument(int index) async {
     final name = _uploadedDocuments[index]['name'];
     final docId = _uploadedDocuments[index]['id'];
-    setState(() {
-      _uploadedDocuments.removeAt(index);
-    });
-    _saveStudentData();
 
-    // Delete via backend API if document ID exists
-    if (docId != null && docId.isNotEmpty) {
+    if (docId == null || docId.isEmpty) {
+      setState(() {
+        _uploadedDocuments.removeAt(index);
+      });
+      _saveStudentData();
+      return;
+    }
+
+    try {
+      final client = Supabase.instance.client;
+      await client.from('StudentDocument').delete().eq('id', docId);
+
       try {
         await ApiService.instance.delete('students/documents/$docId');
-      } catch (e) {
-        debugPrint('Error deleting document from API: $e');
+      } catch (_) {}
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF1A6FDB),
+            content: Text('Document "$name" deleted successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFEF4444),
+            content: Text('Delete failed: $e', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
       }
     }
+  }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFE03131),
-          content: Text('Document "$name" removed.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+  void _showEditEmergencyInfoDialog() {
+    final ctrl = TextEditingController(text: _emergencyInfo == '—' || _emergencyInfo == 'UNSET' ? '' : _emergencyInfo);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Edit Emergency Info', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            hintText: 'Enter emergency phone number',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+          ),
         ),
-      );
-    }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.inter(color: Colors.grey, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A6FDB),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+            ),
+            onPressed: () async {
+              final String val = ctrl.text.trim();
+              Navigator.pop(context);
+              setState(() {
+                _emergencyInfo = val.isEmpty ? '—' : val;
+              });
+              
+              await _saveStudentData();
+              
+              try {
+                if (widget.studentId != null) {
+                  final client = Supabase.instance.client;
+                  await client.from('Student').update({'emergencyPhone': val.isEmpty ? null : val}).eq('id', widget.studentId!);
+                } else {
+                  await _saveStudentDataToSupabase();
+                  final client = Supabase.instance.client;
+                  final currentUser = client.auth.currentUser;
+                  if (currentUser != null) {
+                    await client.from('Student').update({'emergencyPhone': val.isEmpty ? null : val}).eq('userId', currentUser.id);
+                  }
+                }
+                showToast(context, 'Emergency contact updated!');
+              } catch (e) {
+                showToast(context, 'Error updating contact');
+              }
+            },
+            child: Text('Save', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openEditProfileSheet() {
@@ -1217,6 +1484,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final dobCtrl = TextEditingController(text: _studentDob);
     final casteCtrl = TextEditingController(text: _casteGroup);
     final religionCtrl = TextEditingController(text: _religion);
+    final nationalityCtrl = TextEditingController(text: _nationality);
     final emergencyCtrl = TextEditingController(text: _emergencyInfo);
     final genderCtrl = TextEditingController(text: _studentGender);
     final bloodCtrl = TextEditingController(text: _studentBloodGroup);
@@ -1291,7 +1559,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Expanded(child: _buildEditTextField('Caste Group', casteCtrl)),
                     ],
                   ),
-                  _buildEditTextField('Religion', religionCtrl),
+                  Row(
+                    children: [
+                      Expanded(child: _buildEditTextField('Religion', religionCtrl)),
+                      SizedBox(width: 12.w),
+                      Expanded(child: _buildEditTextField('Nationality', nationalityCtrl)),
+                    ],
+                  ),
                   _buildEditTextField('Emergency Info', emergencyCtrl),
                   SizedBox(height: 24.h),
                   SizedBox(
@@ -1315,6 +1589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _studentDob = dobCtrl.text;
                           _casteGroup = casteCtrl.text;
                           _religion = religionCtrl.text;
+                          _nationality = nationalityCtrl.text;
                           _emergencyInfo = emergencyCtrl.text;
                           _studentGender = genderCtrl.text;
                           _studentBloodGroup = bloodCtrl.text;
@@ -1737,10 +2012,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.arrow_back, color: const Color(0xFF0F2547), size: 16.sp),
+                    Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
-                      'Back to Students',
+                      'Back',
                       style: GoogleFonts.inter(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
@@ -1750,25 +2025,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-            SizedBox(height: 20.h),
+            SizedBox(height: 16.h),
 
-            // Main Header Card
-            _buildTabbedHeaderCard(isDesktop),
-            SizedBox(height: 20.h),
+            // Header Card
+            _buildNewHeaderCard(isDesktop),
+            SizedBox(height: 16.h),
 
-            // Tab Bar
-            _buildTabbedNavigation(isDesktop),
-            SizedBox(height: 20.h),
+            // Summary Info Grid (Batch, Medium, Joined, Emergency Info)
+            _buildSummaryGrid(isDesktop),
+            SizedBox(height: 16.h),
 
-            // Tab Content
-            _buildTabbedTabContent(isDesktop),
-            SizedBox(height: 24.h),
+            // Core Identity Card
+            _buildCoreIdentityCard(isDesktop),
+            SizedBox(height: 16.h),
+
+            // Health Protocol Card
+            _buildHealthProtocolCard(isDesktop),
+            SizedBox(height: 16.h),
+
+            // Guardian Details Card
+            _buildGuardianDetailsCard(isDesktop),
+            SizedBox(height: 16.h),
+
+            // Notification Preferences Card
+            _buildStudentNotificationPreferencesCard(isDesktop),
+            SizedBox(height: 16.h),
+
+            // Documents Asset Vault
+            _buildNewDocumentsVault(isDesktop),
+            SizedBox(height: 16.h),
 
             // Digital Identity & QR Attendance
             _buildDigitalIdentityCard(isDesktop, customTitle: widget.studentId != null ? 'Student Digital Identity Card' : null),
             SizedBox(height: 24.h),
 
-            // Logout
+            // Logout Button
             if (widget.studentId == null) ...[
               GestureDetector(
                 onTap: () => setState(() => _showLogout = true),
@@ -1819,6 +2110,535 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_showLogout) _buildLogoutDialog(),
         ],
       ),
+    );
+  }
+
+  // --- NEW STUDENT PROFILE HELPER WIDGETS ---
+
+  Widget _buildNewHeaderCard(bool isDesktop) {
+    final List<String> parts = _studentName.trim().split(RegExp(r'\s+'));
+    final String initials = parts.length >= 2 
+        ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
+        : (parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'ST');
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: 80.r,
+                height: 80.r,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE0F2FE),
+                  borderRadius: BorderRadius.circular(24.r),
+                ),
+                child: Center(
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.inter(
+                      fontSize: 24.sp,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0284C7),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: 16.w),
+              // Student Metadata
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            _studentName,
+                            style: GoogleFonts.inter(
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textDark,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        GestureDetector(
+                          onTap: _openEditProfileSheet,
+                          child: Container(
+                            padding: EdgeInsets.all(4.r),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFF1F5F9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(Icons.edit_rounded, size: 14.sp, color: AppColors.textDark),
+                          ),
+                        ),
+                        SizedBox(width: 8.w),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(6.r),
+                          ),
+                          child: Text(
+                            _admissionNo,
+                            style: GoogleFonts.inter(
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF166534),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    Row(
+                      children: [
+                        Icon(Icons.school_rounded, size: 14.sp, color: AppColors.textLight),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'Class $_studentClass${_section != '—' && _section.isNotEmpty ? ' - $_section' : ''}',
+                          style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium),
+                        ),
+                        SizedBox(width: 12.w),
+                        Icon(Icons.badge_rounded, size: 14.sp, color: AppColors.textLight),
+                        SizedBox(width: 4.w),
+                        Text(
+                          'Roll No. $_rollNo',
+                          style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 6.h),
+                    Row(
+                      children: [
+                        Container(
+                          width: 8.r,
+                          height: 8.r,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        SizedBox(width: 6.w),
+                        Text(
+                          'Active Profile',
+                          style: GoogleFonts.inter(
+                            fontSize: 11.sp,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF166534),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20.h),
+          // Upload Document Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+              icon: _isUploadingDoc 
+                  ? SizedBox(
+                      width: 16.r, 
+                      height: 16.r, 
+                      child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.textDark),
+                    )
+                  : const Icon(Icons.add, size: 18),
+              label: Text(
+                _isUploadingDoc ? 'Uploading...' : 'Upload Document',
+                style: GoogleFonts.inter(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF1F5F9),
+                foregroundColor: AppColors.textDark,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                padding: EdgeInsets.symmetric(vertical: 12.h),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryGrid(bool isDesktop) {
+    return GridView.count(
+      crossAxisCount: isDesktop ? 4 : 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12.h,
+      crossAxisSpacing: 12.w,
+      childAspectRatio: isDesktop ? 2.2 : 1.6,
+      children: [
+        _summaryCard('Batch', _batch, const Color(0xFFE0F2FE), Icons.calendar_today_rounded),
+        _summaryCard('Medium', _medium, const Color(0xFFDCFCE7), Icons.language_rounded),
+        _summaryCard('Joined', _studentJoinedDate, const Color(0xFFF3E8FF), Icons.event_available_rounded),
+        GestureDetector(
+          onTap: _showEditEmergencyInfoDialog,
+          child: _summaryCard(
+            'Emergency Info', 
+            _emergencyInfo == 'UNSET' || _emergencyInfo == '—' ? 'TAP TO SET' : _emergencyInfo, 
+            const Color(0xFFFEE2E2), 
+            Icons.favorite_rounded,
+            isEditable: true,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _summaryCard(String title, String val, Color color, IconData icon, {bool isEditable = false}) => Container(
+    padding: EdgeInsets.all(12.r),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20.r),
+      border: Border.all(color: AppColors.border),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.01),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: AppColors.textLight)),
+            Container(
+              padding: EdgeInsets.all(6.r),
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: Icon(icon, size: 12.sp, color: AppColors.textDark),
+            ),
+          ],
+        ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                val, 
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp, 
+                  fontWeight: FontWeight.w900, 
+                  color: isEditable && (val == 'TAP TO SET' || val == '—') ? const Color(0xFFEF4444) : AppColors.textDark,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (isEditable) ...[
+              SizedBox(width: 4.w),
+              Icon(Icons.edit_rounded, size: 12.sp, color: AppColors.textLight),
+            ]
+          ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildCoreIdentityCard(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
+          child: Text('👤 Core Identity', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+        ),
+        Container(
+          padding: EdgeInsets.all(20.r),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24.r), 
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              _infoRow(Icons.person_outline_rounded, 'Gender', _studentGender),
+              _divider(),
+              _infoRow(Icons.cake_outlined, 'Date of Birth', _studentDob),
+              _divider(),
+              _infoRow(Icons.water_drop_outlined, 'Blood Group', _studentBloodGroup),
+              _divider(),
+              _infoRow(Icons.account_balance_rounded, 'Religion', _religion),
+              _divider(),
+              _infoRow(Icons.groups_outlined, 'Caste Group', _casteGroup),
+              _divider(),
+              _infoRow(Icons.public_rounded, 'Nationality', _nationality),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _infoRow(IconData icon, String k, String v) => Padding(
+    padding: EdgeInsets.symmetric(vertical: 4.h),
+    child: Row(
+      children: [
+        Icon(icon, size: 18.sp, color: AppColors.textLight),
+        SizedBox(width: 12.w),
+        Text(k, style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium)),
+        const Spacer(),
+        Text(v, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+      ],
+    ),
+  );
+
+  Widget _divider() => Divider(height: 24.h, color: AppColors.border.withValues(alpha: 0.5));
+
+  Widget _buildHealthProtocolCard(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
+          child: Text('❤️ Health Protocol', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+        ),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20.r),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24.r), 
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _healthItem('MEDICAL NOTES', 'No critical conditions logged'),
+              SizedBox(height: 16.h),
+              _healthItem('ALLERGIES', 'None reported'),
+              SizedBox(height: 16.h),
+              _healthItem('EMERGENCY CONTACT', 'Guardian - $_guardianPhone', color: const Color(0xFFEF4444)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _healthItem(String label, String val, {Color? color}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: AppColors.textLight, letterSpacing: 0.5)),
+      SizedBox(height: 4.h),
+      Text(val, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: color ?? AppColors.textDark)),
+    ],
+  );
+
+  Widget _buildGuardianDetailsCard(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
+          child: Text('👨‍👩‍👧 Guardian Details', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+        ),
+        Container(
+          padding: EdgeInsets.all(20.r),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24.r), 
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              _guardianSection('Father', _fatherName, _guardianPhone),
+              _divider(),
+              _guardianSection('Mother', _motherName, '—'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _guardianSection(String role, String name, String phone) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(role, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w900, color: AppColors.textLight)),
+      SizedBox(height: 12.h),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Name', style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium)),
+          Text(name, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+        ],
+      ),
+      SizedBox(height: 8.h),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('Phone', style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textMedium)),
+          Text(phone, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+        ],
+      ),
+    ],
+  );
+
+  Widget _buildStudentNotificationPreferencesCard(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
+          child: Text('🔔 Notification Preferences', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+        ),
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 10.h),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24.r), 
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            children: [
+              SwitchListTile(
+                value: _pushNotifications,
+                onChanged: _togglePushNotifications,
+                title: Text('Push Notifications', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                subtitle: Text('Receive alerts about attendance & announcements', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textMedium)),
+                activeColor: const Color(0xFF1A6FDB),
+              ),
+              _divider(),
+              SwitchListTile(
+                value: _inAppNotifications,
+                onChanged: _toggleInAppNotifications,
+                title: Text('In-App Notifications', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                subtitle: Text('Show popups and badge counts inside the app', style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textMedium)),
+                activeColor: const Color(0xFF1A6FDB),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNewDocumentsVault(bool isDesktop) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(left: 4.w, bottom: 8.h),
+          child: Text('📁 Documents Asset Vault', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+        ),
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(20.r),
+          decoration: BoxDecoration(
+            color: Colors.white, 
+            borderRadius: BorderRadius.circular(24.r), 
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_uploadedDocuments.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    child: Column(
+                      children: [
+                        Icon(Icons.insert_drive_file_outlined, size: 48.sp, color: AppColors.textLight),
+                        SizedBox(height: 12.h),
+                        Text('No documents uploaded yet', style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textLight)),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _uploadedDocuments.length,
+                  separatorBuilder: (context, idx) => SizedBox(height: 10.h),
+                  itemBuilder: (context, idx) {
+                    final doc = _uploadedDocuments[idx];
+                    final String name = doc['name'] ?? 'Document';
+                    final String date = doc['date'] ?? '—';
+                    final bool isPdf = name.toLowerCase().endsWith('.pdf');
+                    return Container(
+                      padding: EdgeInsets.all(12.r),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(color: const Color(0xFFE2EAF4)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(8.r),
+                            decoration: BoxDecoration(
+                              color: isPdf ? const Color(0xFFFEF2F2) : const Color(0xFFEFF6FF),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isPdf ? Icons.picture_as_pdf_rounded : Icons.image_rounded, 
+                              size: 20.sp, 
+                              color: isPdf ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
+                            ),
+                          ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name, 
+                                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: AppColors.textDark),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                SizedBox(height: 2.h),
+                                Text(
+                                  'Uploaded on: $date', 
+                                  style: GoogleFonts.inter(fontSize: 10.sp, color: AppColors.textLight),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18.sp),
+                            onPressed: () => _removeDocument(idx),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

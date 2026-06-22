@@ -8,16 +8,13 @@ void main() async {
   );
 
   print('Connecting to Supabase...');
-
   try {
-    print('Querying StudentDocument...');
-    final response = await client
-        .from('StudentDocument')
-        .select('*')
-        .limit(5);
-    print('SUCCESS! StudentDocument response: $response');
+    final res = await client.from('AcademicYear').select('*');
+    print('\nAcademic Years:');
+    for (var y in res) {
+      print('  id: ${y['id']}, name: ${y['name']}, isCurrent: ${y['isCurrent']}');
+    }
   } catch (e) {
-    print('Failed: $e');
+    print('Error: $e');
   }
 }
-
