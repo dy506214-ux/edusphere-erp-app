@@ -46,8 +46,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    _startDate = DateTime(now.year, now.month, 1);
-    _endDate = now;
+    final thirtyDaysAgo = now.subtract(const Duration(days: 30));
+    _startDate = DateTime(thirtyDaysAgo.year, thirtyDaysAgo.month, thirtyDaysAgo.day);
+    _endDate = DateTime(now.year, now.month, now.day);
     _loadAttendanceData(showLoading: true);
     _connectRealTime();
   }
@@ -124,20 +125,32 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       _studentIdStr = prefs.getString('student_id') ?? '';
       _studentNameStr = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Test Student';
 
-      if (_studentIdStr.isEmpty) {
-        // Lookup student profile from backend /me
-        final profileRes = await ApiService.instance.get('students/me');
-        if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
-          final studentData = profileRes['student'];
-          _studentIdStr = studentData['id'] as String? ?? '';
-          await prefs.setString('student_id', _studentIdStr);
-          if (studentData['user'] != null) {
-            final u = studentData['user'];
-            _studentNameStr = '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
-            await prefs.setString('student_name', _studentNameStr);
-          }
+        // ALWAYS ensure we have a valid studentId from Supabase directly to prevent bad cached data
+        final email = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
+        if (email.isNotEmpty) {
+          try {
+            final userRes = await Supabase.instance.client
+                .from('User')
+                .select('id, firstName, lastName')
+                .eq('email', email)
+                .maybeSingle();
+            if (userRes != null) {
+              final userId = userRes['id'];
+              _studentNameStr = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
+              await prefs.setString('student_name', _studentNameStr);
+              final studentRes = await Supabase.instance.client
+                  .from('Student')
+                  .select('id')
+                  .eq('userId', userId)
+                  .maybeSingle();
+              if (studentRes != null) {
+                _studentIdStr = studentRes['id'];
+                await prefs.setString('student_id', _studentIdStr);
+              }
+            }
+          } catch (_) {}
         }
-      }
+
 
       if (_studentIdStr.isNotEmpty) {
         bool supabaseSuccess = false;
@@ -153,8 +166,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           int dbAbsent = 0;
           
           _datesInRange.clear();
-          DateTime curr = _startDate;
-          while (!curr.isAfter(_endDate)) {
+          DateTime curr = DateTime(_startDate.year, _startDate.month, _startDate.day);
+          final end = DateTime(_endDate.year, _endDate.month, _endDate.day);
+          while (!curr.isAfter(end)) {
             _datesInRange.add(curr);
             curr = curr.add(const Duration(days: 1));
           }
