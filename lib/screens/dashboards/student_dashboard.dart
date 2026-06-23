@@ -54,7 +54,6 @@ class _StudentDashboardState extends State<StudentDashboard>
   List<dynamic> _upcomingEvents = [];
   bool _upcomingEventsLoaded = false;
 
-  RealtimeChannel? _dashboardChannel;
   Timer? _dashboardPollTimer;
 
   @override
@@ -72,11 +71,6 @@ class _StudentDashboardState extends State<StudentDashboard>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dashboardPollTimer?.cancel();
-    if (_dashboardChannel != null) {
-      try {
-        Supabase.instance.client.removeChannel(_dashboardChannel!);
-      } catch (_) {}
-    }
 
     // Clean up Socket.IO listeners
     try {
@@ -108,96 +102,6 @@ class _StudentDashboardState extends State<StudentDashboard>
   }
 
   void _connectRealTime() {
-    try {
-      final client = Supabase.instance.client;
-      if (_dashboardChannel != null) {
-        client.removeChannel(_dashboardChannel!);
-      }
-
-      _dashboardChannel = client
-          .channel('public:student_dashboard_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'Assignment',
-            callback: (_) {
-              dev.log('⚡ Supabase Postgres change received on Assignment table',
-                  name: 'StudentDashboard');
-              if (mounted) _loadStudentData();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'AssignmentSubmission',
-            callback: (_) {
-              dev.log(
-                  '⚡ Supabase Postgres change received on AssignmentSubmission table',
-                  name: 'StudentDashboard');
-              if (mounted) _loadStudentData();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'AttendanceRecord',
-            callback: (_) {
-              dev.log(
-                  '⚡ Supabase Postgres change received on AttendanceRecord table',
-                  name: 'StudentDashboard');
-              if (mounted) _loadStudentData();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'StudentFeeLedger',
-            callback: (_) {
-              dev.log(
-                  '⚡ Supabase Postgres change received on StudentFeeLedger table',
-                  name: 'StudentDashboard');
-              if (mounted) _loadStudentData();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'LibraryIssue',
-            callback: (_) {
-              dev.log(
-                  '⚡ Supabase Postgres change received on LibraryIssue table',
-                  name: 'StudentDashboard');
-              if (mounted) _loadStudentData();
-            },
-          )
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'SchoolCalendar',
-            callback: (_) {
-              dev.log(
-                  '⚡ Supabase Postgres change received on SchoolCalendar table',
-                  name: 'StudentDashboard');
-              if (mounted) {
-                _loadCalendarEvents();
-                _loadUpcomingEvents();
-              }
-            },
-          );
-
-      _dashboardChannel!.subscribe((status, [error]) {
-        dev.log(
-            '📡 Supabase Realtime Student Dashboard channel status: $status',
-            name: 'StudentDashboard');
-        if (error != null) {
-          dev.log(
-              '❌ Supabase Realtime Student Dashboard subscription error: $error',
-              name: 'StudentDashboard');
-        }
-      });
-    } catch (e) {
-      dev.log('Error connecting realtime in dashboard: $e');
-    }
 
     // Connect Socket.IO events
     try {
@@ -251,104 +155,71 @@ class _StudentDashboardState extends State<StudentDashboard>
       }
     });
 
-    // ── 1. Fetch full student profile from backend ─────────────────────────
+    String studentId = prefs.getString('student_id') ?? '';
+
+    // ── 1. Fetch full student profile from REST API ──
     try {
-      final res = await ApiService.instance.get('students/me');
-      if (res['success'] == true && res['student'] != null) {
-        final s = res['student'] as Map<String, dynamic>;
-        final u = s['user'] as Map? ?? {};
-        final cls = s['currentClass'] as Map? ?? {};
-        final sec = s['section'] as Map? ?? {};
+        final res = await ApiService.instance.get('students/me');
+        if (res['success'] == true && res['student'] != null) {
+          final s = res['student'] as Map<String, dynamic>;
+          final u = s['user'] as Map? ?? {};
+          final cls = s['currentClass'] as Map? ?? {};
+          final sec = s['section'] as Map? ?? {};
 
-        final fName = u['firstName'] as String? ?? '';
-        final lName = u['lastName'] as String? ?? '';
-        final fullName = '$fName $lName'.trim();
-        final studentId = s['id'] as String? ?? '';
+          final fName = u['firstName'] as String? ?? '';
+          final lName = u['lastName'] as String? ?? '';
+          final fullName = '$fName $lName'.trim();
+          studentId = s['id'] as String? ?? '';
 
-        // Persist student_id for other screens
-        await prefs.setString('student_id', studentId);
+          await prefs.setString('student_id', studentId);
 
-        // Parent data
-        String parentName = '—';
-        String parentPhone = '—';
-        final parents = s['parents'] as List? ?? [];
-        if (parents.isNotEmpty) {
-          final parentMap =
-              (parents.first as Map? ?? {})['parent'] as Map? ?? {};
-          parentName =
-              '${parentMap['firstName'] ?? ''} ${parentMap['lastName'] ?? ''}'
-                  .trim();
-          parentPhone = parentMap['phone'] as String? ?? '—';
-        }
-
-        if (!mounted) return;
-        setState(() {
-          studentName = fullName.isNotEmpty ? fullName : savedName;
-          studentEmail = u['email'] as String? ?? savedEmail;
-          studentPhone = u['phone'] as String? ?? '—';
-          className = cls['name'] as String? ?? className;
-          sectionName = sec['name'] as String? ?? sectionName;
-          rollNo = s['rollNumber']?.toString() ?? rollNo;
-          admissionNo = s['admissionNumber'] as String? ?? admissionNo;
-          fatherName = parentName;
-          familyPhone = parentPhone;
-          final rawDob = u['dateOfBirth'];
-          if (rawDob != null) dob = rawDob.toString().split('T')[0];
-          gender = u['gender']?.toString() ?? '—';
-          address = u['address'] as String? ?? '—';
-        });
-
-        // ── 2. Attendance % (current month) ───────────────────────────────
-        try {
-          final now = DateTime.now();
-          final monthStart =
-              '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
-
-          bool apiLoaded = false;
-          try {
-            final attRes = await ApiService.instance.get(
-              'students/$studentId/attendance',
-              queryParams: {'startDate': monthStart},
-            );
-
-            if (attRes['success'] == true) {
-              final stats = attRes['stats'] as Map? ?? {};
-              final pct = (stats['percentage'] ?? 0) as num;
-              if (mounted) {
-                setState(() {
-                  attendanceRate = pct.toDouble();
-                  _attendanceLoaded = true;
-                });
-              }
-              apiLoaded = true;
-            }
-          } catch (e) {
-            dev.log('Error loading attendance from API: $e');
+          String parentName = '—';
+          String parentPhone = '—';
+          final parents = s['parents'] as List? ?? [];
+          if (parents.isNotEmpty) {
+            final parentMap = (parents.first as Map? ?? {})['parent'] as Map? ?? {};
+            parentName = '${parentMap['firstName'] ?? ''} ${parentMap['lastName'] ?? ''}'.trim();
+            parentPhone = parentMap['phone'] as String? ?? '—';
           }
 
-          if (!apiLoaded) {
-            // Fallback to Supabase
-            List<dynamic> records = [];
-            try {
-              records = await Supabase.instance.client
-                  .from('AttendanceRecord')
-                  .select()
-                  .eq('studentId', studentId)
-                  .gte('date', monthStart)
-                  .order('date', ascending: false);
-            } catch (e) {
-              dev.log('Fallback attendance fetch failed: $e');
-            }
+          if (mounted) {
+            setState(() {
+              studentName = fullName.isNotEmpty ? fullName : savedName;
+              studentEmail = u['email'] as String? ?? savedEmail;
+              studentPhone = u['phone'] as String? ?? '—';
+              className = cls['name'] as String? ?? className;
+              sectionName = sec['name'] as String? ?? sectionName;
+              rollNo = s['rollNumber']?.toString() ?? rollNo;
+              admissionNo = s['admissionNumber'] as String? ?? admissionNo;
+              fatherName = parentName;
+              familyPhone = parentPhone;
+              final rawDob = u['dateOfBirth'];
+              if (rawDob != null) dob = rawDob.toString().split('T')[0];
+              gender = u['gender']?.toString() ?? '—';
+              address = u['address'] as String? ?? '—';
+            });
+          }
+          dev.log('✅ Loaded student dashboard profile from REST API fallback.');
+        }
 
-            double pct = 0.0;
-            if (records.isNotEmpty) {
-              final presentOrLate = records.where((r) {
-                final status = r['status']?.toString().toUpperCase();
-                return status == 'PRESENT' || status == 'LATE';
-              }).length;
-              pct = (presentOrLate / records.length) * 100.0;
+      if (studentId.isNotEmpty) {
+        // ── 2. Attendance % ──
+        try {
+          final attRes = await ApiService.instance.get('students/$studentId/attendance');
+          if (attRes['success'] == true) {
+            final List<dynamic> list = attRes['attendance'] ?? [];
+            int presentCount = 0;
+            int absentCount = 0;
+            for (final record in list) {
+              final status = (record['status'] as String? ?? '').toUpperCase();
+              if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'HALF_DAY') {
+                presentCount++;
+              } else if (status == 'ABSENT' || status == 'A') {
+                absentCount++;
+              }
             }
-
+            final totalClasses = presentCount + absentCount;
+            final double pct = totalClasses > 0 ? (presentCount / totalClasses) * 100.0 : 100.0;
             if (mounted) {
               setState(() {
                 attendanceRate = pct;
@@ -357,7 +228,7 @@ class _StudentDashboardState extends State<StudentDashboard>
             }
           }
         } catch (e) {
-          dev.log('Error loading attendance: $e');
+          dev.log('Error loading attendance from API: $e');
           if (mounted) {
             setState(() {
               attendanceRate = 0.0;
@@ -384,15 +255,12 @@ class _StudentDashboardState extends State<StudentDashboard>
           dev.log('Error loading assignments from API: $e');
         }
 
-        // ── 4. Pending Fees ────────────────────────────────────────────────
+        // ── 4. Pending Fees ──
         try {
-          final feeRes =
-              await ApiService.instance.get('fees/students/me/status');
+          final feeRes = await ApiService.instance.get('fees/students/me/status');
           if (feeRes['success'] == true) {
             final summary = feeRes['summary'] as Map? ?? feeRes;
-            final outstanding = (summary['totalOutstanding'] ??
-                summary['totalPending'] ??
-                0) as num;
+            final outstanding = (summary['totalOutstanding'] ?? summary['totalPending'] ?? 0) as num;
             if (mounted) {
               setState(() {
                 pendingFee = outstanding.toInt().clamp(0, 999999);
@@ -403,7 +271,7 @@ class _StudentDashboardState extends State<StudentDashboard>
           dev.log('Error loading fees from API: $e');
         }
 
-        // ── 5. Books Due ───────────────────────────────────────────────────
+        // ── 5. Books Due ──
         try {
           final libRes = await ApiService.instance.get(
             'library/issues',
@@ -427,7 +295,6 @@ class _StudentDashboardState extends State<StudentDashboard>
       }
     } catch (e) {
       dev.log('Error loading student data from backend API: $e');
-      // Fallback: load from SharedPreferences only
       if (mounted) {
         setState(() {
           _attendanceLoaded = true;
