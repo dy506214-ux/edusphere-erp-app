@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer' as dev;
+import 'package:edusphere/theme/typography.dart';
 
 class ClassReviewScreen extends StatefulWidget {
   final String examId;
@@ -54,7 +55,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
             .maybeSingle();
         if (res != null && mounted) {
           setState(() {
-            _teacherFirstName = (res['firstName'] as String? ?? 'KARAN').toUpperCase();
+            _teacherFirstName =
+                (res['firstName'] as String? ?? 'KARAN').toUpperCase();
           });
         }
       }
@@ -79,11 +81,9 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       final classId = examRes['classId'];
 
       // 2. Fetch Subjects for the class
-      final subjectsRes = await client
-          .from('Subject')
-          .select('*')
-          .eq('classId', classId);
-      
+      final subjectsRes =
+          await client.from('Subject').select('*').eq('classId', classId);
+
       _subjects = List<Map<String, dynamic>>.from(subjectsRes);
 
       // 3. Fetch Students for the class
@@ -98,10 +98,14 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       // Sort alphabetically by Student Name
       _students.sort((a, b) {
         final userA = a['User'] as Map?;
-        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         final userB = b['User'] as Map?;
-        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         return nameA.compareTo(nameB);
       });
@@ -120,7 +124,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
             .from('ExamMark')
             .select('*, ExamResult!inner(id, examId)')
             .eq('ExamResult.examId', widget.examId);
-        
+
         _examMarks = List<Map<String, dynamic>>.from(marksRes);
       } else {
         _examMarks = [];
@@ -142,9 +146,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       final client = Supabase.instance.client;
       await client
           .from('Exam')
-          .update({'status': 'PENDING'})
-          .eq('id', widget.examId);
-          
+          .update({'status': 'PENDING'}).eq('id', widget.examId);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
           content: Text('Exam submitted for approval successfully!'),
@@ -182,7 +185,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
   String getSubjectHeader(Map<String, dynamic> subject) {
     final code = subject['code']?.toString().toUpperCase() ?? '';
     if (code.isNotEmpty) return code;
-    
+
     final name = subject['name'] as String? ?? '';
     final abbreviated = abbreviateSubject(name).toUpperCase();
     final className = _examData?['Class']?['name']?.toString() ?? '';
@@ -225,7 +228,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
     String className = 'Grade 8';
     String ayName = '2024-2025';
     if (_examData != null) {
-      className = (_examData!['Class']?['name']?.toString() ?? 'Class').replaceAll('Class', 'Grade');
+      className = (_examData!['Class']?['name']?.toString() ?? 'Class')
+          .replaceAll('Class', 'Grade');
       ayName = _examData!['AcademicYear']?['name']?.toString() ?? '2024-2025';
     }
 
@@ -239,12 +243,14 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF1F5F9),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF2563EB)))
           : Stack(
               children: [
                 Positioned.fill(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,15 +269,14 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.arrow_back_rounded, size: 20.sp, color: const Color(0xFF475569)),
+                                    Icon(Icons.arrow_back_rounded,
+                                        size: 20.sp,
+                                        color: const Color(0xFF475569)),
                                     SizedBox(width: 8.w),
                                     Text(
                                       'Back to Exam',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF475569),
-                                      ),
+                                      style: AppTypography.small.copyWith(
+                                          color: const Color(0xFF475569)),
                                     ),
                                   ],
                                 ),
@@ -283,36 +288,40 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                                   OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(
                                       backgroundColor: Colors.white,
-                                      side: const BorderSide(color: Color(0xFFE2E8F0)),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                                      side: const BorderSide(
+                                          color: Color(0xFFE2E8F0)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8.r)),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w, vertical: 10.h),
                                     ),
-                                    icon: Icon(Icons.description_outlined, size: 16.sp, color: const Color(0xFF475569)),
+                                    icon: Icon(Icons.description_outlined,
+                                        size: 16.sp,
+                                        color: const Color(0xFF475569)),
                                     label: Text(
                                       'Generate',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF475569),
-                                      ),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF475569)),
                                     ),
                                     onPressed: () {},
                                   ),
                                   ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF2563EB),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(8.r)),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16.w, vertical: 10.h),
                                       elevation: 0,
                                     ),
-                                    icon: Icon(Icons.send_rounded, size: 16.sp, color: Colors.white),
+                                    icon: Icon(Icons.send_rounded,
+                                        size: 16.sp, color: Colors.white),
                                     label: Text(
                                       'Submit for Approval',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
+                                      style: AppTypography.caption
+                                          .copyWith(color: Colors.white),
                                     ),
                                     onPressed: _submitForApproval,
                                   ),
@@ -330,7 +339,13 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                             children: [
                               Expanded(
                                 flex: 3,
-                                child: _buildClassReviewCard(className, ayName, totalStudents, passedCount, failedCount, generatedRc),
+                                child: _buildClassReviewCard(
+                                    className,
+                                    ayName,
+                                    totalStudents,
+                                    passedCount,
+                                    failedCount,
+                                    generatedRc),
                               ),
                               SizedBox(width: 16.w),
                               Expanded(
@@ -342,7 +357,13 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                         else
                           Column(
                             children: [
-                              _buildClassReviewCard(className, ayName, totalStudents, passedCount, failedCount, generatedRc),
+                              _buildClassReviewCard(
+                                  className,
+                                  ayName,
+                                  totalStudents,
+                                  passedCount,
+                                  failedCount,
+                                  generatedRc),
                               SizedBox(height: 16.h),
                               _buildSubjectProgressCard(),
                             ],
@@ -394,11 +415,13 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                               padding: EdgeInsets.all(16.r),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(16.r)),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.assistant, color: Colors.white, size: 20.sp),
+                                  Icon(Icons.assistant,
+                                      color: Colors.white, size: 20.sp),
                                   SizedBox(width: 8.w),
                                   Text(
                                     'EduSphere Assistant',
@@ -411,7 +434,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                                   const Spacer(),
                                   GestureDetector(
                                     onTap: _toggleChat,
-                                    child: Icon(Icons.close, color: Colors.white, size: 20.sp),
+                                    child: Icon(Icons.close,
+                                        color: Colors.white, size: 20.sp),
                                   ),
                                 ],
                               ),
@@ -437,7 +461,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                     bottom: 80.h,
                     right: 16.w,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 12.h),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.only(
@@ -459,21 +484,15 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                         children: [
                           Text(
                             'HI $_teacherFirstName!',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF0F172A),
+                                letterSpacing: 0.5),
                           ),
                           Text(
                             'HOW CAN I\nHELP?',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF2563EB),
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF2563EB),
+                                letterSpacing: 0.5),
                           ),
                         ],
                       ),
@@ -484,7 +503,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'class_review_chatbot_fab',
         backgroundColor: const Color(0xFF0284C7),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
         onPressed: _toggleChat,
         child: Icon(
           _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
@@ -523,19 +543,18 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
           SizedBox(height: 2.h),
           Text(
             '$className • $ayName',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 24.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildStatBlock('Total Students', '$total'),
-              _buildStatBlock('Passed', '$passed', valueColor: const Color(0xFF16A34A)),
-              _buildStatBlock('Failed', '$failed', valueColor: const Color(0xFFDC2626)),
+              _buildStatBlock('Passed', '$passed',
+                  valueColor: const Color(0xFF16A34A)),
+              _buildStatBlock('Failed', '$failed',
+                  valueColor: const Color(0xFFDC2626)),
               _buildStatBlock('Generated RC', '$generatedRc'),
             ],
           ),
@@ -550,11 +569,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF64748B),
-          ),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
         ),
         SizedBox(height: 8.h),
         Text(
@@ -592,10 +607,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
           if (_subjects.isEmpty)
             Text(
               'No subjects available',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                color: const Color(0xFF64748B),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B)),
             )
           else
             Column(
@@ -631,11 +644,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
         children: [
           Text(
             name,
-            style: GoogleFonts.inter(
-              fontSize: 13.sp,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF1E293B),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF1E293B)),
           ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
@@ -646,11 +656,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
             ),
             child: Text(
               progress,
-              style: GoogleFonts.inter(
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF15803D),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF15803D)),
             ),
           ),
         ],
@@ -692,10 +699,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                     SizedBox(height: 2.h),
                     Text(
                       'Full subject-wise breakdown for all students',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        color: const Color(0xFF64748B),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -737,11 +742,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
         SizedBox(width: 6.w),
         Text(
           text,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFF64748B),
-          ),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
         ),
       ],
     );
@@ -755,7 +756,9 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       decoration: BoxDecoration(
         border: Border(
-          bottom: hasBottomBorder ? const BorderSide(color: Color(0xFFE2E8F0)) : BorderSide.none,
+          bottom: hasBottomBorder
+              ? const BorderSide(color: Color(0xFFE2E8F0))
+              : BorderSide.none,
         ),
       ),
       child: child,
@@ -844,22 +847,16 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               _headerCell(
                 Text(
                   '#',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 rankWidth,
               ),
               _headerCell(
                 Text(
                   'Student',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 studentWidth,
               ),
@@ -867,11 +864,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                 return _headerCell(
                   Text(
                     getSubjectHeader(s),
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF64748B),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                   subjectWidth,
                 );
@@ -879,44 +873,32 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               _headerCell(
                 Text(
                   'Total',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 totalWidth,
               ),
               _headerCell(
                 Text(
                   '%',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 pctWidth,
               ),
               _headerCell(
                 Text(
                   'Result',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 resultWidth,
               ),
               _headerCell(
                 Text(
                   'RC Status',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 rcStatusWidth,
               ),
@@ -931,7 +913,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               child: Center(
                 child: Text(
                   'No active students in this class.',
-                  style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
               ),
             )
@@ -958,15 +941,21 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               final isSelected = _selectedStudentIds.contains(studentId);
 
               final rank = computedRanks[studentId]?.toString() ?? '-';
-              final pctDouble = res.isNotEmpty ? (res['percentage'] as num? ?? 0.0).toDouble() : null;
-              final totalObtained = res.isNotEmpty ? (res['obtainedMarks']?.toString() ?? '0') : '0';
-              
+              final pctDouble = res.isNotEmpty
+                  ? (res['percentage'] as num? ?? 0.0).toDouble()
+                  : null;
+              final totalObtained = res.isNotEmpty
+                  ? (res['obtainedMarks']?.toString() ?? '0')
+                  : '0';
+
               final String resultText = res.isNotEmpty
                   ? (res['result']?.toString() ?? 'FAIL')
                   : 'FAIL';
 
               final studentMarks = res.isNotEmpty
-                  ? _examMarks.where((m) => m['examResultId'] == res['id']).toList()
+                  ? _examMarks
+                      .where((m) => m['examResultId'] == res['id'])
+                      .toList()
                   : [];
 
               final isRcPublished = res.isNotEmpty &&
@@ -994,11 +983,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   _tableCell(
                     Text(
                       rank,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                     rankWidth,
                     hasBottomBorder: !isLast,
@@ -1006,11 +992,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   _tableCell(
                     Text(
                       studentName,
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1020,26 +1003,28 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   ...activeSubjects.map((s) {
                     final name = s['name'] as String;
                     final mark = studentMarks.firstWhere(
-                      (m) => m['subjectName'].toString().toLowerCase() == name.toLowerCase(),
+                      (m) =>
+                          m['subjectName'].toString().toLowerCase() ==
+                          name.toLowerCase(),
                       orElse: () => <String, dynamic>{},
                     );
                     final isMarkAbsent = mark.isNotEmpty &&
                         (mark['isAbsent'] == true ||
-                            mark['isAbsent'].toString().toLowerCase() == 'true');
+                            mark['isAbsent'].toString().toLowerCase() ==
+                                'true');
                     final displayMark = mark.isNotEmpty
-                        ? (isMarkAbsent ? 'AB' : mark['obtainedMarks']?.toString() ?? '0')
+                        ? (isMarkAbsent
+                            ? 'AB'
+                            : mark['obtainedMarks']?.toString() ?? '0')
                         : '0';
 
                     return _tableCell(
                       Text(
                         displayMark,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          color: isMarkAbsent
-                              ? const Color(0xFFEF4444)
-                              : const Color(0xFF334155),
-                        ),
+                        style: AppTypography.caption.copyWith(
+                            color: isMarkAbsent
+                                ? const Color(0xFFEF4444)
+                                : const Color(0xFF334155)),
                       ),
                       subjectWidth,
                       hasBottomBorder: !isLast,
@@ -1048,11 +1033,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   _tableCell(
                     Text(
                       totalObtained,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                     totalWidth,
                     hasBottomBorder: !isLast,
@@ -1060,18 +1042,16 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   _tableCell(
                     Text(
                       pctDouble != null ? '${pctDouble.round()}%' : '0%',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF334155),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF334155)),
                     ),
                     pctWidth,
                     hasBottomBorder: !isLast,
                   ),
                   _tableCell(
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: resultText == 'PASS'
                             ? const Color(0xFFDCFCE7)
@@ -1080,13 +1060,10 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                       ),
                       child: Text(
                         resultText,
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w800,
-                          color: resultText == 'PASS'
-                              ? const Color(0xFF15803D)
-                              : const Color(0xFFB91C1C),
-                        ),
+                        style: AppTypography.caption.copyWith(
+                            color: resultText == 'PASS'
+                                ? const Color(0xFF15803D)
+                                : const Color(0xFFB91C1C)),
                       ),
                     ),
                     resultWidth,
@@ -1097,7 +1074,8 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color: isRcPublished
                                 ? const Color(0xFFDCFCE7)
@@ -1106,13 +1084,10 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                           ),
                           child: Text(
                             isRcPublished ? 'Published' : 'Pending',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: isRcPublished
-                                  ? const Color(0xFF15803D)
-                                  : const Color(0xFF475569),
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: isRcPublished
+                                    ? const Color(0xFF15803D)
+                                    : const Color(0xFF475569)),
                           ),
                         ),
                         IconButton(

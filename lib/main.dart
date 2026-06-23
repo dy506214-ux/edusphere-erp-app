@@ -22,7 +22,7 @@ class MyHttpOverrides extends HttpOverrides {
 void main() async {
   HttpOverrides.global = MyHttpOverrides();
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Supabase.initialize(
     url: SupabaseConfig.supabaseUrl,
     anonKey: SupabaseConfig.supabaseAnonKey,
@@ -32,7 +32,8 @@ void main() async {
   debugPrint('🚀 [APP STARTUP] Current Base URL: ${ApiConfig.serverBaseUrl}');
   debugPrint('🚀 [APP STARTUP] Current Environment: Production');
   debugPrint('🚀 [APP STARTUP] Current API Endpoint: ${ApiConfig.apiUrl}');
-  debugPrint('🚀 [APP STARTUP] Current Supabase URL: ${SupabaseConfig.supabaseUrl}');
+  debugPrint(
+      '🚀 [APP STARTUP] Current Supabase URL: ${SupabaseConfig.supabaseUrl}');
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Quiz list — reads published quizzes, filters by student class, polls every 3s
@@ -147,14 +148,12 @@ class _QuizScreenState extends State<QuizScreen> {
             Icon(Icons.quiz_rounded, size: 64.sp, color: AppColors.textLight),
             SizedBox(height: 16.h),
             Text('No quizzes yet',
-                style: GoogleFonts.inter(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMedium)),
+                style: AppTypography.bodyLarge
+                    .copyWith(color: AppColors.textMedium)),
             SizedBox(height: 8.h),
             Text('Your teacher will publish quizzes here',
-                style: GoogleFonts.inter(
-                    fontSize: 13.sp, color: AppColors.textLight)),
+                style:
+                    AppTypography.caption.copyWith(color: AppColors.textLight)),
           ]),
         ),
       ]);
@@ -202,10 +201,7 @@ class _QuizCard extends StatelessWidget {
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Expanded(
             child: Text(title,
-                style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                    fontSize: 15.sp)),
+                style: AppTypography.small.copyWith(color: AppColors.textDark)),
           ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
@@ -215,17 +211,14 @@ class _QuizCard extends StatelessWidget {
             ),
             child: Text(
               isDone ? '✅ Done' : '🔴 Live',
-              style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
+              style: AppTypography.caption.copyWith(
                   color: isDone ? const Color(0xFF10B981) : Colors.red),
             ),
           ),
         ]),
         SizedBox(height: 6.h),
         Text(subject,
-            style: GoogleFonts.inter(
-                fontSize: 12.sp, color: AppColors.textMedium)),
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
         SizedBox(height: 10.h),
 
         // Info chips
@@ -250,10 +243,8 @@ class _QuizCard extends StatelessWidget {
               SizedBox(width: 8.w),
               Text(
                 'Your Score: ${attempt!['score']}/${attempt!['total']}  •  ${attempt!['pct']}%',
-                style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF10B981)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF10B981)),
               ),
             ]),
           ),
@@ -299,10 +290,7 @@ class _QuizCard extends StatelessWidget {
             color: AppColors.background,
             borderRadius: BorderRadius.circular(8.r)),
         child: Text(t,
-            style: GoogleFonts.inter(
-                fontSize: 11.sp,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textMedium)),
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
       );
 }
 
@@ -400,7 +388,7 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
       };
 
       final prefs = await SharedPreferences.getInstance();
-      
+
       // Save for student
       final raw = prefs.getString('quiz_attempts') ?? '{}';
       final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
@@ -408,7 +396,9 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
       await prefs.setString('quiz_attempts', jsonEncode(map));
 
       // Save global submission for teacher
-      final studentName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Alex Rivera';
+      final studentName = prefs.getString('student_name') ??
+          prefs.getString('user_name') ??
+          'Alex Rivera';
       final studentClass = prefs.getString('student_class') ?? 'Grade 12';
       final studentSection = prefs.getString('student_section') ?? 'A';
 
@@ -471,10 +461,8 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title.toUpperCase(),
-                          style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF64748B)),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF64748B)),
                           overflow: TextOverflow.ellipsis),
                       Text('Question ${_current + 1} / ${_questions.length}',
                           style: GoogleFonts.inter(
@@ -531,11 +519,8 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                     borderRadius: BorderRadius.circular(24.r),
                   ),
                   child: Text(q['q'] as String,
-                      style: GoogleFonts.inter(
-                          fontSize: 17.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                          height: 1.5)),
+                      style: AppTypography.tableHeader
+                          .copyWith(color: Colors.white, height: 1.5)),
                 ),
                 SizedBox(height: 20.h),
                 Expanded(
@@ -574,18 +559,14 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                               ),
                               child: Center(
                                 child: Text(String.fromCharCode(65 + i),
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12.sp,
-                                        fontWeight: FontWeight.w900,
-                                        color: Colors.white)),
+                                    style: AppTypography.caption
+                                        .copyWith(color: Colors.white)),
                               ),
                             ),
                             SizedBox(width: 14.w),
                             Expanded(
                               child: Text(opts[i],
-                                  style: GoogleFonts.inter(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
+                                  style: AppTypography.small.copyWith(
                                       color: isSel
                                           ? Colors.white
                                           : const Color(0xFF94A3B8))),
@@ -703,13 +684,9 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text('$_score/$total',
-                        style: GoogleFonts.inter(
-                            fontSize: 26.sp,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white)),
+                        style: AppTypography.h3.copyWith(color: Colors.white)),
                     Text('$pct%',
-                        style: GoogleFonts.inter(
-                            fontSize: 14.sp,
+                        style: AppTypography.small.copyWith(
                             color: Colors.white.withValues(alpha: 0.8))),
                   ],
                 ),
@@ -718,14 +695,11 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
             SizedBox(height: 20.h),
 
             Text('$emoji $message',
-                style: GoogleFonts.inter(
-                    fontSize: 24.sp,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark)),
+                style: AppTypography.h3.copyWith(color: AppColors.textDark)),
             SizedBox(height: 6.h),
             Text('$title — Result',
-                style: GoogleFonts.inter(
-                    fontSize: 14.sp, color: AppColors.textMedium),
+                style:
+                    AppTypography.small.copyWith(color: AppColors.textMedium),
                 textAlign: TextAlign.center),
             SizedBox(height: 28.h),
 
@@ -777,44 +751,32 @@ class _QuizAttemptScreenState extends State<_QuizAttemptScreen> {
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Text('Q${qi + 1}',
-                            style: GoogleFonts.inter(
-                                fontSize: 10.sp,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white)),
+                            style: AppTypography.caption
+                                .copyWith(color: Colors.white)),
                       ),
                       SizedBox(width: 8.w),
                       Expanded(
                         child: Text(q['q'] as String,
-                            style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textDark)),
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textDark)),
                       ),
                     ]),
                     SizedBox(height: 8.h),
                     if (wasSkipped)
                       Text('⚠️ Skipped — Correct: ${opts[correctIdx]}',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.warning))
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.warning))
                     else if (isCorrect)
                       Text('✅ Correct: ${opts[correctIdx]}',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF10B981)))
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF10B981)))
                     else ...[
                       Text('❌ Your answer: ${opts[studentIdx]}',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.red)),
+                          style: AppTypography.caption
+                              .copyWith(color: Colors.red)),
                       Text('✅ Correct: ${opts[correctIdx]}',
-                          style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF10B981))),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF10B981))),
                     ],
                   ],
                 ),

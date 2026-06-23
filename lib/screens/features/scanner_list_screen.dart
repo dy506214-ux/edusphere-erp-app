@@ -7,6 +7,7 @@ import '../../widgets/common_widgets.dart';
 import 'prepare_scan_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ScannerListScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -96,9 +97,10 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
-      appBar: widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-
+      bottomNavigationBar:
+          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
       backgroundColor: AppColors.background,
       body: Column(
         children: [
@@ -223,7 +225,9 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                             width: 8.w,
                             height: 8.h,
                             decoration: BoxDecoration(
-                              color: isActive ? AppColors.success : AppColors.error,
+                              color: isActive
+                                  ? AppColors.success
+                                  : AppColors.error,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -243,41 +247,34 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                         children: [
                           // Type Badge
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 3.h),
                             decoration: BoxDecoration(
                               color: typeColor.withValues(alpha: 0.08),
                               borderRadius: BorderRadius.circular(6.r),
                             ),
                             child: Text(
                               type.toUpperCase(),
-                              style: GoogleFonts.inter(
-                                fontSize: 8.sp,
-                                fontWeight: FontWeight.w900,
-                                color: typeColor,
-                                letterSpacing: 0.5,
-                              ),
+                              style: AppTypography.caption.copyWith(
+                                  color: typeColor, letterSpacing: 0.5),
                             ),
                           ),
                           SizedBox(width: 8.w),
                           // Active status tag text
                           Text(
                             isActive ? 'Active' : 'Inactive',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: isActive ? AppColors.success : AppColors.error,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: isActive
+                                    ? AppColors.success
+                                    : AppColors.error),
                           ),
                         ],
                       ),
                       SizedBox(height: 6.h),
                       Text(
                         name,
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textDark,
-                        ),
+                        style: AppTypography.small
+                            .copyWith(color: AppColors.textDark),
                       ),
                       SizedBox(height: 3.h),
                       Row(
@@ -291,11 +288,8 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                           Expanded(
                             child: Text(
                               location,
-                              style: GoogleFonts.inter(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textMedium,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textMedium),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -309,7 +303,8 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
 
                 // Scans count today
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                   decoration: BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.circular(12.r),
@@ -319,19 +314,13 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                     children: [
                       Text(
                         todayScans.toString(),
-                        style: GoogleFonts.inter(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w900,
-                          color: widget.theme.primary,
-                        ),
+                        style: AppTypography.body
+                            .copyWith(color: widget.theme.primary),
                       ),
                       Text(
                         'scans today',
-                        style: GoogleFonts.inter(
-                          fontSize: 8.sp,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textLight,
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: AppColors.textLight),
                       ),
                     ],
                   ),
@@ -366,21 +355,13 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
             SizedBox(height: 16.h),
             Text(
               'No Scanners Found',
-              style: GoogleFonts.inter(
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w800,
-                color: AppColors.textDark,
-              ),
+              style: AppTypography.body.copyWith(color: AppColors.textDark),
             ),
             SizedBox(height: 8.h),
             Text(
               'No active checkpoints have been configured in the school system yet.',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textMedium,
-                height: 1.5,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textMedium, height: 1.5),
               textAlign: TextAlign.center,
             ),
           ],

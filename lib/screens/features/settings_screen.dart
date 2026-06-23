@@ -8,6 +8,7 @@ import '../../widgets/common_widgets.dart';
 import '../welcome_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String role;
@@ -27,7 +28,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isLoading = true;
-  
+
   // Profile details
   String _name = '';
   String _email = '';
@@ -60,12 +61,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _address = prefs.getString('student_address') ?? '';
       } else if (isTeacher) {
         _name = prefs.getString('teacher_name') ?? 'Emma Johnson';
-        _email = prefs.getString('teacher_email') ?? 'emma.johnson@edusphere.com';
+        _email =
+            prefs.getString('teacher_email') ?? 'emma.johnson@edusphere.com';
         _phone = prefs.getString('teacher_mobile') ?? '';
         _address = prefs.getString('teacher_address') ?? '';
       } else {
         _name = prefs.getString('${widget.role}_name') ?? 'User Name';
-        _email = prefs.getString('${widget.role}_email') ?? 'user@edusphere.com';
+        _email =
+            prefs.getString('${widget.role}_email') ?? 'user@edusphere.com';
         _phone = prefs.getString('${widget.role}_phone') ?? '';
         _address = prefs.getString('${widget.role}_address') ?? '';
       }
@@ -74,7 +77,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
       _darkModeEnabled = prefs.getBool('dark_mode') ?? false;
       _selectedLanguage = prefs.getString('app_language') ?? 'English';
-
     } catch (e) {
       debugPrint('Error loading settings states: $e');
     } finally {
@@ -84,7 +86,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _saveProfileEdits(String newName, String newPhone, String newAddress) async {
+  Future<void> _saveProfileEdits(
+      String newName, String newPhone, String newAddress) async {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -93,14 +96,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       // 1. Sync database values to students/teachers Supabase tables
       final String tableName = isStudent ? 'students' : 'teachers';
-      
-      await Supabase.instance.client
-          .from(tableName)
-          .update({
-            'name': newName,
-            'phone': newPhone,
-          })
-          .eq('email', _email);
+
+      await Supabase.instance.client.from(tableName).update({
+        'name': newName,
+        'phone': newPhone,
+      }).eq('email', _email);
 
       // 2. Sync values locally in SharedPreferences
       if (isStudent) {
@@ -126,7 +126,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       debugPrint('Error updating profile in settings: $e');
       if (mounted) {
-        showToast(context, 'Failed to update profile. Please try again.', isError: true);
+        showToast(context, 'Failed to update profile. Please try again.',
+            isError: true);
       }
     } finally {
       if (mounted) {
@@ -173,7 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
         ),
-        padding: EdgeInsets.fromLTRB(24.r, 20.r, 24.r, MediaQuery.of(context).viewInsets.bottom + 24.r),
+        padding: EdgeInsets.fromLTRB(
+            24.r, 20.r, 24.r, MediaQuery.of(context).viewInsets.bottom + 24.r),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -192,21 +194,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
               SizedBox(height: 24.h),
               Text(
                 'Edit Settings Profile',
-                style: GoogleFonts.inter(
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.textDark,
-                ),
+                style:
+                    AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
               ),
               SizedBox(height: 20.h),
-              
-              _buildEditTextField('Full Name', nameCtrl, Icons.person_outline_rounded),
+              _buildEditTextField(
+                  'Full Name', nameCtrl, Icons.person_outline_rounded),
               SizedBox(height: 16.h),
-              _buildEditTextField('Phone Number', phoneCtrl, Icons.phone_outlined, keyboardType: TextInputType.phone),
+              _buildEditTextField(
+                  'Phone Number', phoneCtrl, Icons.phone_outlined,
+                  keyboardType: TextInputType.phone),
               SizedBox(height: 16.h),
-              _buildEditTextField('Permanent Address', addressCtrl, Icons.location_on_outlined, maxLines: 3),
+              _buildEditTextField(
+                  'Permanent Address', addressCtrl, Icons.location_on_outlined,
+                  maxLines: 3),
               SizedBox(height: 28.h),
-              
               SizedBox(
                 width: double.infinity,
                 child: LoadingButton(
@@ -231,10 +233,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildEditTextField(
-    String label, 
-    TextEditingController ctrl, 
+    String label,
+    TextEditingController ctrl,
     IconData icon, {
-    int maxLines = 1, 
+    int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Column(
@@ -242,22 +244,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textMedium,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textMedium),
         ),
         SizedBox(height: 6.h),
         TextFormField(
           controller: ctrl,
           maxLines: maxLines,
           keyboardType: keyboardType,
-          style: GoogleFonts.inter(
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textDark,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textDark),
           decoration: InputDecoration(
             filled: true,
             fillColor: AppColors.background,
@@ -277,7 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentPasswordCtrl = TextEditingController();
     final newPasswordCtrl = TextEditingController();
     final confirmPasswordCtrl = TextEditingController();
-    
+
     bool showCurrent = false;
     bool showNew = false;
     bool showConfirm = false;
@@ -292,7 +286,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(30.r)),
           ),
-          padding: EdgeInsets.fromLTRB(24.r, 20.r, 24.r, MediaQuery.of(context).viewInsets.bottom + 24.r),
+          padding: EdgeInsets.fromLTRB(24.r, 20.r, 24.r,
+              MediaQuery.of(context).viewInsets.bottom + 24.r),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -311,37 +306,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SizedBox(height: 24.h),
                 Text(
                   'Change Password',
-                  style: GoogleFonts.inter(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                  ),
+                  style: AppTypography.bodyLarge
+                      .copyWith(color: AppColors.textDark),
                 ),
                 SizedBox(height: 20.h),
 
                 // Current Password
                 _buildPasswordField(
-                  'Current Password', 
-                  currentPasswordCtrl, 
-                  showCurrent, 
+                  'Current Password',
+                  currentPasswordCtrl,
+                  showCurrent,
                   (val) => setSheetState(() => showCurrent = val),
                 ),
                 SizedBox(height: 16.h),
 
                 // New Password
                 _buildPasswordField(
-                  'New Password', 
-                  newPasswordCtrl, 
-                  showNew, 
+                  'New Password',
+                  newPasswordCtrl,
+                  showNew,
                   (val) => setSheetState(() => showNew = val),
                 ),
                 SizedBox(height: 16.h),
 
                 // Confirm Password
                 _buildPasswordField(
-                  'Confirm Password', 
-                  confirmPasswordCtrl, 
-                  showConfirm, 
+                  'Confirm Password',
+                  confirmPasswordCtrl,
+                  showConfirm,
                   (val) => setSheetState(() => showConfirm = val),
                 ),
                 SizedBox(height: 28.h),
@@ -357,15 +349,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       final p2 = confirmPasswordCtrl.text.trim();
 
                       if (curr.isEmpty || p1.isEmpty || p2.isEmpty) {
-                        showToast(context, 'All fields are required', isError: true);
+                        showToast(context, 'All fields are required',
+                            isError: true);
                         return;
                       }
                       if (p1 != p2) {
-                        showToast(context, 'Passwords do not match', isError: true);
+                        showToast(context, 'Passwords do not match',
+                            isError: true);
                         return;
                       }
                       if (p1.length < 6) {
-                        showToast(context, 'Password must be at least 6 characters', isError: true);
+                        showToast(
+                            context, 'Password must be at least 6 characters',
+                            isError: true);
                         return;
                       }
 
@@ -374,14 +370,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         await Supabase.instance.client.auth.updateUser(
                           UserAttributes(password: p1),
                         );
-                        
+
                         if (context.mounted) {
                           Navigator.pop(context);
-                          showToast(context, 'Password updated successfully! 🔐');
+                          showToast(
+                              context, 'Password updated successfully! 🔐');
                         }
                       } catch (e) {
                         if (context.mounted) {
-                          showToast(context, 'Failed to update password: $e', isError: true);
+                          showToast(context, 'Failed to update password: $e',
+                              isError: true);
                         }
                       }
                     },
@@ -397,9 +395,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildPasswordField(
-    String label, 
-    TextEditingController ctrl, 
-    bool showRaw, 
+    String label,
+    TextEditingController ctrl,
+    bool showRaw,
     Function(bool) onToggle,
   ) {
     return Column(
@@ -407,28 +405,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textMedium,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textMedium),
         ),
         SizedBox(height: 6.h),
         TextFormField(
           controller: ctrl,
           obscureText: !showRaw,
-          style: GoogleFonts.inter(
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textDark,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textDark),
           decoration: InputDecoration(
             filled: true,
             fillColor: AppColors.background,
-            prefixIcon: Icon(Icons.lock_outline_rounded, color: AppColors.textLight, size: 18.sp),
+            prefixIcon: Icon(Icons.lock_outline_rounded,
+                color: AppColors.textLight, size: 18.sp),
             suffixIcon: IconButton(
               icon: Icon(
-                showRaw ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                showRaw
+                    ? Icons.visibility_outlined
+                    : Icons.visibility_off_outlined,
                 color: AppColors.textLight,
                 size: 18.sp,
               ),
@@ -449,14 +442,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           title,
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w900,
-            fontSize: 18.sp,
-            color: AppColors.textDark,
-          ),
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
         ),
         content: ConstrainedBox(
           constraints: BoxConstraints(
@@ -466,12 +456,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             physics: const BouncingScrollPhysics(),
             child: Text(
               content,
-              style: GoogleFonts.inter(
-                fontWeight: FontWeight.w500,
-                fontSize: 13.sp,
-                color: AppColors.textMedium,
-                height: 1.6,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textMedium, height: 1.6),
             ),
           ),
         ),
@@ -480,7 +466,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.theme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r)),
             ),
             child: Text(
               'Acknowledge',
@@ -499,23 +486,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           'Confirm Sign Out',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w900,
-            fontSize: 18.sp,
-            color: AppColors.textDark,
-          ),
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
         ),
         content: Text(
           'Are you sure you want to end your active session and sign out from EduSphere?',
-          style: GoogleFonts.inter(
-            fontWeight: FontWeight.w500,
-            fontSize: 13.sp,
-            color: AppColors.textMedium,
-            height: 1.5,
-          ),
+          style: AppTypography.caption
+              .copyWith(color: AppColors.textMedium, height: 1.5),
         ),
         actions: [
           TextButton(
@@ -534,13 +514,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               try {
                 await Supabase.instance.client.auth.signOut();
               } catch (_) {}
-              
+
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
                   PageRouteBuilder(
                     pageBuilder: (_, __, ___) => const WelcomeScreen(),
-                    transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+                    transitionsBuilder: (_, a, __, c) =>
+                        FadeTransition(opacity: a, child: c),
                     transitionDuration: const Duration(milliseconds: 400),
                   ),
                   (r) => false,
@@ -549,7 +530,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r)),
             ),
             child: Text(
               'Sign Out',
@@ -573,7 +555,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: (widget.role == 'teacher' && widget.showAppBar)
           ? const TeacherAppBar(title: 'EduSphere')
           : null,
-      bottomNavigationBar: widget.role == 'teacher' ? const TeacherBottomNavBar(activeIndex: 13) : null,
+      bottomNavigationBar: widget.role == 'teacher'
+          ? const TeacherBottomNavBar(activeIndex: 13)
+          : null,
       body: Column(
         children: [
           PageHeader(
@@ -627,8 +611,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               });
                               _savePreferenceBool('notifications_enabled', val);
                               showToast(
-                                context, 
-                                val ? 'Notifications activated!' : 'Notifications muted.',
+                                context,
+                                val
+                                    ? 'Notifications activated!'
+                                    : 'Notifications muted.',
                               );
                             },
                           ),
@@ -689,20 +675,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             onPressed: _showLogoutDialog,
-                            icon: Icon(Icons.logout_rounded, color: Colors.white, size: 18.sp),
+                            icon: Icon(Icons.logout_rounded,
+                                color: Colors.white, size: 18.sp),
                             label: Text(
                               'Sign Out from App',
-                              style: GoogleFonts.inter(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
+                              style: AppTypography.small
+                                  .copyWith(color: Colors.white),
                             ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.error,
                               padding: EdgeInsets.symmetric(vertical: 14.h),
                               elevation: 2,
-                              shadowColor: AppColors.error.withValues(alpha: 0.3),
+                              shadowColor:
+                                  AppColors.error.withValues(alpha: 0.3),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(16.r),
                               ),
@@ -749,7 +734,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color: widget.theme.light,
                       borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(color: widget.theme.primary.withValues(alpha: 0.2), width: 1.5.w),
+                      border: Border.all(
+                          color: widget.theme.primary.withValues(alpha: 0.2),
+                          width: 1.5.w),
                     ),
                     child: Center(
                       child: Icon(
@@ -788,37 +775,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     Text(
                       _name,
-                      style: GoogleFonts.inter(
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTypography.body
+                          .copyWith(color: AppColors.textDark),
                     ),
                     SizedBox(height: 3.h),
                     Text(
                       _email,
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMedium,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     SizedBox(height: 8.h),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: widget.theme.light,
                         borderRadius: BorderRadius.circular(8.r),
                       ),
                       child: Text(
                         roleName.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w900,
-                          color: widget.theme.primary,
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: widget.theme.primary),
                       ),
                     ),
                   ],
@@ -835,17 +814,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _showEditProfileSheet,
-              icon: Icon(Icons.edit_note_rounded, color: widget.theme.primary, size: 18.sp),
+              icon: Icon(Icons.edit_note_rounded,
+                  color: widget.theme.primary, size: 18.sp),
               label: Text(
                 'Edit Profile Details',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w800,
-                  color: widget.theme.primary,
-                ),
+                style:
+                    AppTypography.caption.copyWith(color: widget.theme.primary),
               ),
               style: OutlinedButton.styleFrom(
-                side: BorderSide(color: widget.theme.primary.withValues(alpha: 0.3)),
+                side: BorderSide(
+                    color: widget.theme.primary.withValues(alpha: 0.3)),
                 padding: EdgeInsets.symmetric(vertical: 12.h),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.r),
@@ -872,8 +850,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildListTile(
-    IconData icon, 
-    String title, 
+    IconData icon,
+    String title,
     String subtitle, {
     VoidCallback? onTap,
     bool showChevron = true,
@@ -889,22 +867,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       title: Text(
         title,
-        style: GoogleFonts.inter(
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textDark,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textDark),
       ),
       subtitle: Text(
         subtitle,
-        style: GoogleFonts.inter(
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textMedium,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textMedium),
       ),
-      trailing: showChevron 
-          ? Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 20.sp)
+      trailing: showChevron
+          ? Icon(Icons.chevron_right_rounded,
+              color: AppColors.textLight, size: 20.sp)
           : null,
       onTap: onTap,
       contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 6.h),
@@ -913,10 +884,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSwitchTile(
-    IconData icon, 
-    String title, 
-    String subtitle, 
-    bool value, 
+    IconData icon,
+    String title,
+    String subtitle,
+    bool value,
     Function(bool) onChanged,
   ) {
     return SwitchListTile(
@@ -932,19 +903,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       title: Text(
         title,
-        style: GoogleFonts.inter(
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textDark,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textDark),
       ),
       subtitle: Text(
         subtitle,
-        style: GoogleFonts.inter(
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textMedium,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textMedium),
       ),
       activeThumbColor: widget.theme.primary,
       activeTrackColor: widget.theme.primary.withValues(alpha: 0.2),
@@ -962,34 +925,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
           color: widget.theme.light,
           borderRadius: BorderRadius.circular(10.r),
         ),
-        child: Icon(Icons.language_rounded, color: widget.theme.primary, size: 18.sp),
+        child: Icon(Icons.language_rounded,
+            color: widget.theme.primary, size: 18.sp),
       ),
       title: Text(
         'App Language',
-        style: GoogleFonts.inter(
-          fontSize: 13.sp,
-          fontWeight: FontWeight.w800,
-          color: AppColors.textDark,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textDark),
       ),
       subtitle: Text(
         'Switch system language',
-        style: GoogleFonts.inter(
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textMedium,
-        ),
+        style: AppTypography.caption.copyWith(color: AppColors.textMedium),
       ),
       trailing: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedLanguage,
           dropdownColor: Colors.white,
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w800,
-            color: widget.theme.primary,
-          ),
-          icon: Icon(Icons.keyboard_arrow_down_rounded, color: widget.theme.primary, size: 18.sp),
+          style: AppTypography.caption.copyWith(color: widget.theme.primary),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: widget.theme.primary, size: 18.sp),
           items: const [
             DropdownMenuItem(value: 'English', child: Text('English')),
             DropdownMenuItem(value: 'Hindi', child: Text('Hindi')),

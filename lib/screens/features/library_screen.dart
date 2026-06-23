@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'library_overdue_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class LibraryScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -35,7 +36,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      _studentId = prefs.getString('student_id') ?? Supabase.instance.client.auth.currentUser?.id ?? '';
+      _studentId = prefs.getString('student_id') ??
+          Supabase.instance.client.auth.currentUser?.id ??
+          '';
 
       // Fetch all books
       final booksRes = await Supabase.instance.client
@@ -43,7 +46,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
           .select('*')
           .eq('isActive', true)
           .order('title', ascending: true);
-      
+
       _books = List<Map<String, dynamic>>.from(booksRes);
 
       // Fetch student's issued books
@@ -53,7 +56,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
             .select('*, book:Book(*)')
             .eq('studentId', _studentId)
             .isFilter('returnDate', null);
-        
+
         _myIssuedBooks = List<Map<String, dynamic>>.from(issuesRes);
       }
 
@@ -99,32 +102,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           'Reserve Book',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18.sp, color: AppColors.textDark),
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
         ),
         content: Text(
           'Would you like to reserve "${book['title']}"? You will need to collect it within 48 hours.',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14.sp, color: AppColors.textMedium),
+          style: AppTypography.small.copyWith(color: AppColors.textMedium),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textMedium),
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700, color: AppColors.textMedium),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.theme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r)),
             ),
             child: Text(
               'Reserve',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white),
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700, color: Colors.white),
             ),
           ),
         ],
@@ -159,13 +166,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
       if (mounted) {
         showToast(context, 'Book reserved successfully! 📚');
       }
-      
+
       // Refresh
       await _loadData();
     } catch (e) {
       debugPrint('Error reserving book: $e');
       if (mounted) {
-        showToast(context, 'Failed to reserve book. Please try again.', isError: true);
+        showToast(context, 'Failed to reserve book. Please try again.',
+            isError: true);
       }
       setState(() => _isLoading = false);
     }
@@ -191,8 +199,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     // Stats calculations
-    final totalCopies = _books.fold<int>(0, (sum, item) => sum + (item['totalCopies'] as int? ?? 0));
-    final availableCopies = _books.fold<int>(0, (sum, item) => sum + (item['availableCopies'] as int? ?? 0));
+    final totalCopies = _books.fold<int>(
+        0, (sum, item) => sum + (item['totalCopies'] as int? ?? 0));
+    final availableCopies = _books.fold<int>(
+        0, (sum, item) => sum + (item['availableCopies'] as int? ?? 0));
     final issuedCopies = totalCopies - availableCopies;
 
     return Scaffold(
@@ -211,11 +221,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => LibraryOverdueScreen(theme: widget.theme),
+                      builder: (context) =>
+                          LibraryOverdueScreen(theme: widget.theme),
                     ),
                   ).then((_) => _loadData());
                 },
-                icon: Icon(Icons.warning_amber_rounded, color: Colors.white, size: 24.sp),
+                icon: Icon(Icons.warning_amber_rounded,
+                    color: Colors.white, size: 24.sp),
                 tooltip: 'Overdue Fines',
               ),
             ],
@@ -243,7 +255,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           SizedBox(height: 16.h),
 
                           // ── STATS ROW ──
-                          _buildStatsRow(totalCopies, availableCopies, issuedCopies),
+                          _buildStatsRow(
+                              totalCopies, availableCopies, issuedCopies),
                           SizedBox(height: 24.h),
 
                           // ── MY ISSUED BOOKS SECTION ──
@@ -294,11 +307,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       child: TextField(
-        style: GoogleFonts.inter(
-          fontSize: 14.sp,
-          color: AppColors.textDark,
-          fontWeight: FontWeight.w600,
-        ),
+        style: AppTypography.small.copyWith(color: AppColors.textDark),
         onChanged: (val) {
           setState(() {
             _searchQuery = val;
@@ -307,14 +316,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
         },
         decoration: InputDecoration(
           hintText: 'Search books by title or author...',
-          hintStyle: GoogleFonts.inter(
-            fontSize: 14.sp,
-            color: AppColors.textLight,
-            fontWeight: FontWeight.w500,
-          ),
-          prefixIcon: Icon(Icons.search_rounded, color: AppColors.textLight, size: 20.sp),
+          hintStyle: AppTypography.small.copyWith(color: AppColors.textLight),
+          prefixIcon: Icon(Icons.search_rounded,
+              color: AppColors.textLight, size: 20.sp),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
         ),
       ),
     );
@@ -356,7 +363,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildStatChip(String label, String value, IconData icon, Color primaryColor, Color bgColor) {
+  Widget _buildStatChip(String label, String value, IconData icon,
+      Color primaryColor, Color bgColor) {
     return Container(
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
@@ -389,19 +397,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               children: [
                 Text(
                   value,
-                  style: GoogleFonts.inter(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                  ),
+                  style: AppTypography.body.copyWith(color: AppColors.textDark),
                 ),
                 Text(
                   label,
-                  style: GoogleFonts.inter(
-                    fontSize: 9.sp,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textLight,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textLight),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -419,10 +420,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
         final book = issue['book'] as Map<String, dynamic>? ?? {};
         final title = book['title'] ?? 'Unknown Book';
         final author = book['author'] ?? 'Unknown Author';
-        
+
         final issueDateStr = issue['issueDate'] ?? '';
         final dueDateStr = issue['dueDate'] ?? '';
-        
+
         DateTime? issueDate;
         DateTime? dueDate;
         try {
@@ -432,12 +433,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        
+
         int daysRemaining = 0;
         bool isOverdue = false;
 
         if (dueDate != null) {
-          final dueNormalized = DateTime(dueDate.year, dueDate.month, dueDate.day);
+          final dueNormalized =
+              DateTime(dueDate.year, dueDate.month, dueDate.day);
           daysRemaining = dueNormalized.difference(today).inDays;
           if (daysRemaining < 0) {
             isOverdue = true;
@@ -459,13 +461,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(
-              color: isOverdue ? AppColors.error.withValues(alpha: 0.3) : AppColors.border,
+              color: isOverdue
+                  ? AppColors.error.withValues(alpha: 0.3)
+                  : AppColors.border,
               width: isOverdue ? 1.5 : 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: isOverdue 
-                    ? AppColors.error.withValues(alpha: 0.03) 
+                color: isOverdue
+                    ? AppColors.error.withValues(alpha: 0.03)
                     : Colors.black.withValues(alpha: 0.03),
                 blurRadius: 8.r,
                 offset: Offset(0, 3.h),
@@ -478,13 +482,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 width: 44.w,
                 height: 44.h,
                 decoration: BoxDecoration(
-                  color: isOverdue 
-                      ? AppColors.error.withValues(alpha: 0.08) 
+                  color: isOverdue
+                      ? AppColors.error.withValues(alpha: 0.08)
                       : widget.theme.light,
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Icon(
-                  Icons.menu_book_rounded, 
+                  Icons.menu_book_rounded,
                   color: isOverdue ? AppColors.error : widget.theme.primary,
                   size: 22.sp,
                 ),
@@ -496,21 +500,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'by $author',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMedium,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -519,11 +517,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       children: [
                         Text(
                           'Issued: $issueText',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textLight,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textLight),
                         ),
                         SizedBox(width: 12.w),
                         RichText(
@@ -531,19 +526,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                             children: [
                               TextSpan(
                                 text: 'Due: ',
-                                style: GoogleFonts.inter(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textLight,
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: AppColors.textLight),
                               ),
                               TextSpan(
                                 text: dateText,
-                                style: GoogleFonts.inter(
-                                  fontSize: 10.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: isOverdue ? AppColors.error : AppColors.textDark,
-                                ),
+                                style: AppTypography.caption.copyWith(
+                                    color: isOverdue
+                                        ? AppColors.error
+                                        : AppColors.textDark),
                               ),
                             ],
                           ),
@@ -557,20 +548,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
                 decoration: BoxDecoration(
-                  color: isOverdue 
-                      ? AppColors.error.withValues(alpha: 0.1) 
+                  color: isOverdue
+                      ? AppColors.error.withValues(alpha: 0.1)
                       : AppColors.success.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Text(
-                  isOverdue 
-                      ? '${daysRemaining.abs()}d Overdue' 
+                  isOverdue
+                      ? '${daysRemaining.abs()}d Overdue'
                       : '$daysRemaining days left',
-                  style: GoogleFonts.inter(
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isOverdue ? AppColors.error : AppColors.success,
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: isOverdue ? AppColors.error : AppColors.success),
                 ),
               ),
             ],
@@ -616,34 +604,29 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: widget.theme.light,
                         borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Text(
                         category.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w800,
-                          color: widget.theme.primary,
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: widget.theme.primary),
                       ),
                     ),
                     SizedBox(width: 6.w),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                       decoration: BoxDecoration(
                         color: condColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(6.r),
                       ),
                       child: Text(
                         condition.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w800,
-                          color: condColor,
-                        ),
+                        style: AppTypography.caption.copyWith(color: condColor),
                       ),
                     ),
                   ],
@@ -653,22 +636,16 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 // Title & Author
                 Text(
                   title,
-                  style: GoogleFonts.inter(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textDark,
-                  ),
+                  style:
+                      AppTypography.small.copyWith(color: AppColors.textDark),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 SizedBox(height: 3.h),
                 Text(
                   'by $author',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                 ),
                 SizedBox(height: 12.h),
 
@@ -676,18 +653,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 Row(
                   children: [
                     Icon(
-                      Icons.folder_shared_rounded, 
-                      size: 14.sp, 
-                      color: isAvailable ? AppColors.success : AppColors.textLight,
+                      Icons.folder_shared_rounded,
+                      size: 14.sp,
+                      color:
+                          isAvailable ? AppColors.success : AppColors.textLight,
                     ),
                     SizedBox(width: 6.w),
                     Text(
-                      isAvailable ? '$available copies available' : 'Out of stock',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w700,
-                        color: isAvailable ? AppColors.textMedium : AppColors.textLight,
-                      ),
+                      isAvailable
+                          ? '$available copies available'
+                          : 'Out of stock',
+                      style: AppTypography.caption.copyWith(
+                          color: isAvailable
+                              ? AppColors.textMedium
+                              : AppColors.textLight),
                     ),
                   ],
                 ),
@@ -706,18 +685,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: widget.theme.primary,
                   disabledBackgroundColor: AppColors.border,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r)),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
                   elevation: isAvailable ? 2 : 0,
                   shadowColor: widget.theme.primary.withValues(alpha: 0.3),
                 ),
                 child: Text(
                   'Reserve',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isAvailable ? Colors.white : AppColors.textLight,
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: isAvailable ? Colors.white : AppColors.textLight),
                 ),
               ),
             ],
@@ -738,24 +716,17 @@ class _LibraryScreenState extends State<LibraryScreen> {
       ),
       child: Column(
         children: [
-          Icon(Icons.search_off_rounded, size: 48.sp, color: AppColors.textLight),
+          Icon(Icons.search_off_rounded,
+              size: 48.sp, color: AppColors.textLight),
           SizedBox(height: 12.h),
           Text(
             'No books match your search',
-            style: GoogleFonts.inter(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-            ),
+            style: AppTypography.small.copyWith(color: AppColors.textDark),
           ),
           SizedBox(height: 4.h),
           Text(
             'Try checking spelling or search for another keyword',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textMedium,
-            ),
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium),
             textAlign: TextAlign.center,
           ),
         ],
@@ -763,5 +734,3 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 }
-
-

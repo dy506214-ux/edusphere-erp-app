@@ -10,8 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/supabase_config.dart';
 import 'announcement_details_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
-
-
+import 'package:edusphere/theme/typography.dart';
 
 class AnnouncementModel {
   final String id;
@@ -48,14 +47,17 @@ class AnnouncementModel {
         'isRead': isRead,
       };
 
-  factory AnnouncementModel.fromJson(Map<String, dynamic> json) => AnnouncementModel(
+  factory AnnouncementModel.fromJson(Map<String, dynamic> json) =>
+      AnnouncementModel(
         id: json['id'] as String,
         title: json['title'] as String,
         content: json['content'] as String,
         priority: json['priority'] as String,
         audience: json['audience'] as String,
         dateStr: json['dateStr'] as String? ?? '',
-        date: json['date'] != null ? DateTime.parse(json['date']) : DateTime.now(),
+        date: json['date'] != null
+            ? DateTime.parse(json['date'])
+            : DateTime.now(),
         expiresAt: json['expiresAt'] as String?,
         isRead: json['isRead'] as bool? ?? false,
       );
@@ -116,7 +118,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             .maybeSingle();
         if (res != null && mounted) {
           setState(() {
-            _teacherFirstName = (res['firstName'] as String? ?? 'KARAN').toUpperCase();
+            _teacherFirstName =
+                (res['firstName'] as String? ?? 'KARAN').toUpperCase();
           });
         }
       }
@@ -150,7 +153,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         'expiresAt': announcement.expiresAt,
         'updatedAt': DateTime.now().toIso8601String(),
       }).eq('id', announcement.id);
-      
+
       _loadAnnouncements(showLoading: false);
     } catch (e) {
       dev.log('Error updating announcement: $e', name: 'AnnouncementsScreen');
@@ -171,7 +174,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         name: 'AnnouncementsScreen',
       );
     } catch (e) {
-      dev.log('⚠️ Error loading IDs in AnnouncementsScreen: $e', name: 'AnnouncementsScreen');
+      dev.log('⚠️ Error loading IDs in AnnouncementsScreen: $e',
+          name: 'AnnouncementsScreen');
     }
   }
 
@@ -191,56 +195,75 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       if (_announcementsChannel != null) {
         client.removeChannel(_announcementsChannel!);
       }
-      
-      dev.log('📡 [ANNOUNCEMENTS SUBSCRIBE] Connecting to Supabase Realtime channel for Table: Announcement on URL: ${SupabaseConfig.supabaseUrl}', name: 'AnnouncementsScreen');
-      _announcementsChannel = client.channel('public:announcements_screen_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Announcement',
-          callback: (payload) {
-            dev.log('🔥 [ANNOUNCEMENTS EVENT] Real-time event type: ${payload.eventType} | Payload: $payload', name: 'AnnouncementsScreen');
-            if (mounted) {
-              if (payload.eventType == PostgresChangeEvent.insert) {
-                final newRecord = payload.newRecord;
-                final title = newRecord['title'] ?? 'New Announcement';
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Row(
-                      children: [
-                        const Icon(Icons.notifications_active_rounded, color: Colors.white),
-                        SizedBox(width: 8.w),
-                        Expanded(child: Text('New: $title', style: GoogleFonts.inter(fontWeight: FontWeight.w700))),
-                      ],
-                    ),
-                    backgroundColor: const Color(0xFF2563EB),
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                    duration: const Duration(seconds: 4),
-                  ),
-                );
-              }
-              _loadAnnouncements(showLoading: false);
-            }
-          },
-        );
-      
+
+      dev.log(
+          '📡 [ANNOUNCEMENTS SUBSCRIBE] Connecting to Supabase Realtime channel for Table: Announcement on URL: ${SupabaseConfig.supabaseUrl}',
+          name: 'AnnouncementsScreen');
+      _announcementsChannel =
+          client.channel('public:announcements_screen_sync').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'Announcement',
+                callback: (payload) {
+                  dev.log(
+                      '🔥 [ANNOUNCEMENTS EVENT] Real-time event type: ${payload.eventType} | Payload: $payload',
+                      name: 'AnnouncementsScreen');
+                  if (mounted) {
+                    if (payload.eventType == PostgresChangeEvent.insert) {
+                      final newRecord = payload.newRecord;
+                      final title = newRecord['title'] ?? 'New Announcement';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Row(
+                            children: [
+                              const Icon(Icons.notifications_active_rounded,
+                                  color: Colors.white),
+                              SizedBox(width: 8.w),
+                              Expanded(
+                                  child: Text('New: $title',
+                                      style: GoogleFonts.inter(
+                                          fontWeight: FontWeight.w700))),
+                            ],
+                          ),
+                          backgroundColor: const Color(0xFF2563EB),
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r)),
+                          duration: const Duration(seconds: 4),
+                        ),
+                      );
+                    }
+                    _loadAnnouncements(showLoading: false);
+                  }
+                },
+              );
+
       _announcementsChannel!.subscribe((status, [error]) {
-        dev.log('📡 [ANNOUNCEMENTS STATUS] Subscription status: $status | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId', name: 'AnnouncementsScreen');
+        dev.log(
+            '📡 [ANNOUNCEMENTS STATUS] Subscription status: $status | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId',
+            name: 'AnnouncementsScreen');
         if (error != null) {
-          dev.log('❌ [ANNOUNCEMENTS SUBSCRIPTION ERROR] Error: $error', name: 'AnnouncementsScreen');
+          dev.log('❌ [ANNOUNCEMENTS SUBSCRIPTION ERROR] Error: $error',
+              name: 'AnnouncementsScreen');
         }
       });
     } catch (e) {
-      dev.log('⚠️ [ANNOUNCEMENTS ERROR] Error connecting Realtime channel: $e', name: 'AnnouncementsScreen');
+      dev.log('⚠️ [ANNOUNCEMENTS ERROR] Error connecting Realtime channel: $e',
+          name: 'AnnouncementsScreen');
     }
   }
 
   IconData _getNoticeIcon(String title, String priority) {
     final lower = title.toLowerCase();
-    if (lower.contains('sport') || lower.contains('game') || lower.contains('play')) {
+    if (lower.contains('sport') ||
+        lower.contains('game') ||
+        lower.contains('play')) {
       return Icons.emoji_events_outlined;
-    } else if (lower.contains('exam') || lower.contains('test') || lower.contains('schedule') || lower.contains('calendar') || lower.contains('timetable')) {
+    } else if (lower.contains('exam') ||
+        lower.contains('test') ||
+        lower.contains('schedule') ||
+        lower.contains('calendar') ||
+        lower.contains('timetable')) {
       return Icons.calendar_today_outlined;
     } else {
       return Icons.campaign_outlined;
@@ -248,53 +271,65 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   }
 
   Color _getNoticeColor(String priority, String title) {
-    if (priority.toUpperCase() == 'HIGH' || priority.toUpperCase() == 'URGENT') {
+    if (priority.toUpperCase() == 'HIGH' ||
+        priority.toUpperCase() == 'URGENT') {
       return const Color(0xFFEF4444); // Red
     }
     final lower = title.toLowerCase();
     if (lower.contains('sport') || lower.contains('game')) {
       return const Color(0xFF2563EB); // Blue
-    } else if (lower.contains('exam') || lower.contains('test') || lower.contains('schedule')) {
+    } else if (lower.contains('exam') ||
+        lower.contains('test') ||
+        lower.contains('schedule')) {
       return const Color(0xFF10B981); // Green
     }
     return const Color(0xFF2563EB); // Default Blue
   }
 
-
-
-
   // --- Load Announcements ---
   Future<void> _loadAnnouncements({bool showLoading = true}) async {
     if (showLoading) {
-      setState(() { 
+      setState(() {
         _isLoading = true;
         _errorMessage = null;
       });
     }
     try {
       final client = Supabase.instance.client;
-      dev.log('📡 [ANNOUNCEMENTS FETCH] Querying Announcement table on Supabase URL: ${SupabaseConfig.supabaseUrl}', name: 'AnnouncementsScreen');
-      var res = await client.from('Announcement').select().order('createdAt', ascending: false);
+      dev.log(
+          '📡 [ANNOUNCEMENTS FETCH] Querying Announcement table on Supabase URL: ${SupabaseConfig.supabaseUrl}',
+          name: 'AnnouncementsScreen');
+      var res = await client
+          .from('Announcement')
+          .select()
+          .order('createdAt', ascending: false);
       var data = List<Map<String, dynamic>>.from(res);
 
       final prefs = await SharedPreferences.getInstance();
-      final readIds = prefs.getStringList('read_announcements_$_studentId') ?? [];
+      final readIds =
+          prefs.getStringList('read_announcements_$_studentId') ?? [];
 
       if (mounted) {
         setState(() {
           List<AnnouncementModel> fetched = [];
           for (var e in data) {
             final List<dynamic> audRaw = e['targetAudience'] ?? [];
-            final List<String> aud = audRaw.map((x) => x.toString().toUpperCase()).toList();
+            final List<String> aud =
+                audRaw.map((x) => x.toString().toUpperCase()).toList();
             final String priorityStr = e['priority'] ?? 'NORMAL';
 
             // Smart Filtering
             if (widget.role == 'student') {
-              if (!aud.contains('ALL') && !aud.contains('STUDENTS') && !aud.contains('STUDENT') && !aud.contains(_classId.toUpperCase())) {
+              if (!aud.contains('ALL') &&
+                  !aud.contains('STUDENTS') &&
+                  !aud.contains('STUDENT') &&
+                  !aud.contains(_classId.toUpperCase())) {
                 continue; // Skip if not targeted to student or their specific class
               }
             } else if (widget.role == 'teacher') {
-              if (!aud.contains('ALL') && !aud.contains('TEACHERS') && !aud.contains('TEACHER')) {
+              if (!aud.contains('ALL') &&
+                  !aud.contains('TEACHERS') &&
+                  !aud.contains('TEACHER')) {
                 continue; // Skip if not targeted to teacher
               }
             }
@@ -302,8 +337,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             String formattedDate = '';
             DateTime parsedDate = DateTime.now();
             try {
-              parsedDate = DateTime.parse(e['createdAt'] ?? e['publishedAt'] ?? DateTime.now().toIso8601String());
-              formattedDate = '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
+              parsedDate = DateTime.parse(e['createdAt'] ??
+                  e['publishedAt'] ??
+                  DateTime.now().toIso8601String());
+              formattedDate =
+                  '${parsedDate.day}/${parsedDate.month}/${parsedDate.year}';
             } catch (_) {}
 
             final annId = e['id'] as String;
@@ -332,13 +370,15 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             return b.date.compareTo(a.date);
           });
 
-      _announcements = fetched;
+          _announcements = fetched;
         });
       }
     } catch (e) {
-      dev.log('❌ [ANNOUNCEMENTS FETCH ERROR] Error loading from Supabase: $e', name: 'AnnouncementsScreen');
+      dev.log('❌ [ANNOUNCEMENTS FETCH ERROR] Error loading from Supabase: $e',
+          name: 'AnnouncementsScreen');
       if (mounted) {
-        setState(() => _errorMessage = 'Unable to load announcements. Please check your internet connection.');
+        setState(() => _errorMessage =
+            'Unable to load announcements. Please check your internet connection.');
       }
     } finally {
       if (mounted) {
@@ -346,7 +386,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       }
     }
   }
-
 
   // --- Add Announcement ---
   Future<void> _addAnnouncement(AnnouncementModel announcement) async {
@@ -374,7 +413,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       });
       _loadAnnouncements(showLoading: false);
     } catch (e) {
-      dev.log('Error adding announcement to Supabase: $e', name: 'AnnouncementsScreen');
+      dev.log('Error adding announcement to Supabase: $e',
+          name: 'AnnouncementsScreen');
     }
   }
 
@@ -388,10 +428,12 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Announcement deleted', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            content: Text('Announcement deleted',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r)),
             duration: const Duration(seconds: 1),
           ),
         );
@@ -403,15 +445,17 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   // --- Stats Computations ---
   int get _totalCount => _announcements.length;
-  int get _activeCount => _announcements.length; // all created are active in local mockup
-  int get _highPriorityCount => _announcements.where((e) => e.priority == 'HIGH').length;
+  int get _activeCount =>
+      _announcements.length; // all created are active in local mockup
+  int get _highPriorityCount =>
+      _announcements.where((e) => e.priority == 'HIGH').length;
 
   // --- Open Create Form Bottom Sheet ---
   void _openCreateSheet({AnnouncementModel? editItem}) {
     final bool isEditing = editItem != null;
     final titleCtrl = TextEditingController(text: editItem?.title ?? '');
     final contentCtrl = TextEditingController(text: editItem?.content ?? '');
-    
+
     String selectedPriority = editItem?.priority ?? 'NORMAL'; // default
     String selectedAudience = editItem?.audience ?? 'ALL'; // default
     if (selectedAudience.contains(',')) {
@@ -439,7 +483,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             return Container(
               height: MediaQuery.of(context).size.height * 0.92,
               decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF), // light blue-gray background matching the image
+                color: const Color(
+                    0xFFEFF6FF), // light blue-gray background matching the image
                 borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
               ),
               padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
@@ -456,7 +501,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              isEditing ? "Edit Announcement" : "Create New Announcement",
+                              isEditing
+                                  ? "Edit Announcement"
+                                  : "Create New Announcement",
                               style: GoogleFonts.outfit(
                                 fontSize: 20.sp,
                                 fontWeight: FontWeight.w800,
@@ -466,17 +513,15 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             SizedBox(height: 4.h),
                             Text(
                               "Post an announcement to all users or specific groups",
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                color: const Color(0xFF64748B),
-                                fontWeight: FontWeight.w500,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF64748B)),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                        icon: const Icon(Icons.close_rounded,
+                            color: Color(0xFF64748B)),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -494,42 +539,41 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           // Title *
                           Text(
                             "Title *",
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 8.h),
                           TextFormField(
                             controller: titleCtrl,
                             decoration: InputDecoration(
                               hintText: "Enter announcement title",
-                              hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+                              hintStyle: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF94A3B8)),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0284C7), width: 1.5),
                               ),
                             ),
-                            style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF0F172A)),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F172A)),
                           ),
                           SizedBox(height: 20.h),
 
                           // Content *
                           Text(
                             "Content *",
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 8.h),
                           TextFormField(
@@ -537,31 +581,33 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             maxLines: 5,
                             decoration: InputDecoration(
                               hintText: "Enter announcement details",
-                              hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+                              hintStyle: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF94A3B8)),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0284C7), width: 1.5),
                               ),
                             ),
-                            style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF0F172A)),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F172A)),
                           ),
                           SizedBox(height: 20.h),
 
                           // Priority *
                           Text(
                             "Priority *",
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 8.h),
                           DropdownButtonFormField<String>(
@@ -569,39 +615,44 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0284C7), width: 1.5),
                               ),
                             ),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Color(0xFF64748B)),
                             items: const [
-                              DropdownMenuItem(value: 'LOW', child: Text('Low')),
-                              DropdownMenuItem(value: 'NORMAL', child: Text('Normal')),
-                              DropdownMenuItem(value: 'HIGH', child: Text('High')),
+                              DropdownMenuItem(
+                                  value: 'LOW', child: Text('Low')),
+                              DropdownMenuItem(
+                                  value: 'NORMAL', child: Text('Normal')),
+                              DropdownMenuItem(
+                                  value: 'HIGH', child: Text('High')),
                             ],
                             onChanged: (val) {
                               if (val != null) {
                                 setModalState(() => selectedPriority = val);
                               }
                             },
-                            style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF0F172A)),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F172A)),
                           ),
                           SizedBox(height: 20.h),
 
                           // Target Audience *
                           Text(
                             "Target Audience *",
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 8.h),
                           DropdownButtonFormField<String>(
@@ -609,39 +660,44 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             decoration: InputDecoration(
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0284C7), width: 1.5),
                               ),
                             ),
-                            icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B)),
+                            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Color(0xFF64748B)),
                             items: const [
-                              DropdownMenuItem(value: 'ALL', child: Text('All Users')),
-                              DropdownMenuItem(value: 'STUDENTS', child: Text('Students')),
-                              DropdownMenuItem(value: 'TEACHERS', child: Text('Teachers')),
+                              DropdownMenuItem(
+                                  value: 'ALL', child: Text('All Users')),
+                              DropdownMenuItem(
+                                  value: 'STUDENTS', child: Text('Students')),
+                              DropdownMenuItem(
+                                  value: 'TEACHERS', child: Text('Teachers')),
                             ],
                             onChanged: (val) {
                               if (val != null) {
                                 setModalState(() => selectedAudience = val);
                               }
                             },
-                            style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF0F172A)),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F172A)),
                           ),
                           SizedBox(height: 20.h),
 
                           // Expiry Date (Optional)
                           Text(
                             "Expiry Date (Optional)",
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 8.h),
                           TextFormField(
@@ -650,9 +706,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             onTap: () async {
                               final picked = await showDatePicker(
                                 context: context,
-                                initialDate: selectedExpiryDate ?? DateTime.now(),
+                                initialDate:
+                                    selectedExpiryDate ?? DateTime.now(),
                                 firstDate: DateTime.now(),
-                                lastDate: DateTime.now().add(const Duration(days: 365)),
+                                lastDate: DateTime.now()
+                                    .add(const Duration(days: 365)),
                               );
                               if (picked != null) {
                                 setModalState(() {
@@ -663,21 +721,28 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             },
                             decoration: InputDecoration(
                               hintText: "dd-mm-yyyy",
-                              hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+                              hintStyle: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF94A3B8)),
                               filled: true,
                               fillColor: Colors.white,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 12.h),
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8.r),
-                                borderSide: const BorderSide(color: Color(0xFF0284C7), width: 1.5),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0284C7), width: 1.5),
                               ),
-                              suffixIcon: const Icon(Icons.calendar_today_outlined, color: Color(0xFF64748B)),
+                              suffixIcon: const Icon(
+                                  Icons.calendar_today_outlined,
+                                  color: Color(0xFF64748B)),
                             ),
-                            style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF0F172A)),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F172A)),
                           ),
                           SizedBox(height: 32.h),
 
@@ -689,24 +754,33 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF0284C7),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 14.h),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.r)),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 24.w, vertical: 14.h),
                                   elevation: 0,
                                 ),
                                 onPressed: () {
-                                  if (titleCtrl.text.trim().isEmpty || contentCtrl.text.trim().isEmpty) {
+                                  if (titleCtrl.text.trim().isEmpty ||
+                                      contentCtrl.text.trim().isEmpty) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text('Please fill in both title and content', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                                        content: Text(
+                                            'Please fill in both title and content',
+                                            style: GoogleFonts.inter(
+                                                fontWeight: FontWeight.w600)),
                                         backgroundColor: AppColors.error,
                                         behavior: SnackBarBehavior.floating,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(10.r)),
                                       ),
                                     );
                                     return;
                                   }
 
-                                  final String? expiryIso = selectedExpiryDate?.toIso8601String();
+                                  final String? expiryIso =
+                                      selectedExpiryDate?.toIso8601String();
 
                                   if (isEditing) {
                                     final updatedAnn = AnnouncementModel(
@@ -722,7 +796,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                     _updateAnnouncement(updatedAnn);
                                   } else {
                                     final newAnn = AnnouncementModel(
-                                      id: DateTime.now().millisecondsSinceEpoch.toString(),
+                                      id: DateTime.now()
+                                          .millisecondsSinceEpoch
+                                          .toString(),
                                       title: titleCtrl.text.trim(),
                                       content: contentCtrl.text.trim(),
                                       priority: selectedPriority,
@@ -739,24 +815,31 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                     SnackBar(
                                       content: Row(
                                         children: [
-                                          const Icon(Icons.check_circle_rounded, color: Colors.white),
+                                          const Icon(Icons.check_circle_rounded,
+                                              color: Colors.white),
                                           SizedBox(width: 8.w),
-                                          Text(isEditing ? 'Announcement updated!' : 'Announcement published!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                                          Text(
+                                              isEditing
+                                                  ? 'Announcement updated!'
+                                                  : 'Announcement published!',
+                                              style: GoogleFonts.inter(
+                                                  fontWeight: FontWeight.w700)),
                                         ],
                                       ),
                                       backgroundColor: AppColors.success,
                                       behavior: SnackBarBehavior.floating,
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12.r)),
                                     ),
                                   );
                                 },
                                 child: Text(
-                                  isEditing ? "Save Changes" : "Publish Announcement",
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.white,
-                                  ),
+                                  isEditing
+                                      ? "Save Changes"
+                                      : "Publish Announcement",
+                                  style: AppTypography.small
+                                      .copyWith(color: Colors.white),
                                 ),
                               ),
                             ),
@@ -775,10 +858,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     );
   }
 
-
-
-
-
   @override
   Widget build(BuildContext context) {
     if (widget.role == 'student') {
@@ -788,7 +867,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     final bool isTeacher = widget.role == 'teacher';
     return Scaffold(
       key: _scaffoldKey,
-      drawer: (isPushed && isTeacher) ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Announcements') : null,
+      drawer: (isPushed && isTeacher)
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Announcements')
+          : null,
       backgroundColor: const Color(0xFFF1F5F9),
       bottomNavigationBar: (widget.showAppBar && isTeacher)
           ? const TeacherBottomNavBar(activeIndex: 11)
@@ -803,7 +884,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -820,11 +902,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         SizedBox(height: 4.h),
                         Text(
                           'Create and manage school-wide announcements',
-                          style: GoogleFonts.inter(
-                            fontSize: 14.sp,
-                            color: const Color(0xFF64748B),
-                            fontWeight: FontWeight.w500,
-                          ),
+                          style: AppTypography.small
+                              .copyWith(color: const Color(0xFF64748B)),
                         ),
                         SizedBox(height: 20.h),
                         // New Announcement Button
@@ -833,15 +912,19 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF0284C7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
-                              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10.r)),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 20.w, vertical: 12.h),
                               elevation: 0,
                             ),
                             onPressed: () => _openCreateSheet(),
-                            icon: Icon(Icons.add, size: 18.sp, color: Colors.white),
+                            icon: Icon(Icons.add,
+                                size: 18.sp, color: Colors.white),
                             label: Text(
                               "New Announcement",
-                              style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: Colors.white),
+                              style: AppTypography.caption
+                                  .copyWith(color: Colors.white),
                             ),
                           ),
                         ),
@@ -856,18 +939,24 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16.r),
-                                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                                  border: Border.all(
+                                      color: const Color(0xFFE2E8F0)),
                                 ),
-                                child: const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+                                child: const Center(
+                                    child: CircularProgressIndicator(
+                                        color: Color(0xFF2563EB))),
                               )
-                            : (_announcements.isEmpty ? _buildEmptyStateCard() : _buildAnnouncementsList()),
+                            : (_announcements.isEmpty
+                                ? _buildEmptyStateCard()
+                                : _buildAnnouncementsList()),
                         SizedBox(height: 100.h),
                       ],
                     ),
                   ),
                 ),
                 // Bottom Navigation Bar
-                if (widget.showAppBar && widget.role != 'teacher') _buildBottomNav(),
+                if (widget.showAppBar && widget.role != 'teacher')
+                  _buildBottomNav(),
               ],
             ),
           ),
@@ -909,11 +998,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                         padding: EdgeInsets.all(16.r),
                         decoration: BoxDecoration(
                           color: const Color(0xFF2563EB),
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(16.r)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.assistant, color: Colors.white, size: 20.sp),
+                            Icon(Icons.assistant,
+                                color: Colors.white, size: 20.sp),
                             SizedBox(width: 8.w),
                             Text(
                               'EduSphere Assistant',
@@ -926,7 +1017,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             const Spacer(),
                             GestureDetector(
                               onTap: _toggleChat,
-                              child: Icon(Icons.close, color: Colors.white, size: 20.sp),
+                              child: Icon(Icons.close,
+                                  color: Colors.white, size: 20.sp),
                             ),
                           ],
                         ),
@@ -974,21 +1066,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   children: [
                     Text(
                       'HI $_teacherFirstName!',
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F172A),
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.caption.copyWith(
+                          color: const Color(0xFF0F172A), letterSpacing: 0.5),
                     ),
                     Text(
                       'HOW CAN I\nHELP?',
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF2563EB),
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.caption.copyWith(
+                          color: const Color(0xFF2563EB), letterSpacing: 0.5),
                     ),
                   ],
                 ),
@@ -999,7 +1083,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'announcements_chatbot_fab',
         backgroundColor: const Color(0xFF0284C7),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
         onPressed: _toggleChat,
         child: Icon(
           _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
@@ -1083,16 +1168,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                           : _errorMessage != null
                               ? Center(
                                   child: Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                                    padding:
+                                        EdgeInsets.symmetric(horizontal: 24.w),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.wifi_off_rounded, size: 48.sp, color: const Color(0xFF94A3B8)),
+                                        Icon(Icons.wifi_off_rounded,
+                                            size: 48.sp,
+                                            color: const Color(0xFF94A3B8)),
                                         SizedBox(height: 16.h),
                                         Text(
                                           _errorMessage!,
                                           textAlign: TextAlign.center,
-                                          style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF64748B)),
+                                          style: AppTypography.small.copyWith(
+                                              color: const Color(0xFF64748B)),
                                         ),
                                       ],
                                     ),
@@ -1105,7 +1194,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   ],
                 ),
               ),
-
             ],
           ),
         ),
@@ -1132,8 +1220,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               Container(
                 width: 48.w,
                 height: 48.w,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFF1F5F9),
                   shape: BoxShape.circle,
                 ),
               ),
@@ -1210,11 +1298,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               SizedBox(height: 2.h),
               Text(
                 'Stay updated with the latest school news.',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B7A90),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF6B7A90)),
               ),
             ],
           ),
@@ -1253,20 +1338,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             SizedBox(height: 16.h),
             Text(
               'No Announcements Available',
-              style: GoogleFonts.inter(
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F2547),
-              ),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF0F2547)),
             ),
             SizedBox(height: 8.h),
             Text(
               'There are currently no announcements for your class.',
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                color: const Color(0xFF6B7A90),
-                fontWeight: FontWeight.w500,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF6B7A90)),
             ),
           ],
         ),
@@ -1276,196 +1355,190 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
 
   Widget _buildStudentAnnouncementsList() {
     return RefreshIndicator(
-      onRefresh: () => _loadAnnouncements(showLoading: false),
-      color: const Color(0xFF2563EB),
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-        itemCount: _announcements.length,
-        itemBuilder: (context, index) {
-          final ann = _announcements[index];
-          final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
-          final color = _getNoticeColor(ann.priority, ann.title);
-          final icon = _getNoticeIcon(ann.title, ann.priority);
-          final bool isUnread = !ann.isRead;
+        onRefresh: () => _loadAnnouncements(showLoading: false),
+        color: const Color(0xFF2563EB),
+        child: ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
+          itemCount: _announcements.length,
+          itemBuilder: (context, index) {
+            final ann = _announcements[index];
+            final isHigh = ann.priority.toUpperCase() == 'HIGH' ||
+                ann.priority.toUpperCase() == 'URGENT';
+            final color = _getNoticeColor(ann.priority, ann.title);
+            final icon = _getNoticeIcon(ann.title, ann.priority);
+            final bool isUnread = !ann.isRead;
 
-        // Split audience into individual tags
-        final List<String> audienceTags = ann.audience
-            .split(',')
-            .map((e) => e.trim().toUpperCase())
-            .where((e) => e.isNotEmpty)
-            .toList();
-            
-        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
-        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
+            // Split audience into individual tags
+            final List<String> audienceTags = ann.audience
+                .split(',')
+                .map((e) => e.trim().toUpperCase())
+                .where((e) => e.isNotEmpty)
+                .toList();
 
-        return GestureDetector(
-          onTap: () async {
-            // Mark as read
-            if (!ann.isRead) {
-              setState(() {
-                ann.isRead = true;
-              });
-              final prefs = await SharedPreferences.getInstance();
-              final key = 'read_announcements_$_studentId';
-              final readIds = prefs.getStringList(key) ?? [];
-              if (!readIds.contains(ann.id)) {
-                readIds.add(ann.id);
-                await prefs.setStringList(key, readIds);
-              }
-            }
+            final priorityBg =
+                isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+            final priorityTextColor =
+                isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
 
-            // Navigate to Details Screen
-            if (context.mounted) {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => AnnouncementDetailsScreen(
-                    announcement: ann,
-                    dateStr: ann.dateStr,
-                    tags: audienceTags,
-                    dotColor: color,
-                    bgColor: color.withValues(alpha: 0.15),
-                    icon: icon,
-                  ),
+            return GestureDetector(
+              onTap: () async {
+                // Mark as read
+                if (!ann.isRead) {
+                  setState(() {
+                    ann.isRead = true;
+                  });
+                  final prefs = await SharedPreferences.getInstance();
+                  final key = 'read_announcements_$_studentId';
+                  final readIds = prefs.getStringList(key) ?? [];
+                  if (!readIds.contains(ann.id)) {
+                    readIds.add(ann.id);
+                    await prefs.setStringList(key, readIds);
+                  }
+                }
+
+                // Navigate to Details Screen
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AnnouncementDetailsScreen(
+                        announcement: ann,
+                        dateStr: ann.dateStr,
+                        tags: audienceTags,
+                        dotColor: color,
+                        bgColor: color.withValues(alpha: 0.15),
+                        icon: icon,
+                      ),
+                    ),
+                  );
+                }
+              },
+              child: Container(
+                margin: EdgeInsets.only(bottom: 16.h),
+                padding: EdgeInsets.all(20.r),
+                decoration: BoxDecoration(
+                  color: isUnread ? const Color(0xFFF4F8FE) : Colors.white,
+                  borderRadius: BorderRadius.circular(20.r),
+                  border: Border.all(
+                      color: isUnread
+                          ? const Color(0xFF2563EB).withValues(alpha: 0.3)
+                          : const Color(0xFFE2EAF4)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10.r,
+                      offset: Offset(0, 4.h),
+                    ),
+                  ],
                 ),
-              );
-            }
-          },
-          child: Container(
-            margin: EdgeInsets.only(bottom: 16.h),
-            padding: EdgeInsets.all(20.r),
-            decoration: BoxDecoration(
-              color: isUnread ? const Color(0xFFF4F8FE) : Colors.white,
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(color: isUnread ? const Color(0xFF2563EB).withValues(alpha: 0.3) : const Color(0xFFE2EAF4)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10.r,
-                  offset: Offset(0, 4.h),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  margin: EdgeInsets.only(top: 14.h),
-                  width: 8.w,
-                  height: 8.w,
-                  decoration: BoxDecoration(
-                    color: isUnread ? color : Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                SizedBox(width: 12.w),
-                Container(
-                  width: 48.w,
-                  height: 48.w,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, color: color, size: 24.sp),
-                ),
-                SizedBox(width: 16.w),
-                Expanded(
-                child: Column(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            ann.title,
-                            style: GoogleFonts.inter(
-                              fontSize: 15.sp,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F2547),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: priorityBg,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          child: Text(
-                            ann.priority.toUpperCase(),
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: priorityTextColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 12.h),
-                    if (audienceTags.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8.w,
-                        runSpacing: 8.h,
-                        children: audienceTags.map((t) => Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(8.r),
-                            border: Border.all(color: const Color(0xFFE2EAF4)),
-                          ),
-                          child: Text(
-                            t == 'ALL' ? 'EVERYONE' : t,
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF475569),
-                            ),
-                          ),
-                        )).toList(),
+                    Container(
+                      margin: EdgeInsets.only(top: 14.h),
+                      width: 8.w,
+                      height: 8.w,
+                      decoration: BoxDecoration(
+                        color: isUnread ? color : Colors.transparent,
+                        shape: BoxShape.circle,
                       ),
-                      SizedBox(height: 12.h),
-                    ],
-                    Row(
-                      children: [
-                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
-                        SizedBox(width: 6.w),
-                        Text(
-                          ann.dateStr,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            color: const Color(0xFF6B7A90),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
                     ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      ann.content,
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        color: const Color(0xFF475569),
-                        height: 1.5,
+                    SizedBox(width: 12.w),
+                    Container(
+                      width: 48.w,
+                      height: 48.w,
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 24.sp),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  ann.title,
+                                  style: AppTypography.small
+                                      .copyWith(color: const Color(0xFF0F2547)),
+                                ),
+                              ),
+                              SizedBox(width: 8.w),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 10.w, vertical: 4.h),
+                                decoration: BoxDecoration(
+                                  color: priorityBg,
+                                  borderRadius: BorderRadius.circular(12.r),
+                                ),
+                                child: Text(
+                                  ann.priority.toUpperCase(),
+                                  style: AppTypography.caption
+                                      .copyWith(color: priorityTextColor),
+                                ),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12.h),
+                          if (audienceTags.isNotEmpty) ...[
+                            Wrap(
+                              spacing: 8.w,
+                              runSpacing: 8.h,
+                              children: audienceTags
+                                  .map((t) => Container(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 10.w, vertical: 4.h),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(8.r),
+                                          border: Border.all(
+                                              color: const Color(0xFFE2EAF4)),
+                                        ),
+                                        child: Text(
+                                          t == 'ALL' ? 'EVERYONE' : t,
+                                          style: AppTypography.caption.copyWith(
+                                              color: const Color(0xFF475569)),
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
+                            SizedBox(height: 12.h),
+                          ],
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today_outlined,
+                                  size: 14.sp, color: const Color(0xFF6B7A90)),
+                              SizedBox(width: 6.w),
+                              Text(
+                                ann.dateStr,
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF6B7A90)),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 12.h),
+                          Text(
+                            ann.content,
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF475569), height: 1.5),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-        ), // Closes Container
-        ); // Closes GestureDetector
-      },
-    ));
+              ), // Closes Container
+            ); // Closes GestureDetector
+          },
+        ));
   }
-
-
-
-
-
 
   // --- UI Component: Stats Grid ---
   Widget _buildStatsGrid() {
@@ -1535,11 +1608,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           Text(
             label,
             textAlign: TextAlign.center,
-            style: GoogleFonts.inter(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFF475569),
-            ),
+            style: AppTypography.small.copyWith(color: const Color(0xFF475569)),
           ),
           SizedBox(height: 8.h),
           Text(
@@ -1584,26 +1653,20 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           SizedBox(height: 16.h),
           Text(
             'No announcements',
-            style: GoogleFonts.inter(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F2547),
-            ),
+            style: AppTypography.small.copyWith(color: const Color(0xFF0F2547)),
           ),
           SizedBox(height: 8.h),
           Text(
             'Create your first announcement to notify users',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF6B7A90),
-              fontWeight: FontWeight.w500,
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF6B7A90)),
           ),
           SizedBox(height: 20.h),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r)),
               padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
               elevation: 0,
             ),
@@ -1611,7 +1674,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             icon: Icon(Icons.add, size: 16.sp, color: Colors.white),
             label: Text(
               "Create Announcement",
-              style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: Colors.white),
+              style: AppTypography.caption.copyWith(color: Colors.white),
             ),
           ),
         ],
@@ -1628,7 +1691,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       separatorBuilder: (_, __) => SizedBox(height: 12.h),
       itemBuilder: (context, index) {
         final ann = _announcements[index];
-        final isHigh = ann.priority.toUpperCase() == 'HIGH' || ann.priority.toUpperCase() == 'URGENT';
+        final isHigh = ann.priority.toUpperCase() == 'HIGH' ||
+            ann.priority.toUpperCase() == 'URGENT';
 
         // Split audience into individual tags
         final List<String> audienceTags = ann.audience
@@ -1636,9 +1700,11 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             .map((e) => e.trim().toUpperCase())
             .where((e) => e.isNotEmpty)
             .toList();
-            
-        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
-        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFEA580C);
+
+        final priorityBg =
+            isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+        final priorityTextColor =
+            isHigh ? const Color(0xFFEF4444) : const Color(0xFFEA580C);
 
         return Container(
           padding: EdgeInsets.all(20.r),
@@ -1668,42 +1734,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       children: [
                         Text(
                           ann.title,
-                          style: GoogleFonts.inter(
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0F172A),
-                          ),
+                          style: AppTypography.body
+                              .copyWith(color: const Color(0xFF0F172A)),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color: priorityBg,
                             borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
                             ann.priority.toUpperCase(),
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: priorityTextColor,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: priorityTextColor),
                           ),
                         ),
                         ...audienceTags.map((t) => Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(6.r),
-                          ),
-                          child: Text(
-                            t == 'ALL' ? 'EVERYONE' : t,
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF2563EB),
-                            ),
-                          ),
-                        )),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 10.w, vertical: 4.h),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: Text(
+                                t == 'ALL' ? 'EVERYONE' : t,
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF2563EB)),
+                              ),
+                            )),
                       ],
                     ),
                   ),
@@ -1712,14 +1771,16 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
-                        icon: Icon(Icons.edit_note_outlined, size: 22.sp, color: const Color(0xFF475569)),
+                        icon: Icon(Icons.edit_note_outlined,
+                            size: 22.sp, color: const Color(0xFF475569)),
                         onPressed: () => _openCreateSheet(editItem: ann),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                       ),
                       SizedBox(width: 16.w),
                       IconButton(
-                        icon: Icon(Icons.delete_outline_rounded, size: 22.sp, color: const Color(0xFF475569)),
+                        icon: Icon(Icons.delete_outline_rounded,
+                            size: 22.sp, color: const Color(0xFF475569)),
                         onPressed: () => _deleteAnnouncement(ann.id),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
@@ -1731,26 +1792,21 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               SizedBox(height: 12.h),
               Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF64748B)),
+                  Icon(Icons.calendar_today_outlined,
+                      size: 14.sp, color: const Color(0xFF64748B)),
                   SizedBox(width: 6.w),
                   Text(
                     ann.dateStr,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                 ],
               ),
               SizedBox(height: 12.h),
               Text(
                 ann.content,
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  color: const Color(0xFF334155),
-                  height: 1.5,
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF334155), height: 1.5),
               ),
             ],
           ),
@@ -1780,11 +1836,23 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildBottomNavItem(icon: Icons.grid_view_rounded, label: 'Dashboard', index: 0),
-              _buildBottomNavItem(icon: Icons.calendar_month_outlined, label: 'Calendar', index: 1),
-              _buildBottomNavItem(icon: Icons.people_outline_rounded, label: 'Students', index: 2),
-              _buildBottomNavItem(icon: Icons.notifications_active_rounded, label: 'Announcements', index: 3, isSelected: true),
-              _buildBottomNavItem(icon: Icons.more_horiz_rounded, label: 'More', index: 4),
+              _buildBottomNavItem(
+                  icon: Icons.grid_view_rounded, label: 'Dashboard', index: 0),
+              _buildBottomNavItem(
+                  icon: Icons.calendar_month_outlined,
+                  label: 'Calendar',
+                  index: 1),
+              _buildBottomNavItem(
+                  icon: Icons.people_outline_rounded,
+                  label: 'Students',
+                  index: 2),
+              _buildBottomNavItem(
+                  icon: Icons.notifications_active_rounded,
+                  label: 'Announcements',
+                  index: 3,
+                  isSelected: true),
+              _buildBottomNavItem(
+                  icon: Icons.more_horiz_rounded, label: 'More', index: 4),
             ],
           ),
         ),
@@ -1822,11 +1890,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               SizedBox(height: 3.h),
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                  color: isSelected ? activeColor : const Color(0xFF94A3B8),
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: isSelected ? activeColor : const Color(0xFF94A3B8)),
               ),
             ],
           ),
@@ -1909,14 +1974,20 @@ class MegaphonePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(size.width * 0.88, size.height * 0.425), width: 12.w, height: 20.h),
+      Rect.fromCenter(
+          center: Offset(size.width * 0.88, size.height * 0.425),
+          width: 12.w,
+          height: 20.h),
       -1.0,
       2.0,
       false,
       wavePaint,
     );
     canvas.drawArc(
-      Rect.fromCenter(center: Offset(size.width * 0.94, size.height * 0.425), width: 24.w, height: 36.h),
+      Rect.fromCenter(
+          center: Offset(size.width * 0.94, size.height * 0.425),
+          width: 24.w,
+          height: 36.h),
       -1.0,
       2.0,
       false,

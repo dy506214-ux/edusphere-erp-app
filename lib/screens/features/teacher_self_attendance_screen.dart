@@ -10,6 +10,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class TeacherPersonalAttendanceScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -62,7 +63,8 @@ class _TeacherPersonalAttendanceScreenState
       _teacherIdStr = prefs.getString('teacher_id') ?? '';
       await _loadAttendance(showLoading: true);
     } catch (e) {
-      dev.log('Error loading teacher info: $e', name: 'TeacherPersonalAttendance');
+      dev.log('Error loading teacher info: $e',
+          name: 'TeacherPersonalAttendance');
       setState(() {
         _isLoading = false;
       });
@@ -90,7 +92,8 @@ class _TeacherPersonalAttendanceScreenState
       _allRecords = list.map((x) => Map<String, dynamic>.from(x)).toList();
       _applyFiltersAndCalculate();
     } catch (e) {
-      dev.log('Error loading attendance data: $e', name: 'TeacherPersonalAttendance');
+      dev.log('Error loading attendance data: $e',
+          name: 'TeacherPersonalAttendance');
     } finally {
       if (mounted) {
         setState(() {
@@ -103,13 +106,16 @@ class _TeacherPersonalAttendanceScreenState
   void _connectRealTime() {
     try {
       final client = Supabase.instance.client;
-      _realtimeChannel = client.channel('public:teacher_self_attendance_sync')
+      _realtimeChannel = client
+          .channel('public:teacher_self_attendance_sync')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'AttendanceRecord',
             callback: (payload) {
-              dev.log('⚡ Real-time database update in personal attendance: $payload', name: 'TeacherPersonalAttendance');
+              dev.log(
+                  '⚡ Real-time database update in personal attendance: $payload',
+                  name: 'TeacherPersonalAttendance');
               if (mounted) {
                 _loadAttendance(showLoading: false);
               }
@@ -117,7 +123,8 @@ class _TeacherPersonalAttendanceScreenState
           );
       _realtimeChannel!.subscribe();
     } catch (e) {
-      dev.log('Error connecting realtime channel: $e', name: 'TeacherPersonalAttendance');
+      dev.log('Error connecting realtime channel: $e',
+          name: 'TeacherPersonalAttendance');
     }
 
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -148,7 +155,8 @@ class _TeacherPersonalAttendanceScreenState
       }
       // Generate days descending
       DateTime current = DateTime(rangeEnd.year, rangeEnd.month, rangeEnd.day);
-      final DateTime boundary = DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
+      final DateTime boundary =
+          DateTime(rangeStart.year, rangeStart.month, rangeStart.day);
       while (!current.isBefore(boundary)) {
         dateList.add(current);
         current = current.subtract(const Duration(days: 1));
@@ -167,7 +175,8 @@ class _TeacherPersonalAttendanceScreenState
         orElse: () => {},
       );
 
-      final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
+      final isWeekend =
+          date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
 
       if (record.isNotEmpty) {
         final status = record['status']?.toString().toUpperCase() ?? '';
@@ -191,7 +200,11 @@ class _TeacherPersonalAttendanceScreenState
           'checkIn': timeStr,
         });
 
-        if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+        if (status == 'PRESENT' ||
+            status == 'P' ||
+            status == 'LATE' ||
+            status == 'Late' ||
+            status == 'HALF_DAY') {
           present++;
         } else if (status == 'ABSENT' || status == 'A') {
           absent++;
@@ -268,7 +281,9 @@ class _TeacherPersonalAttendanceScreenState
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.teacherPrimary))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.teacherPrimary))
                 : RefreshIndicator(
                     onRefresh: () => _loadAttendance(showLoading: true),
                     color: AppColors.teacherPrimary,
@@ -322,7 +337,8 @@ class _TeacherPersonalAttendanceScreenState
                 onTap: () => _openCustomDatePicker(true),
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
                   child: Row(
                     children: [
                       Expanded(
@@ -332,23 +348,17 @@ class _TeacherPersonalAttendanceScreenState
                           children: [
                             Text(
                               'START DATE',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.sp,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textMedium,
-                                letterSpacing: 0.5,
-                              ),
+                              style: AppTypography.caption.copyWith(
+                                  color: AppColors.textMedium,
+                                  letterSpacing: 0.5),
                             ),
                             SizedBox(height: 2.h),
                             Text(
                               startLabel,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: _startDate == null
-                                    ? AppColors.textLight
-                                    : AppColors.textDark,
-                              ),
+                              style: AppTypography.caption.copyWith(
+                                  color: _startDate == null
+                                      ? AppColors.textLight
+                                      : AppColors.textDark),
                             ),
                           ],
                         ),
@@ -381,7 +391,8 @@ class _TeacherPersonalAttendanceScreenState
                 onTap: () => _openCustomDatePicker(false),
                 behavior: HitTestBehavior.opaque,
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
                   child: Row(
                     children: [
                       Expanded(
@@ -391,23 +402,17 @@ class _TeacherPersonalAttendanceScreenState
                           children: [
                             Text(
                               'END DATE',
-                              style: GoogleFonts.inter(
-                                fontSize: 9.sp,
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textMedium,
-                                letterSpacing: 0.5,
-                              ),
+                              style: AppTypography.caption.copyWith(
+                                  color: AppColors.textMedium,
+                                  letterSpacing: 0.5),
                             ),
                             SizedBox(height: 2.h),
                             Text(
                               endLabel,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w700,
-                                color: _endDate == null
-                                    ? AppColors.textLight
-                                    : AppColors.textDark,
-                              ),
+                              style: AppTypography.caption.copyWith(
+                                  color: _endDate == null
+                                      ? AppColors.textLight
+                                      : AppColors.textDark),
                             ),
                           ],
                         ),
@@ -462,7 +467,8 @@ class _TeacherPersonalAttendanceScreenState
           decoration: BoxDecoration(
             color: const Color(0xFFECFDF5),
             borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.2)),
+            border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -472,12 +478,8 @@ class _TeacherPersonalAttendanceScreenState
                 children: [
                   Text(
                     'TOTAL PRESENT',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF047857),
-                      letterSpacing: 0.5,
-                    ),
+                    style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF047857), letterSpacing: 0.5),
                   ),
                   Icon(Icons.check_circle_outline_rounded,
                       size: 18.sp, color: const Color(0xFF10B981)),
@@ -490,20 +492,14 @@ class _TeacherPersonalAttendanceScreenState
                 children: [
                   Text(
                     '$_presentCount',
-                    style: GoogleFonts.inter(
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF064E3B),
-                    ),
+                    style: AppTypography.h3
+                        .copyWith(color: const Color(0xFF064E3B)),
                   ),
                   SizedBox(width: 4.w),
                   Text(
                     'days',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF047857),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF047857)),
                   ),
                 ],
               ),
@@ -518,7 +514,8 @@ class _TeacherPersonalAttendanceScreenState
           decoration: BoxDecoration(
             color: const Color(0xFFFEF2F2),
             borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.2)),
+            border: Border.all(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,12 +525,8 @@ class _TeacherPersonalAttendanceScreenState
                 children: [
                   Text(
                     'TOTAL ABSENT',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFFB91C1C),
-                      letterSpacing: 0.5,
-                    ),
+                    style: AppTypography.caption.copyWith(
+                        color: const Color(0xFFB91C1C), letterSpacing: 0.5),
                   ),
                   Icon(Icons.cancel_outlined,
                       size: 18.sp, color: const Color(0xFFEF4444)),
@@ -546,20 +539,14 @@ class _TeacherPersonalAttendanceScreenState
                 children: [
                   Text(
                     '$_absentCount',
-                    style: GoogleFonts.inter(
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF7F1D1D),
-                    ),
+                    style: AppTypography.h3
+                        .copyWith(color: const Color(0xFF7F1D1D)),
                   ),
                   SizedBox(width: 4.w),
                   Text(
                     'days',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFB91C1C),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFFB91C1C)),
                   ),
                 ],
               ),
@@ -574,7 +561,8 @@ class _TeacherPersonalAttendanceScreenState
           decoration: BoxDecoration(
             color: const Color(0xFFEFF6FF),
             borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.2)),
+            border: Border.all(
+                color: const Color(0xFF3B82F6).withValues(alpha: 0.2)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -584,12 +572,8 @@ class _TeacherPersonalAttendanceScreenState
                 children: [
                   Text(
                     'ATTENDANCE %',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF1D4ED8),
-                      letterSpacing: 0.5,
-                    ),
+                    style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF1D4ED8), letterSpacing: 0.5),
                   ),
                   Icon(Icons.calendar_month_outlined,
                       size: 18.sp, color: const Color(0xFF3B82F6)),
@@ -598,11 +582,8 @@ class _TeacherPersonalAttendanceScreenState
               SizedBox(height: 12.h),
               Text(
                 rateStr,
-                style: GoogleFonts.inter(
-                  fontSize: 26.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF1E3A8A),
-                ),
+                style:
+                    AppTypography.h3.copyWith(color: const Color(0xFF1E3A8A)),
               ),
             ],
           ),
@@ -625,19 +606,12 @@ class _TeacherPersonalAttendanceScreenState
         children: [
           Text(
             'Detailed Logs',
-            style: GoogleFonts.inter(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
-            ),
+            style: AppTypography.body.copyWith(color: AppColors.textDark),
           ),
           SizedBox(height: 4.h),
           Text(
             'Comprehensive history showing all dates in the range.',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: AppColors.textMedium,
-            ),
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium),
           ),
           SizedBox(height: 20.h),
 
@@ -648,22 +622,16 @@ class _TeacherPersonalAttendanceScreenState
                 flex: 3,
                 child: Text(
                   'Date',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                 ),
               ),
               Expanded(
                 flex: 3,
                 child: Text(
                   'Status',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                 ),
               ),
               Expanded(
@@ -671,11 +639,8 @@ class _TeacherPersonalAttendanceScreenState
                 child: Center(
                   child: Text(
                     'Marked\nBy',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textMedium,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textMedium),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -684,11 +649,8 @@ class _TeacherPersonalAttendanceScreenState
                 flex: 3,
                 child: Text(
                   'Check-in\nTime',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                   textAlign: TextAlign.right,
                 ),
               ),
@@ -703,11 +665,8 @@ class _TeacherPersonalAttendanceScreenState
               child: Center(
                 child: Text(
                   'No records within range',
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    color: AppColors.textLight,
-                    fontStyle: FontStyle.italic,
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: AppColors.textLight, fontStyle: FontStyle.italic),
                 ),
               ),
             )
@@ -723,13 +682,16 @@ class _TeacherPersonalAttendanceScreenState
                 final markedBy = log['markedBy'] as String;
                 final checkIn = log['checkIn'] as String;
 
-                final String dateLine1 = intl.DateFormat('EEE, MMM').format(date);
-                final String dateLine2 = intl.DateFormat('dd, yyyy').format(date);
+                final String dateLine1 =
+                    intl.DateFormat('EEE, MMM').format(date);
+                final String dateLine2 =
+                    intl.DateFormat('dd, yyyy').format(date);
 
                 String statusLabel = 'Not Marked';
                 Color statusBg = Colors.white;
                 Color statusText = const Color(0xFF64748B);
-                Border? statusBorder = Border.all(color: const Color(0xFFCBD5E1));
+                Border? statusBorder =
+                    Border.all(color: const Color(0xFFCBD5E1));
 
                 if (status == 'PRESENT' || status == 'P') {
                   statusLabel = 'Present';
@@ -776,19 +738,13 @@ class _TeacherPersonalAttendanceScreenState
                           children: [
                             Text(
                               dateLine1,
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textDark,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textDark),
                             ),
                             Text(
                               dateLine2,
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textDark,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textDark),
                             ),
                           ],
                         ),
@@ -809,11 +765,8 @@ class _TeacherPersonalAttendanceScreenState
                             ),
                             child: Text(
                               statusLabel,
-                              style: GoogleFonts.inter(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: statusText,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: statusText),
                             ),
                           ),
                         ),
@@ -825,10 +778,8 @@ class _TeacherPersonalAttendanceScreenState
                         child: Center(
                           child: Text(
                             markedBy,
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: AppColors.textDark,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textDark),
                           ),
                         ),
                       ),
@@ -838,10 +789,8 @@ class _TeacherPersonalAttendanceScreenState
                         flex: 3,
                         child: Text(
                           checkIn,
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            color: AppColors.textDark,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textDark),
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -876,7 +825,8 @@ class _CustomCalendarPickerDialogState
   @override
   void initState() {
     super.initState();
-    _currentMonth = DateTime(widget.initialDate.year, widget.initialDate.month, 1);
+    _currentMonth =
+        DateTime(widget.initialDate.year, widget.initialDate.month, 1);
     _selectedDate = widget.initialDate;
   }
 
@@ -894,12 +844,15 @@ class _CustomCalendarPickerDialogState
 
   @override
   Widget build(BuildContext context) {
-    final String monthTitle = intl.DateFormat('MMMM, yyyy').format(_currentMonth);
+    final String monthTitle =
+        intl.DateFormat('MMMM, yyyy').format(_currentMonth);
 
     // Days in current month
-    final int daysInMonth = DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
+    final int daysInMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0).day;
     // Weekday of the first day
-    final int firstDayOffset = _currentMonth.weekday % 7; // Sunday = 0, Monday = 1...
+    final int firstDayOffset =
+        _currentMonth.weekday % 7; // Sunday = 0, Monday = 1...
     final int totalCells = daysInMonth + firstDayOffset;
 
     return Dialog(
@@ -924,11 +877,8 @@ class _CustomCalendarPickerDialogState
                     children: [
                       Text(
                         monthTitle,
-                        style: GoogleFonts.inter(
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.textDark,
-                        ),
+                        style: AppTypography.small
+                            .copyWith(color: AppColors.textDark),
                       ),
                       SizedBox(width: 8.w),
                       // Up/down switches
@@ -958,11 +908,8 @@ class _CustomCalendarPickerDialogState
                   child: Center(
                     child: Text(
                       d,
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textLight,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textLight),
                     ),
                   ),
                 );
@@ -1025,11 +972,7 @@ class _CustomCalendarPickerDialogState
                     child: Center(
                       child: Text(
                         '$day',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: weight,
-                          color: fg,
-                        ),
+                        style: AppTypography.caption.copyWith(color: fg, fontWeight: weight),
                       ),
                     ),
                   ),
@@ -1049,11 +992,7 @@ class _CustomCalendarPickerDialogState
                   },
                   child: Text(
                     'Clear',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.red,
-                    ),
+                    style: AppTypography.caption.copyWith(color: Colors.red),
                   ),
                 ),
                 TextButton(
@@ -1063,11 +1002,8 @@ class _CustomCalendarPickerDialogState
                   },
                   child: Text(
                     'Today',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0077D6),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF0077D6)),
                   ),
                 ),
               ],

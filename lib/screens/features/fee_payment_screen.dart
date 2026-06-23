@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../services/api_service.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class FeePaymentScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -28,7 +29,8 @@ class FeePaymentScreen extends StatefulWidget {
   State<FeePaymentScreen> createState() => _FeePaymentScreenState();
 }
 
-class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProviderStateMixin {
+class _FeePaymentScreenState extends State<FeePaymentScreen>
+    with TickerProviderStateMixin {
   String _selectedMethod = 'UPI';
   bool _processing = false;
   bool _paymentSuccess = false;
@@ -43,9 +45,27 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
   String _transactionId = '';
 
   final List<Map<String, dynamic>> _paymentMethods = const [
-    {'id': 'UPI', 'label': 'UPI', 'icon': Icons.qr_code_rounded, 'color': Color(0xFF7C3AED), 'desc': 'Pay via Google Pay, PhonePe, etc.'},
-    {'id': 'Card', 'label': 'Debit / Credit Card', 'icon': Icons.credit_card_rounded, 'color': Color(0xFFEC4899), 'desc': 'Visa, MasterCard, Rupay'},
-    {'id': 'Net Banking', 'label': 'Net Banking', 'icon': Icons.account_balance_rounded, 'color': Color(0xFF2563EB), 'desc': 'All major banks supported'},
+    {
+      'id': 'UPI',
+      'label': 'UPI',
+      'icon': Icons.qr_code_rounded,
+      'color': Color(0xFF7C3AED),
+      'desc': 'Pay via Google Pay, PhonePe, etc.'
+    },
+    {
+      'id': 'Card',
+      'label': 'Debit / Credit Card',
+      'icon': Icons.credit_card_rounded,
+      'color': Color(0xFFEC4899),
+      'desc': 'Visa, MasterCard, Rupay'
+    },
+    {
+      'id': 'Net Banking',
+      'label': 'Net Banking',
+      'icon': Icons.account_balance_rounded,
+      'color': Color(0xFF2563EB),
+      'desc': 'All major banks supported'
+    },
   ];
 
   @override
@@ -53,9 +73,12 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     super.initState();
     _amountController.text = widget.outstandingAmount.toStringAsFixed(0);
 
-    _successAnimController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
-    _scaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _successAnimController, curve: Curves.elasticOut));
-    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _successAnimController, curve: Curves.easeIn));
+    _successAnimController = AnimationController(
+        duration: const Duration(milliseconds: 800), vsync: this);
+    _scaleAnim = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
+        parent: _successAnimController, curve: Curves.elasticOut));
+    _fadeAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _successAnimController, curve: Curves.easeIn));
   }
 
   @override
@@ -84,7 +107,8 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
   String _generateTransactionId() {
     final rand = Random();
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    final id = List.generate(12, (_) => chars[rand.nextInt(chars.length)]).join();
+    final id =
+        List.generate(12, (_) => chars[rand.nextInt(chars.length)]).join();
     return 'TXN$id';
   }
 
@@ -95,7 +119,8 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
       return;
     }
     if (amount > widget.outstandingAmount) {
-      showToast(context, 'Amount cannot exceed outstanding balance', isError: true);
+      showToast(context, 'Amount cannot exceed outstanding balance',
+          isError: true);
       return;
     }
     if (_selectedMethod == 'UPI' && _upiIdController.text.trim().isEmpty) {
@@ -108,8 +133,10 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     _transactionId = _generateTransactionId();
 
     try {
-      final mode = _selectedMethod == 'UPI' ? 'UPI' : (_selectedMethod == 'Card' ? 'CARD' : 'NET_BANKING');
-      
+      final mode = _selectedMethod == 'UPI'
+          ? 'UPI'
+          : (_selectedMethod == 'Card' ? 'CARD' : 'NET_BANKING');
+
       final paymentBody = {
         'studentId': widget.studentId,
         'ledgerId': widget.ledgerId,
@@ -120,11 +147,14 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
         'forYear': DateTime.now().year,
       };
 
-      final paymentRes = await ApiService.instance.post('fees/payments', body: paymentBody);
+      final paymentRes =
+          await ApiService.instance.post('fees/payments', body: paymentBody);
 
       if (paymentRes != null && paymentRes['id'] != null) {
-        _receiptNumber = paymentRes['receiptNumber'] as String? ?? 'RCT-00000000';
-        _transactionId = paymentRes['transactionId'] as String? ?? _transactionId;
+        _receiptNumber =
+            paymentRes['receiptNumber'] as String? ?? 'RCT-00000000';
+        _transactionId =
+            paymentRes['transactionId'] as String? ?? _transactionId;
 
         if (mounted) {
           setState(() {
@@ -135,7 +165,12 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
         }
       } else {
         if (mounted) {
-          showToast(context, paymentRes != null && paymentRes['error'] != null ? paymentRes['error'].toString() : 'Payment failed on backend', isError: true);
+          showToast(
+              context,
+              paymentRes != null && paymentRes['error'] != null
+                  ? paymentRes['error'].toString()
+                  : 'Payment failed on backend',
+              isError: true);
           setState(() => _processing = false);
         }
       }
@@ -200,25 +235,30 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.theme.primary,
                         padding: EdgeInsets.symmetric(vertical: 18.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18.r)),
                         elevation: 6,
-                        shadowColor: widget.theme.primary.withValues(alpha: 0.4),
+                        shadowColor:
+                            widget.theme.primary.withValues(alpha: 0.4),
                       ),
                       onPressed: _processing ? null : _processPayment,
                       child: _processing
                           ? SizedBox(
                               height: 22.h,
                               width: 22.w,
-                              child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                              child: const CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2.5),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.lock_rounded, color: Colors.white, size: 20.sp),
+                                Icon(Icons.lock_rounded,
+                                    color: Colors.white, size: 20.sp),
                                 SizedBox(width: 10.w),
                                 Text(
                                   'Pay Securely',
-                                  style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: Colors.white),
+                                  style: AppTypography.body
+                                      .copyWith(color: Colors.white),
                                 ),
                               ],
                             ),
@@ -231,11 +271,13 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.shield_rounded, size: 14.sp, color: AppColors.textLight),
+                        Icon(Icons.shield_rounded,
+                            size: 14.sp, color: AppColors.textLight),
                         SizedBox(width: 6.w),
                         Text(
                           '256-bit SSL encrypted • PCI DSS Compliant',
-                          style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight, fontWeight: FontWeight.w600),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textLight),
                         ),
                       ],
                     ),
@@ -256,22 +298,30 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
       padding: EdgeInsets.all(24.r),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [widget.theme.primary, widget.theme.primary.withValues(alpha: 0.8)],
+          colors: [
+            widget.theme.primary,
+            widget.theme.primary.withValues(alpha: 0.8)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24.r),
         boxShadow: [
-          BoxShadow(color: widget.theme.primary.withValues(alpha: 0.3), blurRadius: 16.r, offset: Offset(0, 6.h)),
+          BoxShadow(
+              color: widget.theme.primary.withValues(alpha: 0.3),
+              blurRadius: 16.r,
+              offset: Offset(0, 6.h)),
         ],
       ),
       child: Column(
         children: [
-          Text('AMOUNT TO PAY', style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white70, fontWeight: FontWeight.w800, letterSpacing: 1.5)),
+          Text('AMOUNT TO PAY',
+              style: AppTypography.caption
+                  .copyWith(color: Colors.white70, letterSpacing: 1.5)),
           SizedBox(height: 8.h),
           Text(
             _formatCurrency(widget.outstandingAmount),
-            style: GoogleFonts.inter(fontSize: 34.sp, fontWeight: FontWeight.w900, color: Colors.white),
+            style: AppTypography.h1.copyWith(color: Colors.white),
           ),
           SizedBox(height: 12.h),
 
@@ -285,7 +335,8 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('₹', style: GoogleFonts.inter(fontSize: 16.sp, color: Colors.white, fontWeight: FontWeight.w800)),
+                Text('₹',
+                    style: AppTypography.body.copyWith(color: Colors.white)),
                 SizedBox(width: 6.w),
                 SizedBox(
                   width: 100.w,
@@ -293,11 +344,13 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                     controller: _amountController,
                     keyboardType: TextInputType.number,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 18.sp, color: Colors.white, fontWeight: FontWeight.w900),
+                    style:
+                        AppTypography.bodyLarge.copyWith(color: Colors.white),
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       hintText: '0',
-                      hintStyle: GoogleFonts.inter(fontSize: 18.sp, color: Colors.white38),
+                      hintStyle: AppTypography.bodyLarge
+                          .copyWith(color: Colors.white38),
                       isDense: true,
                       contentPadding: EdgeInsets.zero,
                     ),
@@ -307,7 +360,8 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
             ),
           ),
           SizedBox(height: 6.h),
-          Text('Edit amount if paying partially', style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white60, fontWeight: FontWeight.w600)),
+          Text('Edit amount if paying partially',
+              style: AppTypography.caption.copyWith(color: Colors.white60)),
         ],
       ),
     );
@@ -328,10 +382,21 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
         decoration: BoxDecoration(
           color: isSelected ? color.withValues(alpha: 0.06) : Colors.white,
           borderRadius: BorderRadius.circular(18.r),
-          border: Border.all(color: isSelected ? color : AppColors.border, width: isSelected ? 2 : 1),
+          border: Border.all(
+              color: isSelected ? color : AppColors.border,
+              width: isSelected ? 2 : 1),
           boxShadow: isSelected
-              ? [BoxShadow(color: color.withValues(alpha: 0.12), blurRadius: 10.r, offset: Offset(0, 3.h))]
-              : [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 6.r)],
+              ? [
+                  BoxShadow(
+                      color: color.withValues(alpha: 0.12),
+                      blurRadius: 10.r,
+                      offset: Offset(0, 3.h))
+                ]
+              : [
+                  BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 6.r)
+                ],
         ),
         child: Row(
           children: [
@@ -342,16 +407,21 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                 color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(14.r),
               ),
-              child: Icon(method['icon'] as IconData, color: color, size: 24.sp),
+              child:
+                  Icon(method['icon'] as IconData, color: color, size: 24.sp),
             ),
             SizedBox(width: 14.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(method['label'] as String, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14.sp)),
+                  Text(method['label'] as String,
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark)),
                   SizedBox(height: 2.h),
-                  Text(method['desc'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                  Text(method['desc'] as String,
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textLight)),
                 ],
               ),
             ),
@@ -362,9 +432,12 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isSelected ? color : Colors.transparent,
-                border: Border.all(color: isSelected ? color : AppColors.textLight, width: 2),
+                border: Border.all(
+                    color: isSelected ? color : AppColors.textLight, width: 2),
               ),
-              child: isSelected ? Icon(Icons.check_rounded, color: Colors.white, size: 14.sp) : null,
+              child: isSelected
+                  ? Icon(Icons.check_rounded, color: Colors.white, size: 14.sp)
+                  : null,
             ),
           ],
         ),
@@ -383,19 +456,25 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Enter UPI ID', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textDark, fontSize: 13.sp)),
+          Text('Enter UPI ID',
+              style: AppTypography.caption.copyWith(color: AppColors.textDark)),
           SizedBox(height: 10.h),
           TextField(
             controller: _upiIdController,
-            style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w700, color: AppColors.textDark),
+            style: AppTypography.small.copyWith(color: AppColors.textDark),
             decoration: InputDecoration(
               hintText: 'yourname@upi',
-              hintStyle: GoogleFonts.inter(fontSize: 14.sp, color: AppColors.textLight),
-              prefixIcon: Icon(Icons.alternate_email_rounded, color: const Color(0xFF7C3AED), size: 20.sp),
+              hintStyle:
+                  AppTypography.small.copyWith(color: AppColors.textLight),
+              prefixIcon: Icon(Icons.alternate_email_rounded,
+                  color: const Color(0xFF7C3AED), size: 20.sp),
               filled: true,
               fillColor: AppColors.background,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14.r), borderSide: BorderSide.none),
-              contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14.r),
+                  borderSide: BorderSide.none),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14.w, vertical: 14.h),
             ),
           ),
           SizedBox(height: 10.h),
@@ -424,13 +503,16 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
           color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8.r),
         ),
-        child: Text(name, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF7C3AED))),
+        child: Text(name,
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF7C3AED))),
       ),
     );
   }
 
   Widget _buildBreakdownCard() {
-    final amount = double.tryParse(_amountController.text) ?? widget.outstandingAmount;
+    final amount =
+        double.tryParse(_amountController.text) ?? widget.outstandingAmount;
     const convenienceFee = 0.0; // No extra fee
     final total = amount + convenienceFee;
 
@@ -455,21 +537,25 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     );
   }
 
-  Widget _breakdownRow(String label, String value, bool isBold, {bool isGreen = false}) {
+  Widget _breakdownRow(String label, String value, bool isBold,
+      {bool isGreen = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(
-          fontSize: isBold ? 14.sp : 13.sp,
-          fontWeight: isBold ? FontWeight.w900 : FontWeight.w600,
-          color: isBold ? AppColors.textDark : AppColors.textMedium,
-        )),
+        Text(label,
+            style: GoogleFonts.inter(
+              fontSize: isBold ? 14.sp : 13.sp,
+              fontWeight: isBold ? FontWeight.w900 : FontWeight.w600,
+              color: isBold ? AppColors.textDark : AppColors.textMedium,
+            )),
         Text(
           value,
           style: GoogleFonts.inter(
             fontSize: isBold ? 16.sp : 13.sp,
             fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
-            color: isGreen ? const Color(0xFF10B981) : (isBold ? widget.theme.primary : AppColors.textDark),
+            color: isGreen
+                ? const Color(0xFF10B981)
+                : (isBold ? widget.theme.primary : AppColors.textDark),
           ),
         ),
       ],
@@ -504,14 +590,18 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                       color: const Color(0xFF10B981).withValues(alpha: 0.12),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 60.sp),
+                    child: Icon(Icons.check_circle_rounded,
+                        color: const Color(0xFF10B981), size: 60.sp),
                   ),
                   SizedBox(height: 28.h),
-                  Text('Payment Successful!', style: GoogleFonts.inter(fontSize: 24.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                  Text('Payment Successful!',
+                      style:
+                          AppTypography.h3.copyWith(color: AppColors.textDark)),
                   SizedBox(height: 8.h),
                   Text(
                     'Your fee payment has been processed',
-                    style: GoogleFonts.inter(fontSize: 14.sp, color: AppColors.textMedium, fontWeight: FontWeight.w600),
+                    style: AppTypography.small
+                        .copyWith(color: AppColors.textMedium),
                   ),
                   SizedBox(height: 32.h),
 
@@ -525,7 +615,11 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                     ),
                     child: Column(
                       children: [
-                        _receiptRow('Amount Paid', _formatCurrency(double.tryParse(_amountController.text) ?? widget.outstandingAmount)),
+                        _receiptRow(
+                            'Amount Paid',
+                            _formatCurrency(
+                                double.tryParse(_amountController.text) ??
+                                    widget.outstandingAmount)),
                         SizedBox(height: 12.h),
                         _receiptRow('Method', _selectedMethod),
                         SizedBox(height: 12.h),
@@ -545,10 +639,13 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.theme.primary,
                         padding: EdgeInsets.symmetric(vertical: 18.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18.r)),
                       ),
                       onPressed: () => Navigator.pop(context),
-                      child: Text('Back to Ledger', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                      child: Text('Back to Ledger',
+                          style:
+                              AppTypography.body.copyWith(color: Colors.white)),
                     ),
                   ),
                   SizedBox(height: 12.h),
@@ -559,9 +656,12 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.download_rounded, size: 18.sp, color: widget.theme.primary),
+                        Icon(Icons.download_rounded,
+                            size: 18.sp, color: widget.theme.primary),
                         SizedBox(width: 6.w),
-                        Text('Download Receipt', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: widget.theme.primary)),
+                        Text('Download Receipt',
+                            style: AppTypography.small
+                                .copyWith(color: widget.theme.primary)),
                       ],
                     ),
                   ),
@@ -578,15 +678,30 @@ class _FeePaymentScreenState extends State<FeePaymentScreen> with TickerProvider
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textLight, fontWeight: FontWeight.w600)),
-        Text(value, style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textDark, fontWeight: FontWeight.w800)),
+        Text(label,
+            style: AppTypography.caption.copyWith(color: AppColors.textLight)),
+        Text(value,
+            style: AppTypography.caption.copyWith(color: AppColors.textDark)),
       ],
     );
   }
 
   String _formatTodayDate() {
     final now = DateTime.now();
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return '${now.day.toString().padLeft(2, '0')} ${months[now.month - 1]} ${now.year}';
   }
 }

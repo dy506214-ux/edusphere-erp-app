@@ -8,6 +8,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart' as intl;
+import 'package:edusphere/theme/typography.dart';
 
 class AssignmentsScreen extends StatefulWidget {
   const AssignmentsScreen({super.key});
@@ -50,46 +51,54 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   void _connectRealTime() {
     try {
       final client = Supabase.instance.client;
-      
+
       if (_assignmentsChannel != null) {
         client.removeChannel(_assignmentsChannel!);
       }
-      
-      dev.log('📡 Subscribing to Supabase Realtime changes for Assignments Screen...', name: 'AssignmentsScreen');
-      _assignmentsChannel = client.channel('public:assignments_screen_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Assignment',
-          callback: (payload) {
-            dev.log('🔥 Real-time assignment event payload: $payload', name: 'AssignmentsScreen');
-            if (mounted) {
-              _loadAssignmentsData(showLoading: false);
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AssignmentSubmission',
-          callback: (payload) {
-            dev.log('🔥 Real-time submission event payload: $payload', name: 'AssignmentsScreen');
-            if (mounted) {
-              _loadAssignmentsData(showLoading: false);
-            }
-          },
-        );
-      
+
+      dev.log(
+          '📡 Subscribing to Supabase Realtime changes for Assignments Screen...',
+          name: 'AssignmentsScreen');
+      _assignmentsChannel = client
+          .channel('public:assignments_screen_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Assignment',
+            callback: (payload) {
+              dev.log('🔥 Real-time assignment event payload: $payload',
+                  name: 'AssignmentsScreen');
+              if (mounted) {
+                _loadAssignmentsData(showLoading: false);
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AssignmentSubmission',
+            callback: (payload) {
+              dev.log('🔥 Real-time submission event payload: $payload',
+                  name: 'AssignmentsScreen');
+              if (mounted) {
+                _loadAssignmentsData(showLoading: false);
+              }
+            },
+          );
+
       _assignmentsChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Assignments channel status: $status', name: 'AssignmentsScreen');
+        dev.log('📡 Supabase Realtime Assignments channel status: $status',
+            name: 'AssignmentsScreen');
         if (error != null) {
-          dev.log('❌ Supabase Realtime Assignments subscription error: $error', name: 'AssignmentsScreen');
+          dev.log('❌ Supabase Realtime Assignments subscription error: $error',
+              name: 'AssignmentsScreen');
         }
       });
     } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime Assignments channel: $e', name: 'AssignmentsScreen');
+      dev.log('⚠️ Error connecting Supabase Realtime Assignments channel: $e',
+          name: 'AssignmentsScreen');
     }
-    
+
     // Polling fallback every 2 seconds for robust real-time updates
     _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       if (mounted) {
@@ -101,11 +110,14 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   Future<void> _loadAssignmentsData({bool showLoading = true}) async {
     if (!mounted) return;
     if (showLoading) {
-      setState(() { _isLoading = true; });
+      setState(() {
+        _isLoading = true;
+      });
     }
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email');
+      final savedEmail =
+          prefs.getString('student_email') ?? prefs.getString('user_email');
       if (savedEmail != null) {
         _studentEmailStr = savedEmail;
       }
@@ -119,7 +131,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
       if (userRes != null) {
         final userId = userRes['id'] as String;
-        
+
         final studentRes = await Supabase.instance.client
             .from('Student')
             .select()
@@ -168,7 +180,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         final title = ass['title'] as String? ?? 'Untitled';
         final desc = ass['description'] as String? ?? '';
         final dueDateStr = (ass['dueDate'] ?? ass['due_date']) as String?;
-        
+
         // Fetch subject name dynamically
         String subject = 'General';
         final subId = ass['subjectId'] as String?;
@@ -192,9 +204,9 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           } catch (_) {}
         }
 
-        final isUrgent = due != null && 
-            due.year == DateTime.now().year && 
-            due.month == DateTime.now().month && 
+        final isUrgent = due != null &&
+            due.year == DateTime.now().year &&
+            due.month == DateTime.now().month &&
             due.day == DateTime.now().day;
 
         final bool isSubmitted = submissionsMap.containsKey(assId);
@@ -202,7 +214,9 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        final bool isOverdue = !isSubmitted && due != null && DateTime(due.year, due.month, due.day).isBefore(today);
+        final bool isOverdue = !isSubmitted &&
+            due != null &&
+            DateTime(due.year, due.month, due.day).isBefore(today);
 
         String formattedDue = 'No due date';
         if (due != null) {
@@ -211,7 +225,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
         String? formattedSub;
         if (sub != null) {
-          final subAtStr = (sub['submittedAt'] ?? sub['submitted_at']) as String?;
+          final subAtStr =
+              (sub['submittedAt'] ?? sub['submitted_at']) as String?;
           if (subAtStr != null) {
             try {
               final subAt = DateTime.parse(subAtStr);
@@ -231,8 +246,11 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           'isSubmitted': isSubmitted,
           'submittedAt': formattedSub ?? 'Recently',
           'grade': sub?['grade'] as String? ?? 'Pending',
-          'score': (sub?['feedback'] ?? sub?['score'])?.toString() ?? 'Not Graded',
-          'fileName': (sub?['filePath'] ?? sub?['fileName'] ?? sub?['file_name']) as String?,
+          'score':
+              (sub?['feedback'] ?? sub?['score'])?.toString() ?? 'Not Graded',
+          'fileName': (sub?['filePath'] ??
+              sub?['fileName'] ??
+              sub?['file_name']) as String?,
         });
       }
 
@@ -286,20 +304,14 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                     children: [
                       Text(
                         'My Assignments',
-                        style: GoogleFonts.inter(
-                          fontSize: 22.sp,
-                          fontWeight: FontWeight.w900,
-                          color: const Color(0xFF0066CC),
-                        ),
+                        style: AppTypography.h4
+                            .copyWith(color: const Color(0xFF0066CC)),
                       ),
                       SizedBox(height: 2.h),
                       Text(
                         'View and submit your classwork',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF6B7A90),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF6B7A90)),
                       ),
                     ],
                   ),
@@ -315,7 +327,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16.r),
-                        border: Border.all(color: const Color(0xFFE2EAF4), width: 1.5.w),
+                        border: Border.all(
+                            color: const Color(0xFFE2EAF4), width: 1.5.w),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.01),
@@ -329,35 +342,34 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                         children: [
                           Text(
                             'Academic Assignments',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.5.sp,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F2547),
-                            ),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F2547)),
                           ),
                           SizedBox(height: 3.h),
                           Text(
                             'Click on an assignment to submit your work or view grades.',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.5.sp,
-                              color: const Color(0xFF6B7A90),
-                              height: 1.3,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF6B7A90), height: 1.3),
                           ),
                           SizedBox(height: 24.h),
                           Expanded(
                             child: _isLoading
-                                ? const Center(child: CircularProgressIndicator(color: Color(0xFF2E7DF7)))
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                        color: Color(0xFF2E7DF7)))
                                 : RefreshIndicator(
-                                    onRefresh: () => _loadAssignmentsData(showLoading: true),
+                                    onRefresh: () =>
+                                        _loadAssignmentsData(showLoading: true),
                                     color: const Color(0xFF2E7DF7),
                                     child: filtered.isEmpty
                                         ? _buildEmptyState()
                                         : ListView.builder(
-                                            physics: const AlwaysScrollableScrollPhysics(),
+                                            physics:
+                                                const AlwaysScrollableScrollPhysics(),
                                             itemCount: filtered.length,
                                             itemBuilder: (context, index) {
-                                              return _buildAssignmentCard(filtered[index]);
+                                              return _buildAssignmentCard(
+                                                  filtered[index]);
                                             },
                                           ),
                                   ),
@@ -374,8 +386,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       ),
     );
   }
-
-
 
   Widget _buildAssignmentCard(Map<String, dynamic> a) {
     final bool isSubmitted = a['isSubmitted'] as bool;
@@ -412,16 +422,13 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF), // soft blue background
                   borderRadius: BorderRadius.circular(20.r), // capsule
-                  border: Border.all(color: const Color(0xFFBFDBFE), width: 1.w),
+                  border:
+                      Border.all(color: const Color(0xFFBFDBFE), width: 1.w),
                 ),
                 child: Text(
                   subject.toUpperCase(),
-                  style: GoogleFonts.inter(
-                    fontSize: 9.5.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF2563EB),
-                    letterSpacing: 0.5,
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: const Color(0xFF2563EB), letterSpacing: 0.5),
                 ),
               ),
 
@@ -433,7 +440,9 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       ? const Color(0xFFD1FAE5) // Soft green for submitted
                       : (isOverdue
                           ? const Color(0xFFFEE2E2) // Soft red for overdue
-                          : (isUrgent ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9))), // Soft yellow/grey
+                          : (isUrgent
+                              ? const Color(0xFFFEF3C7)
+                              : const Color(0xFFF1F5F9))), // Soft yellow/grey
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
@@ -442,15 +451,14 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                       : (isOverdue
                           ? "Overdue"
                           : (isUrgent ? "Due Today" : "Pending")),
-                  style: GoogleFonts.inter(
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w800,
-                    color: isSubmitted
-                        ? const Color(0xFF059669) // Green text
-                        : (isOverdue
-                            ? const Color(0xFFEF4444) // Red text
-                            : (isUrgent ? const Color(0xFFD97706) : const Color(0xFF475569))),
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: isSubmitted
+                          ? const Color(0xFF059669) // Green text
+                          : (isOverdue
+                              ? const Color(0xFFEF4444) // Red text
+                              : (isUrgent
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF475569)))),
                 ),
               ),
             ],
@@ -460,11 +468,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
           // Assignment Title
           Text(
             a['title'] as String,
-            style: GoogleFonts.inter(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
+            style: AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
           ),
           SizedBox(height: 4.h),
 
@@ -473,30 +477,26 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
             a['description'] as String,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.inter(
-              fontSize: 12.5.sp,
-              color: const Color(0xFF475569),
-              height: 1.3,
-            ),
+            style: AppTypography.caption
+                .copyWith(color: const Color(0xFF475569), height: 1.3),
           ),
-          
+
           Divider(color: const Color(0xFFE2EAF4), height: 24.h, thickness: 1.h),
 
           // Meta Info Row
           Row(
             children: [
-              Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF64748B)),
+              Icon(Icons.calendar_today_outlined,
+                  size: 14.sp, color: const Color(0xFF64748B)),
               SizedBox(width: 6.w),
               Text(
                 'Due: ${a['due']}',
-                style: GoogleFonts.inter(
-                  fontSize: 11.5.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
               ),
               const Spacer(),
-              Icon(Icons.person_outline_rounded, size: 16.sp, color: const Color(0xFF94A3B8)),
+              Icon(Icons.person_outline_rounded,
+                  size: 16.sp, color: const Color(0xFF94A3B8)),
             ],
           ),
           SizedBox(height: 18.h),
@@ -514,15 +514,13 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.access_time_rounded, color: const Color(0xFF2563EB), size: 16.sp),
+                    Icon(Icons.access_time_rounded,
+                        color: const Color(0xFF2563EB), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
                       'Awaiting Grade',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF2563EB),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF2563EB)),
                     ),
                   ],
                 ),
@@ -538,15 +536,13 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 16.sp),
+                    Icon(Icons.check_circle_rounded,
+                        color: const Color(0xFF10B981), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
                       'Graded: $grade (${a['score']})',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF10B981),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF10B981)),
                     ),
                   ],
                 ),
@@ -558,11 +554,16 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(vertical: 12.h),
                 decoration: BoxDecoration(
-                  color: isOverdue ? const Color(0xFFEF4444) : const Color(0xFF2E7DF7),
+                  color: isOverdue
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF2E7DF7),
                   borderRadius: BorderRadius.circular(12.r),
                   boxShadow: [
                     BoxShadow(
-                      color: (isOverdue ? const Color(0xFFEF4444) : const Color(0xFF2E7DF7)).withValues(alpha: 0.15),
+                      color: (isOverdue
+                              ? const Color(0xFFEF4444)
+                              : const Color(0xFF2E7DF7))
+                          .withValues(alpha: 0.15),
                       blurRadius: 10.r,
                       offset: Offset(0, 3.h),
                     ),
@@ -572,18 +573,17 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      isOverdue ? Icons.upload_rounded : Icons.cloud_upload_outlined,
+                      isOverdue
+                          ? Icons.upload_rounded
+                          : Icons.cloud_upload_outlined,
                       color: Colors.white,
                       size: 16.sp,
                     ),
                     SizedBox(width: 8.w),
                     Text(
                       isOverdue ? 'Submit Late' : 'Submit Assignment',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
+                      style:
+                          AppTypography.caption.copyWith(color: Colors.white),
                     ),
                   ],
                 ),
@@ -613,11 +613,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
               SizedBox(height: 16.h),
               Text(
                 'No assignments found for your class.',
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF475569),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF475569)),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -654,10 +651,12 @@ class AdvancedAssignmentModal extends StatefulWidget {
   });
 
   @override
-  State<AdvancedAssignmentModal> createState() => _AdvancedAssignmentModalState();
+  State<AdvancedAssignmentModal> createState() =>
+      _AdvancedAssignmentModalState();
 }
 
-class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with SingleTickerProviderStateMixin {
+class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
+    with SingleTickerProviderStateMixin {
   PlatformFile? selectedFile;
   bool isSubmitting = false;
   double uploadProgress = 0.0;
@@ -707,19 +706,18 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('mock_sub_chapter_1', true);
         await prefs.setString('mock_file_chapter_1', selectedFile!.name);
-        await prefs.setString('mock_date_chapter_1', intl.DateFormat('MMM d, yyyy').format(DateTime.now()));
+        await prefs.setString('mock_date_chapter_1',
+            intl.DateFormat('MMM d, yyyy').format(DateTime.now()));
       } else {
-        await Supabase.instance.client
-            .from('AssignmentSubmission')
-            .upsert({
-              'assignmentId': widget.assignment['id'],
-              'studentId': widget.studentIdStr,
-              'filePath': selectedFile!.name,
-              'status': 'SUBMITTED',
-              'grade': 'Pending',
-              'feedback': null,
-              'submittedAt': DateTime.now().toUtc().toIso8601String(),
-            }, onConflict: 'assignmentId,studentId');
+        await Supabase.instance.client.from('AssignmentSubmission').upsert({
+          'assignmentId': widget.assignment['id'],
+          'studentId': widget.studentIdStr,
+          'filePath': selectedFile!.name,
+          'status': 'SUBMITTED',
+          'grade': 'Pending',
+          'feedback': null,
+          'submittedAt': DateTime.now().toUtc().toIso8601String(),
+        }, onConflict: 'assignmentId,studentId');
       }
 
       if (mounted) {
@@ -732,7 +730,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
       await Future.delayed(const Duration(seconds: 1)); // Show success state
 
       if (mounted) {
-        showToast(context, 'Successfully submitted ${widget.assignment['title']}!');
+        showToast(
+            context, 'Successfully submitted ${widget.assignment['title']}!');
         Navigator.pop(context);
         widget.onSubmitted();
       }
@@ -749,21 +748,39 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
 
   IconData _getFileIcon(String ext) {
     switch (ext.toLowerCase()) {
-      case 'pdf': return Icons.picture_as_pdf_rounded;
-      case 'doc': case 'docx': return Icons.description_rounded;
-      case 'zip': case 'rar': return Icons.folder_zip_rounded;
-      case 'jpg': case 'jpeg': case 'png': return Icons.image_rounded;
-      default: return Icons.insert_drive_file_rounded;
+      case 'pdf':
+        return Icons.picture_as_pdf_rounded;
+      case 'doc':
+      case 'docx':
+        return Icons.description_rounded;
+      case 'zip':
+      case 'rar':
+        return Icons.folder_zip_rounded;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return Icons.image_rounded;
+      default:
+        return Icons.insert_drive_file_rounded;
     }
   }
 
   Color _getFileColor(String ext) {
     switch (ext.toLowerCase()) {
-      case 'pdf': return const Color(0xFFE11D48);
-      case 'doc': case 'docx': return const Color(0xFF2563EB);
-      case 'zip': case 'rar': return const Color(0xFFD97706);
-      case 'jpg': case 'jpeg': case 'png': return const Color(0xFF059669);
-      default: return const Color(0xFF2E7DF7);
+      case 'pdf':
+        return const Color(0xFFE11D48);
+      case 'doc':
+      case 'docx':
+        return const Color(0xFF2563EB);
+      case 'zip':
+      case 'rar':
+        return const Color(0xFFD97706);
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+        return const Color(0xFF059669);
+      default:
+        return const Color(0xFF2E7DF7);
     }
   }
 
@@ -775,7 +792,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
     return ScaleTransition(
       scale: _scaleAnimation,
       child: Container(
-        padding: EdgeInsets.fromLTRB(24.r, 16.r, 24.r, 24.r + MediaQuery.of(context).viewInsets.bottom),
+        padding: EdgeInsets.fromLTRB(
+            24.r, 16.r, 24.r, 24.r + MediaQuery.of(context).viewInsets.bottom),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28.r)),
@@ -803,7 +821,7 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
               ),
             ),
             SizedBox(height: 20.h),
-            
+
             // Header
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -814,7 +832,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                     color: const Color(0xFFEEF2FF),
                     borderRadius: BorderRadius.circular(12.r),
                   ),
-                  child: Icon(Icons.assignment_rounded, color: const Color(0xFF4F46E5), size: 24.sp),
+                  child: Icon(Icons.assignment_rounded,
+                      color: const Color(0xFF4F46E5), size: 24.sp),
                 ),
                 SizedBox(width: 12.w),
                 Expanded(
@@ -833,30 +852,31 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                       Row(
                         children: [
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 8.w, vertical: 2.h),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(6.r),
                             ),
                             child: Text(
                               widget.assignment['subject'] as String,
-                              style: GoogleFonts.inter(
-                                fontSize: 11.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF2563EB),
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF2563EB)),
                             ),
                           ),
                           SizedBox(width: 8.w),
-                          Icon(Icons.access_time_rounded, size: 12.sp, color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFF64748B)),
+                          Icon(Icons.access_time_rounded,
+                              size: 12.sp,
+                              color: isUrgent
+                                  ? const Color(0xFFE11D48)
+                                  : const Color(0xFF64748B)),
                           SizedBox(width: 4.w),
                           Text(
                             'Due ${widget.assignment['due']}',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w500,
-                              color: isUrgent ? const Color(0xFFE11D48) : const Color(0xFF64748B),
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: isUrgent
+                                    ? const Color(0xFFE11D48)
+                                    : const Color(0xFF64748B)),
                           ),
                         ],
                       ),
@@ -865,14 +885,15 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
+                  icon:
+                      const Icon(Icons.close_rounded, color: Color(0xFF64748B)),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
               ],
             ),
             SizedBox(height: 24.h),
-            
+
             // Instructions
             Text(
               'Instructions',
@@ -895,11 +916,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                 (widget.assignment['description'] as String).isNotEmpty
                     ? widget.assignment['description'] as String
                     : 'No specific instructions provided.',
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  color: const Color(0xFF334155),
-                  height: 1.5,
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF334155), height: 1.5),
               ),
             ),
             SizedBox(height: 24.h),
@@ -936,7 +954,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                             color: Colors.white,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 24),
+                          child: const Icon(Icons.check_circle_rounded,
+                              color: Color(0xFF16A34A), size: 24),
                         ),
                         SizedBox(width: 12.w),
                         Expanded(
@@ -944,23 +963,18 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                widget.assignment['fileName'] as String? ?? 'submission_file.pdf',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF14532D),
-                                ),
+                                widget.assignment['fileName'] as String? ??
+                                    'submission_file.pdf',
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFF14532D)),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                               SizedBox(height: 2.h),
                               Text(
                                 'Submitted on ${widget.assignment['submittedAt']}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
-                                  color: const Color(0xFF166534),
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF166534)),
                               ),
                             ],
                           ),
@@ -970,21 +984,22 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                     if (widget.assignment['grade'] != 'Pending') ...[
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 12.h),
-                        child: Divider(color: const Color(0xFF86EFAC).withValues(alpha: 0.5), height: 1),
+                        child: Divider(
+                            color:
+                                const Color(0xFF86EFAC).withValues(alpha: 0.5),
+                            height: 1),
                       ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
                             'Grade & Score:',
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF14532D),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF14532D)),
                           ),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 4.h),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20.r),
@@ -1053,30 +1068,27 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF2E7DF7).withValues(alpha: 0.1),
+                                  color: const Color(0xFF2E7DF7)
+                                      .withValues(alpha: 0.1),
                                   blurRadius: 10,
                                   spreadRadius: 2,
                                 ),
                               ],
                             ),
-                            child: Icon(Icons.cloud_upload_rounded, color: const Color(0xFF2E7DF7), size: 28.sp),
+                            child: Icon(Icons.cloud_upload_rounded,
+                                color: const Color(0xFF2E7DF7), size: 28.sp),
                           ),
                           SizedBox(height: 12.h),
                           Text(
                             'Tap to browse files',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1E293B),
-                            ),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF1E293B)),
                           ),
                           SizedBox(height: 4.h),
                           Text(
                             'PDF, DOCX, ZIP, PNG (Max 50MB)',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: const Color(0xFF64748B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF64748B)),
                           ),
                         ],
                       ),
@@ -1103,7 +1115,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                       Container(
                         padding: EdgeInsets.all(10.r),
                         decoration: BoxDecoration(
-                          color: _getFileColor(selectedFile!.extension ?? '').withValues(alpha: 0.1),
+                          color: _getFileColor(selectedFile!.extension ?? '')
+                              .withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12.r),
                         ),
                         child: Icon(
@@ -1119,21 +1132,16 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                           children: [
                             Text(
                               selectedFile!.name,
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1E293B),
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF1E293B)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             SizedBox(height: 2.h),
                             Text(
                               '${(selectedFile!.size / 1024 / 1024).toStringAsFixed(2)} MB',
-                              style: GoogleFonts.inter(
-                                fontSize: 11.sp,
-                                color: const Color(0xFF64748B),
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF64748B)),
                             ),
                           ],
                         ),
@@ -1151,19 +1159,21 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                               color: Color(0xFFFEF2F2),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.close_rounded, color: Color(0xFFEF4444), size: 16),
+                            child: const Icon(Icons.close_rounded,
+                                color: Color(0xFFEF4444), size: 16),
                           ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
                       if (isSuccess)
-                        const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 24),
+                        const Icon(Icons.check_circle_rounded,
+                            color: Color(0xFF10B981), size: 24),
                     ],
                   ),
                 ),
 
               SizedBox(height: 24.h),
-              
+
               // Animated Submit Button
               GestureDetector(
                 onTap: _handleUpload,
@@ -1173,11 +1183,17 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                   height: 54.h,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: isSuccess 
+                      colors: isSuccess
                           ? [const Color(0xFF10B981), const Color(0xFF059669)]
-                          : (selectedFile == null || isSubmitting 
-                              ? [const Color(0xFF94A3B8), const Color(0xFF64748B)]
-                              : [const Color(0xFF3B82F6), const Color(0xFF2563EB)]),
+                          : (selectedFile == null || isSubmitting
+                              ? [
+                                  const Color(0xFF94A3B8),
+                                  const Color(0xFF64748B)
+                                ]
+                              : [
+                                  const Color(0xFF3B82F6),
+                                  const Color(0xFF2563EB)
+                                ]),
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -1200,7 +1216,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                           alignment: Alignment.centerLeft,
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 100),
-                            width: MediaQuery.of(context).size.width * uploadProgress,
+                            width: MediaQuery.of(context).size.width *
+                                uploadProgress,
                             decoration: BoxDecoration(
                               color: Colors.white.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(16.r),
@@ -1219,7 +1236,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal> with 
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.check_circle_outline_rounded, color: Colors.white),
+                            const Icon(Icons.check_circle_outline_rounded,
+                                color: Colors.white),
                             SizedBox(width: 8.w),
                             Text(
                               'Submitted Successfully',
@@ -1288,12 +1306,13 @@ class DashedRectPainter extends CustomPainter {
         final len = dashLength;
         final nextDistance = distance + len;
         final isLast = nextDistance >= pathMetric.length;
-        
+
         dashPath.addPath(
-          pathMetric.extractPath(distance, isLast ? pathMetric.length : nextDistance),
+          pathMetric.extractPath(
+              distance, isLast ? pathMetric.length : nextDistance),
           Offset.zero,
         );
-        
+
         distance = nextDistance + gap;
       }
     }
@@ -1313,13 +1332,16 @@ class _DashedBorderPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final path = Path()
-      ..addRRect(RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(12)));
+      ..addRRect(RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, size.width, size.height),
+          const Radius.circular(12)));
 
     final dashPath = Path();
     for (final metric in path.computeMetrics()) {
       double distance = 0;
       while (distance < metric.length) {
-        dashPath.addPath(metric.extractPath(distance, distance + 6), Offset.zero);
+        dashPath.addPath(
+            metric.extractPath(distance, distance + 6), Offset.zero);
         distance += 12;
       }
     }

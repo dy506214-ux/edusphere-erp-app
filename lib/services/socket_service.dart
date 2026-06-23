@@ -12,7 +12,7 @@ class SocketService {
   String? _userId;
   String? _role;
   bool _isConnected = false;
-  
+
   // Custom callbacks list
   final Map<String, List<Function(dynamic)>> _listeners = {};
 
@@ -23,33 +23,39 @@ class SocketService {
   String get defaultServerUrl => ApiConfig.serverBaseUrl;
 
   /// Initialize and connect to the Socket.io server
-  void connect({required String userId, required String role, String? customUrl}) {
+  void connect(
+      {required String userId, required String role, String? customUrl}) {
     _userId = userId;
     _role = role;
-    
+
     final url = customUrl ?? defaultServerUrl;
-    
+
     if (_socket != null) {
-      dev.log('🔌 Socket already initialized, reconnecting with new configs...', name: 'SocketService');
+      dev.log('🔌 Socket already initialized, reconnecting with new configs...',
+          name: 'SocketService');
       disconnect();
     }
 
-    dev.log('🔌 Initializing socket connection to: $url', name: 'SocketService');
+    dev.log('🔌 Initializing socket connection to: $url',
+        name: 'SocketService');
 
     try {
-      _socket = socket_io.io(url, socket_io.OptionBuilder()
-        .setTransports(['websocket', 'polling'])
-        .enableAutoConnect()
-        .enableForceNew()
-        .setReconnectionDelay(2000)
-        .setReconnectionAttempts(30) // 30 attempts * 2s delay = 60s window (handles Render cold start)
-        .build()
-      );
+      _socket = socket_io.io(
+          url,
+          socket_io.OptionBuilder()
+              .setTransports(['websocket', 'polling'])
+              .enableAutoConnect()
+              .enableForceNew()
+              .setReconnectionDelay(2000)
+              .setReconnectionAttempts(
+                  30) // 30 attempts * 2s delay = 60s window (handles Render cold start)
+              .build());
 
       _setupBasicListeners();
       _socket!.connect();
     } catch (e, stack) {
-      dev.log('❌ Error initializing socket client: $e', error: e, stackTrace: stack, name: 'SocketService');
+      dev.log('❌ Error initializing socket client: $e',
+          error: e, stackTrace: stack, name: 'SocketService');
     }
   }
 
@@ -59,8 +65,9 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _isConnected = true;
-      dev.log('✅ Connected to WebSocket Server! Socket ID: ${_socket!.id}', name: 'SocketService');
-      
+      dev.log('✅ Connected to WebSocket Server! Socket ID: ${_socket!.id}',
+          name: 'SocketService');
+
       // Join targeted user room
       if (_userId != null) {
         _socket!.emit('join_user', _userId);
@@ -71,7 +78,8 @@ class SocketService {
       if (_role != null) {
         final uppercaseRole = _role!.toUpperCase();
         _socket!.emit('join_dashboard', uppercaseRole);
-        dev.log('👥 Joined room dashboard_$uppercaseRole', name: 'SocketService');
+        dev.log('👥 Joined room dashboard_$uppercaseRole',
+            name: 'SocketService');
       }
 
       // Trigger any registered custom connect listeners
@@ -80,7 +88,8 @@ class SocketService {
 
     _socket!.onDisconnect((data) {
       _isConnected = false;
-      dev.log('🔌 Disconnected from WebSocket Server: $data', name: 'SocketService');
+      dev.log('🔌 Disconnected from WebSocket Server: $data',
+          name: 'SocketService');
       _triggerLocalListeners('disconnect', data);
     });
 
@@ -96,7 +105,8 @@ class SocketService {
     // Dynamic listener dispatcher for general events
     _socket!.onAny((event, data) {
       if (kDebugMode) {
-        dev.log('⚡ Received WebSocket Event: [$event] -> $data', name: 'SocketService');
+        dev.log('⚡ Received WebSocket Event: [$event] -> $data',
+            name: 'SocketService');
       }
       _triggerLocalListeners(event, data);
     });
@@ -116,10 +126,12 @@ class SocketService {
     if (_listeners.containsKey(event)) {
       if (callback == null) {
         _listeners.remove(event);
-        dev.log('➖ Unregistered all callbacks for event [$event]', name: 'SocketService');
+        dev.log('➖ Unregistered all callbacks for event [$event]',
+            name: 'SocketService');
       } else {
         _listeners[event]!.remove(callback);
-        dev.log('➖ Unregistered specific callback for event [$event]', name: 'SocketService');
+        dev.log('➖ Unregistered specific callback for event [$event]',
+            name: 'SocketService');
         if (_listeners[event]!.isEmpty) {
           _listeners.remove(event);
         }
@@ -136,7 +148,8 @@ class SocketService {
         try {
           callback(data);
         } catch (e, stack) {
-          dev.log('❌ Error running callback for event [$event]: $e', error: e, stackTrace: stack, name: 'SocketService');
+          dev.log('❌ Error running callback for event [$event]: $e',
+              error: e, stackTrace: stack, name: 'SocketService');
         }
       }
     }
@@ -150,7 +163,8 @@ class SocketService {
         dev.log('📤 Emitted Event: [$event] -> $data', name: 'SocketService');
       }
     } else {
-      dev.log('⚠️ Cannot emit event [$event]: socket is not connected.', name: 'SocketService');
+      dev.log('⚠️ Cannot emit event [$event]: socket is not connected.',
+          name: 'SocketService');
     }
   }
 

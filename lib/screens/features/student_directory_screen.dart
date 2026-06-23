@@ -9,7 +9,7 @@ import '../../services/socket_service.dart';
 import '../../config/api_config.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../main_screen.dart';
-
+import 'package:edusphere/theme/typography.dart';
 
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
@@ -83,23 +83,24 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   void _connectRealtime() {
     try {
       final client = Supabase.instance.client;
-      _realtimeChannel = client.channel('public:student_directory_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Student',
-          callback: (payload) {
-            if (mounted) _fetchStudents();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'User',
-          callback: (payload) {
-            if (mounted) _fetchStudents();
-          },
-        );
+      _realtimeChannel = client
+          .channel('public:student_directory_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Student',
+            callback: (payload) {
+              if (mounted) _fetchStudents();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'User',
+            callback: (payload) {
+              if (mounted) _fetchStudents();
+            },
+          );
       _realtimeChannel!.subscribe();
     } catch (e) {
       debugPrint('Error subscribing to student directory realtime: $e');
@@ -126,29 +127,40 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       _errorMessage = null;
     });
     try {
-      final response = await ApiService.instance.get('students', queryParams: {'limit': '200'});
-      final List<dynamic> studentsRawList = response is List 
-          ? response 
+      final response = await ApiService.instance
+          .get('students', queryParams: {'limit': '200'});
+      final List<dynamic> studentsRawList = response is List
+          ? response
           : (response['students'] ?? response['data'] ?? []);
 
       final List<StudentRecord> loadedStudents = [];
       for (var item in studentsRawList) {
         final user = item['user'] as Map? ?? item['User'] as Map? ?? {};
-        final classData = item['currentClass'] as Map? ?? item['Class'] as Map? ?? {};
-        final sectionData = item['section'] as Map? ?? item['Section'] as Map? ?? {};
-        
-        final firstName = user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
-        final lastName = user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
+        final classData =
+            item['currentClass'] as Map? ?? item['Class'] as Map? ?? {};
+        final sectionData =
+            item['section'] as Map? ?? item['Section'] as Map? ?? {};
+
+        final firstName =
+            user['firstName'] ?? user['first_name'] ?? item['firstName'] ?? '';
+        final lastName =
+            user['lastName'] ?? user['last_name'] ?? item['lastName'] ?? '';
         final fullName = '$firstName $lastName'.trim();
-        
+
         final rawClassName = classData['name']?.toString() ?? 'Class 8';
         final sectionName = sectionData['name']?.toString() ?? 'A';
-        final displayClassName = '${rawClassName.replaceAll('Class', 'Grade')} - $sectionName';
+        final displayClassName =
+            '${rawClassName.replaceAll('Class', 'Grade')} - $sectionName';
 
-        final rawAvatar = user['avatar'] ?? user['photoUrl'] ?? user['profileImage']?.toString() ?? '';
+        final rawAvatar = user['avatar'] ??
+            user['photoUrl'] ??
+            user['profileImage']?.toString() ??
+            '';
         String? avatarUrl;
         if (rawAvatar.isNotEmpty) {
-          avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+          avatarUrl = rawAvatar.startsWith('http')
+              ? rawAvatar
+              : '${ApiConfig.serverBaseUrl}$rawAvatar';
         }
 
         loadedStudents.add(StudentRecord(
@@ -178,7 +190,6 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       }
     }
   }
-
 
   @override
   void dispose() {
@@ -211,7 +222,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     final startIndex = (_currentPage - 1) * _rowsPerPage;
     if (startIndex >= filtered.length) return [];
     final endIndex = startIndex + _rowsPerPage;
-    return filtered.sublist(startIndex, endIndex > filtered.length ? filtered.length : endIndex);
+    return filtered.sublist(
+        startIndex, endIndex > filtered.length ? filtered.length : endIndex);
   }
 
   int get _totalPages {
@@ -223,10 +235,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(title: 'EduSphere')
-          : null,
-      bottomNavigationBar: widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 2) : null,
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
+      bottomNavigationBar:
+          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 2) : null,
       body: RefreshIndicator(
         onRefresh: _fetchStudents,
         color: const Color(0xFF0066CC),
@@ -264,7 +276,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         SizedBox(height: 4.h),
         Text(
           'Manage all student records and information',
-          style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
         ),
       ],
     );
@@ -281,7 +293,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 8, offset: const Offset(0, 4)),
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -298,7 +313,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                     Text(
                       'Student Directory',
                       style: GoogleFonts.outfit(
-                          fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF0F172A)),
                     ),
                     const Spacer(),
                     if (_isLoading)
@@ -319,12 +336,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                       : _errorMessage != null
                           ? _errorMessage!
                           : 'Browse and manage student records ($totalCount total)',
-                  style: GoogleFonts.inter(
-                      fontSize: 10.sp,
+                  style: AppTypography.caption.copyWith(
                       color: _errorMessage != null
                           ? Colors.orange
-                          : const Color(0xFF94A3B8),
-                      fontWeight: FontWeight.w500),
+                          : const Color(0xFF94A3B8)),
                 ),
                 SizedBox(height: 12.h),
                 // Search Bar
@@ -342,11 +357,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                         _currentPage = 1;
                       });
                     },
-                    style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF0F172A)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       hintText: 'Search by name, admission number, or email...',
-                      hintStyle: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF94A3B8)),
-                      prefixIcon: Icon(Icons.search_rounded, size: 18.sp, color: const Color(0xFF94A3B8)),
+                      hintStyle: AppTypography.caption
+                          .copyWith(color: const Color(0xFF94A3B8)),
+                      prefixIcon: Icon(Icons.search_rounded,
+                          size: 18.sp, color: const Color(0xFF94A3B8)),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
@@ -359,7 +377,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           // Scrollable Table container
           LayoutBuilder(
             builder: (context, constraints) {
-              final tableWidth = constraints.maxWidth > 850 ? constraints.maxWidth : 850.0;
+              final tableWidth =
+                  constraints.maxWidth > 850 ? constraints.maxWidth : 850.0;
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
@@ -370,44 +389,45 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                       // Table Headers
                       Container(
                         color: const Color(0xFFF8FAFC),
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 10.h),
                         child: Row(
                           children: [
                             Expanded(
                               flex: 3,
                               child: Text('Admission No.',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 5,
                               child: Text('Name',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 3,
                               child: Text('Class',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 5,
                               child: Text('Email',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 3,
                               child: Text('Status',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 2,
                               child: Text('Actions',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 9.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF475569)),
                                   textAlign: TextAlign.center),
                             ),
                           ],
@@ -426,23 +446,27 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                         )
                       else if (_errorMessage != null)
                         Padding(
-                          padding: EdgeInsets.symmetric(vertical: 32.h, horizontal: 16.w),
+                          padding: EdgeInsets.symmetric(
+                              vertical: 32.h, horizontal: 16.w),
                           child: Center(
                             child: Column(
                               children: [
-                                Icon(Icons.cloud_off_rounded, size: 32.sp, color: Colors.orange.shade300),
+                                Icon(Icons.cloud_off_rounded,
+                                    size: 32.sp, color: Colors.orange.shade300),
                                 SizedBox(height: 8.h),
                                 Text(
                                   _errorMessage!,
                                   textAlign: TextAlign.center,
-                                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF64748B)),
                                 ),
                                 SizedBox(height: 12.h),
                                 ElevatedButton.icon(
                                   onPressed: _fetchStudents,
                                   icon: const Icon(Icons.refresh, size: 16),
                                   label: const Text('Retry'),
-                                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0066CC)),
+                                  style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF0066CC)),
                                 ),
                               ],
                             ),
@@ -454,7 +478,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           child: Center(
                             child: Text(
                               'No students found',
-                              style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B), fontStyle: FontStyle.italic),
+                              style: AppTypography.caption.copyWith(
+                                  color: const Color(0xFF64748B),
+                                  fontStyle: FontStyle.italic),
                             ),
                           ),
                         )
@@ -470,7 +496,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => OldStudentProfileScreen(
+                                    builder: (context) =>
+                                        OldStudentProfileScreen(
                                       role: 'student',
                                       theme: roleThemes['student']!,
                                       studentId: student.id,
@@ -485,9 +512,12 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                 );
                               },
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w, vertical: 12.h),
                                 decoration: const BoxDecoration(
-                                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                                  border: Border(
+                                      bottom:
+                                          BorderSide(color: Color(0xFFF1F5F9))),
                                 ),
                                 child: Row(
                                   children: [
@@ -496,11 +526,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       flex: 3,
                                       child: Text(
                                         student.formattedAdmissionNo,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 10.sp,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF0F172A),
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF0F172A)),
                                       ),
                                     ),
                                     // Name + Avatar
@@ -516,34 +543,40 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                               shape: BoxShape.circle,
                                             ),
                                             child: ClipRRect(
-                                              borderRadius: BorderRadius.circular(14.r),
-                                              child: (student.avatarUrl != null && student.avatarUrl!.isNotEmpty)
-                                                  ? Image.network(
-                                                      student.avatarUrl!,
-                                                      fit: BoxFit.cover,
-                                                      width: 28.w,
-                                                      height: 28.h,
-                                                      errorBuilder: (_, __, ___) => Center(
-                                                        child: Text(
-                                                          student.initials,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 9.sp,
-                                                            fontWeight: FontWeight.w700,
-                                                            color: const Color(0xFF1E6091),
+                                              borderRadius:
+                                                  BorderRadius.circular(14.r),
+                                              child:
+                                                  (student.avatarUrl != null &&
+                                                          student.avatarUrl!
+                                                              .isNotEmpty)
+                                                      ? Image.network(
+                                                          student.avatarUrl!,
+                                                          fit: BoxFit.cover,
+                                                          width: 28.w,
+                                                          height: 28.h,
+                                                          errorBuilder:
+                                                              (_, __, ___) =>
+                                                                  Center(
+                                                            child: Text(
+                                                              student.initials,
+                                                              style: AppTypography
+                                                                  .caption
+                                                                  .copyWith(
+                                                                      color: const Color(
+                                                                          0xFF1E6091)),
+                                                            ),
+                                                          ),
+                                                        )
+                                                      : Center(
+                                                          child: Text(
+                                                            student.initials,
+                                                            style: AppTypography
+                                                                .caption
+                                                                .copyWith(
+                                                                    color: const Color(
+                                                                        0xFF1E6091)),
                                                           ),
                                                         ),
-                                                      ),
-                                                    )
-                                                  : Center(
-                                                      child: Text(
-                                                        student.initials,
-                                                        style: GoogleFonts.inter(
-                                                          fontSize: 9.sp,
-                                                          fontWeight: FontWeight.w700,
-                                                          color: const Color(0xFF1E6091),
-                                                        ),
-                                                      ),
-                                                    ),
                                             ),
                                           ),
                                           SizedBox(width: 8.w),
@@ -551,11 +584,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                             child: Text(
                                               student.name,
                                               overflow: TextOverflow.ellipsis,
-                                              style: GoogleFonts.inter(
-                                                fontSize: 10.sp,
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xFF475569),
-                                              ),
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)),
                                             ),
                                           ),
                                         ],
@@ -566,11 +598,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       flex: 3,
                                       child: Text(
                                         student.className,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 10.sp,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF64748B),
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF64748B)),
                                       ),
                                     ),
                                     // Email
@@ -579,33 +608,30 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       child: Text(
                                         student.email,
                                         overflow: TextOverflow.ellipsis,
-                                        style: GoogleFonts.inter(
-                                          fontSize: 10.sp,
-                                          color: const Color(0xFF64748B),
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF64748B)),
                                       ),
                                     ),
                                     // Status
                                     Expanded(
                                       flex: 3,
                                       child: Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 8.w, vertical: 4.h),
                                         decoration: BoxDecoration(
                                           color: student.status == 'ACTIVE'
                                               ? const Color(0xFFDCFCE7)
                                               : const Color(0xFFFEE2E2),
-                                          borderRadius: BorderRadius.circular(12.r),
+                                          borderRadius:
+                                              BorderRadius.circular(12.r),
                                         ),
                                         child: Text(
                                           student.status,
                                           textAlign: TextAlign.center,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 9.sp,
-                                            fontWeight: FontWeight.w700,
-                                            color: student.status == 'ACTIVE'
-                                                ? const Color(0xFF16A34A)
-                                                : const Color(0xFFDC2626),
-                                          ),
+                                          style: AppTypography.caption.copyWith(
+                                              color: student.status == 'ACTIVE'
+                                                  ? const Color(0xFF16A34A)
+                                                  : const Color(0xFFDC2626)),
                                         ),
                                       ),
                                     ),
@@ -613,28 +639,37 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                     Expanded(
                                       flex: 2,
                                       child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           GestureDetector(
                                             onTap: () {
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (context) => OldStudentProfileScreen(
+                                                  builder: (context) =>
+                                                      OldStudentProfileScreen(
                                                     role: 'student',
-                                                    theme: roleThemes['student']!,
+                                                    theme:
+                                                        roleThemes['student']!,
                                                     studentId: student.id,
                                                     studentName: student.name,
                                                     studentEmail: student.email,
-                                                    studentClass: student.className,
-                                                    admissionNo: student.admissionNo,
+                                                    studentClass:
+                                                        student.className,
+                                                    admissionNo:
+                                                        student.admissionNo,
                                                     showAppBar: true,
-                                                    onBack: () => Navigator.pop(context),
+                                                    onBack: () =>
+                                                        Navigator.pop(context),
                                                   ),
                                                 ),
                                               );
                                             },
-                                            child: Icon(Icons.remove_red_eye_outlined, size: 18.sp, color: const Color(0xFF64748B)),
+                                            child: Icon(
+                                                Icons.remove_red_eye_outlined,
+                                                size: 18.sp,
+                                                color: const Color(0xFF64748B)),
                                           ),
                                         ],
                                       ),
@@ -660,14 +695,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
               children: [
                 Text(
                   'Showing ${totalCount == 0 ? 0 : (_currentPage - 1) * _rowsPerPage + 1} to ${(_currentPage * _rowsPerPage) > totalCount ? totalCount : (_currentPage * _rowsPerPage)} of $totalCount students',
-                  style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
                 SizedBox(height: 12.h),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     GestureDetector(
-                      onTap: _currentPage > 1 ? () => setState(() => _currentPage--) : null,
+                      onTap: _currentPage > 1
+                          ? () => setState(() => _currentPage--)
+                          : null,
                       child: Container(
                         padding: EdgeInsets.all(6.r),
                         decoration: BoxDecoration(
@@ -675,14 +713,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                           borderRadius: BorderRadius.circular(6.r),
                         ),
-                        child: Icon(Icons.chevron_left_rounded, size: 14.sp, color: const Color(0xFF64748B)),
+                        child: Icon(Icons.chevron_left_rounded,
+                            size: 14.sp, color: const Color(0xFF64748B)),
                       ),
                     ),
                     SizedBox(width: 6.w),
                     ..._buildPageNumbers(),
                     SizedBox(width: 6.w),
                     GestureDetector(
-                      onTap: _currentPage < _totalPages ? () => setState(() => _currentPage++) : null,
+                      onTap: _currentPage < _totalPages
+                          ? () => setState(() => _currentPage++)
+                          : null,
                       child: Container(
                         padding: EdgeInsets.all(6.r),
                         decoration: BoxDecoration(
@@ -690,7 +731,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           border: Border.all(color: const Color(0xFFE2E8F0)),
                           borderRadius: BorderRadius.circular(6.r),
                         ),
-                        child: Icon(Icons.chevron_right_rounded, size: 14.sp, color: const Color(0xFF64748B)),
+                        child: Icon(Icons.chevron_right_rounded,
+                            size: 14.sp, color: const Color(0xFF64748B)),
                       ),
                     ),
                   ],
@@ -718,8 +760,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       int start = _currentPage - 1;
       int end = _currentPage + 1;
 
-      if (start <= 1) { start = 2; end = 4; }
-      if (end >= total) { end = total - 1; start = total - 3; }
+      if (start <= 1) {
+        start = 2;
+        end = 4;
+      }
+      if (end >= total) {
+        end = total - 1;
+        start = total - 3;
+      }
 
       for (int p = start; p <= end; p++) {
         widgets.add(_buildPageButton(p));
@@ -745,11 +793,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         ),
         child: Text(
           '$p',
-          style: GoogleFonts.inter(
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w700,
-            color: isSelected ? Colors.white : const Color(0xFF64748B),
-          ),
+          style: AppTypography.caption.copyWith(
+              color: isSelected ? Colors.white : const Color(0xFF64748B)),
         ),
       ),
     );
@@ -760,11 +805,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       child: Text(
         '...',
-        style: GoogleFonts.inter(
-          fontSize: 10.sp,
-          fontWeight: FontWeight.w700,
-          color: const Color(0xFF64748B),
-        ),
+        style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
       ),
     );
   }

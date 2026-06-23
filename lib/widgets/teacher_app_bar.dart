@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'common_widgets.dart';
 import '../screens/main_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class TeacherAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
@@ -53,7 +54,8 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
         setState(() {
           _isMuted = newMuted;
         });
-        showToast(context, newMuted ? 'Notifications muted' : 'Notifications unmuted');
+        showToast(context,
+            newMuted ? 'Notifications muted' : 'Notifications unmuted');
       }
     } catch (_) {}
   }
@@ -102,11 +104,13 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
       iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
       leading: isPushed
           ? IconButton(
-              icon: Icon(Icons.arrow_back_rounded, size: 24.sp, color: const Color(0xFF0F172A)),
+              icon: Icon(Icons.arrow_back_rounded,
+                  size: 24.sp, color: const Color(0xFF0F172A)),
               onPressed: () => Navigator.pop(context),
             )
           : IconButton(
-              icon: Icon(Icons.menu, size: 28.sp, color: const Color(0xFF0F172A)),
+              icon:
+                  Icon(Icons.menu, size: 28.sp, color: const Color(0xFF0F172A)),
               onPressed: () {
                 Scaffold.of(context).openDrawer();
               },
@@ -124,9 +128,13 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
               ),
               child: IconButton(
                 icon: Icon(
-                  _isMuted ? Icons.notifications_off_outlined : Icons.notifications_active_outlined,
+                  _isMuted
+                      ? Icons.notifications_off_outlined
+                      : Icons.notifications_active_outlined,
                   size: 20.sp,
-                  color: _isMuted ? const Color(0xFFEF4444) : const Color(0xFF0284C7), // blue icon
+                  color: _isMuted
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF0284C7), // blue icon
                 ),
                 onPressed: _toggleMute,
               ),
@@ -147,20 +155,25 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
           ],
         ),
         StreamBuilder<List<Map<String, dynamic>>>(
-          stream: Supabase.instance.client.from('Announcement').stream(primaryKey: ['id']),
+          stream: Supabase.instance.client
+              .from('Announcement')
+              .stream(primaryKey: ['id']),
           builder: (context, snapshot) {
             bool hasNew = false;
             List<Map<String, dynamic>> latestAnnouncements = [];
             if (snapshot.hasData && snapshot.data!.isNotEmpty) {
-              final announcements = List<Map<String, dynamic>>.from(snapshot.data!);
-              announcements.sort((a, b) => (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
+              final announcements =
+                  List<Map<String, dynamic>>.from(snapshot.data!);
+              announcements.sort((a, b) =>
+                  (b['createdAt'] ?? '').compareTo(a['createdAt'] ?? ''));
               latestAnnouncements = announcements.take(3).toList();
-              
+
               final newestStr = announcements.first['createdAt'] as String?;
               if (newestStr != null) {
                 final newestTime = DateTime.tryParse(newestStr);
                 if (newestTime != null) {
-                  if (_lastSeenAnnouncementTime == null || newestTime.isAfter(_lastSeenAnnouncementTime!)) {
+                  if (_lastSeenAnnouncementTime == null ||
+                      newestTime.isAfter(_lastSeenAnnouncementTime!)) {
                     hasNew = true;
                   }
                 }
@@ -170,199 +183,249 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
             return Stack(
               alignment: Alignment.center,
               children: [
-                Builder(
-                  builder: (context) {
-                    return IconButton(
-                      icon: Icon(Icons.notifications_none_rounded, size: 26.sp, color: const Color(0xFF475569)),
-                      onPressed: () async {
-                        final RenderBox? button = context.findRenderObject() as RenderBox?;
-                        final navigator = Navigator.of(context);
-                        final RenderBox? overlay = navigator.overlay?.context.findRenderObject() as RenderBox?;
+                Builder(builder: (context) {
+                  return IconButton(
+                    icon: Icon(Icons.notifications_none_rounded,
+                        size: 26.sp, color: const Color(0xFF475569)),
+                    onPressed: () async {
+                      final RenderBox? button =
+                          context.findRenderObject() as RenderBox?;
+                      final navigator = Navigator.of(context);
+                      final RenderBox? overlay = navigator.overlay?.context
+                          .findRenderObject() as RenderBox?;
 
-                        try {
-                          final prefs = await SharedPreferences.getInstance();
-                          final now = DateTime.now();
-                          await prefs.setString('last_seen_announcement_time', now.toIso8601String());
-                          if (mounted) {
-                            setState(() {
-                              _lastSeenAnnouncementTime = now;
-                            });
-                          }
-                        } catch (_) {}
+                      try {
+                        final prefs = await SharedPreferences.getInstance();
+                        final now = DateTime.now();
+                        await prefs.setString('last_seen_announcement_time',
+                            now.toIso8601String());
+                        if (mounted) {
+                          setState(() {
+                            _lastSeenAnnouncementTime = now;
+                          });
+                        }
+                      } catch (_) {}
 
-                        if (button == null || overlay == null) return;
-                        final RelativeRect position = RelativeRect.fromRect(
-                          Rect.fromPoints(
-                            button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
-                            button.localToGlobal(button.size.bottomRight(const Offset(0, 8)), ancestor: overlay),
-                          ),
-                          Offset.zero & overlay.size,
-                        );
+                      if (button == null || overlay == null) return;
+                      final RelativeRect position = RelativeRect.fromRect(
+                        Rect.fromPoints(
+                          button.localToGlobal(
+                              Offset(0, button.size.height + 8),
+                              ancestor: overlay),
+                          button.localToGlobal(
+                              button.size.bottomRight(const Offset(0, 8)),
+                              ancestor: overlay),
+                        ),
+                        Offset.zero & overlay.size,
+                      );
 
-                        if (!context.mounted) return;
-                        showMenu(
-                          context: context,
-                          position: position,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                          color: Colors.white,
-                          elevation: 6,
-                          items: [
-                            PopupMenuItem(
-                              enabled: false,
-                              padding: EdgeInsets.zero,
-                              child: Container(
-                                width: 320.w,
-                                constraints: BoxConstraints(maxHeight: 450.h),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
+                      if (!context.mounted) return;
+                      showMenu(
+                        context: context,
+                        position: position,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.r)),
+                        color: Colors.white,
+                        elevation: 6,
+                        items: [
+                          PopupMenuItem(
+                            enabled: false,
+                            padding: EdgeInsets.zero,
+                            child: Container(
+                              width: 320.w,
+                              constraints: BoxConstraints(maxHeight: 450.h),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Padding(
+                                    padding: EdgeInsets.all(16.r),
+                                    child: Text(
+                                      'Notifications',
+                                      style: AppTypography.tableHeader.copyWith(
+                                          color: const Color(0xFF0F172A)),
+                                    ),
+                                  ),
+                                  const Divider(
+                                      height: 1, color: Color(0xFFE2E8F0)),
+                                  if (latestAnnouncements.isEmpty)
                                     Padding(
-                                      padding: EdgeInsets.all(16.r),
-                                      child: Text(
-                                        'Notifications',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 16.sp,
-                                          fontWeight: FontWeight.bold,
-                                          color: const Color(0xFF0F172A),
+                                      padding: EdgeInsets.symmetric(
+                                          vertical: 40.h, horizontal: 16.w),
+                                      child: Center(
+                                        child: Column(
+                                          children: [
+                                            Container(
+                                              padding: EdgeInsets.all(16.r),
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFFF1F5F9),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                  Icons
+                                                      .notifications_off_outlined,
+                                                  color:
+                                                      const Color(0xFF94A3B8),
+                                                  size: 32.sp),
+                                            ),
+                                            SizedBox(height: 16.h),
+                                            Text('All caught up!',
+                                                style: AppTypography.small
+                                                    .copyWith(
+                                                        color: const Color(
+                                                            0xFF334155))),
+                                            SizedBox(height: 8.h),
+                                            Text(
+                                                'No new notifications to show.',
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                        color: const Color(
+                                                            0xFF94A3B8))),
+                                          ],
                                         ),
                                       ),
-                                    ),
-                                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                    if (latestAnnouncements.isEmpty)
-                                      Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 40.h, horizontal: 16.w),
-                                        child: Center(
-                                          child: Column(
-                                            children: [
-                                              Container(
-                                                padding: EdgeInsets.all(16.r),
-                                                decoration: const BoxDecoration(
-                                                  color: Color(0xFFF1F5F9),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: Icon(Icons.notifications_off_outlined, color: const Color(0xFF94A3B8), size: 32.sp),
-                                              ),
-                                              SizedBox(height: 16.h),
-                                              Text('All caught up!', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w600, color: const Color(0xFF334155))),
-                                              SizedBox(height: 8.h),
-                                              Text('No new notifications to show.', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8))),
-                                            ],
-                                          ),
-                                        ),
-                                      )
-                                    else
-                                      Flexible(
-                                        child: ListView.separated(
-                                          shrinkWrap: true,
-                                          physics: const NeverScrollableScrollPhysics(),
-                                          itemCount: latestAnnouncements.length,
-                                          separatorBuilder: (_, __) => const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                          itemBuilder: (context, index) {
-                                            final ann = latestAnnouncements[index];
-                                            final title = ann['title'] as String? ?? 'Notification';
-                                            final content = ann['content'] as String? ?? '';
-                                            final priority = ann['priority'] as String? ?? 'NORMAL';
-                                            final relativeTime = _getRelativeTime(ann['createdAt'] as String?);
+                                    )
+                                  else
+                                    Flexible(
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        itemCount: latestAnnouncements.length,
+                                        separatorBuilder: (_, __) =>
+                                            const Divider(
+                                                height: 1,
+                                                color: Color(0xFFE2E8F0)),
+                                        itemBuilder: (context, index) {
+                                          final ann =
+                                              latestAnnouncements[index];
+                                          final title =
+                                              ann['title'] as String? ??
+                                                  'Notification';
+                                          final content =
+                                              ann['content'] as String? ?? '';
+                                          final priority =
+                                              ann['priority'] as String? ??
+                                                  'NORMAL';
+                                          final relativeTime = _getRelativeTime(
+                                              ann['createdAt'] as String?);
 
-                                            return InkWell(
-                                              onTap: () {
-                                                Navigator.pop(context); // Close popup menu
-                                                // Navigate to Announcements Screen (tab 11 on teacher panel)
-                                                MainScreen.navigateTo(context, 11);
-                                              },
-                                              child: Padding(
-                                                padding: EdgeInsets.all(12.r),
-                                                child: Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                                  children: [
-                                                    Row(
-                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                      children: [
-                                                        Container(
-                                                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                                                          decoration: BoxDecoration(
-                                                            color: _getPriorityColor(priority).withValues(alpha: 0.1),
-                                                            borderRadius: BorderRadius.circular(6.r),
-                                                          ),
-                                                          child: Text(
-                                                            priority.toUpperCase(),
-                                                            style: GoogleFonts.inter(
-                                                              fontSize: 9.sp,
-                                                              fontWeight: FontWeight.w800,
-                                                              color: _getPriorityColor(priority),
-                                                            ),
-                                                          ),
+                                          return InkWell(
+                                            onTap: () {
+                                              Navigator.pop(
+                                                  context); // Close popup menu
+                                              // Navigate to Announcements Screen (tab 11 on teacher panel)
+                                              MainScreen.navigateTo(
+                                                  context, 11);
+                                            },
+                                            child: Padding(
+                                              padding: EdgeInsets.all(12.r),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .spaceBetween,
+                                                    children: [
+                                                      Container(
+                                                        padding: EdgeInsets
+                                                            .symmetric(
+                                                                horizontal: 8.w,
+                                                                vertical: 2.h),
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color:
+                                                              _getPriorityColor(
+                                                                      priority)
+                                                                  .withValues(
+                                                                      alpha:
+                                                                          0.1),
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(
+                                                                      6.r),
                                                         ),
-                                                        Text(
-                                                          relativeTime,
-                                                          style: GoogleFonts.inter(
-                                                            fontSize: 10.sp,
-                                                            color: const Color(0xFF64748B),
-                                                            fontWeight: FontWeight.w500,
-                                                          ),
+                                                        child: Text(
+                                                          priority
+                                                              .toUpperCase(),
+                                                          style: AppTypography
+                                                              .caption
+                                                              .copyWith(
+                                                                  color: _getPriorityColor(
+                                                                      priority)),
                                                         ),
-                                                      ],
-                                                    ),
-                                                    SizedBox(height: 6.h),
-                                                    Text(
-                                                      title,
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 13.sp,
-                                                        fontWeight: FontWeight.bold,
-                                                        color: const Color(0xFF1E293B),
                                                       ),
-                                                    ),
-                                                    SizedBox(height: 4.h),
-                                                    Text(
-                                                      content,
-                                                      maxLines: 2,
-                                                      overflow: TextOverflow.ellipsis,
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 12.sp,
-                                                        color: const Color(0xFF64748B),
+                                                      Text(
+                                                        relativeTime,
+                                                        style: AppTypography
+                                                            .caption
+                                                            .copyWith(
+                                                                color: const Color(
+                                                                    0xFF64748B)),
                                                       ),
-                                                    ),
-                                                  ],
-                                                ),
+                                                    ],
+                                                  ),
+                                                  SizedBox(height: 6.h),
+                                                  Text(
+                                                    title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: const Color(
+                                                                0xFF1E293B)),
+                                                  ),
+                                                  SizedBox(height: 4.h),
+                                                  Text(
+                                                    content,
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: const Color(
+                                                                0xFF64748B)),
+                                                  ),
+                                                ],
                                               ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                    InkWell(
-                                      onTap: () {
-                                        Navigator.pop(context); // Close popup menu
-                                        // Navigate to Announcements tab
-                                        MainScreen.navigateTo(context, 11);
-                                      },
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                                        alignment: Alignment.center,
-                                        child: Text(
-                                          'View All Announcements',
-                                          style: GoogleFonts.inter(
-                                            fontSize: 13.sp,
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF0D7DDC),
-                                          ),
-                                        ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  const Divider(
+                                      height: 1, color: Color(0xFFE2E8F0)),
+                                  InkWell(
+                                    onTap: () {
+                                      Navigator.pop(
+                                          context); // Close popup menu
+                                      // Navigate to Announcements tab
+                                      MainScreen.navigateTo(context, 11);
+                                    },
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 12.h),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        'View All Announcements',
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF0D7DDC)),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        );
-                      },
-                    );
-                  }
-                ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                }),
                 if (hasNew)
                   Positioned(
                     right: 12.w,

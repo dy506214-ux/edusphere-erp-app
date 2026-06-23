@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../main_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class AIGeneratorScreen extends StatefulWidget {
   final String? initialTopic;
@@ -85,7 +86,6 @@ Homework:
           const SizedBox(width: 8),
         ],
       ),
-
       backgroundColor: const Color(0xFFF1F5F9),
       body: Column(
         children: [
@@ -96,25 +96,33 @@ Homework:
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Topic', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: darkNavy)),
+                  Text('Topic',
+                      style: AppTypography.small.copyWith(color: darkNavy)),
                   SizedBox(height: 8.h),
                   Container(
                     padding: EdgeInsets.symmetric(horizontal: 16.w),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12.r), border: Border.all(color: Colors.grey.shade200)),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: Colors.grey.shade200)),
                     child: TextField(
                       controller: _topicController,
-                      decoration: const InputDecoration(border: InputBorder.none, hintText: 'Enter topic...'),
+                      decoration: const InputDecoration(
+                          border: InputBorder.none, hintText: 'Enter topic...'),
                       style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     ),
                   ),
                   SizedBox(height: 24.h),
-                  Text('Generate', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: darkNavy)),
+                  Text('Generate',
+                      style: AppTypography.small.copyWith(color: darkNavy)),
                   SizedBox(height: 12.h),
                   _buildModesGrid(),
                   SizedBox(height: 24.h),
-                  _buildButton('Generate with Claude AI ↗', darkNavy, _handleGenerate),
+                  _buildButton(
+                      'Generate with Claude AI ↗', darkNavy, _handleGenerate),
                   SizedBox(height: 24.h),
-                  if (_isGenerating) const Center(child: CircularProgressIndicator()),
+                  if (_isGenerating)
+                    const Center(child: CircularProgressIndicator()),
                   if (_result != null) _buildResultCard(),
                   SizedBox(height: 40.h),
                 ],
@@ -129,24 +137,35 @@ Homework:
   Widget _buildHeader() {
     return Container(
       color: darkNavy,
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 20, left: 20, right: 20),
+      padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 10,
+          bottom: 20,
+          left: 20,
+          right: 20),
       child: Row(
         children: [
-          IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+          IconButton(
+              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+              onPressed: () => Navigator.pop(context)),
           SizedBox(width: 8.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('AI Lesson Generator', style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w800, color: Colors.white)),
-                Text('Powered by Claude AI', style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.6))),
+                Text('AI Lesson Generator',
+                    style: AppTypography.h4.copyWith(color: Colors.white)),
+                Text('Powered by Claude AI',
+                    style: AppTypography.caption
+                        .copyWith(color: Colors.white.withValues(alpha: 0.6))),
               ],
             ),
           ),
           Container(
             padding: EdgeInsets.all(8.r),
-            decoration: const BoxDecoration(color: Color(0xFF8B5CF6), shape: BoxShape.circle),
-            child: Text('AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.sp)),
+            decoration: const BoxDecoration(
+                color: Color(0xFF8B5CF6), shape: BoxShape.circle),
+            child: Text('AI',
+                style: AppTypography.caption.copyWith(color: Colors.white)),
           ),
         ],
       ),
@@ -154,7 +173,14 @@ Homework:
   }
 
   Widget _buildModesGrid() {
-    final modes = ['Lesson Plan', 'Quiz', 'Notes', 'Homework', 'PPT Ideas', 'Discussion Pts'];
+    final modes = [
+      'Lesson Plan',
+      'Quiz',
+      'Notes',
+      'Homework',
+      'PPT Ideas',
+      'Discussion Pts'
+    ];
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -168,10 +194,13 @@ Homework:
             decoration: BoxDecoration(
               color: isSelected ? darkNavy : Colors.white,
               borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: isSelected ? darkNavy : Colors.grey.shade200),
+              border: Border.all(
+                  color: isSelected ? darkNavy : Colors.grey.shade200),
             ),
             child: Center(
-              child: Text(m, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600, color: isSelected ? Colors.white : darkNavy)),
+              child: Text(m,
+                  style: AppTypography.small
+                      .copyWith(color: isSelected ? Colors.white : darkNavy)),
             ),
           ),
         );
@@ -184,8 +213,14 @@ Homework:
       width: double.infinity,
       child: ElevatedButton(
         onPressed: onTap,
-        style: ElevatedButton.styleFrom(backgroundColor: bg, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(vertical: 16.h), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)), elevation: 0),
-        child: Text(label, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w700)),
+        style: ElevatedButton.styleFrom(
+            backgroundColor: bg,
+            foregroundColor: Colors.white,
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r)),
+            elevation: 0),
+        child: Text(label, style: AppTypography.tableHeader),
       ),
     );
   }
@@ -196,18 +231,25 @@ Homework:
       children: [
         Container(
           padding: EdgeInsets.all(20.r),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r), border: Border.all(color: Colors.grey.shade200)),
+          decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24.r),
+              border: Border.all(color: Colors.grey.shade200)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('$_selectedMode — ${_topicController.text}', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+              Text('$_selectedMode — ${_topicController.text}',
+                  style: AppTypography.body.copyWith(color: darkNavy)),
               SizedBox(height: 16.h),
-              Text(_result!, style: GoogleFonts.inter(fontSize: 14.sp, color: darkNavy.withValues(alpha: 0.8), height: 1.6.h)),
+              Text(_result!,
+                  style: AppTypography.small.copyWith(
+                      color: darkNavy.withValues(alpha: 0.8), height: 1.6.h)),
             ],
           ),
         ),
         SizedBox(height: 16.h),
-        _buildButton('Save to Lesson Plans', Colors.white.withValues(alpha: 0.1), () => Navigator.pop(context)),
+        _buildButton('Save to Lesson Plans',
+            Colors.white.withValues(alpha: 0.1), () => Navigator.pop(context)),
       ],
     );
   }

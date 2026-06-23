@@ -6,6 +6,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'create_quiz_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class MyQuizzesScreen extends StatefulWidget {
   const MyQuizzesScreen({super.key});
@@ -114,14 +115,12 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
             Icon(Icons.quiz_rounded, size: 64.sp, color: AppColors.textLight),
             SizedBox(height: 16.h),
             Text('No quizzes published yet',
-                style: GoogleFonts.inter(
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMedium)),
+                style: AppTypography.bodyLarge
+                    .copyWith(color: AppColors.textMedium)),
             SizedBox(height: 8.h),
             Text('Tap + New Quiz to create one',
-                style: GoogleFonts.inter(
-                    fontSize: 13.sp, color: AppColors.textLight)),
+                style:
+                    AppTypography.caption.copyWith(color: AppColors.textLight)),
           ],
         ),
       );
@@ -170,13 +169,11 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(title,
-                  style: GoogleFonts.inter(
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.textDark,
-                      fontSize: 14.sp)),
+                  style:
+                      AppTypography.small.copyWith(color: AppColors.textDark)),
               Text(subject,
-                  style: GoogleFonts.inter(
-                      fontSize: 12.sp, color: AppColors.textMedium)),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium)),
             ]),
           ),
           // Delete button
@@ -207,8 +204,8 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
         if (dateStr.isNotEmpty) ...[
           SizedBox(height: 8.h),
           Text('Published: $dateStr',
-              style: GoogleFonts.inter(
-                  fontSize: 11.sp, color: AppColors.textLight)),
+              style:
+                  AppTypography.caption.copyWith(color: AppColors.textLight)),
         ],
 
         SizedBox(height: 12.h),
@@ -228,10 +225,8 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
             ),
             SizedBox(width: 6.w),
             Text('Active — visible to students',
-                style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF10B981))),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF10B981))),
           ]),
         ),
       ]),
@@ -242,9 +237,7 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
         padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
         decoration:
             BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8.r)),
-        child: Text(t,
-            style: GoogleFonts.inter(
-                fontSize: 11.sp, fontWeight: FontWeight.w700, color: fg)),
+        child: Text(t, style: AppTypography.caption.copyWith(color: fg)),
       );
 
   void _confirmDelete(BuildContext context, String id, String title) {
@@ -257,8 +250,7 @@ class _MyQuizzesScreenState extends State<MyQuizzesScreen> {
             style: GoogleFonts.inter(fontWeight: FontWeight.w900)),
         content: Text(
             '"$title" will be removed and students will no longer see it.',
-            style: GoogleFonts.inter(
-                fontSize: 14.sp, color: AppColors.textMedium)),
+            style: AppTypography.small.copyWith(color: AppColors.textMedium)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),

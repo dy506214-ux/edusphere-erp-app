@@ -1,4 +1,5 @@
 import 'package:supabase/supabase.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   final supabase = SupabaseClient(
@@ -20,5 +21,10 @@ void main() async {
     print('Error: $e');
   } finally {
     supabase.dispose();
+    final users = await supabase.from('User').select('email, id');
+    debugPrint('Users in DB: $users');
+    supabase.dispose();
+  } catch (e) {
+    debugPrint('Error: $e');
   }
 }

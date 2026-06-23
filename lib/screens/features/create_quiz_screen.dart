@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data model for a single MCQ question
@@ -181,15 +182,13 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.assignment_turned_in_rounded, size: 64.sp, color: AppColors.textLight),
+            Icon(Icons.assignment_turned_in_rounded,
+                size: 64.sp, color: AppColors.textLight),
             SizedBox(height: 16.h),
             Text(
               'No submissions yet',
-              style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textMedium,
-              ),
+              style:
+                  AppTypography.bodyLarge.copyWith(color: AppColors.textMedium),
             ),
             SizedBox(height: 8.h),
             Padding(
@@ -197,10 +196,8 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               child: Text(
                 'When students complete their quizzes, their results will appear here.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  color: AppColors.textLight,
-                ),
+                style:
+                    AppTypography.caption.copyWith(color: AppColors.textLight),
               ),
             ),
           ],
@@ -228,12 +225,13 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
     final total = sub['total'] as int? ?? 0;
     final pct = sub['pct'] as int? ?? 0;
     final dateStr = sub['submittedAt'] as String? ?? '';
-    
+
     String timeFormatted = '';
     if (dateStr.isNotEmpty) {
       try {
         final dt = DateTime.parse(dateStr).toLocal();
-        timeFormatted = '${dt.day}/${dt.month}/${dt.year}  ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
+        timeFormatted =
+            '${dt.day}/${dt.month}/${dt.year}  ${dt.hour}:${dt.minute.toString().padLeft(2, '0')}';
       } catch (_) {}
     }
 
@@ -267,22 +265,16 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               Expanded(
                 child: Text(
                   title.toUpperCase(),
-                  style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textMedium,
-                    fontSize: 10.sp,
-                    letterSpacing: 0.5,
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: AppColors.textMedium, letterSpacing: 0.5),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (timeFormatted.isNotEmpty)
                 Text(
                   timeFormatted,
-                  style: GoogleFonts.inter(
-                    fontSize: 10.sp,
-                    color: AppColors.textLight,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textLight),
                 ),
             ],
           ),
@@ -295,24 +287,19 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                   children: [
                     Text(
                       name,
-                      style: GoogleFonts.inter(
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark),
                     ),
                     SizedBox(height: 6.h),
                     Row(
                       children: [
-                        Icon(Icons.school_rounded, size: 13.sp, color: AppColors.teacherPrimary),
+                        Icon(Icons.school_rounded,
+                            size: 13.sp, color: AppColors.teacherPrimary),
                         SizedBox(width: 4.w),
                         Text(
                           'Class $cls${sec.isNotEmpty ? ' - Section $sec' : ''}',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textMedium,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textMedium),
                         ),
                       ],
                     ),
@@ -329,19 +316,12 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                   children: [
                     Text(
                       '$score/$total',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w900,
-                        color: scoreColor,
-                      ),
+                      style: AppTypography.small.copyWith(color: scoreColor),
                     ),
                     Text(
                       '$pct%',
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w800,
-                        color: scoreColor.withValues(alpha: 0.8),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: scoreColor.withValues(alpha: 0.8)),
                     ),
                   ],
                 ),
@@ -380,7 +360,9 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                       child: Container(
                         padding: EdgeInsets.symmetric(vertical: 10.h),
                         decoration: BoxDecoration(
-                          color: _activeTab == 0 ? Colors.white : Colors.transparent,
+                          color: _activeTab == 0
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(10.r),
                           boxShadow: _activeTab == 0
                               ? [
@@ -395,11 +377,10 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                         child: Center(
                           child: Text(
                             'MCQ Builder',
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: _activeTab == 0 ? FontWeight.w800 : FontWeight.w600,
-                              color: _activeTab == 0 ? AppColors.teacherPrimary : AppColors.textMedium,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: _activeTab == 0
+                                    ? AppColors.teacherPrimary
+                                    : AppColors.textMedium),
                           ),
                         ),
                       ),
@@ -417,7 +398,9 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                       child: Container(
                         padding: EdgeInsets.symmetric(vertical: 10.h),
                         decoration: BoxDecoration(
-                          color: _activeTab == 1 ? Colors.white : Colors.transparent,
+                          color: _activeTab == 1
+                              ? Colors.white
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(10.r),
                           boxShadow: _activeTab == 1
                               ? [
@@ -432,11 +415,10 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                         child: Center(
                           child: Text(
                             'Submissions',
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: _activeTab == 1 ? FontWeight.w800 : FontWeight.w600,
-                              color: _activeTab == 1 ? AppColors.teacherPrimary : AppColors.textMedium,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: _activeTab == 1
+                                    ? AppColors.teacherPrimary
+                                    : AppColors.textMedium),
                           ),
                         ),
                       ),
@@ -460,7 +442,8 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                           SizedBox(width: 12.w),
                           SizedBox(
                             width: 110.w,
-                            child: _labelField('DURATION (min)', _durationCtrl, '20'),
+                            child: _labelField(
+                                'DURATION (min)', _durationCtrl, '20'),
                           ),
                         ]),
                         SizedBox(height: 20.h),
@@ -487,13 +470,15 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(16.r),
-                              border: Border.all(color: AppColors.teacherPrimary),
+                              border:
+                                  Border.all(color: AppColors.teacherPrimary),
                             ),
                             child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(Icons.add_circle_rounded,
-                                      color: AppColors.teacherPrimary, size: 20.sp),
+                                      color: AppColors.teacherPrimary,
+                                      size: 20.sp),
                                   SizedBox(width: 8.w),
                                   Text('Add Question',
                                       style: GoogleFonts.inter(
@@ -527,18 +512,15 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label,
-            style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textLight,
-                letterSpacing: 0.8)),
+            style: AppTypography.caption
+                .copyWith(color: AppColors.textLight, letterSpacing: 0.8)),
         SizedBox(height: 6.h),
         TextField(
           controller: ctrl,
           decoration: InputDecoration(
             hintText: hint,
             hintStyle:
-                GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textLight),
+                AppTypography.caption.copyWith(color: AppColors.textLight),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(
@@ -590,21 +572,16 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
             children: [
               Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                 Text('Select Target',
-                    style: GoogleFonts.inter(
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.textDark)),
+                    style: AppTypography.bodyLarge
+                        .copyWith(color: AppColors.textDark)),
                 IconButton(
                     onPressed: () => Navigator.pop(ctx),
                     icon: const Icon(Icons.close_rounded)),
               ]),
               SizedBox(height: 20.h),
               Text('CHOOSE CLASS',
-                  style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textLight,
-                      letterSpacing: 1)),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textLight, letterSpacing: 1)),
               SizedBox(height: 12.h),
               Wrap(
                 spacing: 10,
@@ -640,11 +617,8 @@ class _CreateQuizScreenState extends State<CreateQuizScreen> {
               ),
               SizedBox(height: 24.h),
               Text('CHOOSE SECTION',
-                  style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textLight,
-                      letterSpacing: 1)),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textLight, letterSpacing: 1)),
               SizedBox(height: 12.h),
               Row(
                 children: ['A', 'B', 'C', 'D'].map((s) {
@@ -746,10 +720,8 @@ class _QuestionCardState extends State<_QuestionCard> {
                     color: AppColors.teacherLight,
                     borderRadius: BorderRadius.circular(8.r)),
                 child: Text('Q${widget.index + 1}',
-                    style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.teacherPrimary)),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.teacherPrimary)),
               ),
               GestureDetector(
                 onTap: widget.onDelete,
@@ -767,8 +739,8 @@ class _QuestionCardState extends State<_QuestionCard> {
             onChanged: (_) => widget.onChanged(),
             decoration: InputDecoration(
               hintText: 'Type your question here…',
-              hintStyle: GoogleFonts.inter(
-                  fontSize: 13.sp, color: AppColors.textLight),
+              hintStyle:
+                  AppTypography.caption.copyWith(color: AppColors.textLight),
               filled: true,
               fillColor: AppColors.background,
               border: OutlineInputBorder(
@@ -831,13 +803,13 @@ class _QuestionCardState extends State<_QuestionCard> {
                       onChanged: (_) => widget.onChanged(),
                       decoration: InputDecoration(
                         hintText: 'Option ${String.fromCharCode(65 + i)}',
-                        hintStyle: GoogleFonts.inter(
-                            fontSize: 13.sp, color: AppColors.textLight),
+                        hintStyle: AppTypography.caption
+                            .copyWith(color: AppColors.textLight),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.only(right: 12.w),
                       ),
-                      style: GoogleFonts.inter(
-                          fontSize: 13.sp, color: AppColors.textDark),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textDark),
                     ),
                   ),
                 ],
@@ -850,8 +822,7 @@ class _QuestionCardState extends State<_QuestionCard> {
             padding: EdgeInsets.only(top: 4.h),
             child: Text(
               '● Tap the circle to mark the correct answer',
-              style: GoogleFonts.inter(
-                  fontSize: 10.sp, color: AppColors.textLight),
+              style: AppTypography.caption.copyWith(color: AppColors.textLight),
             ),
           ),
         ],

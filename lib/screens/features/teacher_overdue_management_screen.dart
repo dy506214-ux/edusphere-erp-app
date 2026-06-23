@@ -6,6 +6,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class TeacherOverdueManagementScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -32,23 +33,24 @@ class _TeacherOverdueManagementScreenState
   void _connectRealtime() {
     try {
       final client = Supabase.instance.client;
-      _realtimeChannel = client.channel('public:teacher_overdue_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'LibraryIssue',
-          callback: (payload) {
-            if (mounted) _loadOverdueData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Book',
-          callback: (payload) {
-            if (mounted) _loadOverdueData();
-          },
-        );
+      _realtimeChannel = client
+          .channel('public:teacher_overdue_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'LibraryIssue',
+            callback: (payload) {
+              if (mounted) _loadOverdueData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Book',
+            callback: (payload) {
+              if (mounted) _loadOverdueData();
+            },
+          );
       _realtimeChannel!.subscribe();
     } catch (e) {
       debugPrint('Error subscribing to overdue management realtime: $e');
@@ -107,8 +109,7 @@ class _TeacherOverdueManagementScreenState
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final dueDate = DateTime.parse(dueDateStr);
-      final dueNormalized =
-          DateTime(dueDate.year, dueDate.month, dueDate.day);
+      final dueNormalized = DateTime(dueDate.year, dueDate.month, dueDate.day);
       final diff = today.difference(dueNormalized).inDays;
       return diff > 0 ? diff : 0;
     } catch (_) {
@@ -139,14 +140,11 @@ class _TeacherOverdueManagementScreenState
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           'Return & Pay Fine',
-          style: GoogleFonts.inter(
-              fontWeight: FontWeight.w900,
-              fontSize: 18.sp,
-              color: AppColors.textDark),
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -154,10 +152,7 @@ class _TeacherOverdueManagementScreenState
           children: [
             Text(
               'Return "$title" for $studentName and settle the fine?',
-              style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 14.sp,
-                  color: AppColors.textMedium),
+              style: AppTypography.small.copyWith(color: AppColors.textMedium),
             ),
             SizedBox(height: 14.h),
             Container(
@@ -174,10 +169,8 @@ class _TeacherOverdueManagementScreenState
                   Expanded(
                     child: Text(
                       'Fine: ₹${fineAmount.toStringAsFixed(2)} ($daysOverdue days overdue)',
-                      style: GoogleFonts.inter(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14.sp,
-                          color: AppColors.error),
+                      style:
+                          AppTypography.small.copyWith(color: AppColors.error),
                     ),
                   ),
                 ],
@@ -190,8 +183,7 @@ class _TeacherOverdueManagementScreenState
             onPressed: () => Navigator.pop(ctx, false),
             child: Text('Cancel',
                 style: GoogleFonts.inter(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textMedium)),
+                    fontWeight: FontWeight.w700, color: AppColors.textMedium)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -248,17 +240,19 @@ class _TeacherOverdueManagementScreenState
           final newLedger = await Supabase.instance.client
               .from('StudentFeeLedger')
               .insert({
-            'studentId': studentId,
-            'academicYearId': academicYearId,
-            'feeStructureId': feeStructureId,
-            'totalPayable': 0.0,
-            'totalPaid': 0.0,
-            'totalPending': 0.0,
-            'totalDiscount': 0.0,
-            'status': 'PENDING',
-            'createdAt': nowStr,
-            'updatedAt': nowStr,
-          }).select('id').single();
+                'studentId': studentId,
+                'academicYearId': academicYearId,
+                'feeStructureId': feeStructureId,
+                'totalPayable': 0.0,
+                'totalPaid': 0.0,
+                'totalPending': 0.0,
+                'totalDiscount': 0.0,
+                'status': 'PENDING',
+                'createdAt': nowStr,
+                'updatedAt': nowStr,
+              })
+              .select('id')
+              .single();
           ledgerId = newLedger['id'] ?? '';
         }
       }
@@ -330,7 +324,6 @@ class _TeacherOverdueManagementScreenState
     return Scaffold(
       bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
       appBar: const TeacherAppBar(title: 'Overdue Management'),
-
       backgroundColor: const Color(0xFFF0F4F8),
       body: SafeArea(
         child: Column(
@@ -338,8 +331,7 @@ class _TeacherOverdueManagementScreenState
           children: [
             // ── Top bar ──────────────────────────────────────────────────
             Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               child: Row(
                 children: [
                   GestureDetector(
@@ -351,11 +343,8 @@ class _TeacherOverdueManagementScreenState
                         SizedBox(width: 6.w),
                         Text(
                           'Back to Library',
-                          style: GoogleFonts.inter(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF374151),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF374151)),
                         ),
                       ],
                     ),
@@ -366,8 +355,7 @@ class _TeacherOverdueManagementScreenState
 
             // ── Title ────────────────────────────────────────────────────
             Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 20.w),
+              padding: EdgeInsets.symmetric(horizontal: 20.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -382,11 +370,8 @@ class _TeacherOverdueManagementScreenState
                   SizedBox(height: 2.h),
                   Text(
                     'Monitor overdue returns and track penalty fines',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF6B7280),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF6B7280)),
                   ),
                 ],
               ),
@@ -413,8 +398,7 @@ class _TeacherOverdueManagementScreenState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // ── Summary banner ──────────────────────────
-                            _buildSummaryBanner(
-                                criticalCount, totalFines),
+                            _buildSummaryBanner(criticalCount, totalFines),
                             SizedBox(height: 16.h),
 
                             // ── Delinquent Returns card ─────────────────
@@ -465,11 +449,11 @@ class _TeacherOverdueManagementScreenState
             children: [
               RichText(
                 text: TextSpan(
-                  style: GoogleFonts.inter(
-                      fontSize: 14.sp, color: AppColors.error),
+                  style: AppTypography.small.copyWith(color: AppColors.error),
                   children: [
                     TextSpan(
-                      text: '$criticalCount book${criticalCount == 1 ? '' : 's'}',
+                      text:
+                          '$criticalCount book${criticalCount == 1 ? '' : 's'}',
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const TextSpan(
@@ -482,11 +466,7 @@ class _TeacherOverdueManagementScreenState
               SizedBox(height: 2.h),
               Text(
                 'Total pending fines: ₹${totalFines.toStringAsFixed(0)}',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.error,
-                ),
+                style: AppTypography.caption.copyWith(color: AppColors.error),
               ),
             ],
           ),
@@ -515,8 +495,7 @@ class _TeacherOverdueManagementScreenState
         children: [
           // Header
           Padding(
-            padding:
-                EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
+            padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 16.h),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -531,11 +510,8 @@ class _TeacherOverdueManagementScreenState
                 SizedBox(height: 2.h),
                 Text(
                   'Comprehensive list of books past their due date',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF6B7280),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF6B7280)),
                 ),
               ],
             ),
@@ -574,8 +550,7 @@ class _TeacherOverdueManagementScreenState
                 color: AppColors.success.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
                 border: Border.all(
-                    color: AppColors.success.withValues(alpha: 0.25),
-                    width: 2),
+                    color: AppColors.success.withValues(alpha: 0.25), width: 2),
               ),
               child: Center(
                 child: Icon(Icons.check_circle_outline_rounded,
@@ -594,11 +569,8 @@ class _TeacherOverdueManagementScreenState
             SizedBox(height: 6.h),
             Text(
               'No overdue books found in the system.',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w400,
-                color: const Color(0xFF6B7280),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -663,39 +635,28 @@ class _TeacherOverdueManagementScreenState
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'by $author',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textMedium,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding:
-                    EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                 decoration: BoxDecoration(
                   color: AppColors.error.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(20.r),
                 ),
                 child: Text(
                   '$daysOverdue days',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.error,
-                  ),
+                  style: AppTypography.caption.copyWith(color: AppColors.error),
                 ),
               ),
             ],
@@ -713,11 +674,8 @@ class _TeacherOverdueManagementScreenState
               Expanded(
                 child: Text(
                   '$studentName${rollNo.isNotEmpty ? '  •  Roll: $rollNo' : ''}',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -745,11 +703,8 @@ class _TeacherOverdueManagementScreenState
                 children: [
                   Text(
                     'PENDING FINE',
-                    style: GoogleFonts.inter(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textLight,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                   ),
                   SizedBox(height: 2.h),
                   Text(
@@ -768,18 +723,14 @@ class _TeacherOverdueManagementScreenState
                     color: Colors.white, size: 15.sp),
                 label: Text(
                   'Return & Pay',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
+                  style: AppTypography.caption.copyWith(color: Colors.white),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.error,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10.r)),
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 14.w, vertical: 10.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
                   elevation: 2,
                   shadowColor: AppColors.error.withValues(alpha: 0.35),
                 ),
@@ -797,20 +748,12 @@ class _TeacherOverdueManagementScreenState
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 9.sp,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textLight,
-          ),
+          style: AppTypography.caption.copyWith(color: AppColors.textLight),
         ),
         SizedBox(height: 2.h),
         Text(
           value,
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w700,
-            color: valueColor,
-          ),
+          style: AppTypography.caption.copyWith(color: valueColor),
         ),
       ],
     );

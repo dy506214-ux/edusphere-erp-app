@@ -78,44 +78,51 @@ class _ResultsScreenState extends State<ResultsScreen> {
         client.removeChannel(_resultsChannel!);
       }
 
-      dev.log('📡 Subscribing to Supabase Realtime for Results Screen...', name: 'ResultsScreen');
-      _resultsChannel = client.channel('public:results_screen_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'ExamResult',
-          callback: (payload) {
-            dev.log('🔥 Real-time ExamResult event: $payload', name: 'ResultsScreen');
-            if (mounted) _loadResultsData(showLoading: false);
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'ReportCard',
-          callback: (payload) {
-            dev.log('🔥 Real-time ReportCard event: $payload', name: 'ResultsScreen');
-            if (mounted) _loadResultsData(showLoading: false);
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Exam',
-          callback: (payload) {
-            dev.log('🔥 Real-time Exam event: $payload', name: 'ResultsScreen');
-            if (mounted) _loadResultsData(showLoading: false);
-          },
-        );
+      dev.log('📡 Subscribing to Supabase Realtime for Results Screen...',
+          name: 'ResultsScreen');
+      _resultsChannel = client
+          .channel('public:results_screen_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'ExamResult',
+            callback: (payload) {
+              dev.log('🔥 Real-time ExamResult event: $payload',
+                  name: 'ResultsScreen');
+              if (mounted) _loadResultsData(showLoading: false);
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'ReportCard',
+            callback: (payload) {
+              dev.log('🔥 Real-time ReportCard event: $payload',
+                  name: 'ResultsScreen');
+              if (mounted) _loadResultsData(showLoading: false);
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Exam',
+            callback: (payload) {
+              dev.log('🔥 Real-time Exam event: $payload',
+                  name: 'ResultsScreen');
+              if (mounted) _loadResultsData(showLoading: false);
+            },
+          );
 
       _resultsChannel!.subscribe((status, [error]) {
-        dev.log('📡 Results Realtime channel status: $status', name: 'ResultsScreen');
+        dev.log('📡 Results Realtime channel status: $status',
+            name: 'ResultsScreen');
         if (error != null) {
           dev.log('❌ Results Realtime error: $error', name: 'ResultsScreen');
         }
       });
     } catch (e) {
-      dev.log('⚠️ Error connecting Realtime for Results: $e', name: 'ResultsScreen');
+      dev.log('⚠️ Error connecting Realtime for Results: $e',
+          name: 'ResultsScreen');
     }
 
     // Polling fallback every 30 seconds
@@ -130,18 +137,23 @@ class _ResultsScreenState extends State<ResultsScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       _studentId = prefs.getString('student_id') ?? '';
-      _studentName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Student';
+      _studentName = prefs.getString('student_name') ??
+          prefs.getString('user_name') ??
+          'Student';
 
       // ── 1. Resolve student profile if ID not cached ───────────────────────
       if (_studentId.isEmpty) {
         final profileRes = await ApiService.instance.get('students/me');
-        if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+        if (profileRes != null &&
+            profileRes['success'] == true &&
+            profileRes['student'] != null) {
           final s = profileRes['student'] as Map<String, dynamic>;
           _studentId = s['id'] as String? ?? '';
           await prefs.setString('student_id', _studentId);
 
           final u = s['user'] as Map? ?? {};
-          _studentName = '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
+          _studentName =
+              '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
           await prefs.setString('student_name', _studentName);
 
           final cls = s['currentClass'] as Map? ?? {};
@@ -149,7 +161,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
           _className = cls['name'] as String? ?? '';
           _section = sec['name'] as String? ?? '';
           _rollNo = s['rollNumber']?.toString() ?? '';
-          _admissionNo = s['admissionNumber']?.toString() ?? 'ADM-2024001'; // Fallback to mock
+          _admissionNo = s['admissionNumber']?.toString() ??
+              'ADM-2024001'; // Fallback to mock
 
           await prefs.setString('student_class', _className);
           await prefs.setString('student_section', _section);
@@ -176,10 +189,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
       try {
         examResults = await client
             .from('ExamResult')
-            .select('*, Exam(id, name, term, academicYear), Subject(id, name, code)')
+            .select(
+                '*, Exam(id, name, term, academicYear), Subject(id, name, code)')
             .eq('studentId', _studentId)
             .order('createdAt', ascending: false);
-        dev.log('📊 Fetched ${examResults.length} exam results from Supabase', name: 'ResultsScreen');
+        dev.log('📊 Fetched ${examResults.length} exam results from Supabase',
+            name: 'ResultsScreen');
       } catch (e) {
         dev.log('⚠️ ExamResult query failed: $e', name: 'ResultsScreen');
       }
@@ -189,7 +204,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
           final rMap = r as Map<String, dynamic>;
           final exam = rMap['Exam'] as Map? ?? {};
           final examId = exam['id'] as String? ?? 'unknown';
-          
+
           if (!groupedExamsMap.containsKey(examId)) {
             groupedExamsMap[examId] = GroupedExam(
               id: examId,
@@ -203,8 +218,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
           final subject = rMap['Subject'] as Map? ?? {};
           final maxMarks = (rMap['maxMarks'] as num? ?? 100).toInt();
-          final marksObtained = (rMap['marksObtained'] ?? rMap['marks'] ?? 0) as num;
-          
+          final marksObtained =
+              (rMap['marksObtained'] ?? rMap['marks'] ?? 0) as num;
+
           groupedExamsMap[examId]!.subjects.add({
             'name': subject['name'] as String? ?? 'Subject',
             'marks': marksObtained.toInt(),
@@ -219,10 +235,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
         try {
           final reportCards = await client
               .from('ReportCard')
-              .select('*, Exam(id, name, term, academicYear), ReportCardGrade(*, Subject(id, name, code))')
+              .select(
+                  '*, Exam(id, name, term, academicYear), ReportCardGrade(*, Subject(id, name, code))')
               .eq('studentId', _studentId)
               .order('createdAt', ascending: false);
-          dev.log('📊 Fetched ${reportCards.length} report cards from Supabase', name: 'ResultsScreen');
+          dev.log('📊 Fetched ${reportCards.length} report cards from Supabase',
+              name: 'ResultsScreen');
 
           if (reportCards.isNotEmpty) {
             for (var card in reportCards) {
@@ -244,16 +262,19 @@ class _ResultsScreenState extends State<ResultsScreen> {
               for (var g in grades) {
                 final subject = g['Subject'] as Map? ?? {};
                 final maxMarks = (g['maxMarks'] as num? ?? 100).toInt();
-                final marksObtained = (g['marksObtained'] ?? g['marks'] ?? 0) as num;
-                
+                final marksObtained =
+                    (g['marksObtained'] ?? g['marks'] ?? 0) as num;
+
                 // Avoid duplicates if both tables have data
-                bool exists = groupedExamsMap[examId]!.subjects.any((s) => s['name'] == (subject['name'] as String? ?? 'Subject'));
+                bool exists = groupedExamsMap[examId]!.subjects.any((s) =>
+                    s['name'] == (subject['name'] as String? ?? 'Subject'));
                 if (!exists) {
                   groupedExamsMap[examId]!.subjects.add({
                     'name': subject['name'] as String? ?? 'Subject',
                     'marks': marksObtained.toInt(),
                     'total': maxMarks,
-                    'grade': _computeGrade((marksObtained / maxMarks * 100).round()),
+                    'grade':
+                        _computeGrade((marksObtained / maxMarks * 100).round()),
                   });
                 }
               }
@@ -267,9 +288,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
       // Fallback: try backend REST API if still empty
       if (groupedExamsMap.isEmpty) {
         try {
-          final res = await ApiService.instance.get('students/$_studentId/results');
+          final res =
+              await ApiService.instance.get('students/$_studentId/results');
           if (res != null && res['success'] == true) {
-            final List<dynamic> rawResults = res['results'] ?? res['data'] ?? [];
+            final List<dynamic> rawResults =
+                res['results'] ?? res['data'] ?? [];
             const String mockExamId = 'mock_exam_1';
             groupedExamsMap[mockExamId] = GroupedExam(
               id: mockExamId,
@@ -283,12 +306,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
             for (var r in rawResults) {
               final subject = r['subject'] as Map? ?? {};
               final maxMarks = (r['maxMarks'] as num? ?? 100).toInt();
-              final marksObtained = (r['marksObtained'] ?? r['marks'] ?? 0) as num;
+              final marksObtained =
+                  (r['marksObtained'] ?? r['marks'] ?? 0) as num;
               groupedExamsMap[mockExamId]!.subjects.add({
-                'name': subject['name'] as String? ?? r['subjectName'] as String? ?? 'Subject',
+                'name': subject['name'] as String? ??
+                    r['subjectName'] as String? ??
+                    'Subject',
                 'marks': marksObtained.toInt(),
                 'total': maxMarks,
-                'grade': _computeGrade((marksObtained / maxMarks * 100).round()),
+                'grade':
+                    _computeGrade((marksObtained / maxMarks * 100).round()),
               });
             }
           }
@@ -324,7 +351,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   Future<void> _downloadReportCard(GroupedExam exam) async {
     if (exam.subjects.isEmpty) return;
-    
+
     // Calculate totals
     final total = exam.subjects.fold(0, (s, e) => s + (e['marks'] as int));
     final maxTotal = exam.subjects.fold(0, (s, e) => s + (e['total'] as int));
@@ -335,13 +362,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
     try {
       final now = DateTime.now();
       final dateStr = DateFormat('dd MMM yyyy, h:mm a').format(now);
-      
+
       final pdf = pw.Document();
-      
+
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(0), // No margin, we draw full bleed header
+          margin: const pw.EdgeInsets.all(
+              0), // No margin, we draw full bleed header
           build: (pw.Context ctx) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -350,7 +378,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                 pw.Container(
                   width: double.infinity,
                   color: const PdfColor.fromInt(0xFF0EA5E9), // EduSphere Blue
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+                  padding: const pw.EdgeInsets.symmetric(
+                      horizontal: 40, vertical: 30),
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
@@ -409,7 +438,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                     ],
                   ),
                 ),
-                
+
                 // Add margins for the rest of the content
                 pw.Padding(
                   padding: const pw.EdgeInsets.all(40),
@@ -423,50 +452,72 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         padding: const pw.EdgeInsets.symmetric(horizontal: 8),
                         child: pw.Column(
                           children: [
-                            _buildInfoRow('Student Name', _studentName.isNotEmpty ? _studentName : 'Kavita Das'),
+                            _buildInfoRow(
+                                'Student Name',
+                                _studentName.isNotEmpty
+                                    ? _studentName
+                                    : 'Kavita Das'),
                             pw.SizedBox(height: 12),
                             _buildInfoRow('Admission No.', _admissionNo),
                             pw.SizedBox(height: 12),
-                            _buildInfoRow('Class', '${_className.isNotEmpty ? _className : "Grade 8"} ${_section.isNotEmpty ? "- $_section" : ""}'),
+                            _buildInfoRow('Class',
+                                '${_className.isNotEmpty ? _className : "Grade 8"} ${_section.isNotEmpty ? "- $_section" : ""}'),
                             pw.SizedBox(height: 12),
-                            _buildInfoRow('Academic Year', exam.academicYear.isNotEmpty ? exam.academicYear : '2024-2025'),
+                            _buildInfoRow(
+                                'Academic Year',
+                                exam.academicYear.isNotEmpty
+                                    ? exam.academicYear
+                                    : '2024-2025'),
                           ],
                         ),
                       ),
-                      
+
                       pw.SizedBox(height: 32),
-                      
+
                       // 3. Academic Performance Summary
                       _buildSectionHeader('ACADEMIC PERFORMANCE SUMMARY'),
                       pw.SizedBox(height: 16),
-                      
+
                       pw.Row(
                         children: [
-                          _buildSummaryBox('TOTAL MARKS', '$total / $maxTotal', PdfColors.black),
-                          _buildSummaryBox('PERCENTAGE', '${pct.toStringAsFixed(1)}%', const PdfColor.fromInt(0xFF0EA5E9)),
-                          _buildSummaryBox('GRADE', overallGrade, const PdfColor.fromInt(0xFF22C55E)),
-                          _buildSummaryBox('RESULT', isPass ? 'PASS' : 'FAIL', isPass ? const PdfColor.fromInt(0xFF22C55E) : PdfColors.red, noBorderRight: true),
+                          _buildSummaryBox('TOTAL MARKS', '$total / $maxTotal',
+                              PdfColors.black),
+                          _buildSummaryBox(
+                              'PERCENTAGE',
+                              '${pct.toStringAsFixed(1)}%',
+                              const PdfColor.fromInt(0xFF0EA5E9)),
+                          _buildSummaryBox('GRADE', overallGrade,
+                              const PdfColor.fromInt(0xFF22C55E)),
+                          _buildSummaryBox(
+                              'RESULT',
+                              isPass ? 'PASS' : 'FAIL',
+                              isPass
+                                  ? const PdfColor.fromInt(0xFF22C55E)
+                                  : PdfColors.red,
+                              noBorderRight: true),
                         ],
                       ),
-                      
+
                       pw.SizedBox(height: 32),
-                      
+
                       // 4. Subject-Wise Performance
                       _buildSectionHeader('SUBJECT-WISE PERFORMANCE'),
                       pw.SizedBox(height: 16),
-                      
+
                       pw.TableHelper.fromTextArray(
                         context: ctx,
                         border: const pw.TableBorder(
                           bottom: pw.BorderSide(color: PdfColors.grey300),
-                          horizontalInside: pw.BorderSide(color: PdfColors.grey300),
+                          horizontalInside:
+                              pw.BorderSide(color: PdfColors.grey300),
                         ),
                         headerStyle: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColors.white,
                           fontSize: 10,
                         ),
-                        headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF0EA5E9)),
+                        headerDecoration: const pw.BoxDecoration(
+                            color: PdfColor.fromInt(0xFF0EA5E9)),
                         headerHeight: 30,
                         cellHeight: 35,
                         cellAlignments: {
@@ -479,7 +530,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         },
                         cellStyle: const pw.TextStyle(fontSize: 10),
                         data: <List<String>>[
-                          ['SUBJECT', 'INTERNAL', 'EXTERNAL', 'TOTAL MAX', 'TOTAL OBT.', 'GRADE'],
+                          [
+                            'SUBJECT',
+                            'INTERNAL',
+                            'EXTERNAL',
+                            'TOTAL MAX',
+                            'TOTAL OBT.',
+                            'GRADE'
+                          ],
                           ...exam.subjects.map((s) {
                             return [
                               s['name'] as String,
@@ -492,9 +550,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                           }),
                         ],
                       ),
-                      
+
                       pw.SizedBox(height: 100), // Spacer for signatures
-                      
+
                       // 5. Signatures
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -510,7 +568,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               pw.SizedBox(height: 8),
                               pw.Text(
                                 'Class Teacher Signature',
-                                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                                style: pw.TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: pw.FontWeight.bold),
                               ),
                             ],
                           ),
@@ -525,7 +585,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               pw.SizedBox(height: 8),
                               pw.Text(
                                 'Principal Signature',
-                                style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold),
+                                style: pw.TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: pw.FontWeight.bold),
                               ),
                             ],
                           ),
@@ -541,14 +603,17 @@ class _ResultsScreenState extends State<ResultsScreen> {
       );
 
       final Uint8List bytes = await pdf.save();
-      final fileName = 'ReportCard_${_studentName.replaceAll(' ', '_')}_${exam.name.replaceAll(' ', '_')}.pdf';
+      final fileName =
+          'ReportCard_${_studentName.replaceAll(' ', '_')}_${exam.name.replaceAll(' ', '_')}.pdf';
       await Printing.sharePdf(bytes: bytes, filename: fileName);
 
       if (mounted) {
-        showToast(context, 'Report Card generated successfully!', isError: false);
+        showToast(context, 'Report Card generated successfully!',
+            isError: false);
       }
     } catch (e) {
-      if (mounted) showToast(context, 'Failed to generate PDF: $e', isError: true);
+      if (mounted)
+        showToast(context, 'Failed to generate PDF: $e', isError: true);
     }
   }
 
@@ -585,14 +650,18 @@ class _ResultsScreenState extends State<ResultsScreen> {
           flex: 5,
           child: pw.Text(
             value,
-            style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
+            style: pw.TextStyle(
+                fontSize: 11,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.black),
           ),
         ),
       ],
     );
   }
 
-  pw.Widget _buildSummaryBox(String label, String value, PdfColor valueColor, {bool noBorderRight = false}) {
+  pw.Widget _buildSummaryBox(String label, String value, PdfColor valueColor,
+      {bool noBorderRight = false}) {
     return pw.Expanded(
       child: pw.Container(
         padding: const pw.EdgeInsets.symmetric(vertical: 16),
@@ -601,7 +670,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             top: const pw.BorderSide(color: PdfColor.fromInt(0xFFBAE6FD)),
             bottom: const pw.BorderSide(color: PdfColor.fromInt(0xFFBAE6FD)),
             left: const pw.BorderSide(color: PdfColor.fromInt(0xFFBAE6FD)),
-            right: noBorderRight ? pw.BorderSide.none : const pw.BorderSide(color: PdfColor.fromInt(0xFFBAE6FD)),
+            right: noBorderRight
+                ? pw.BorderSide.none
+                : const pw.BorderSide(color: PdfColor.fromInt(0xFFBAE6FD)),
           ),
         ),
         child: pw.Column(
@@ -632,18 +703,21 @@ class _ResultsScreenState extends State<ResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F6FF), // very light blue background matching mockup
+      backgroundColor:
+          const Color(0xFFF0F6FF), // very light blue background matching mockup
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: const Color(0xFF0052CC), size: 24.sp),
+          icon: Icon(Icons.arrow_back,
+              color: const Color(0xFF0052CC), size: 24.sp),
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0052CC)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0052CC)))
           : RefreshIndicator(
               onRefresh: () => _loadResultsData(showLoading: true),
               color: const Color(0xFF0052CC),
@@ -694,7 +768,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.menu_book_rounded, color: const Color(0xFF1E293B), size: 20.sp),
+                              Icon(Icons.menu_book_rounded,
+                                  color: const Color(0xFF1E293B), size: 20.sp),
                               SizedBox(width: 8.w),
                               Text(
                                 'Academic History',
@@ -718,17 +793,54 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
                           // Table Header
                           Container(
-                            padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12.h, horizontal: 8.w),
                             decoration: const BoxDecoration(
-                              border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                              border: Border(
+                                  bottom: BorderSide(color: Color(0xFFE2E8F0))),
                             ),
                             child: Row(
                               children: [
-                                Expanded(flex: 3, child: Text('Examination', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)))),
-                                Expanded(flex: 2, child: Text('Term', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)))),
-                                Expanded(flex: 3, child: Text('Academic Year', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)))),
-                                Expanded(flex: 2, child: Center(child: Text('Status', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))))),
-                                Expanded(flex: 2, child: Align(alignment: Alignment.centerRight, child: Text('Action', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))))),
+                                Expanded(
+                                    flex: 3,
+                                    child: Text('Examination',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 11.sp,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF475569)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Text('Term',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 11.sp,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF475569)))),
+                                Expanded(
+                                    flex: 3,
+                                    child: Text('Academic Year',
+                                        style: GoogleFonts.inter(
+                                            fontSize: 11.sp,
+                                            fontWeight: FontWeight.w700,
+                                            color: const Color(0xFF475569)))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                        child: Text('Status',
+                                            style: GoogleFonts.inter(
+                                                fontSize: 11.sp,
+                                                fontWeight: FontWeight.w700,
+                                                color:
+                                                    const Color(0xFF475569))))),
+                                Expanded(
+                                    flex: 2,
+                                    child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text('Action',
+                                            style: GoogleFonts.inter(
+                                                fontSize: 11.sp,
+                                                fontWeight: FontWeight.w700,
+                                                color:
+                                                    const Color(0xFF475569))))),
                               ],
                             ),
                           ),
@@ -740,76 +852,121 @@ class _ResultsScreenState extends State<ResultsScreen> {
                               child: Center(
                                 child: Text(
                                   'No examination results found.',
-                                  style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8), fontStyle: FontStyle.italic),
+                                  style: GoogleFonts.inter(
+                                      fontSize: 13.sp,
+                                      color: const Color(0xFF94A3B8),
+                                      fontStyle: FontStyle.italic),
                                 ),
                               ),
                             )
                           else
                             ..._exams.map((exam) {
                               return Container(
-                                padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
+                                padding: EdgeInsets.symmetric(
+                                    vertical: 16.h, horizontal: 8.w),
                                 decoration: const BoxDecoration(
-                                  border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                                  border: Border(
+                                      bottom:
+                                          BorderSide(color: Color(0xFFF1F5F9))),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
-                                      flex: 3, 
-                                      child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text(exam.name.isNotEmpty ? exam.name : exam.id, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B))))
-                                    ),
+                                        flex: 3,
+                                        child: FittedBox(
+                                            alignment: Alignment.centerLeft,
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                                exam.name.isNotEmpty
+                                                    ? exam.name
+                                                    : exam.id,
+                                                style: GoogleFonts.inter(
+                                                    fontSize: 12.sp,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: const Color(
+                                                        0xFF1E293B))))),
                                     Expanded(
-                                      flex: 2, 
-                                      child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text(exam.term, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF475569))))
-                                    ),
+                                        flex: 2,
+                                        child: FittedBox(
+                                            alignment: Alignment.centerLeft,
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(exam.term,
+                                                style: GoogleFonts.inter(
+                                                    fontSize: 12.sp,
+                                                    color: const Color(
+                                                        0xFF475569))))),
                                     Expanded(
-                                      flex: 3, 
-                                      child: FittedBox(alignment: Alignment.centerLeft, fit: BoxFit.scaleDown, child: Text(exam.academicYear, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF475569))))
-                                    ),
+                                        flex: 3,
+                                        child: FittedBox(
+                                            alignment: Alignment.centerLeft,
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(exam.academicYear,
+                                                style: GoogleFonts.inter(
+                                                    fontSize: 12.sp,
+                                                    color: const Color(
+                                                        0xFF475569))))),
                                     Expanded(
-                                      flex: 2, 
-                                      child: Center(
-                                        child: Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFDCFCE7),
-                                            borderRadius: BorderRadius.circular(12.r),
-                                          ),
-                                          child: Text(
-                                            exam.status, 
-                                            style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF16A34A))
-                                          ),
-                                        ),
-                                      )
-                                    ),
-                                    Expanded(
-                                      flex: 2, 
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: GestureDetector(
-                                          onTap: () => _downloadReportCard(exam),
+                                        flex: 2,
+                                        child: Center(
                                           child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 10.w,
+                                                vertical: 4.h),
                                             decoration: BoxDecoration(
-                                              color: const Color(0xFFF1F5F9),
-                                              borderRadius: BorderRadius.circular(8.r),
-                                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                                              color: const Color(0xFFDCFCE7),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
                                             ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                Icon(Icons.file_download_outlined, size: 14.sp, color: const Color(0xFF475569)),
-                                                SizedBox(width: 4.w),
-                                                Text(
-                                                  'Download PDF', 
-                                                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))
-                                                ),
-                                              ],
+                                            child: Text(exam.status,
+                                                style: GoogleFonts.inter(
+                                                    fontSize: 9.sp,
+                                                    fontWeight: FontWeight.w800,
+                                                    color: const Color(
+                                                        0xFF16A34A))),
+                                          ),
+                                        )),
+                                    Expanded(
+                                        flex: 2,
+                                        child: Align(
+                                          alignment: Alignment.centerRight,
+                                          child: GestureDetector(
+                                            onTap: () =>
+                                                _downloadReportCard(exam),
+                                            child: Container(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 10.w,
+                                                  vertical: 8.h),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFFF1F5F9),
+                                                borderRadius:
+                                                    BorderRadius.circular(8.r),
+                                                border: Border.all(
+                                                    color: const Color(
+                                                        0xFFE2E8F0)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(
+                                                      Icons
+                                                          .file_download_outlined,
+                                                      size: 14.sp,
+                                                      color: const Color(
+                                                          0xFF475569)),
+                                                  SizedBox(width: 4.w),
+                                                  Text('Download PDF',
+                                                      style: GoogleFonts.inter(
+                                                          fontSize: 10.sp,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: const Color(
+                                                              0xFF475569))),
+                                                ],
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      )
-                                    ),
+                                        )),
                                   ],
                                 ),
                               );
@@ -817,7 +974,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         ],
                       ),
                     ),
-                    
+
                     SizedBox(height: 24.h),
 
                     // Note for Students Card
@@ -834,7 +991,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.info_outline_rounded, color: const Color(0xFF2563EB), size: 18.sp),
+                              Icon(Icons.info_outline_rounded,
+                                  color: const Color(0xFF2563EB), size: 18.sp),
                               SizedBox(width: 8.w),
                               Text(
                                 'Note for Students',

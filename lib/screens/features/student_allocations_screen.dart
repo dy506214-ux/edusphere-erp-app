@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/api_service.dart';
 import '../../theme/colors.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class StudentAllocationsScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -16,7 +17,8 @@ class StudentAllocationsScreen extends StatefulWidget {
   });
 
   @override
-  State<StudentAllocationsScreen> createState() => _StudentAllocationsScreenState();
+  State<StudentAllocationsScreen> createState() =>
+      _StudentAllocationsScreenState();
 }
 
 class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
@@ -47,23 +49,25 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       final studentsRes = await client
           .from('Student')
           .select('*, User(*), Class(*), Section(*)');
-      
+
       _students = List<Map<String, dynamic>>.from(studentsRes);
 
       // 2. Fetch Allocations
-      final allocationsRes = await client
-          .from('TransportAllocation')
-          .select('*, Student(*, User(*), Class(*)), TransportRoute(*), RouteStop(*)');
-      
+      final allocationsRes = await client.from('TransportAllocation').select(
+          '*, Student(*, User(*), Class(*)), TransportRoute(*), RouteStop(*)');
+
       _allocations = List<Map<String, dynamic>>.from(allocationsRes);
 
       // 3. Fetch Routes
       final routesRes = await ApiService.instance.get('transport/routes');
-      if (routesRes != null && routesRes['success'] == true && routesRes['routes'] != null) {
+      if (routesRes != null &&
+          routesRes['success'] == true &&
+          routesRes['routes'] != null) {
         _routes = List<Map<String, dynamic>>.from(routesRes['routes']);
       } else {
         // Fallback directly to Supabase if API fails
-        final routesDb = await client.from('TransportRoute').select('*, RouteStop(*)');
+        final routesDb =
+            await client.from('TransportRoute').select('*, RouteStop(*)');
         _routes = List<Map<String, dynamic>>.from(routesDb);
       }
 
@@ -76,8 +80,16 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
             'startLocation': 'School Campus',
             'endLocation': 'Rohini Bus Depot',
             'stops': [
-              {'id': 's-1', 'name': 'Rohini Sector 15 Crossing', 'arrivalTime': '07:15 AM'},
-              {'id': 's-2', 'name': 'Pitampura Metro Station', 'arrivalTime': '07:30 AM'}
+              {
+                'id': 's-1',
+                'name': 'Rohini Sector 15 Crossing',
+                'arrivalTime': '07:15 AM'
+              },
+              {
+                'id': 's-2',
+                'name': 'Pitampura Metro Station',
+                'arrivalTime': '07:30 AM'
+              }
             ]
           },
           {
@@ -86,8 +98,16 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
             'startLocation': 'School Campus',
             'endLocation': 'Dwarka Sector 21',
             'stops': [
-              {'id': 's-3', 'name': 'Dwarka Sector 10', 'arrivalTime': '07:05 AM'},
-              {'id': 's-4', 'name': 'Janakpuri West Crossing', 'arrivalTime': '07:25 AM'}
+              {
+                'id': 's-3',
+                'name': 'Dwarka Sector 10',
+                'arrivalTime': '07:05 AM'
+              },
+              {
+                'id': 's-4',
+                'name': 'Janakpuri West Crossing',
+                'arrivalTime': '07:25 AM'
+              }
             ]
           }
         ];
@@ -113,13 +133,17 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       final client = Supabase.instance.client;
 
       // Find students who do not have an allocation yet
-      final allocatedStudentIds = _allocations.map((a) => a['studentId']?.toString()).toSet();
-      final pendingStudents = _students.where((s) => !allocatedStudentIds.contains(s['id']?.toString())).toList();
+      final allocatedStudentIds =
+          _allocations.map((a) => a['studentId']?.toString()).toSet();
+      final pendingStudents = _students
+          .where((s) => !allocatedStudentIds.contains(s['id']?.toString()))
+          .toList();
 
       if (pendingStudents.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('All students are already allocated!', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            content: Text('All students are already allocated!',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             backgroundColor: AppColors.success,
           ),
         );
@@ -132,8 +156,12 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       // Assign each pending student to the first stop of the first route
       final defaultRoute = _routes.first;
       final String routeId = defaultRoute['id']?.toString() ?? 'r-1';
-      final stopsList = defaultRoute['stops'] as List<dynamic>? ?? defaultRoute['RouteStop'] as List<dynamic>? ?? [];
-      final String stopId = stopsList.isNotEmpty ? stopsList.first['id']?.toString() ?? 's-1' : 's-1';
+      final stopsList = defaultRoute['stops'] as List<dynamic>? ??
+          defaultRoute['RouteStop'] as List<dynamic>? ??
+          [];
+      final String stopId = stopsList.isNotEmpty
+          ? stopsList.first['id']?.toString() ?? 's-1'
+          : 's-1';
 
       int successCount = 0;
       for (var student in pendingStudents) {
@@ -153,7 +181,9 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🎉 Batch geocoding completed! Allocated $successCount students.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            content: Text(
+                '🎉 Batch geocoding completed! Allocated $successCount students.',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             backgroundColor: AppColors.success,
           ),
         );
@@ -163,7 +193,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Batch allocation failed: $e', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          content: Text('Batch allocation failed: $e',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           backgroundColor: AppColors.error,
         ),
       );
@@ -185,13 +216,14 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
     try {
       final client = Supabase.instance.client;
       await client.from('TransportAllocation').delete().eq('id', allocationId);
-      
+
       await _loadData();
       if (mounted) {
         // ignore: use_build_context_synchronously
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Transport allocation deleted successfully.', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            content: Text('Transport allocation deleted successfully.',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             backgroundColor: Colors.blueGrey,
           ),
         );
@@ -210,19 +242,26 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
   // Open the "+ New Allocation" dialog form
   void _openNewAllocationDialog() {
     // Get list of pending students
-    final allocatedStudentIds = _allocations.map((a) => a['studentId']?.toString()).toSet();
-    final pendingStudents = _students.where((s) => !allocatedStudentIds.contains(s['id']?.toString())).toList();
+    final allocatedStudentIds =
+        _allocations.map((a) => a['studentId']?.toString()).toSet();
+    final pendingStudents = _students
+        .where((s) => !allocatedStudentIds.contains(s['id']?.toString()))
+        .toList();
 
     if (pendingStudents.isEmpty) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: Text('No Pending Students', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-          content: Text('All registered students are currently allocated to transport.', style: GoogleFonts.inter()),
+          title: Text('No Pending Students',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+          content: Text(
+              'All registered students are currently allocated to transport.',
+              style: GoogleFonts.inter()),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Close',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -232,31 +271,44 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
 
     String? selectedStudentId = pendingStudents.first['id']?.toString();
     String? selectedRouteId = _routes.first['id']?.toString();
-    
+
     // Get stops list of selected route
-    List<dynamic> currentStops = _routes.first['stops'] as List<dynamic>? ?? _routes.first['RouteStop'] as List<dynamic>? ?? [];
-    String? selectedStopId = currentStops.isNotEmpty ? currentStops.first['id']?.toString() : null;
+    List<dynamic> currentStops = _routes.first['stops'] as List<dynamic>? ??
+        _routes.first['RouteStop'] as List<dynamic>? ??
+        [];
+    String? selectedStopId =
+        currentStops.isNotEmpty ? currentStops.first['id']?.toString() : null;
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final activeRoute = _routes.firstWhere((r) => r['id']?.toString() == selectedRouteId, orElse: () => _routes.first);
-          final stops = activeRoute['stops'] as List<dynamic>? ?? activeRoute['RouteStop'] as List<dynamic>? ?? [];
+          final activeRoute = _routes.firstWhere(
+              (r) => r['id']?.toString() == selectedRouteId,
+              orElse: () => _routes.first);
+          final stops = activeRoute['stops'] as List<dynamic>? ??
+              activeRoute['RouteStop'] as List<dynamic>? ??
+              [];
 
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.r)),
             title: Text(
               'New Transport Allocation',
-              style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F2547)),
+              style: GoogleFonts.outfit(
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w900,
+                  color: const Color(0xFF0F2547)),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Student Dropdown
-                Text('SELECT STUDENT', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                Text('SELECT STUDENT',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
                 SizedBox(height: 6.h),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -271,11 +323,14 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                       value: selectedStudentId,
                       items: pendingStudents.map((s) {
                         final u = s['User'] as Map<String, dynamic>? ?? {};
-                        final name = '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'.trim();
-                        final finalName = name.isNotEmpty ? name : (s['name'] ?? 'Student');
+                        final name =
+                            '${u['firstName'] ?? ''} ${u['lastName'] ?? ''}'
+                                .trim();
+                        final finalName =
+                            name.isNotEmpty ? name : (s['name'] ?? 'Student');
                         return DropdownMenuItem<String>(
                           value: s['id']?.toString(),
-                          child: Text(finalName, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                          child: Text(finalName, style: AppTypography.caption),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -289,7 +344,9 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                 SizedBox(height: 16.h),
 
                 // Route Dropdown
-                Text('SELECT ROUTE', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                Text('SELECT ROUTE',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
                 SizedBox(height: 6.h),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -305,15 +362,22 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                       items: _routes.map((r) {
                         return DropdownMenuItem<String>(
                           value: r['id']?.toString(),
-                          child: Text(r['name']?.toString() ?? 'Route', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                          child: Text(r['name']?.toString() ?? 'Route',
+                              style: AppTypography.caption),
                         );
                       }).toList(),
                       onChanged: (val) {
                         setDialogState(() {
                           selectedRouteId = val;
-                          final newRoute = _routes.firstWhere((r) => r['id']?.toString() == val);
-                          final newStops = newRoute['stops'] as List<dynamic>? ?? newRoute['RouteStop'] as List<dynamic>? ?? [];
-                          selectedStopId = newStops.isNotEmpty ? newStops.first['id']?.toString() : null;
+                          final newRoute = _routes
+                              .firstWhere((r) => r['id']?.toString() == val);
+                          final newStops =
+                              newRoute['stops'] as List<dynamic>? ??
+                                  newRoute['RouteStop'] as List<dynamic>? ??
+                                  [];
+                          selectedStopId = newStops.isNotEmpty
+                              ? newStops.first['id']?.toString()
+                              : null;
                         });
                       },
                     ),
@@ -322,7 +386,9 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                 SizedBox(height: 16.h),
 
                 // Stop Dropdown
-                Text('SELECT BOARDING STOP', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
+                Text('SELECT BOARDING STOP',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
                 SizedBox(height: 6.h),
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -338,7 +404,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                       items: stops.map((st) {
                         return DropdownMenuItem<String>(
                           value: st['id']?.toString(),
-                          child: Text('${st['name']} (${st['arrivalTime']})', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600)),
+                          child: Text('${st['name']} (${st['arrivalTime']})',
+                              style: AppTypography.caption),
                         );
                       }).toList(),
                       onChanged: (val) {
@@ -354,12 +421,18 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
             actions: [
               OutlinedButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: Text('Cancel', style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: const Color(0xFF64748B))),
+                child: Text('Cancel',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF64748B))),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F2547)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F2547)),
                 onPressed: () async {
-                  if (selectedStudentId != null && selectedRouteId != null && selectedStopId != null) {
+                  if (selectedStudentId != null &&
+                      selectedRouteId != null &&
+                      selectedStopId != null) {
                     Navigator.pop(ctx);
                     setState(() {
                       _isLoading = true;
@@ -378,7 +451,9 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                     }
                   }
                 },
-                child: Text('Allocate', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text('Allocate',
+                    style: GoogleFonts.inter(
+                        fontWeight: FontWeight.w700, color: Colors.white)),
               ),
             ],
           );
@@ -391,8 +466,11 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
   Widget build(BuildContext context) {
     // 1. Calculate Metrics
     final enrolledCount = _allocations.length;
-    final allocatedStudentIds = _allocations.map((a) => a['studentId']?.toString()).toSet();
-    final pendingCount = _students.where((s) => !allocatedStudentIds.contains(s['id']?.toString())).length;
+    final allocatedStudentIds =
+        _allocations.map((a) => a['studentId']?.toString()).toSet();
+    final pendingCount = _students
+        .where((s) => !allocatedStudentIds.contains(s['id']?.toString()))
+        .length;
 
     // Filter allocations for Ledger search query
     final filteredAllocations = _allocations.where((alloc) {
@@ -402,12 +480,18 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       final firstName = (user['firstName']?.toString() ?? '').toLowerCase();
       final lastName = (user['lastName']?.toString() ?? '').toLowerCase();
       final fullName = '$firstName $lastName';
-      final admissionNo = (student['admissionNumber']?.toString() ?? '').toLowerCase();
-      final routeName = (alloc['TransportRoute']?['name']?.toString() ?? '').toLowerCase();
-      final stopName = (alloc['RouteStop']?['name']?.toString() ?? '').toLowerCase();
-      
+      final admissionNo =
+          (student['admissionNumber']?.toString() ?? '').toLowerCase();
+      final routeName =
+          (alloc['TransportRoute']?['name']?.toString() ?? '').toLowerCase();
+      final stopName =
+          (alloc['RouteStop']?['name']?.toString() ?? '').toLowerCase();
+
       final query = _searchQuery.toLowerCase();
-      return fullName.contains(query) || admissionNo.contains(query) || routeName.contains(query) || stopName.contains(query);
+      return fullName.contains(query) ||
+          admissionNo.contains(query) ||
+          routeName.contains(query) ||
+          stopName.contains(query);
     }).toList();
 
     return Scaffold(
@@ -417,7 +501,10 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
         elevation: 0,
         title: Text(
           'Student Allocations',
-          style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F2547)),
+          style: GoogleFonts.outfit(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFF0F2547)),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Color(0xFF0F2547)),
@@ -425,11 +512,13 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_none_outlined, color: Color(0xFF64748B)),
+            icon: const Icon(Icons.notifications_none_outlined,
+                color: Color(0xFF64748B)),
             onPressed: () {},
           ),
           IconButton(
-            icon: const Icon(Icons.volume_mute_outlined, color: Color(0xFF64748B)),
+            icon: const Icon(Icons.volume_mute_outlined,
+                color: Color(0xFF64748B)),
             onPressed: () {},
           ),
         ],
@@ -444,12 +533,16 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                   // Title & Subtitle Headers
                   Text(
                     'Student Allocations',
-                    style: GoogleFonts.outfit(fontSize: 22.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F2547)),
+                    style: GoogleFonts.outfit(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F2547)),
                   ),
                   SizedBox(height: 4.h),
                   Text(
                     'Assign students to stops and routes based on geocoding',
-                    style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                   SizedBox(height: 16.h),
 
@@ -457,13 +550,17 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                   Row(
                     children: [
                       OutlinedButton.icon(
-                        onPressed: widget.onBack ?? () => Navigator.pop(context),
+                        onPressed:
+                            widget.onBack ?? () => Navigator.pop(context),
                         icon: const Icon(Icons.arrow_back, size: 14),
-                        label: Text('Go Back', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                        label: Text('Go Back',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w700)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: const Color(0xFF0F2547),
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.r)),
                         ),
                       ),
                       const Spacer(),
@@ -473,24 +570,32 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                           _runBatchAllocation();
                         },
                         icon: const Icon(Icons.shuffle, size: 14),
-                        label: Text('Batch Tools', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                        label: Text('Batch Tools',
+                            style:
+                                GoogleFonts.inter(fontWeight: FontWeight.w700)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF0F2547),
                           elevation: 0,
                           side: const BorderSide(color: Color(0xFFCBD5E1)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.r)),
                         ),
                       ),
                       SizedBox(width: 8.w),
                       ElevatedButton.icon(
                         onPressed: _openNewAllocationDialog,
-                        icon: const Icon(Icons.add, size: 14, color: Colors.white),
-                        label: Text('New Allocation', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                        icon: const Icon(Icons.add,
+                            size: 14, color: Colors.white),
+                        label: Text('New Allocation',
+                            style: GoogleFonts.inter(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF0F2547),
                           elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8.r)),
                         ),
                       ),
                     ],
@@ -534,12 +639,16 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                       children: [
                         Text(
                           'Allocation Ledger',
-                          style: GoogleFonts.outfit(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F2547)),
+                          style: GoogleFonts.outfit(
+                              fontSize: 15.sp,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFF0F2547)),
                         ),
                         SizedBox(height: 4.h),
                         Text(
                           'Real-time student transport assignment registry.',
-                          style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B)),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF64748B)),
                         ),
                         SizedBox(height: 16.h),
 
@@ -553,22 +662,28 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                           },
                           decoration: InputDecoration(
                             hintText: 'Search students...',
-                            hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
-                            prefixIcon: const Icon(Icons.search, color: Color(0xFF94A3B8)),
+                            hintStyle: AppTypography.caption
+                                .copyWith(color: const Color(0xFF94A3B8)),
+                            prefixIcon: const Icon(Icons.search,
+                                color: Color(0xFF94A3B8)),
                             filled: true,
                             fillColor: const Color(0xFFF8FAFC),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 10.h),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10.r),
-                              borderSide: const BorderSide(color: Color(0xFFE2EAF4)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE2EAF4)),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10.r),
-                              borderSide: const BorderSide(color: Color(0xFFE2EAF4)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFE2EAF4)),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10.r),
-                              borderSide: const BorderSide(color: Color(0xFF1A6FDB)),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF1A6FDB)),
                             ),
                           ),
                         ),
@@ -582,11 +697,14 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                                 alignment: Alignment.center,
                                 child: Column(
                                   children: [
-                                    Icon(Icons.directions_bus_outlined, size: 36.sp, color: const Color(0xFF94A3B8)),
+                                    Icon(Icons.directions_bus_outlined,
+                                        size: 36.sp,
+                                        color: const Color(0xFF94A3B8)),
                                     SizedBox(height: 8.h),
                                     Text(
                                       'No allocations registered in search result',
-                                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF94A3B8)),
                                     ),
                                   ],
                                 ),
@@ -595,66 +713,144 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                                 scrollDirection: Axis.horizontal,
                                 child: Theme(
                                   data: Theme.of(context).copyWith(
-                                    dividerColor: const Color(0xFFE2EAF4),
-                                  ),
+                                      dividerColor: const Color(0xFFE2EAF4)),
                                   child: DataTable(
                                     columnSpacing: 20.w,
-                                    headingRowColor: WidgetStateProperty.all(const Color(0xFFF8FAFC)),
+                                    headingRowColor: WidgetStateProperty.all(
+                                        const Color(0xFFF8FAFC)),
                                     columns: [
-                                      DataColumn(label: Text('STUDENT IDENTITY', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)))),
-                                      DataColumn(label: Text('ASSIGNED NETWORK', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)))),
-                                      DataColumn(label: Text('BOARDING POINT', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)))),
-                                      DataColumn(label: Text('STATUS', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)))),
-                                      DataColumn(label: Text('ACTIONS', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)))),
+                                      DataColumn(
+                                          label: Text('STUDENT IDENTITY',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
+                                      DataColumn(
+                                          label: Text('ASSIGNED NETWORK',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
+                                      DataColumn(
+                                          label: Text('BOARDING POINT',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
+                                      DataColumn(
+                                          label: Text('STATUS',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
+                                      DataColumn(
+                                          label: Text('ACTIONS',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
                                     ],
                                     rows: filteredAllocations.map((alloc) {
-                                      final student = alloc['Student'] as Map<String, dynamic>? ?? {};
-                                      final user = student['User'] as Map<String, dynamic>? ?? {};
-                                      
-                                      final String firstName = user['firstName'] as String? ?? '';
-                                      final String lastName = user['lastName'] as String? ?? '';
-                                      final String studentName = '$firstName $lastName'.trim().isNotEmpty ? '$firstName $lastName' : (student['name'] ?? 'Unknown Student');
-                                      final String admNo = student['admissionNumber'] ?? 'N/A';
-                                      
-                                      final routeName = alloc['TransportRoute']?['name']?.toString() ?? 'Route 102';
-                                      final stopName = alloc['RouteStop']?['name']?.toString() ?? 'Stop Point';
-                                      final status = (alloc['status']?.toString() ?? 'ACTIVE').toUpperCase();
+                                      final student = alloc['Student']
+                                              as Map<String, dynamic>? ??
+                                          {};
+                                      final user = student['User']
+                                              as Map<String, dynamic>? ??
+                                          {};
+
+                                      final String firstName =
+                                          user['firstName'] as String? ?? '';
+                                      final String lastName =
+                                          user['lastName'] as String? ?? '';
+                                      final String studentName =
+                                          '$firstName $lastName'
+                                                  .trim()
+                                                  .isNotEmpty
+                                              ? '$firstName $lastName'
+                                              : (student['name'] ??
+                                                  'Unknown Student');
+                                      final String admNo =
+                                          student['admissionNumber'] ?? 'N/A';
+
+                                      final routeName = alloc['TransportRoute']
+                                                  ?['name']
+                                              ?.toString() ??
+                                          'Route 102';
+                                      final stopName = alloc['RouteStop']
+                                                  ?['name']
+                                              ?.toString() ??
+                                          'Stop Point';
+                                      final status =
+                                          (alloc['status']?.toString() ??
+                                                  'ACTIVE')
+                                              .toUpperCase();
 
                                       return DataRow(
                                         cells: [
                                           DataCell(
                                             Padding(
-                                              padding: EdgeInsets.symmetric(vertical: 4.h),
+                                              padding: EdgeInsets.symmetric(
+                                                  vertical: 4.h),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
-                                                  Text(studentName, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
-                                                  Text('Adm: $admNo', style: GoogleFonts.inter(fontSize: 9.5.sp, color: const Color(0xFF868E96))),
+                                                  Text(studentName,
+                                                      style: AppTypography
+                                                          .caption
+                                                          .copyWith(
+                                                              color: const Color(
+                                                                  0xFF0F2547))),
+                                                  Text('Adm: $admNo',
+                                                      style: AppTypography
+                                                          .caption
+                                                          .copyWith(
+                                                              color: const Color(
+                                                                  0xFF868E96))),
                                                 ],
                                               ),
                                             ),
                                           ),
-                                          DataCell(Text(routeName, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF475569)))),
-                                          DataCell(Text(stopName, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF475569)))),
+                                          DataCell(Text(routeName,
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
+                                          DataCell(Text(stopName,
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color: const Color(
+                                                          0xFF475569)))),
                                           DataCell(
                                             Container(
-                                              padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 8.w,
+                                                  vertical: 4.h),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFD1FAE5),
-                                                borderRadius: BorderRadius.circular(12.r),
+                                                borderRadius:
+                                                    BorderRadius.circular(12.r),
                                               ),
                                               child: Text(
                                                 status,
-                                                style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF065F46)),
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                        color: const Color(
+                                                            0xFF065F46)),
                                               ),
                                             ),
                                           ),
                                           DataCell(
                                             IconButton(
-                                              icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 18),
+                                              icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  color: Color(0xFFEF4444),
+                                                  size: 18),
                                               onPressed: () {
-                                                _deleteAllocation(alloc['id'].toString());
+                                                _deleteAllocation(
+                                                    alloc['id'].toString());
                                               },
                                             ),
                                           ),
@@ -664,19 +860,23 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                                   ),
                                 ),
                               ),
-                        
+
                         SizedBox(height: 12.h),
-                        const Divider(color: Color(0xFFE2EAF4), height: 1, thickness: 1),
+                        const Divider(
+                            color: Color(0xFFE2EAF4), height: 1, thickness: 1),
                         SizedBox(height: 12.h),
 
                         // Intelligence Protocol Brand Row
                         Row(
                           children: [
-                            Icon(Icons.shield_outlined, size: 16.sp, color: const Color(0xFF94A3B8)),
+                            Icon(Icons.shield_outlined,
+                                size: 16.sp, color: const Color(0xFF94A3B8)),
                             SizedBox(width: 8.w),
                             Text(
                               'EDUSPHERE TRANSPORT INTELLIGENCE PROTOCOL',
-                              style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 0.5),
+                              style: AppTypography.caption.copyWith(
+                                  color: const Color(0xFF94A3B8),
+                                  letterSpacing: 0.5),
                             ),
                           ],
                         ),
@@ -706,7 +906,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                                   color: Color(0xFFFEF3C7),
                                   shape: BoxShape.circle,
                                 ),
-                                child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706), size: 20),
+                                child: const Icon(Icons.warning_amber_rounded,
+                                    color: Color(0xFFD97706), size: 20),
                               ),
                               SizedBox(width: 12.w),
                               Expanded(
@@ -725,12 +926,9 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                                     SizedBox(height: 6.h),
                                     Text(
                                       'A critical set of $pendingCount students are currently pending allocation due to missing coordinate traces. Run the batch-sync tool to resolve.',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11.5.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFFB45309),
-                                        height: 1.4,
-                                      ),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFFB45309),
+                                          height: 1.4),
                                     ),
                                   ],
                                 ),
@@ -744,18 +942,15 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0F2547),
                                 padding: EdgeInsets.symmetric(vertical: 12.h),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10.r)),
                                 elevation: 0,
                               ),
                               onPressed: _runBatchAllocation,
                               child: Text(
                                 'RESOLVE NOW',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w800,
-                                  color: Colors.white,
-                                  letterSpacing: 0.5,
-                                ),
+                                style: AppTypography.caption.copyWith(
+                                    color: Colors.white, letterSpacing: 0.5),
                               ),
                             ),
                           ),
@@ -809,11 +1004,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF64748B),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
                     ),
                     SizedBox(height: 6.h),
                     Text(
@@ -827,10 +1019,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                     SizedBox(height: 4.h),
                     Text(
                       'System metrics',
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        color: const Color(0xFF94A3B8),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF94A3B8)),
                     ),
                   ],
                 ),
@@ -840,7 +1030,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                     color: Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: const Color(0xFF64748B), size: 24.sp),
+                  child:
+                      Icon(icon, color: const Color(0xFF64748B), size: 24.sp),
                 ),
               ],
             ),

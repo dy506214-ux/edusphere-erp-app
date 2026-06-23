@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:qr_code_scanner/qr_code_scanner.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/colors.dart';
 import '../profile_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../main_screen.dart';
-
+import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // TeacherScanScreen – Camera QR scanner for marking student attendance
@@ -39,8 +39,7 @@ class TeacherScanScreen extends StatefulWidget {
 class _TeacherScanScreenState extends State<TeacherScanScreen>
     with SingleTickerProviderStateMixin {
   // ── Camera QR (mobile/web with camera) ──
-  final GlobalKey qrKey = GlobalKey(debugLabel: 'QR');
-  QRViewController? _qrController;
+  final MobileScannerController _qrController = MobileScannerController();
 
   // ── Manual entry (desktop / fallback) ──
   final TextEditingController _manualCtrl = TextEditingController();
@@ -62,7 +61,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
     if (kIsWeb) return true;
     try {
       // ignore: do_not_use_environment
-      const platform = String.fromEnvironment('FLUTTER_PLATFORM', defaultValue: '');
+      const platform =
+          String.fromEnvironment('FLUTTER_PLATFORM', defaultValue: '');
       if (platform.isNotEmpty) return false;
     } catch (_) {}
     // Use defaultTargetPlatform for desktop detection (safe on all platforms)
@@ -85,27 +85,15 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
 
   @override
   void dispose() {
-    _qrController?.dispose();
+    _qrController.dispose();
     _manualCtrl.dispose();
     _animCtrl.dispose();
     super.dispose();
   }
 
-  // ── Called when camera detects a QR ──
-  void _onQRViewCreated(QRViewController controller) {
-    setState(() {
-      _qrController = controller;
-    });
-    controller.scannedDataStream.listen((scanData) async {
-      if (_isProcessing) return;
-      final code = scanData.code?.trim() ?? '';
-      if (code.isEmpty) return;
-      await _processQRData(code);
-    });
-  }
-
   Future<void> _ensureScannerExists(String scannerId) async {
-    debugPrint('🔍 [QRScanner Lookup] Checking database for scannerId: $scannerId');
+    debugPrint(
+        '🔍 [QRScanner Lookup] Checking database for scannerId: $scannerId');
     try {
       final res = await Supabase.instance.client
           .from('QRScanner')
@@ -115,10 +103,12 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
 
       debugPrint('🔍 [QRScanner Lookup Result] Lookup response: $res');
       if (res == null) {
-        debugPrint('🆕 [QRScanner Auto-create] Scanner $scannerId not found. Creating default QRScanner in DB...');
+        debugPrint(
+            '🆕 [QRScanner Auto-create] Scanner $scannerId not found. Creating default QRScanner in DB...');
         final currentUser = Supabase.instance.client.auth.currentUser;
-        final creatorId = currentUser?.id ?? 'e8f5de9c-114f-4ffd-9698-49f349208bfb';
-        
+        final creatorId =
+            currentUser?.id ?? 'e8f5de9c-114f-4ffd-9698-49f349208bfb';
+
         final newScanner = {
           'id': scannerId,
           'name': 'main gate scanner',
@@ -134,7 +124,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
             .insert(newScanner)
             .select()
             .single();
-        debugPrint('🆕 [QRScanner Auto-create Result] Auto-creation response: $insertRes');
+        debugPrint(
+            '🆕 [QRScanner Auto-create Result] Auto-creation response: $insertRes');
       }
     } catch (e) {
       debugPrint('⚠️ [QRScanner Auto-create Error] Error: $e');
@@ -147,9 +138,10 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
     setState(() => _isProcessing = true);
 
     // Pause camera while processing
-    await _qrController?.pauseCamera();
+    await _qrController.stop();
 
-    debugPrint('================================================================');
+    debugPrint(
+        '================================================================');
     debugPrint('📸 [QR SCAN INITIATED (TeacherScanScreen)]');
     debugPrint('📍 Current scannerId: ${widget.scannerId}');
     debugPrint('📦 QR payload: $rawCode');
@@ -169,8 +161,10 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         final teacherId = teacherRes['id'].toString();
         final teacherUserId = teacherRes['userId']?.toString();
         final user = teacherRes['user'] as Map<String, dynamic>? ?? {};
-        final teacherName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
-        debugPrint('👤 Teacher Identified - ID: $teacherId, Name: $teacherName, UserID: $teacherUserId');
+        final teacherName =
+            '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+        debugPrint(
+            '👤 Teacher Identified - ID: $teacherId, Name: $teacherName, UserID: $teacherUserId');
 
         // Ensure scanner exists in DB
         await _ensureScannerExists(widget.scannerId);
@@ -187,7 +181,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
             .maybeSingle();
 
         if (existing != null) {
-          debugPrint('⚠️ [QR SCAN ALREADY MARKED] teacherId $teacherId already marked today');
+          debugPrint(
+              '⚠️ [QR SCAN ALREADY MARKED] teacherId $teacherId already marked today');
           _showResult(_ScanResult(
             success: false,
             message: 'Teacher $teacherName already marked today',
@@ -206,8 +201,9 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           'scannerId': widget.scannerId,
           'updatedAt': DateTime.now().toIso8601String(),
         };
-        
-        if (widget.sessionAction.toLowerCase() == 'check-in' || widget.sessionAction.toLowerCase() == 'check_in') {
+
+        if (widget.sessionAction.toLowerCase() == 'check-in' ||
+            widget.sessionAction.toLowerCase() == 'check_in') {
           insertPayload['checkInTime'] = DateTime.now().toIso8601String();
         } else {
           insertPayload['checkOutTime'] = DateTime.now().toIso8601String();
@@ -269,7 +265,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           .maybeSingle();
 
       if (studentRes == null) {
-        debugPrint('❌ [QR SCAN ERROR] Student/Teacher not found for QR payload: $admissionNo');
+        debugPrint(
+            '❌ [QR SCAN ERROR] Student/Teacher not found for QR payload: $admissionNo');
         _showResult(_ScanResult(
           success: false,
           message: 'User not found for QR: $admissionNo',
@@ -299,7 +296,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           .maybeSingle();
 
       if (existing != null) {
-        debugPrint('⚠️ [QR SCAN ALREADY MARKED] studentId $studentId already marked today');
+        debugPrint(
+            '⚠️ [QR SCAN ALREADY MARKED] studentId $studentId already marked today');
         _showResult(_ScanResult(
           success: false,
           message: '$studentName already marked today',
@@ -318,8 +316,9 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         'scannerId': widget.scannerId,
         'updatedAt': DateTime.now().toIso8601String(),
       };
-      
-      if (widget.sessionAction.toLowerCase() == 'check-in' || widget.sessionAction.toLowerCase() == 'check_in') {
+
+      if (widget.sessionAction.toLowerCase() == 'check-in' ||
+          widget.sessionAction.toLowerCase() == 'check_in') {
         insertPayload['checkInTime'] = DateTime.now().toIso8601String();
       } else {
         insertPayload['checkOutTime'] = DateTime.now().toIso8601String();
@@ -363,7 +362,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         color: Colors.red,
       ));
     } finally {
-      debugPrint('================================================================');
+      debugPrint(
+          '================================================================');
       setState(() => _isProcessing = false);
     }
   }
@@ -377,7 +377,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
       if (mounted) {
         setState(() => _lastResult = null);
         if (!_useManual && !_isDesktopOrWeb) {
-          _qrController?.resumeCamera();
+          _qrController.start();
         }
       }
     });
@@ -397,8 +397,11 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
-      appBar: widget.showAppBar ? const TeacherAppBar(title: 'QR Attendance Scanner') : null,
-      bottomNavigationBar: widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
+      appBar: widget.showAppBar
+          ? const TeacherAppBar(title: 'QR Attendance Scanner')
+          : null,
+      bottomNavigationBar:
+          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
       body: SafeArea(
         child: Column(
           children: [
@@ -471,13 +474,9 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                 ),
                 SizedBox(height: 2.h),
                 Text(
-                  'Date: ${widget.sessionDate.day.toString().padLeft(2, '0')}/${widget.sessionDate.month.toString().padLeft(2, '0')}/${widget.sessionDate.year} • ${_isDesktopOrWeb
-                      ? 'Enter student admission number'
-                      : 'Point camera at student\'s QR'}',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    color: Colors.white.withValues(alpha: 0.75),
-                  ),
+                  'Date: ${widget.sessionDate.day.toString().padLeft(2, '0')}/${widget.sessionDate.month.toString().padLeft(2, '0')}/${widget.sessionDate.year} • ${_isDesktopOrWeb ? 'Enter student admission number' : 'Point camera at student\'s QR'}',
+                  style: AppTypography.caption
+                      .copyWith(color: Colors.white.withValues(alpha: 0.75)),
                 ),
               ],
             ),
@@ -488,9 +487,9 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
               onTap: () {
                 setState(() => _useManual = !_useManual);
                 if (_useManual) {
-                  _qrController?.pauseCamera();
+                  _qrController.stop();
                 } else {
-                  _qrController?.resumeCamera();
+                  _qrController.start();
                 }
               },
               child: Container(
@@ -501,11 +500,7 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                 ),
                 child: Text(
                   _useManual ? 'Camera' : 'Manual',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                  style: AppTypography.caption.copyWith(color: Colors.white),
                 ),
               ),
             ),
@@ -522,16 +517,32 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         // QR View
         ClipRRect(
           borderRadius: BorderRadius.circular(24.r),
-          child: QRView(
-            key: qrKey,
-            onQRViewCreated: _onQRViewCreated,
-            overlay: QrScannerOverlayShape(
-              borderColor: const Color(0xFF1A6FDB),
-              borderRadius: 16,
-              borderLength: 30,
-              borderWidth: 4,
-              cutOutSize: size.width * 0.65,
-            ),
+          child: Stack(
+            children: [
+              MobileScanner(
+                controller: _qrController,
+                onDetect: (capture) async {
+                  if (_isProcessing) return;
+                  final barcodes = capture.barcodes;
+                  if (barcodes.isNotEmpty) {
+                    final code = barcodes.first.rawValue?.trim() ?? '';
+                    if (code.isEmpty) return;
+                    await _processQRData(code);
+                  }
+                },
+              ),
+              Center(
+                child: Container(
+                  width: size.width * 0.65,
+                  height: size.width * 0.65,
+                  decoration: BoxDecoration(
+                    border:
+                        Border.all(color: const Color(0xFF1A6FDB), width: 4),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
 
@@ -617,11 +628,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                 Text(
                   'Type the admission number printed on the student\'s QR card',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    color: const Color(0xFF868E96),
-                    height: 1.5,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF868E96), height: 1.5),
                 ),
                 SizedBox(height: 20.h),
 
@@ -634,18 +642,12 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                   ),
                   child: TextField(
                     controller: _manualCtrl,
-                    style: GoogleFonts.inter(
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F2547),
-                      letterSpacing: 1.2,
-                    ),
+                    style: AppTypography.small.copyWith(
+                        color: const Color(0xFF0F2547), letterSpacing: 1.2),
                     decoration: InputDecoration(
                       hintText: 'e.g. ADM-2023-0681',
-                      hintStyle: GoogleFonts.inter(
-                        color: const Color(0xFFADB5BD),
-                        fontSize: 14.sp,
-                      ),
+                      hintStyle: AppTypography.small
+                          .copyWith(color: const Color(0xFFADB5BD)),
                       prefixIcon: Icon(
                         Icons.badge_outlined,
                         color: const Color(0xFF1A6FDB),
@@ -680,12 +682,10 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                         : Icon(Icons.qr_code_scanner_rounded,
                             size: 18.sp, color: Colors.white),
                     label: Text(
-                      _isProcessing ? 'Marking Attendance...' : 'Mark Attendance',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
+                      _isProcessing
+                          ? 'Marking Attendance...'
+                          : 'Mark Attendance',
+                      style: AppTypography.small.copyWith(color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A6FDB),
@@ -755,7 +755,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
   // ── Manual result card ──
   Widget _buildResultCard() {
     final res = _lastResult!;
-    final color = res.color ?? (res.success ? const Color(0xFF10B981) : const Color(0xFFEF4444));
+    final color = res.color ??
+        (res.success ? const Color(0xFF10B981) : const Color(0xFFEF4444));
 
     return ScaleTransition(
       scale: _scaleAnim,
@@ -793,10 +794,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                   SizedBox(height: 2.h),
                   Text(
                     res.message,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      color: color.withValues(alpha: 0.85),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: color.withValues(alpha: 0.85)),
                   ),
                 ],
               ),
@@ -836,10 +835,8 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
               const Spacer(),
               Text(
                 '${_recentScans.length} scanned',
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  color: const Color(0xFF868E96),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF868E96)),
               ),
             ],
           ),
@@ -860,19 +857,14 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                     Expanded(
                       child: Text(
                         s['name'] as String,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F2547),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F2547)),
                       ),
                     ),
                     Text(
                       _timeLabel(s['time'] as DateTime),
-                      style: GoogleFonts.inter(
-                        fontSize: 10.sp,
-                        color: const Color(0xFF868E96),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF868E96)),
                     ),
                     SizedBox(width: 8.w),
                     (() {
@@ -882,16 +874,17 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
                         padding: EdgeInsets.symmetric(
                             horizontal: 8.w, vertical: 2.h),
                         decoration: BoxDecoration(
-                          color: isCheckOut ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
+                          color: isCheckOut
+                              ? const Color(0xFFFEE2E2)
+                              : const Color(0xFFD1FAE5),
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Text(
                           status,
-                          style: GoogleFonts.inter(
-                            fontSize: 9.sp,
-                            fontWeight: FontWeight.w800,
-                            color: isCheckOut ? const Color(0xFF991B1B) : const Color(0xFF065F46),
-                          ),
+                          style: AppTypography.caption.copyWith(
+                              color: isCheckOut
+                                  ? const Color(0xFF991B1B)
+                                  : const Color(0xFF065F46)),
                         ),
                       );
                     })(),

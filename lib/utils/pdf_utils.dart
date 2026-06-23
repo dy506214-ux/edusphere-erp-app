@@ -6,7 +6,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 class PDFUtils {
-  static Future<void> generateAndSavePDF(BuildContext context, String title, String content) async {
+  static Future<void> generateAndSavePDF(
+      BuildContext context, String title, String content) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -18,14 +19,19 @@ class PDFUtils {
             children: [
               pw.Header(
                 level: 0,
-                child: pw.Text('EduSphere Official Document', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                child: pw.Text('EduSphere Official Document',
+                    style: pw.TextStyle(
+                        fontSize: 24, fontWeight: pw.FontWeight.bold)),
               ),
               pw.SizedBox(height: 20),
-              pw.Text('Document Title: $title', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Document Title: $title',
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 10),
               pw.Divider(),
               pw.SizedBox(height: 10),
-              pw.Text('Date: ${DateTime.now().toString().split(' ')[0]}', style: const pw.TextStyle(fontSize: 12)),
+              pw.Text('Date: ${DateTime.now().toString().split(' ')[0]}',
+                  style: const pw.TextStyle(fontSize: 12)),
               pw.SizedBox(height: 20),
               pw.Text(content, style: const pw.TextStyle(fontSize: 14)),
               pw.Spacer(),
@@ -33,10 +39,15 @@ class PDFUtils {
               pw.SizedBox(height: 10),
               pw.Align(
                 alignment: pw.Alignment.centerRight,
-                child: pw.Text('Authorized Signature', style: pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic)),
+                child: pw.Text('Authorized Signature',
+                    style: pw.TextStyle(
+                        fontSize: 12, fontStyle: pw.FontStyle.italic)),
               ),
               pw.SizedBox(height: 10),
-              pw.Center(child: pw.Text('© 2026 EduSphere ERP Systems', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey))),
+              pw.Center(
+                  child: pw.Text('© 2026 EduSphere ERP Systems',
+                      style: const pw.TextStyle(
+                          fontSize: 10, color: PdfColors.grey))),
             ],
           );
         },
@@ -45,7 +56,7 @@ class PDFUtils {
 
     try {
       final Uint8List bytes = await pdf.save();
-      
+
       String? outputFile = await FilePicker.platform.saveFile(
         dialogTitle: 'Please select where to save your $title',
         fileName: '${title.replaceAll(' ', '_')}.pdf',

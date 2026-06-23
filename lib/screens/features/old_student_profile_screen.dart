@@ -50,7 +50,8 @@ class OldStudentProfileScreen extends StatefulWidget {
   });
 
   @override
-  State<OldStudentProfileScreen> createState() => _OldStudentProfileScreenState();
+  State<OldStudentProfileScreen> createState() =>
+      _OldStudentProfileScreenState();
 }
 
 class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
@@ -148,7 +149,7 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     if (widget.studentName != null) {
       _studentName = widget.studentName!;
     }
@@ -204,10 +205,12 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
     // 1. Fetch Attendance Records
     try {
-      final attRes = await ApiService.instance.get('students/$studentId/attendance');
+      final attRes =
+          await ApiService.instance.get('students/$studentId/attendance');
       if (attRes != null && attRes['success'] == true && mounted) {
         setState(() {
-          _attendanceRecords = List<Map<String, dynamic>>.from(attRes['attendance'] ?? []);
+          _attendanceRecords =
+              List<Map<String, dynamic>>.from(attRes['attendance'] ?? []);
         });
       } else {
         final List<dynamic> attResDb = await client
@@ -227,27 +230,34 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
     // 2. Fetch Fee Ledger and Payments
     try {
-      final feeRes = await ApiService.instance.get('fees/students/$studentId/status');
+      final feeRes =
+          await ApiService.instance.get('fees/students/$studentId/status');
       if (feeRes != null && feeRes['hasLedger'] == true && mounted) {
         final ledgers = feeRes['ledgers'] as List<dynamic>? ?? [];
-        final recentPayments = (feeRes['recentPayments'] ?? feeRes['payments']) as List<dynamic>? ?? [];
+        final recentPayments = (feeRes['recentPayments'] ?? feeRes['payments'])
+                as List<dynamic>? ??
+            [];
         setState(() {
           _feeLedgers = List<Map<String, dynamic>>.from(ledgers);
-          _feeLedger = ledgers.isNotEmpty ? Map<String, dynamic>.from(ledgers[0]) : null;
+          _feeLedger =
+              ledgers.isNotEmpty ? Map<String, dynamic>.from(ledgers[0]) : null;
           _feePayments = List<Map<String, dynamic>>.from(recentPayments);
         });
       } else {
         final List<dynamic> feeLedgerRes = await client
             .from('StudentFeeLedger')
-            .select('id, totalPayable, totalPaid, totalPending, status, feeStructure:FeeStructure(name)')
+            .select(
+                'id, totalPayable, totalPaid, totalPending, status, feeStructure:FeeStructure(name)')
             .eq('studentId', studentId);
-        
+
         if (mounted) {
           setState(() {
             _feeLedgers = List<Map<String, dynamic>>.from(feeLedgerRes);
-            _feeLedger = feeLedgerRes.isNotEmpty ? Map<String, dynamic>.from(feeLedgerRes[0]) : null;
+            _feeLedger = feeLedgerRes.isNotEmpty
+                ? Map<String, dynamic>.from(feeLedgerRes[0])
+                : null;
           });
-          
+
           final List<dynamic> paymentsRes = await client
               .from('FeePayment')
               .select('receiptNumber, amount, paymentDate, paymentMode, status')
@@ -267,8 +277,12 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     // 3. Fetch Transport Allocation
     try {
       if (widget.studentId == null) {
-        final transRes = await ApiService.instance.get('transport/allocations/my');
-        if (transRes != null && transRes['success'] == true && transRes['allocation'] != null && mounted) {
+        final transRes =
+            await ApiService.instance.get('transport/allocations/my');
+        if (transRes != null &&
+            transRes['success'] == true &&
+            transRes['allocation'] != null &&
+            mounted) {
           final allocation = transRes['allocation'] as Map<String, dynamic>;
           setState(() {
             _transportAllocation = {
@@ -283,8 +297,12 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           });
         }
       } else {
-        final transRes = await ApiService.instance.get('transport/allocations?studentId=$studentId');
-        if (transRes != null && transRes['success'] == true && transRes['allocation'] != null && mounted) {
+        final transRes = await ApiService.instance
+            .get('transport/allocations?studentId=$studentId');
+        if (transRes != null &&
+            transRes['success'] == true &&
+            transRes['allocation'] != null &&
+            mounted) {
           final allocation = transRes['allocation'] as Map<String, dynamic>;
           setState(() {
             _transportAllocation = {
@@ -306,19 +324,22 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     // 4. Fetch Timetable slots if sectionId is present
     if (sectionId != null) {
       try {
-        final timetableRes = await ApiService.instance.get('timetable/student/$sectionId');
-        if (timetableRes != null && timetableRes['success'] == true && mounted) {
+        final timetableRes =
+            await ApiService.instance.get('timetable/student/$sectionId');
+        if (timetableRes != null &&
+            timetableRes['success'] == true &&
+            mounted) {
           final rawSchedule = timetableRes['schedule'] as List<dynamic>? ?? [];
           final Map<int, List<Map<String, dynamic>>> grouped = {};
-          
+
           for (var slot in rawSchedule) {
             final sMap = slot as Map<String, dynamic>;
             final day = sMap['dayOfWeek'] as int? ?? 1;
-            
+
             final teacherObj = sMap['teacher'] as Map<String, dynamic>?;
             final userObj = teacherObj?['user'] as Map<String, dynamic>?;
             final roomObj = sMap['room'] as Map<String, dynamic>?;
-            
+
             final formattedSlot = {
               'dayOfWeek': day,
               'startTime': sMap['startTime'] ?? '—',
@@ -339,7 +360,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         } else {
           final List<dynamic> slotsRes = await client
               .from('TimetableSlot')
-              .select('dayOfWeek, startTime, endTime, period, durationMinutes, subject:Subject(name, code), teacher:Teacher(User(firstName, lastName)), room:Room(name)')
+              .select(
+                  'dayOfWeek, startTime, endTime, period, durationMinutes, subject:Subject(name, code), teacher:Teacher(User(firstName, lastName)), room:Room(name)')
               .eq('sectionId', sectionId)
               .order('period', ascending: true);
 
@@ -362,13 +384,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
     // 5. Fetch Documents
     try {
-      final docRes = await ApiService.instance.get('students/$studentId/documents');
+      final docRes =
+          await ApiService.instance.get('students/$studentId/documents');
       if (docRes != null && docRes['success'] == true && mounted) {
         final docsList = docRes['documents'] as List<dynamic>? ?? [];
         setState(() {
           _uploadedDocuments = docsList.map((d) {
             final dMap = d as Map<String, dynamic>;
-            final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+            final String docName =
+                dMap['documentName'] as String? ?? 'Document.pdf';
             final String? uploadDateStr = dMap['uploadedAt'] as String?;
             String dateStr = '—';
             if (uploadDateStr != null) {
@@ -455,12 +479,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       final client = Supabase.instance.client;
       Map<String, dynamic>? studentRes;
 
-      debugPrint('🔍 DB/API Student Profile request initiated. Student ID: ${widget.studentId}');
+      debugPrint(
+          '🔍 DB/API Student Profile request initiated. Student ID: ${widget.studentId}');
 
       if (widget.studentId != null) {
         final res = await client
             .from('Student')
-            .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
+            .select(
+                '*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
             .eq('id', widget.studentId!)
             .maybeSingle();
         if (res != null) {
@@ -471,7 +497,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         if (currentUser != null) {
           final res = await client
               .from('Student')
-              .select('*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
+              .select(
+                  '*, User(*), Class(*, AcademicYear(*)), Section(*), StudentDocument(*), StudentParent(*, Parent(*))')
               .eq('userId', currentUser.id)
               .maybeSingle();
           if (res != null) {
@@ -482,25 +509,32 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
       if (studentRes != null) {
         final studentData = studentRes;
-        debugPrint('✅ DB Student data loaded successfully. ID: ${studentData['id']}');
-        
+        debugPrint(
+            '✅ DB Student data loaded successfully. ID: ${studentData['id']}');
+
         final userMap = studentData['User'] as Map<String, dynamic>? ?? {};
         final classMap = studentData['Class'] as Map<String, dynamic>? ?? {};
-        final sectionMap = studentData['Section'] as Map<String, dynamic>? ?? {};
-        
+        final sectionMap =
+            studentData['Section'] as Map<String, dynamic>? ?? {};
+
         final String firstName = userMap['firstName'] as String? ?? '';
         final String lastName = userMap['lastName'] as String? ?? '';
-        
-        _studentUserId = studentData['userId']?.toString() ?? userMap['id']?.toString();
+
+        _studentUserId =
+            studentData['userId']?.toString() ?? userMap['id']?.toString();
 
         setState(() {
           _studentName = '$firstName $lastName'.trim();
           if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
-          
-          _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
-          _admissionNo = studentData['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
-          
-          final String rawClassName = classMap['name']?.toString() ?? widget.studentClass ?? '—';
+
+          _studentEmail =
+              userMap['email'] as String? ?? widget.studentEmail ?? '—';
+          _admissionNo = studentData['admissionNumber'] as String? ??
+              widget.admissionNo ??
+              '—';
+
+          final String rawClassName =
+              classMap['name']?.toString() ?? widget.studentClass ?? '—';
           if (rawClassName.contains(' - ')) {
             final parts = rawClassName.split(' - ');
             _studentClass = parts[0];
@@ -509,32 +543,44 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             _studentClass = rawClassName;
             _section = sectionMap['name']?.toString() ?? '—';
           }
-          
+
           _rollNo = studentData['rollNumber']?.toString() ?? '—';
-          final academicYear = classMap['AcademicYear'] as Map<String, dynamic>?;
+          final academicYear =
+              classMap['AcademicYear'] as Map<String, dynamic>?;
           _batch = academicYear?['name'] as String? ?? '—';
           _medium = studentData['medium'] as String? ?? '—';
-          
-          _admissionType = studentData['admissionType']?.toString() ?? studentData['admission_type']?.toString() ?? '—';
-          _previousSchool = studentData['previousSchool']?.toString() ?? studentData['previous_school']?.toString() ?? '—';
-          _previousClass = studentData['previousClass']?.toString() ?? studentData['previous_class']?.toString() ?? '—';
-          _tcNumber = studentData['tcNumber']?.toString() ?? studentData['tc_number']?.toString() ?? '—';
+
+          _admissionType = studentData['admissionType']?.toString() ??
+              studentData['admission_type']?.toString() ??
+              '—';
+          _previousSchool = studentData['previousSchool']?.toString() ??
+              studentData['previous_school']?.toString() ??
+              '—';
+          _previousClass = studentData['previousClass']?.toString() ??
+              studentData['previous_class']?.toString() ??
+              '—';
+          _tcNumber = studentData['tcNumber']?.toString() ??
+              studentData['tc_number']?.toString() ??
+              '—';
 
           final joinDateStr = studentData['joiningDate'] as String?;
           if (joinDateStr != null) {
             try {
               final parsed = DateTime.parse(joinDateStr);
-              _studentJoinedDate = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+              _studentJoinedDate =
+                  '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
             } catch (_) {
               _studentJoinedDate = '—';
             }
           } else {
             _studentJoinedDate = '—';
           }
-          
-          _emergencyInfo = studentData['emergencyPhone'] as String? ?? studentData['emergencyContact'] as String? ?? '—';
+
+          _emergencyInfo = studentData['emergencyPhone'] as String? ??
+              studentData['emergencyContact'] as String? ??
+              '—';
           if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
-          
+
           final rawGender = userMap['gender'] as String? ?? '—';
           if (rawGender.toUpperCase() == 'MALE') {
             _studentGender = 'Male';
@@ -543,46 +589,52 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           } else {
             _studentGender = rawGender;
           }
-          
+
           final dobStr = userMap['dateOfBirth'] as String?;
           if (dobStr != null) {
             try {
               final parsed = DateTime.parse(dobStr);
-              _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+              _studentDob =
+                  '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
             } catch (_) {
               _studentDob = dobStr;
             }
           } else {
             _studentDob = '—';
           }
-          
+
           _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
           _religion = studentData['religion'] as String? ?? '—';
           _casteGroup = studentData['caste'] as String? ?? '—';
           _nationality = studentData['nationality'] as String? ?? '—';
-          
-          
+
           final rawAvatar = userMap['avatar']?.toString() ?? '';
           if (rawAvatar.isNotEmpty) {
-            _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+            _avatarUrl = rawAvatar.startsWith('http')
+                ? rawAvatar
+                : '${ApiConfig.serverBaseUrl}$rawAvatar';
           } else {
             _avatarUrl = null;
           }
-          
+
           _address = userMap['address'] as String? ?? '—';
-          
+
           String father = '—';
           String mother = '—';
-          String guardianPhoneVal = studentData['emergencyPhone'] as String? ?? '—';
- 
-          final studentParentList = studentData['StudentParent'] as List<dynamic>? ?? [];
+          String guardianPhoneVal =
+              studentData['emergencyPhone'] as String? ?? '—';
+
+          final studentParentList =
+              studentData['StudentParent'] as List<dynamic>? ?? [];
           if (studentParentList.isNotEmpty) {
             for (var sp in studentParentList) {
               final spMap = sp as Map<String, dynamic>;
               final rel = spMap['relationship'] as String?;
               final parentObj = spMap['Parent'] as Map<String, dynamic>?;
               if (parentObj != null) {
-                final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pFullName =
+                    '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'
+                        .trim();
                 final pPhone = parentObj['phone'] as String? ?? '—';
                 if (rel == 'FATHER') {
                   father = pFullName;
@@ -594,21 +646,23 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               }
             }
           }
- 
+
           if (father == '—' && mother == '—') {
             father = studentData['emergencyContact'] as String? ?? '—';
           }
- 
+
           _fatherName = father;
           _motherName = mother;
           _guardianPhone = guardianPhoneVal;
- 
+
           List<Map<String, String>> docs = [];
-          final studentDocList = studentData['StudentDocument'] as List<dynamic>? ?? [];
+          final studentDocList =
+              studentData['StudentDocument'] as List<dynamic>? ?? [];
           if (studentDocList.isNotEmpty) {
             docs = studentDocList.map((d) {
               final dMap = d as Map<String, dynamic>;
-              final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+              final String docName =
+                  dMap['documentName'] as String? ?? 'Document.pdf';
               final String? uploadDateStr = dMap['uploadedAt'] as String?;
               String dateStr = '—';
               if (uploadDateStr != null) {
@@ -627,19 +681,22 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           _uploadedDocuments = docs;
           _isProfileLoading = false;
         });
- 
+
         final studentId = studentData['id'] as String;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('student_id', studentId);
- 
+
         final String? sectionId = studentData['sectionId'] as String?;
         _loadAllTabDetails(studentId, sectionId);
         _connectRealTimeSync();
- 
+
         if (userMap['id'] != null) {
           try {
-            final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
-            if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+            final qrRes =
+                await ApiService.instance.get('users/${userMap['id']}/qr');
+            if (qrRes != null &&
+                qrRes['success'] == true &&
+                qrRes['qrCode'] != null) {
               final qr = qrRes['qrCode'] as String?;
               if (qr != null && qr.isNotEmpty) {
                 await prefs.setString('student_qrcode', qr);
@@ -654,59 +711,79 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         }
         return;
       }
- 
-      debugPrint('📡 Supabase student returned empty result. Falling back to REST API...');
+
+      debugPrint(
+          '📡 Supabase student returned empty result. Falling back to REST API...');
       final response = widget.studentId != null
           ? await ApiService.instance.get('students/${widget.studentId}')
           : await ApiService.instance.get('students/me');
-      
-      if (response == null || response['success'] != true || response['student'] == null) {
-        throw Exception('API details fetch failed or returned invalid response format.');
+
+      if (response == null ||
+          response['success'] != true ||
+          response['student'] == null) {
+        throw Exception(
+            'API details fetch failed or returned invalid response format.');
       }
- 
+
       final studentResMap = response['student'] as Map<String, dynamic>;
       debugPrint('✅ REST API student details successfully retrieved.');
       final userMap = studentResMap['user'] as Map<String, dynamic>? ?? {};
-      final classMap = studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
-      final sectionMap = studentResMap['section'] as Map<String, dynamic>? ?? {};
-      
+      final classMap =
+          studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
+      final sectionMap =
+          studentResMap['section'] as Map<String, dynamic>? ?? {};
+
       final String firstName = userMap['firstName'] as String? ?? '';
       final String lastName = userMap['lastName'] as String? ?? '';
-      _studentUserId = studentResMap['userId']?.toString() ?? userMap['id']?.toString();
+      _studentUserId =
+          studentResMap['userId']?.toString() ?? userMap['id']?.toString();
 
       setState(() {
         _studentName = '$firstName $lastName'.trim();
         if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
-        
-        _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
-        _admissionNo = studentResMap['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
-        _studentClass = classMap['name'] as String? ?? widget.studentClass ?? '—';
+
+        _studentEmail =
+            userMap['email'] as String? ?? widget.studentEmail ?? '—';
+        _admissionNo = studentResMap['admissionNumber'] as String? ??
+            widget.admissionNo ??
+            '—';
+        _studentClass =
+            classMap['name'] as String? ?? widget.studentClass ?? '—';
         _section = sectionMap['name'] as String? ?? '—';
         _rollNo = studentResMap['rollNumber']?.toString() ?? '—';
-        
+
         _batch = '—';
         _medium = studentResMap['medium'] as String? ?? '—';
-        
-        _admissionType = studentResMap['admissionType']?.toString() ?? studentResMap['admission_type']?.toString() ?? '—';
-        _previousSchool = studentResMap['previousSchool']?.toString() ?? studentResMap['previous_school']?.toString() ?? '—';
-        _previousClass = studentResMap['previousClass']?.toString() ?? studentResMap['previous_class']?.toString() ?? '—';
-        _tcNumber = studentResMap['tcNumber']?.toString() ?? studentResMap['tc_number']?.toString() ?? '—';
+
+        _admissionType = studentResMap['admissionType']?.toString() ??
+            studentResMap['admission_type']?.toString() ??
+            '—';
+        _previousSchool = studentResMap['previousSchool']?.toString() ??
+            studentResMap['previous_school']?.toString() ??
+            '—';
+        _previousClass = studentResMap['previousClass']?.toString() ??
+            studentResMap['previous_class']?.toString() ??
+            '—';
+        _tcNumber = studentResMap['tcNumber']?.toString() ??
+            studentResMap['tc_number']?.toString() ??
+            '—';
 
         final joinDateStr = studentResMap['joiningDate'] as String?;
         if (joinDateStr != null) {
           try {
             final parsed = DateTime.parse(joinDateStr);
-            _studentJoinedDate = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _studentJoinedDate =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _studentJoinedDate = '—';
           }
         } else {
           _studentJoinedDate = '—';
         }
-        
+
         _emergencyInfo = studentResMap['emergencyPhone'] as String? ?? '—';
         if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
-        
+
         final rawGender = userMap['gender'] as String? ?? '—';
         if (rawGender.toUpperCase() == 'MALE') {
           _studentGender = 'Male';
@@ -715,40 +792,48 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         } else {
           _studentGender = rawGender;
         }
-        
+
         final dobStr = userMap['dateOfBirth'] as String?;
         if (dobStr != null) {
           try {
             final parsed = DateTime.parse(dobStr);
-            _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _studentDob =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _studentDob = dobStr;
           }
         } else {
           _studentDob = '—';
         }
-        
+
         _studentBloodGroup = studentResMap['bloodGroup'] as String? ?? '—';
         _religion = studentResMap['religion'] as String? ?? '—';
         _casteGroup = studentResMap['caste'] as String? ?? '—';
         _nationality = studentResMap['nationality'] as String? ?? '—';
-         
-        
-        final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? userMap['profileImage']?.toString() ?? '';
+
+        final rawAvatar = userMap['avatar'] ??
+            userMap['photoUrl'] ??
+            userMap['profileImage']?.toString() ??
+            '';
         if (rawAvatar.isNotEmpty) {
-          _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+          _avatarUrl = rawAvatar.startsWith('http')
+              ? rawAvatar
+              : '${ApiConfig.serverBaseUrl}$rawAvatar';
         } else {
           _avatarUrl = null;
         }
- 
+
         _address = userMap['address'] as String? ?? '—';
         _isProfileLoading = false;
       });
- 
+
       if (userMap['id'] != null) {
         try {
-          final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
-          if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+          final qrRes =
+              await ApiService.instance.get('users/${userMap['id']}/qr');
+          if (qrRes != null &&
+              qrRes['success'] == true &&
+              qrRes['qrCode'] != null) {
             final qr = qrRes['qrCode'] as String?;
             if (qr != null && qr.isNotEmpty) {
               final prefs = await SharedPreferences.getInstance();
@@ -764,29 +849,31 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           debugPrint('Error fetching QR from API: $e');
         }
       }
- 
+
       final studentId = studentResMap['id'] as String;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('student_id', studentId);
- 
+
       final String? sectionId = studentResMap['sectionId'] as String?;
       _loadAllTabDetails(studentId, sectionId);
       _connectRealTimeSync();
- 
+
       try {
         final parentsList = studentResMap['parents'] as List<dynamic>? ?? [];
         if (parentsList.isNotEmpty) {
           String father = '—';
           String mother = '—';
           String guardianPhoneVal = '—';
- 
+
           for (var sp in parentsList) {
             final spMap = sp as Map<String, dynamic>;
             final rel = spMap['relationship'] as String?;
             final parentObj = spMap['parent'] as Map<String, dynamic>?;
-            
+
             if (parentObj != null) {
-              final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+              final pFullName =
+                  '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'
+                      .trim();
               final pPhone = parentObj['phone'] as String? ?? '—';
               if (rel == 'FATHER') {
                 father = pFullName;
@@ -799,7 +886,7 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               }
             }
           }
-          
+
           setState(() {
             _fatherName = father;
             _motherName = mother;
@@ -809,13 +896,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       } catch (e) {
         debugPrint('Error parsing parents: $e');
       }
- 
+
       try {
         final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
         setState(() {
           _uploadedDocuments = docsList.map((d) {
             final dMap = d as Map<String, dynamic>;
-            final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+            final String docName =
+                dMap['documentName'] as String? ?? 'Document.pdf';
             final String? uploadDateStr = dMap['uploadedAt'] as String?;
             String dateStr = '—';
             if (uploadDateStr != null) {
@@ -835,7 +923,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         debugPrint('Error parsing documents: $e');
       }
     } catch (e) {
-      debugPrint('🚨 Supabase/REST Student Profile queries both failed. Error: $e');
+      debugPrint(
+          '🚨 Supabase/REST Student Profile queries both failed. Error: $e');
       setState(() {
         _isProfileLoading = false;
         _hasProfileError = true;
@@ -857,12 +946,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       _realtimeChannels.clear();
 
       final String targetStudentId = widget.studentId ?? '';
-      final String targetUserId = widget.studentId != null ? (_studentUserId ?? '') : currentUser.id;
+      final String targetUserId =
+          widget.studentId != null ? (_studentUserId ?? '') : currentUser.id;
 
-      debugPrint('🔌 Connecting Real-Time Sync. Student ID: $targetStudentId, User ID: $targetUserId');
+      debugPrint(
+          '🔌 Connecting Real-Time Sync. Student ID: $targetStudentId, User ID: $targetUserId');
 
       if (targetUserId.isNotEmpty) {
-        final userChannel = client.channel('public:user_profile_sync_$targetUserId')
+        final userChannel = client
+            .channel('public:user_profile_sync_$targetUserId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
@@ -873,7 +965,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                 value: targetUserId,
               ),
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on User: $targetUserId. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on User: $targetUserId. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -884,9 +977,11 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       }
 
       final String studentFilterValue = widget.studentId ?? currentUser.id;
-      final String studentFilterColumn = widget.studentId != null ? 'id' : 'userId';
+      final String studentFilterColumn =
+          widget.studentId != null ? 'id' : 'userId';
 
-      final studentChannel = client.channel('public:student_profile_sync_$studentFilterValue')
+      final studentChannel = client
+          .channel('public:student_profile_sync_$studentFilterValue')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
@@ -897,7 +992,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               value: studentFilterValue,
             ),
             callback: (_) {
-              debugPrint('🔄 Realtime update detected on Student. Reloading...');
+              debugPrint(
+                  '🔄 Realtime update detected on Student. Reloading...');
               if (mounted) {
                 _loadStudentDataFromSupabase();
               }
@@ -906,13 +1002,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       studentChannel.subscribe();
       _realtimeChannels.add(studentChannel);
 
-      final docChannel = client.channel('public:student_doc_sync_$targetStudentId')
+      final docChannel = client
+          .channel('public:student_doc_sync_$targetStudentId')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'StudentDocument',
             callback: (_) {
-              debugPrint('🔄 Realtime update detected on StudentDocument. Reloading...');
+              debugPrint(
+                  '🔄 Realtime update detected on StudentDocument. Reloading...');
               if (mounted) {
                 _loadStudentDataFromSupabase();
               }
@@ -921,13 +1019,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       docChannel.subscribe();
       _realtimeChannels.add(docChannel);
 
-      final parentChannel = client.channel('public:student_parent_sync_$targetStudentId')
+      final parentChannel = client
+          .channel('public:student_parent_sync_$targetStudentId')
           .onPostgresChanges(
             event: PostgresChangeEvent.all,
             schema: 'public',
             table: 'StudentParent',
             callback: (_) {
-              debugPrint('🔄 Realtime update detected on StudentParent. Reloading...');
+              debugPrint(
+                  '🔄 Realtime update detected on StudentParent. Reloading...');
               if (mounted) {
                 _loadStudentDataFromSupabase();
               }
@@ -939,10 +1039,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       SocketService().on('STUDENT_UPDATED', (data) {
         if (!mounted) return;
         try {
-          final String? updatedStudentId = data?['id']?.toString() ?? data?['studentId']?.toString();
-          debugPrint('📡 Socket.IO STUDENT_UPDATED received. Updated Student ID: $updatedStudentId, Current Viewed ID: ${widget.studentId}');
-          if (widget.studentId != null && updatedStudentId == widget.studentId) {
-            debugPrint('🔄 Socket.IO student matches viewed student. Reloading...');
+          final String? updatedStudentId =
+              data?['id']?.toString() ?? data?['studentId']?.toString();
+          debugPrint(
+              '📡 Socket.IO STUDENT_UPDATED received. Updated Student ID: $updatedStudentId, Current Viewed ID: ${widget.studentId}');
+          if (widget.studentId != null &&
+              updatedStudentId == widget.studentId) {
+            debugPrint(
+                '🔄 Socket.IO student matches viewed student. Reloading...');
             _loadStudentDataFromSupabase();
           } else if (widget.studentId == null) {
             _loadStudentDataFromSupabase();
@@ -952,7 +1056,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         }
       });
     } catch (e) {
-      debugPrint('⚠️ Error connecting Supabase Realtime in OldStudentProfileScreen: $e');
+      debugPrint(
+          '⚠️ Error connecting Supabase Realtime in OldStudentProfileScreen: $e');
     }
   }
 
@@ -984,7 +1089,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFF1A6FDB),
-              content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              content: Text('Document "$docName" uploaded successfully!',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             ),
           );
         }
@@ -1019,7 +1125,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           backgroundColor: const Color(0xFFE03131),
-          content: Text('Document "$name" removed.', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          content: Text('Document "$name" removed.',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
         ),
       );
     }
@@ -1034,10 +1141,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             const SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
             ),
             const SizedBox(width: 12),
-            Text('Generating PDF statement...', style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
+            Text('Generating PDF statement...',
+                style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
         backgroundColor: const Color(0xFF1A6FDB),
@@ -1049,9 +1161,12 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     try {
       final pdf = pw.Document();
       final now = DateTime.now();
-      final dateStr = '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
-      final timeStr = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      final receiptNo = 'STMT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch % 100000}';
+      final dateStr =
+          '${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}';
+      final timeStr =
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final receiptNo =
+          'STMT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.millisecondsSinceEpoch % 100000}';
 
       final primaryBlue = PdfColor.fromHex('#1A6FDB');
       final darkText = PdfColor.fromHex('#0F172A');
@@ -1063,17 +1178,25 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       double totalPayableVal = 0.0;
       double totalPaidVal = 0.0;
       double totalPendingVal = 0.0;
-      
+
       if (_feeLedgers.isNotEmpty) {
         for (var l in _feeLedgers) {
-          totalPayableVal += double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
-          totalPaidVal += double.tryParse(l['totalPaid']?.toString() ?? '0') ?? 0.0;
-          totalPendingVal += double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
+          totalPayableVal +=
+              double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
+          totalPaidVal +=
+              double.tryParse(l['totalPaid']?.toString() ?? '0') ?? 0.0;
+          totalPendingVal +=
+              double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
         }
       } else if (_feeLedger != null) {
-        totalPayableVal = double.tryParse(_feeLedger!['totalPayable']?.toString() ?? '0') ?? 0.0;
-        totalPaidVal = double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '0') ?? 0.0;
-        totalPendingVal = double.tryParse(_feeLedger!['totalPending']?.toString() ?? '0') ?? 0.0;
+        totalPayableVal =
+            double.tryParse(_feeLedger!['totalPayable']?.toString() ?? '0') ??
+                0.0;
+        totalPaidVal =
+            double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '0') ?? 0.0;
+        totalPendingVal =
+            double.tryParse(_feeLedger!['totalPending']?.toString() ?? '0') ??
+                0.0;
       } else {
         totalPayableVal = 45000.0;
         totalPaidVal = 30000.0;
@@ -1098,18 +1221,32 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        pw.Text('EDUSPHERE', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                        pw.Text('EDUSPHERE',
+                            style: pw.TextStyle(
+                                fontSize: 22,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white)),
                         pw.SizedBox(height: 4),
-                        pw.Text('Smart School ERP', style: const pw.TextStyle(fontSize: 11, color: PdfColors.white)),
+                        pw.Text('Smart School ERP',
+                            style: const pw.TextStyle(
+                                fontSize: 11, color: PdfColors.white)),
                       ],
                     ),
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text('FEE STATEMENT', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                        pw.Text('FEE STATEMENT',
+                            style: pw.TextStyle(
+                                fontSize: 14,
+                                fontWeight: pw.FontWeight.bold,
+                                color: PdfColors.white)),
                         pw.SizedBox(height: 4),
-                        pw.Text('Statement #: $receiptNo', style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
-                        pw.Text('Date: $dateStr  $timeStr', style: const pw.TextStyle(fontSize: 9, color: PdfColors.white)),
+                        pw.Text('Statement #: $receiptNo',
+                            style: const pw.TextStyle(
+                                fontSize: 9, color: PdfColors.white)),
+                        pw.Text('Date: $dateStr  $timeStr',
+                            style: const pw.TextStyle(
+                                fontSize: 9, color: PdfColors.white)),
                       ],
                     ),
                   ],
@@ -1129,29 +1266,64 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('STUDENT DETAILS', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
+                          pw.Text('STUDENT DETAILS',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.grey600,
+                                  fontWeight: pw.FontWeight.bold)),
                           pw.SizedBox(height: 6),
-                          pw.Text(_studentName, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: darkText)),
-                          pw.Text('Email: $_studentEmail', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
-                          pw.Text('Admission No: $_admissionNo', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey600)),
+                          pw.Text(_studentName,
+                              style: pw.TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: darkText)),
+                          pw.Text('Email: $_studentEmail',
+                              style: const pw.TextStyle(
+                                  fontSize: 10, color: PdfColors.grey700)),
+                          pw.Text('Admission No: $_admissionNo',
+                              style: const pw.TextStyle(
+                                  fontSize: 9, color: PdfColors.grey600)),
                         ],
                       ),
                     ),
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
-                        pw.Text('FINANCIAL SUMMARY', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('FINANCIAL SUMMARY',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                color: PdfColors.grey600,
+                                fontWeight: pw.FontWeight.bold)),
                         pw.SizedBox(height: 6),
-                        pw.Text('Total Payable: ₹${totalPayableVal.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: darkText)),
-                        pw.Text('Total Paid: ₹${totalPaidVal.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 11, color: greenColor, fontWeight: pw.FontWeight.bold)),
-                        pw.Text('Balance Due: ₹${totalPendingVal.toStringAsFixed(0)}', style: pw.TextStyle(fontSize: 11, color: redColor, fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                            'Total Payable: ₹${totalPayableVal.toStringAsFixed(0)}',
+                            style: pw.TextStyle(
+                                fontSize: 11,
+                                fontWeight: pw.FontWeight.bold,
+                                color: darkText)),
+                        pw.Text(
+                            'Total Paid: ₹${totalPaidVal.toStringAsFixed(0)}',
+                            style: pw.TextStyle(
+                                fontSize: 11,
+                                color: greenColor,
+                                fontWeight: pw.FontWeight.bold)),
+                        pw.Text(
+                            'Balance Due: ₹${totalPendingVal.toStringAsFixed(0)}',
+                            style: pw.TextStyle(
+                                fontSize: 11,
+                                color: redColor,
+                                fontWeight: pw.FontWeight.bold)),
                       ],
                     ),
                   ],
                 ),
               ),
               pw.SizedBox(height: 20),
-              pw.Text('FEE LEDGER DETAILS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: darkText)),
+              pw.Text('FEE LEDGER DETAILS',
+                  style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: darkText)),
               pw.SizedBox(height: 8),
               pw.Table(
                 border: pw.TableBorder.all(color: borderGray, width: 0.5),
@@ -1159,37 +1331,112 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                   pw.TableRow(
                     decoration: pw.BoxDecoration(color: primaryBlue),
                     children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Fee Structure', style: pw.TextStyle(fontSize: 9, color: PdfColors.white, fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Status', style: pw.TextStyle(fontSize: 9, color: PdfColors.white, fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Total', style: pw.TextStyle(fontSize: 9, color: PdfColors.white, fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Paid', style: pw.TextStyle(fontSize: 9, color: PdfColors.white, fontWeight: pw.FontWeight.bold))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Due', style: pw.TextStyle(fontSize: 9, color: PdfColors.white, fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Fee Structure',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Status',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Total',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Paid',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold))),
+                      pw.Padding(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text('Due',
+                              style: pw.TextStyle(
+                                  fontSize: 9,
+                                  color: PdfColors.white,
+                                  fontWeight: pw.FontWeight.bold))),
                     ],
                   ),
                   if (_feeLedgers.isEmpty)
                     pw.TableRow(
                       children: [
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Annual Tuition Fee 2024-25', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('PARTIALLY PAID', style: pw.TextStyle(fontSize: 9, color: redColor))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${totalPayableVal.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${totalPaidVal.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${totalPendingVal.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text('Annual Tuition Fee 2024-25',
+                                style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text('PARTIALLY PAID',
+                                style: pw.TextStyle(
+                                    fontSize: 9, color: redColor))),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(
+                                '₹${totalPayableVal.toStringAsFixed(0)}',
+                                style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(
+                                '₹${totalPaidVal.toStringAsFixed(0)}',
+                                style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(
+                            padding: const pw.EdgeInsets.all(6),
+                            child: pw.Text(
+                                '₹${totalPendingVal.toStringAsFixed(0)}',
+                                style: const pw.TextStyle(fontSize: 9))),
                       ],
                     )
                   else
                     ..._feeLedgers.map((l) {
-                      final name = l['feeStructure']?['name']?.toString() ?? 'Annual Fee';
-                      final total = double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
-                      final paid = double.tryParse(l['totalPaid']?.toString() ?? '0') ?? 0.0;
-                      final due = double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
+                      final name = l['feeStructure']?['name']?.toString() ??
+                          'Annual Fee';
+                      final total = double.tryParse(
+                              l['totalPayable']?.toString() ?? '0') ??
+                          0.0;
+                      final paid =
+                          double.tryParse(l['totalPaid']?.toString() ?? '0') ??
+                              0.0;
+                      final due = double.tryParse(
+                              l['totalPending']?.toString() ?? '0') ??
+                          0.0;
                       final status = l['status']?.toString() ?? 'PENDING';
                       return pw.TableRow(
                         children: [
-                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(name, style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(status, style: pw.TextStyle(fontSize: 9, color: status == 'PAID' ? greenColor : redColor))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${total.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${paid.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
-                          pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('₹${due.toStringAsFixed(0)}', style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text(name,
+                                  style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text(status,
+                                  style: pw.TextStyle(
+                                      fontSize: 9,
+                                      color: status == 'PAID'
+                                          ? greenColor
+                                          : redColor))),
+                          pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text('₹${total.toStringAsFixed(0)}',
+                                  style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text('₹${paid.toStringAsFixed(0)}',
+                                  style: const pw.TextStyle(fontSize: 9))),
+                          pw.Padding(
+                              padding: const pw.EdgeInsets.all(6),
+                              child: pw.Text('₹${due.toStringAsFixed(0)}',
+                                  style: const pw.TextStyle(fontSize: 9))),
                         ],
                       );
                     }),
@@ -1201,8 +1448,12 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('Generated by EduSphere ERP • $dateStr $timeStr', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
-                  pw.Text('This is a system-generated statement.', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey500)),
+                  pw.Text('Generated by EduSphere ERP • $dateStr $timeStr',
+                      style: const pw.TextStyle(
+                          fontSize: 8, color: PdfColors.grey500)),
+                  pw.Text('This is a system-generated statement.',
+                      style: const pw.TextStyle(
+                          fontSize: 8, color: PdfColors.grey500)),
                 ],
               ),
             ];
@@ -1234,11 +1485,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       if (directory != null) {
         final file = File('${directory.path}/$fileName');
         await file.writeAsBytes(pdfBytes);
-        
+
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Statement saved to Downloads folder', style: GoogleFonts.inter(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+            content: Text('Statement saved to Downloads folder',
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600)),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
           ),
@@ -1251,7 +1506,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to generate statement: $e', style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+          content: Text('Failed to generate statement: $e',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
           backgroundColor: const Color(0xFFEF4444),
           behavior: SnackBarBehavior.floating,
         ),
@@ -1266,13 +1522,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     });
 
     try {
-      final studentId = widget.studentId ?? (await SharedPreferences.getInstance()).getString('student_id') ?? '';
+      final studentId = widget.studentId ??
+          (await SharedPreferences.getInstance()).getString('student_id') ??
+          '';
       if (studentId.isEmpty) return;
 
       // 1. Fetch available routes
       final routesRes = await ApiService.instance.get('transport/routes');
       final routes = routesRes['routes'] as List<dynamic>? ?? [];
-      
+
       String? routeId;
       String? stopId;
 
@@ -1287,7 +1545,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
       if (routeId != null && stopId != null) {
         // Create actual database allocation
-        final response = await ApiService.instance.post('transport/allocate', body: {
+        final response =
+            await ApiService.instance.post('transport/allocate', body: {
           'studentId': studentId,
           'routeId': routeId,
           'stopId': stopId,
@@ -1300,7 +1559,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: const Color(0xFF10B981),
-                content: Text('Transport allocated successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                content: Text('Transport allocated successfully!',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
               ),
             );
           }
@@ -1324,7 +1584,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: const Color(0xFF10B981),
-            content: Text('Mock Transport allocated!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            content: Text('Mock Transport allocated!',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
           ),
         );
       }
@@ -1352,14 +1613,20 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
   // Formatting utilities for Image 3 exact case/value specifications
   String _formatValueUpper(String? val) {
-    if (val == null || val.trim().isEmpty || val.trim() == '—' || val.trim() == 'UNSET') {
+    if (val == null ||
+        val.trim().isEmpty ||
+        val.trim() == '—' ||
+        val.trim() == 'UNSET') {
       return 'N/A';
     }
     return val.trim().toUpperCase();
   }
 
   String _formatValueSimple(String? val) {
-    if (val == null || val.trim().isEmpty || val.trim() == '—' || val.trim() == 'UNSET') {
+    if (val == null ||
+        val.trim().isEmpty ||
+        val.trim() == '—' ||
+        val.trim() == 'UNSET') {
       return 'N/A';
     }
     return val.trim();
@@ -1379,7 +1646,9 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             icon: const Icon(Icons.arrow_back, color: Color(0xFF0F2547)),
             onPressed: widget.onBack ?? () => Navigator.pop(context),
           ),
-          title: Text('Loading Profile...', style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontWeight: FontWeight.bold)),
+          title: Text('Loading Profile...',
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF0F2547), fontWeight: FontWeight.bold)),
         ),
         body: const Center(
           child: CircularProgressIndicator(color: Color(0xFF1A6FDB)),
@@ -1397,7 +1666,9 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             icon: const Icon(Icons.arrow_back, color: Color(0xFF0F2547)),
             onPressed: widget.onBack ?? () => Navigator.pop(context),
           ),
-          title: Text('Error', style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontWeight: FontWeight.bold)),
+          title: Text('Error',
+              style: GoogleFonts.inter(
+                  color: const Color(0xFF0F2547), fontWeight: FontWeight.bold)),
         ),
         body: Center(
           child: Column(
@@ -1405,11 +1676,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             children: [
               Icon(Icons.error_outline, size: 48.sp, color: Colors.red),
               SizedBox(height: 16.h),
-              Text('Failed to load profile details.', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+              Text('Failed to load profile details.',
+                  style: GoogleFonts.inter(
+                      fontSize: 16.sp, fontWeight: FontWeight.bold)),
               SizedBox(height: 12.h),
               ElevatedButton(
                 onPressed: _loadStudentDataFromSupabase,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A6FDB)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1A6FDB)),
                 child: const Text('Retry'),
               ),
             ],
@@ -1444,7 +1718,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             alignment: Alignment.center,
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_none_rounded, color: Color(0xFF1A6FDB)),
+                icon: const Icon(Icons.notifications_none_rounded,
+                    color: Color(0xFF1A6FDB)),
                 onPressed: () {},
               ),
               Positioned(
@@ -1462,7 +1737,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.notifications_none_rounded, color: Colors.black),
+            icon: const Icon(Icons.notifications_none_rounded,
+                color: Colors.black),
             onPressed: () {},
           ),
           SizedBox(width: 8.w),
@@ -1470,7 +1746,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(horizontal: isDesktop ? 40.w : 16.w, vertical: 16.h),
+          padding: EdgeInsets.symmetric(
+              horizontal: isDesktop ? 40.w : 16.w, vertical: 16.h),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1494,17 +1771,22 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
   Widget _buildStudentBasicInfoCard() {
     final List<String> parts = _studentName.trim().split(RegExp(r'\s+'));
-    final String initials = parts.length >= 2 
+    final String initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : (parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'ST');
+        : (parts.isNotEmpty && parts[0].isNotEmpty
+            ? parts[0][0].toUpperCase()
+            : 'ST');
 
-    final String displayPhone = (_emergencyInfo != 'UNSET' && _emergencyInfo != '—' && _emergencyInfo.trim().isNotEmpty)
+    final String displayPhone = (_emergencyInfo != 'UNSET' &&
+            _emergencyInfo != '—' &&
+            _emergencyInfo.trim().isNotEmpty)
         ? _emergencyInfo
         : '+919413223223';
-        
-    final String displayDob = (_studentDob != '—' && _studentDob.trim().isNotEmpty)
-        ? _studentDob
-        : '15/05/2010';
+
+    final String displayDob =
+        (_studentDob != '—' && _studentDob.trim().isNotEmpty)
+            ? _studentDob
+            : '15/05/2010';
 
     final String displayClass = _section != '—' && _section.isNotEmpty
         ? '$_studentClass - $_section'
@@ -1595,7 +1877,7 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             ],
           ),
           SizedBox(height: 12.h),
-          
+
           // ACTIVE badge positioned below name/avatar aligned left
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
@@ -1617,9 +1899,11 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           SizedBox(height: 12.h),
 
           // Vertical list of details matching Image 3 layout exactly
-          _buildVerticalDetailRow(Icons.mail_outline_rounded, 'Email', _studentEmail),
+          _buildVerticalDetailRow(
+              Icons.mail_outline_rounded, 'Email', _studentEmail),
           _buildVerticalDetailRow(Icons.phone_outlined, 'Phone', displayPhone),
-          _buildVerticalDetailRow(Icons.calendar_today_outlined, 'Date of Birth', displayDob),
+          _buildVerticalDetailRow(
+              Icons.calendar_today_outlined, 'Date of Birth', displayDob),
           _buildVerticalDetailRow(Icons.class_outlined, 'Class', displayClass),
         ],
       ),
@@ -1681,9 +1965,11 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               onTap: () => setState(() => _selectedTab = tab),
               child: Container(
                 margin: EdgeInsets.only(right: 6.w),
-                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20.w : 14.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? 20.w : 14.w, vertical: 8.h),
                 decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFFDFEEFA) : Colors.transparent,
+                  color:
+                      isActive ? const Color(0xFFDFEEFA) : Colors.transparent,
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
@@ -1691,7 +1977,9 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                   style: GoogleFonts.inter(
                     fontSize: isDesktop ? 13.sp : 12.sp,
                     fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                    color: isActive ? const Color(0xFF0F2547) : const Color(0xFF475569),
+                    color: isActive
+                        ? const Color(0xFF0F2547)
+                        : const Color(0xFF475569),
                   ),
                 ),
               ),
@@ -1731,17 +2019,24 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           children: [
             Text(
               'Personal Information',
-              style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+              style: GoogleFonts.inter(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F2547)),
             ),
             SizedBox(height: 20.h),
             _buildGridRow(
-              'Gender', _formatValueUpper(_studentGender),
-              'Blood Group', _formatValueUpper(_studentBloodGroup),
+              'Gender',
+              _formatValueUpper(_studentGender),
+              'Blood Group',
+              _formatValueUpper(_studentBloodGroup),
             ),
             SizedBox(height: 16.h),
             _buildGridRow(
-              'Roll Number', _formatValueUpper(_rollNo),
-              'Admission Number', _formatValueSimple(_admissionNo),
+              'Roll Number',
+              _formatValueUpper(_rollNo),
+              'Admission Number',
+              _formatValueSimple(_admissionNo),
             ),
           ],
         ),
@@ -1793,14 +2088,22 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               ),
             ),
             SizedBox(height: 20.h),
-            _buildVerticalAcademicField('Current Class & Section', displayClass),
-            _buildVerticalAcademicField('Academic Year', _formatValueSimple(_batch)),
-            _buildVerticalAcademicField('Admission Type', _formatValueUpper(_admissionType)),
-            _buildVerticalAcademicField('Medium of Instruction', _formatValueUpper(_medium)),
-            _buildVerticalAcademicField('Joining Date', _formatValueSimple(_studentJoinedDate)),
-            _buildVerticalAcademicField('Previous School', _formatValueSimple(_previousSchool)),
-            _buildVerticalAcademicField('Previous Class', _formatValueSimple(_previousClass)),
-            _buildVerticalAcademicField('TC Number', _formatValueSimple(_tcNumber)),
+            _buildVerticalAcademicField(
+                'Current Class & Section', displayClass),
+            _buildVerticalAcademicField(
+                'Academic Year', _formatValueSimple(_batch)),
+            _buildVerticalAcademicField(
+                'Admission Type', _formatValueUpper(_admissionType)),
+            _buildVerticalAcademicField(
+                'Medium of Instruction', _formatValueUpper(_medium)),
+            _buildVerticalAcademicField(
+                'Joining Date', _formatValueSimple(_studentJoinedDate)),
+            _buildVerticalAcademicField(
+                'Previous School', _formatValueSimple(_previousSchool)),
+            _buildVerticalAcademicField(
+                'Previous Class', _formatValueSimple(_previousClass)),
+            _buildVerticalAcademicField(
+                'TC Number', _formatValueSimple(_tcNumber)),
           ],
         ),
       );
@@ -1820,7 +2123,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.qr_code_scanner_rounded, size: 16.sp, color: const Color(0xFF475569)),
+                Icon(Icons.qr_code_scanner_rounded,
+                    size: 16.sp, color: const Color(0xFF475569)),
                 SizedBox(width: 8.w),
                 Text(
                   'ATTENDANCE QR CODE',
@@ -1852,12 +2156,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                           bytes,
                           fit: BoxFit.contain,
                           errorBuilder: (cxt, err, stack) => Center(
-                            child: Icon(Icons.qr_code_2_rounded, size: 80.sp, color: const Color(0xFF0F172A)),
+                            child: Icon(Icons.qr_code_2_rounded,
+                                size: 80.sp, color: const Color(0xFF0F172A)),
                           ),
                         );
                       } catch (_) {
                         return Center(
-                          child: Icon(Icons.qr_code_2_rounded, size: 80.sp, color: const Color(0xFF0F172A)),
+                          child: Icon(Icons.qr_code_2_rounded,
+                              size: 80.sp, color: const Color(0xFF0F172A)),
                         );
                       }
                     })()
@@ -1875,7 +2181,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                         color: Color(0xFF0F172A),
                       ),
                       errorStateBuilder: (cxt, err) => Center(
-                        child: Icon(Icons.qr_code_2_rounded, size: 80.sp, color: const Color(0xFF0F172A)),
+                        child: Icon(Icons.qr_code_2_rounded,
+                            size: 80.sp, color: const Color(0xFF0F172A)),
                       ),
                     ),
             ),
@@ -1923,7 +2230,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                 backgroundColor: const Color(0xFF7C3AED),
                 foregroundColor: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r)),
                 minimumSize: Size(double.infinity, 44.h),
               ),
             ),
@@ -1960,10 +2268,14 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               ),
             ),
             SizedBox(height: 16.h),
-            _buildBulletPoint('Each user has a unique, permanent QR code tied to their account.'),
-            _buildBulletPoint('The QR is valid at any active scanner the user\'s role is allowed on.'),
-            _buildBulletPoint('Admins can regenerate the QR if it is lost or compromised.'),
-            _buildBulletPoint('GPS geofencing is enforced by the scanner device, not the QR code itself.'),
+            _buildBulletPoint(
+                'Each user has a unique, permanent QR code tied to their account.'),
+            _buildBulletPoint(
+                'The QR is valid at any active scanner the user\'s role is allowed on.'),
+            _buildBulletPoint(
+                'Admins can regenerate the QR if it is lost or compromised.'),
+            _buildBulletPoint(
+                'GPS geofencing is enforced by the scanner device, not the QR code itself.'),
           ],
         ),
       );
@@ -2001,9 +2313,11 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
       if (displayLedgers.isNotEmpty) {
         for (var l in displayLedgers) {
-          payable += double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
+          payable +=
+              double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
           paid += double.tryParse(l['totalPaid']?.toString() ?? '0') ?? 0.0;
-          pending += double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
+          pending +=
+              double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
         }
       } else {
         // Fallback default mock values matching reference image calculations
@@ -2019,7 +2333,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         });
       }
 
-      final double remainingPayable = (payable - paid - pending).clamp(0.0, double.infinity);
+      final double remainingPayable =
+          (payable - paid - pending).clamp(0.0, double.infinity);
 
       return Container(
         width: double.infinity,
@@ -2061,7 +2376,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                 ),
                 OutlinedButton.icon(
                   onPressed: _downloadStatement,
-                  icon: Icon(Icons.download, size: 16.sp, color: const Color(0xFF0F2547)),
+                  icon: Icon(Icons.download,
+                      size: 16.sp, color: const Color(0xFF0F2547)),
                   label: Text(
                     'Statement',
                     style: GoogleFonts.inter(
@@ -2075,7 +2391,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.r),
                     ),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                   ),
                 ),
               ],
@@ -2200,7 +2517,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                       padding: EdgeInsets.symmetric(vertical: 8.h),
                       decoration: const BoxDecoration(
                         border: Border(
-                          bottom: BorderSide(color: Color(0xFFE2EAF4), width: 1.5),
+                          bottom:
+                              BorderSide(color: Color(0xFFE2EAF4), width: 1.5),
                         ),
                       ),
                       child: Row(
@@ -2266,11 +2584,20 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
 
                     // Table Rows
                     ...displayLedgers.map((l) {
-                      final String name = l['feeStructure']?['name']?.toString() ?? 'Annual Tuition Fee';
-                      final String statusText = l['status']?.toString() ?? 'PENDING';
-                      final double totalVal = double.tryParse(l['totalPayable']?.toString() ?? '0') ?? 0.0;
-                      final double paidVal = double.tryParse(l['totalPaid']?.toString() ?? '0') ?? 0.0;
-                      final double dueVal = double.tryParse(l['totalPending']?.toString() ?? '0') ?? 0.0;
+                      final String name =
+                          l['feeStructure']?['name']?.toString() ??
+                              'Annual Tuition Fee';
+                      final String statusText =
+                          l['status']?.toString() ?? 'PENDING';
+                      final double totalVal = double.tryParse(
+                              l['totalPayable']?.toString() ?? '0') ??
+                          0.0;
+                      final double paidVal =
+                          double.tryParse(l['totalPaid']?.toString() ?? '0') ??
+                              0.0;
+                      final double dueVal = double.tryParse(
+                              l['totalPending']?.toString() ?? '0') ??
+                          0.0;
 
                       // Status Badge styling
                       Color badgeColor = const Color(0xFFEF4444);
@@ -2278,7 +2605,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                       if (statusText.toUpperCase() == 'PAID') {
                         badgeColor = const Color(0xFF10B981);
                         badgeBg = const Color(0xFFECFDF5);
-                      } else if (statusText.toUpperCase() == 'PARTIALLY_PAID' || statusText.toUpperCase() == 'PARTIAL') {
+                      } else if (statusText.toUpperCase() == 'PARTIALLY_PAID' ||
+                          statusText.toUpperCase() == 'PARTIAL') {
                         badgeColor = const Color(0xFFB91C1C);
                         badgeBg = const Color(0xFFFEE2E2);
                       }
@@ -2287,7 +2615,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                         padding: EdgeInsets.symmetric(vertical: 12.h),
                         decoration: const BoxDecoration(
                           border: Border(
-                            bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1),
+                            bottom:
+                                BorderSide(color: Color(0xFFF1F5F9), width: 1),
                           ),
                         ),
                         child: Row(
@@ -2313,7 +2642,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                               width: 110.w,
                               alignment: Alignment.centerLeft,
                               child: Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w, vertical: 4.h),
                                 decoration: BoxDecoration(
                                   color: badgeBg,
                                   borderRadius: BorderRadius.circular(6.r),
@@ -2396,7 +2726,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.directions_bus_filled_outlined, color: const Color(0xFF1A6FDB), size: 20.sp),
+                  Icon(Icons.directions_bus_filled_outlined,
+                      color: const Color(0xFF1A6FDB), size: 20.sp),
                   SizedBox(width: 8.w),
                   Text(
                     'Transport & Safety',
@@ -2433,7 +2764,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                     borderRadius: 20.r,
                   ),
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 40.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 20.w, vertical: 40.h),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -2489,11 +2821,13 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                             );
                           },
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: Color(0xFF0076F6), width: 1.5),
+                            side: const BorderSide(
+                                color: Color(0xFF0076F6), width: 1.5),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30.r),
                             ),
-                            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 24.w, vertical: 12.h),
                           ),
                           child: Text(
                             'Manage Allocation',
@@ -2513,9 +2847,13 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           ),
         );
       } else {
-        final routeName = _transportAllocation!['route']?['name']?.toString() ?? 'Route 102 - North Delhi Bypass';
-        final stopName = _transportAllocation!['stop']?['name']?.toString() ?? 'Rohini Sector 15 Crossing';
-        final arrivalTime = _transportAllocation!['stop']?['arrivalTime']?.toString() ?? '07:15 AM';
+        final routeName = _transportAllocation!['route']?['name']?.toString() ??
+            'Route 102 - North Delhi Bypass';
+        final stopName = _transportAllocation!['stop']?['name']?.toString() ??
+            'Rohini Sector 15 Crossing';
+        final arrivalTime =
+            _transportAllocation!['stop']?['arrivalTime']?.toString() ??
+                '07:15 AM';
 
         return Container(
           width: double.infinity,
@@ -2532,7 +2870,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.directions_bus_filled_outlined, color: const Color(0xFF1A6FDB), size: 20.sp),
+                  Icon(Icons.directions_bus_filled_outlined,
+                      color: const Color(0xFF1A6FDB), size: 20.sp),
                   SizedBox(width: 8.w),
                   Text(
                     'Transport & Safety',
@@ -2566,12 +2905,18 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildAllocationRow('ROUTE NAME', routeName, Icons.navigation_outlined),
-                    const Divider(color: Color(0xFFE2EAF4), height: 1, thickness: 1),
-                    _buildAllocationRow('DESIGNATED STOP', stopName, Icons.location_on_outlined),
-                    const Divider(color: Color(0xFFE2EAF4), height: 1, thickness: 1),
-                    _buildAllocationRow('SCHEDULED TIME', arrivalTime, Icons.access_time),
-                    const Divider(color: Color(0xFFE2EAF4), height: 1, thickness: 1),
+                    _buildAllocationRow(
+                        'ROUTE NAME', routeName, Icons.navigation_outlined),
+                    const Divider(
+                        color: Color(0xFFE2EAF4), height: 1, thickness: 1),
+                    _buildAllocationRow('DESIGNATED STOP', stopName,
+                        Icons.location_on_outlined),
+                    const Divider(
+                        color: Color(0xFFE2EAF4), height: 1, thickness: 1),
+                    _buildAllocationRow(
+                        'SCHEDULED TIME', arrivalTime, Icons.access_time),
+                    const Divider(
+                        color: Color(0xFFE2EAF4), height: 1, thickness: 1),
                     Padding(
                       padding: EdgeInsets.all(16.r),
                       child: Row(
@@ -2628,7 +2973,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: const Color(0xFFF59E0B), size: 20.sp),
+                    Icon(Icons.warning_amber_rounded,
+                        color: const Color(0xFFF59E0B), size: 20.sp),
                     SizedBox(width: 12.w),
                     Expanded(
                       child: Column(
@@ -2678,7 +3024,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.location_on_outlined, color: const Color(0xFF0076F6), size: 18.sp),
+                              Icon(Icons.location_on_outlined,
+                                  color: const Color(0xFF0076F6), size: 18.sp),
                               SizedBox(width: 8.w),
                               Text(
                                 'Live Tracking Map',
@@ -2691,22 +3038,27 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                             ],
                           ),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 4.h),
                             decoration: BoxDecoration(
                               color: Colors.white,
-                              border: Border.all(color: const Color(0xFFE2EAF4)),
+                              border:
+                                  Border.all(color: const Color(0xFFE2EAF4)),
                               borderRadius: BorderRadius.circular(20.r),
                             ),
                             child: Text(
                               'GPS Active',
                               style: GoogleFonts.inter(
-                                  fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569)),
+                                  fontSize: 10.sp,
+                                  fontWeight: FontWeight.w700,
+                                  color: const Color(0xFF475569)),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const Divider(color: Color(0xFFE2EAF4), height: 1, thickness: 1),
+                    const Divider(
+                        color: Color(0xFFE2EAF4), height: 1, thickness: 1),
                     Container(
                       height: 240.h,
                       width: double.infinity,
@@ -2732,8 +3084,10 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                                 ),
                                 children: [
                                   TileLayer(
-                                    urlTemplate: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                    userAgentPackageName: 'com.edusphere.transport',
+                                    urlTemplate:
+                                        'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    userAgentPackageName:
+                                        'com.edusphere.transport',
                                   ),
                                   PolylineLayer(
                                     polylines: [
@@ -2754,9 +3108,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                                           decoration: const BoxDecoration(
                                             color: Color(0xFF0F2547),
                                             shape: BoxShape.circle,
-                                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  color: Colors.black26,
+                                                  blurRadius: 4,
+                                                  offset: Offset(0, 2))
+                                            ],
                                           ),
-                                          child: Icon(Icons.school, color: Colors.white, size: 16.sp),
+                                          child: Icon(Icons.school,
+                                              color: Colors.white, size: 16.sp),
                                         ),
                                       ),
                                       Marker(
@@ -2764,13 +3124,23 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                                         width: 40.w,
                                         height: 40.w,
                                         child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 300),
+                                          duration:
+                                              const Duration(milliseconds: 300),
                                           decoration: const BoxDecoration(
                                             color: Color(0xFF10B981),
                                             shape: BoxShape.circle,
-                                            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  color: Colors.black26,
+                                                  blurRadius: 4,
+                                                  offset: Offset(0, 2))
+                                            ],
                                           ),
-                                          child: Icon(Icons.directions_bus_filled_outlined, color: Colors.white, size: 20.sp),
+                                          child: Icon(
+                                              Icons
+                                                  .directions_bus_filled_outlined,
+                                              color: Colors.white,
+                                              size: 20.sp),
                                         ),
                                       ),
                                     ],
@@ -2818,7 +3188,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                     color: Color(0xFFEFF6FF),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.access_time_filled_rounded, color: const Color(0xFF1A6FDB), size: 22.sp),
+                  child: Icon(Icons.access_time_filled_rounded,
+                      color: const Color(0xFF1A6FDB), size: 22.sp),
                 ),
                 SizedBox(width: 14.w),
                 Column(
@@ -2877,16 +3248,27 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     );
   }
 
-  Widget _buildGridRow(String label1, String value1, String label2, String value2) {
+  Widget _buildGridRow(
+      String label1, String value1, String label2, String value2) {
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label1, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(label1,
+                  style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600)),
               SizedBox(height: 4.h),
-              Text(value1, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(value1,
+                  style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      color: const Color(0xFF0F2547),
+                      fontWeight: FontWeight.w700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -2895,9 +3277,19 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label2, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(label2,
+                  style: GoogleFonts.inter(
+                      fontSize: 11.sp,
+                      color: const Color(0xFF64748B),
+                      fontWeight: FontWeight.w600)),
               SizedBox(height: 4.h),
-              Text(value2, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(value2,
+                  style: GoogleFonts.inter(
+                      fontSize: 13.sp,
+                      color: const Color(0xFF0F2547),
+                      fontWeight: FontWeight.w700),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -2962,7 +3354,13 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
     );
   }
 
-  final List<String> _timetableDays = const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  final List<String> _timetableDays = const [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday'
+  ];
 
   final List<Map<String, String>> _timetableColumns = const [
     {'title': 'PERIOD 1', 'time': '08:00 - 08:40', 'start': '08:00'},
@@ -2996,7 +3394,7 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         String hh = parts[0].padLeft(2, '0');
         String mm = parts[1].padLeft(2, '0');
         String normalizedStartTime = '$hh:$mm';
-        
+
         if (normalizedStartTime == startPrefix) {
           final subject = slot['subject'];
           if (subject is Map) {
@@ -3042,8 +3440,10 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ),
       child: Row(
         children: [
-          _buildCell('DAY', width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
-          ..._timetableColumns.map((col) => _buildTimeCell(col['title']!, col['time']!)),
+          _buildCell('DAY',
+              width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
+          ..._timetableColumns
+              .map((col) => _buildTimeCell(col['title']!, col['time']!)),
         ],
       ),
     );
@@ -3056,13 +3456,18 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ),
       child: Row(
         children: [
-          _buildCell(day, width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
+          _buildCell(day,
+              width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
           ..._timetableColumns.map((col) {
             if (col['title'] == 'LUNCH BREAK') {
-              return _buildCell('Lunch Break', width: 110.w, isLunchBreak: true, bgColor: const Color(0xFFFFF9F2));
+              return _buildCell('Lunch Break',
+                  width: 110.w,
+                  isLunchBreak: true,
+                  bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
-            return _buildCell(subject ?? 'Unassigned', width: 110.w, isUnassigned: subject == null);
+            return _buildCell(subject ?? 'Unassigned',
+                width: 110.w, isUnassigned: subject == null);
           }),
         ],
       ),
@@ -3080,7 +3485,10 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         children: [
           Text(
             title,
-            style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF4A5568)),
+            style: GoogleFonts.inter(
+                fontSize: 10.sp,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF4A5568)),
           ),
           SizedBox(height: 6.h),
           Container(
@@ -3093,11 +3501,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.access_time, size: 10.sp, color: const Color(0xFFA0AEC0)),
+                Icon(Icons.access_time,
+                    size: 10.sp, color: const Color(0xFFA0AEC0)),
                 SizedBox(width: 4.w),
                 Text(
                   time,
-                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w600, color: const Color(0xFF718096)),
+                  style: GoogleFonts.inter(
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF718096)),
                 ),
               ],
             ),
@@ -3123,17 +3535,21 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       alignment: alignment,
       decoration: BoxDecoration(
         color: bgColor,
-        border: const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
+        border:
+            const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
       ),
       child: Text(
         text,
         style: GoogleFonts.inter(
           fontSize: isHeader || isDayLabel ? 11.sp : 12.sp,
-          fontWeight: isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
-          fontStyle: isUnassigned || isLunchBreak ? FontStyle.italic : FontStyle.normal,
-          color: isLunchBreak 
-              ? const Color(0xFFE87D3E) 
-              : isUnassigned 
+          fontWeight:
+              isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
+          fontStyle: isUnassigned || isLunchBreak
+              ? FontStyle.italic
+              : FontStyle.normal,
+          color: isLunchBreak
+              ? const Color(0xFFE87D3E)
+              : isUnassigned
                   ? const Color(0xFF94A3B8)
                   : const Color(0xFF2D3748),
         ),
@@ -3141,8 +3557,6 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
       ),
     );
   }
-
-
 
   Widget _buildDocumentsVault() {
     return Container(
@@ -3158,7 +3572,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.insert_drive_file_outlined, size: 18.sp, color: const Color(0xFF1A6FDB)),
+              Icon(Icons.insert_drive_file_outlined,
+                  size: 18.sp, color: const Color(0xFF1A6FDB)),
               SizedBox(width: 8.w),
               Text(
                 'Documents Asset Vault',
@@ -3177,11 +3592,15 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                     padding: EdgeInsets.symmetric(vertical: 20.h),
                     child: Column(
                       children: [
-                        Icon(Icons.insert_drive_file_outlined, size: 36.sp, color: const Color(0xFF868E96)),
+                        Icon(Icons.insert_drive_file_outlined,
+                            size: 36.sp, color: const Color(0xFF868E96)),
                         SizedBox(height: 12.h),
                         Text(
                           'No documents uploaded yet',
-                          style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF868E96)),
+                          style: GoogleFonts.inter(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF868E96)),
                         ),
                         SizedBox(height: 16.h),
                         ElevatedButton.icon(
@@ -3189,17 +3608,27 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF1A6FDB),
                             side: const BorderSide(color: Color(0xFF1A6FDB)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 8.h),
                             elevation: 0,
                           ),
-                          onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                          onPressed:
+                              _isUploadingDoc ? null : _simulateDocumentUpload,
                           icon: _isUploadingDoc
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.upload_file, size: 14),
                           label: Text(
-                            _isUploadingDoc ? 'Uploading...' : 'Upload Document',
-                            style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
+                            _isUploadingDoc
+                                ? 'Uploading...'
+                                : 'Upload Document',
+                            style: GoogleFonts.inter(
+                                fontSize: 11.sp, fontWeight: FontWeight.w800),
                           ),
                         ),
                       ],
@@ -3216,7 +3645,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                         final doc = _uploadedDocuments[idx];
                         return Container(
                           margin: EdgeInsets.only(bottom: 8.h),
-                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.w, vertical: 10.h),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(12.r),
@@ -3224,7 +3654,8 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.insert_drive_file_outlined, size: 18.sp, color: const Color(0xFF868E96)),
+                              Icon(Icons.insert_drive_file_outlined,
+                                  size: 18.sp, color: const Color(0xFF868E96)),
                               SizedBox(width: 10.w),
                               Expanded(
                                 child: Column(
@@ -3232,18 +3663,25 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                                   children: [
                                     Text(
                                       doc['name'] ?? '',
-                                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 12.sp,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF0F2547)),
                                     ),
                                     SizedBox(height: 2.h),
                                     Text(
                                       'Uploaded on: ${doc['date']}',
-                                      style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF868E96)),
+                                      style: GoogleFonts.inter(
+                                          fontSize: 9.5.sp,
+                                          fontWeight: FontWeight.w600,
+                                          color: const Color(0xFF868E96)),
                                     ),
                                   ],
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE03131), size: 18),
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    color: Color(0xFFE03131), size: 18),
                                 onPressed: () => _removeDocument(idx),
                               ),
                             ],
@@ -3258,17 +3696,25 @@ class _OldStudentProfileScreenState extends State<OldStudentProfileScreen> {
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF1A6FDB),
                           side: const BorderSide(color: Color(0xFF1A6FDB)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r)),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16.w, vertical: 8.h),
                           elevation: 0,
                         ),
-                        onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                        onPressed:
+                            _isUploadingDoc ? null : _simulateDocumentUpload,
                         icon: _isUploadingDoc
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.upload_file, size: 14),
                         label: Text(
                           _isUploadingDoc ? 'Uploading...' : 'Upload Document',
-                          style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
+                          style: GoogleFonts.inter(
+                              fontSize: 11.sp, fontWeight: FontWeight.w800),
                         ),
                       ),
                     ),

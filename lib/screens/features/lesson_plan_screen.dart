@@ -7,6 +7,7 @@ import 'analytics_detail_screen.dart';
 import 'homework_screen.dart';
 import 'notifications_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class LessonPlanScreen extends StatefulWidget {
   const LessonPlanScreen({super.key});
@@ -15,9 +16,10 @@ class LessonPlanScreen extends StatefulWidget {
   State<LessonPlanScreen> createState() => _LessonPlanScreenState();
 }
 
-class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerProviderStateMixin {
+class _LessonPlanScreenState extends State<LessonPlanScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  
+
   final Color darkNavy = const Color(0xFF1E40AF);
   final Color backgroundGrey = const Color(0xFFF1F5F9);
   final Color accentBlue = const Color(0xFF3B82F6);
@@ -61,7 +63,11 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
   Widget _buildHeader() {
     return Container(
       color: darkNavy,
-      padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 20, left: 20, right: 20),
+      padding: EdgeInsets.only(
+          top: MediaQuery.of(context).padding.top + 10,
+          bottom: 20,
+          left: 20,
+          right: 20),
       child: Column(
         children: [
           Row(
@@ -75,22 +81,31 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Lesson Planner', style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w800, color: Colors.white)),
-                    Text('Physics — Grade 12 · Section A', style: GoogleFonts.inter(fontSize: 13.sp, color: Colors.white.withValues(alpha: 0.6))),
+                    Text('Lesson Planner',
+                        style: AppTypography.h4.copyWith(color: Colors.white)),
+                    Text('Physics — Grade 12 · Section A',
+                        style: AppTypography.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.6))),
                   ],
                 ),
               ),
               Row(
                 children: [
                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen())),
                     child: Stack(
                       children: [
                         Container(
-                          width: 8.w, height: 8.h,
-                          decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                          width: 8.w,
+                          height: 8.h,
+                          decoration: const BoxDecoration(
+                              color: Colors.red, shape: BoxShape.circle),
                         ),
-                        Icon(Icons.notifications_none_rounded, color: Colors.white, size: 24.sp),
+                        Icon(Icons.notifications_none_rounded,
+                            color: Colors.white, size: 24.sp),
                       ],
                     ),
                   ),
@@ -98,7 +113,9 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
                   CircleAvatar(
                     radius: 18,
                     backgroundColor: const Color(0xFF3B82F6),
-                    child: Text('RS', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                    child: Text('RS',
+                        style:
+                            AppTypography.small.copyWith(color: Colors.white)),
                   ),
                 ],
               ),
@@ -120,8 +137,9 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
         ),
         labelColor: darkNavy,
         unselectedLabelColor: Colors.white.withValues(alpha: 0.6),
-        labelStyle: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700),
-        indicatorPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        labelStyle: AppTypography.small,
+        indicatorPadding:
+            const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         indicatorSize: TabBarIndicatorSize.tab,
         tabs: const [
           Tab(text: 'Overview'),
@@ -145,7 +163,8 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           SizedBox(height: 16.h),
           _buildStatsGrid(),
           SizedBox(height: 24.h),
-          Text('Chapters', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+          Text('Chapters',
+              style: AppTypography.bodyLarge.copyWith(color: darkNavy)),
           SizedBox(height: 12.h),
           _buildChapterItem(
             context: context,
@@ -192,11 +211,17 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('SYLLABUS PROGRESS', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.6), letterSpacing: 0.5)),
+                    Text('SYLLABUS PROGRESS',
+                        style: AppTypography.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.6),
+                            letterSpacing: 0.5)),
                     SizedBox(height: 8.h),
-                    Text('78%', style: GoogleFonts.inter(fontSize: 48.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text('78%',
+                        style: AppTypography.h1.copyWith(color: Colors.white)),
                     SizedBox(height: 4.h),
-                    Text('14 of 18 chapters covered', style: GoogleFonts.inter(fontSize: 14.sp, color: Colors.white.withValues(alpha: 0.8))),
+                    Text('14 of 18 chapters covered',
+                        style: AppTypography.small.copyWith(
+                            color: Colors.white.withValues(alpha: 0.8))),
                   ],
                 ),
               ),
@@ -204,12 +229,14 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
                 alignment: Alignment.center,
                 children: [
                   SizedBox(
-                    width: 80.w, height: 80.h,
+                    width: 80.w,
+                    height: 80.h,
                     child: CircularProgressIndicator(
                       value: 0.78,
                       strokeWidth: 8,
                       backgroundColor: Colors.white.withValues(alpha: 0.1),
-                      valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)),
+                      valueColor:
+                          const AlwaysStoppedAnimation(Color(0xFF10B981)),
                     ),
                   ),
                 ],
@@ -250,8 +277,11 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
         ),
         child: Column(
           children: [
-            Text(val, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: Colors.white)),
-            Text(label, style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white.withValues(alpha: 0.6))),
+            Text(val,
+                style: AppTypography.bodyLarge.copyWith(color: Colors.white)),
+            Text(label,
+                style: AppTypography.caption
+                    .copyWith(color: Colors.white.withValues(alpha: 0.6))),
           ],
         ),
       ),
@@ -260,7 +290,8 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
 
   Widget _buildAIGeneratorCard() {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AIGeneratorScreen())),
+      onTap: () => Navigator.push(context,
+          MaterialPageRoute(builder: (_) => const AIGeneratorScreen())),
       child: Container(
         padding: EdgeInsets.all(20.r),
         decoration: BoxDecoration(
@@ -273,16 +304,23 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
             Row(
               children: [
                 Container(
-                  width: 48.w, height: 48.h,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12.r)),
+                  width: 48.w,
+                  height: 48.h,
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12.r)),
                   child: const Icon(Icons.bolt_rounded, color: Colors.white),
                 ),
                 SizedBox(width: 16.w),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('AI Lesson Generator', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: Colors.white)),
-                    Text('Tap to generate plan, quiz & notes', style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.white.withValues(alpha: 0.6))),
+                    Text('AI Lesson Generator',
+                        style:
+                            AppTypography.body.copyWith(color: Colors.white)),
+                    Text('Tap to generate plan, quiz & notes',
+                        style: AppTypography.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.6))),
                   ],
                 ),
               ],
@@ -311,7 +349,8 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
       ),
-      child: Text(label, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: Colors.white)),
+      child: Text(label,
+          style: AppTypography.caption.copyWith(color: Colors.white)),
     );
   }
 
@@ -332,30 +371,43 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
     );
   }
 
-  Widget _gridStatCard(String val, String label, String status, Color statusColor) {
+  Widget _gridStatCard(
+      String val, String label, String status, Color statusColor) {
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20.r),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)],
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 10)
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(width: 24.w, height: 24.h, decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6.r))),
+              Container(
+                  width: 24.w,
+                  height: 24.h,
+                  decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6.r))),
             ],
           ),
           const Spacer(),
-          Text(val, style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w900, color: darkNavy)),
-          Text(label, style: GoogleFonts.inter(fontSize: 11.sp, color: darkNavy.withValues(alpha: 0.6))),
+          Text(val, style: AppTypography.h4.copyWith(color: darkNavy)),
+          Text(label,
+              style: AppTypography.caption
+                  .copyWith(color: darkNavy.withValues(alpha: 0.6))),
           SizedBox(height: 8.h),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4.r)),
-            child: Text(status, style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: statusColor)),
+            decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4.r)),
+            child: Text(status,
+                style: AppTypography.caption.copyWith(color: statusColor)),
           ),
         ],
       ),
@@ -375,7 +427,11 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
     List<Widget>? extras,
   }) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChapterDetailScreen(title: title, chapter: chapter))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  ChapterDetailScreen(title: title, chapter: chapter))),
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
         padding: EdgeInsets.all(20.r),
@@ -390,33 +446,66 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(chapter, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: darkNavy.withValues(alpha: 0.4))),
+                Text(chapter,
+                    style: AppTypography.caption
+                        .copyWith(color: darkNavy.withValues(alpha: 0.4))),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(color: isComplete ? accentGreen.withValues(alpha: 0.1) : (isActive ? accentBlue.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.1)), borderRadius: BorderRadius.circular(8.r)),
-                  child: Text(isComplete ? 'Complete' : (isActive ? 'Active' : 'Pending'), style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800, color: isComplete ? accentGreen : (isActive ? accentBlue : Colors.grey))),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                      color: isComplete
+                          ? accentGreen.withValues(alpha: 0.1)
+                          : (isActive
+                              ? accentBlue.withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.1)),
+                      borderRadius: BorderRadius.circular(8.r)),
+                  child: Text(
+                      isComplete
+                          ? 'Complete'
+                          : (isActive ? 'Active' : 'Pending'),
+                      style: AppTypography.caption.copyWith(
+                          color: isComplete
+                              ? accentGreen
+                              : (isActive ? accentBlue : Colors.grey))),
                 ),
               ],
             ),
             SizedBox(height: 4.h),
-            Text(title, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+            Text(title,
+                style: AppTypography.bodyLarge.copyWith(color: darkNavy)),
             SizedBox(height: 4.h),
-            Text('$lessons · $tools', style: GoogleFonts.inter(fontSize: 12.sp, color: darkNavy.withValues(alpha: 0.6))),
+            Text('$lessons · $tools',
+                style: AppTypography.caption
+                    .copyWith(color: darkNavy.withValues(alpha: 0.6))),
             SizedBox(height: 12.h),
             ClipRRect(
               borderRadius: BorderRadius.circular(4.r),
-              child: LinearProgressIndicator(value: progress, minHeight: 6, backgroundColor: backgroundGrey, valueColor: AlwaysStoppedAnimation(isComplete ? accentGreen : accentBlue)),
+              child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 6,
+                  backgroundColor: backgroundGrey,
+                  valueColor: AlwaysStoppedAnimation(
+                      isComplete ? accentGreen : accentBlue)),
             ),
             SizedBox(height: 12.h),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(tags[0], style: GoogleFonts.inter(fontSize: 12.sp, color: darkNavy.withValues(alpha: 0.4))),
-                if (tags.length > 1) 
+                Text(tags[0],
+                    style: AppTypography.caption
+                        .copyWith(color: darkNavy.withValues(alpha: 0.4))),
+                if (tags.length > 1)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                    decoration: BoxDecoration(color: backgroundGrey, borderRadius: BorderRadius.circular(4.r), border: Border.all(color: Colors.black.withValues(alpha: 0.1))),
-                    child: Text(tags[1], style: GoogleFonts.inter(fontSize: 10.sp, color: darkNavy.withValues(alpha: 0.6))),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                    decoration: BoxDecoration(
+                        color: backgroundGrey,
+                        borderRadius: BorderRadius.circular(4.r),
+                        border: Border.all(
+                            color: Colors.black.withValues(alpha: 0.1))),
+                    child: Text(tags[1],
+                        style: AppTypography.caption
+                            .copyWith(color: darkNavy.withValues(alpha: 0.6))),
                   ),
               ],
             ),
@@ -434,8 +523,11 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
     return Container(
       margin: EdgeInsets.only(right: 8.w),
       padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6.r), border: Border.all(color: textCol.withValues(alpha: 0.2))),
-      child: Text(text, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: textCol)),
+      decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(6.r),
+          border: Border.all(color: textCol.withValues(alpha: 0.2))),
+      child: Text(text, style: AppTypography.caption.copyWith(color: textCol)),
     );
   }
 
@@ -445,15 +537,27 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Today\'s schedule — May 12', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+          Text('Today\'s schedule — May 12',
+              style: AppTypography.body.copyWith(color: darkNavy)),
           SizedBox(height: 16.h),
-          _scheduleItem('9:00', 'Thermodynamics — Entropy', 'Class 12A · 44/48', 'Completed', 'HW assigned', accentGreen, 0.95),
-          _scheduleItem('11:00', 'Wave Functions — QM', 'Class 12A · In progress', 'In Progress', '5 weak', accentBlue, 0.60),
-          _scheduleItem('14:00', 'Transition Metals — Chem', 'Class 11B · Scheduled', 'Upcoming', null, Colors.grey, 0),
-          _scheduleItem('16:00', 'Wave Optics — Class 10C', 'Class 10C · Scheduled', 'Upcoming', null, Colors.grey, 0),
+          _scheduleItem('9:00', 'Thermodynamics — Entropy', 'Class 12A · 44/48',
+              'Completed', 'HW assigned', accentGreen, 0.95),
+          _scheduleItem(
+              '11:00',
+              'Wave Functions — QM',
+              'Class 12A · In progress',
+              'In Progress',
+              '5 weak',
+              accentBlue,
+              0.60),
+          _scheduleItem('14:00', 'Transition Metals — Chem',
+              'Class 11B · Scheduled', 'Upcoming', null, Colors.grey, 0),
+          _scheduleItem('16:00', 'Wave Optics — Class 10C',
+              'Class 10C · Scheduled', 'Upcoming', null, Colors.grey, 0),
           SizedBox(height: 24.h),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLessonScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AddLessonScreen())),
             child: _buildAddButton(darkNavy, 'Add new lesson'),
           ),
         ],
@@ -461,9 +565,14 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
     );
   }
 
-  Widget _scheduleItem(String time, String title, String subtitle, String status, String? extra, Color color, double progress) {
+  Widget _scheduleItem(String time, String title, String subtitle,
+      String status, String? extra, Color color, double progress) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LessonDetailScreen(title: title, chapter: subtitle.split(' · ')[0]))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) => LessonDetailScreen(
+                  title: title, chapter: subtitle.split(' · ')[0]))),
       child: Container(
         margin: EdgeInsets.only(bottom: 16.h),
         child: Row(
@@ -471,33 +580,52 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           children: [
             Column(
               children: [
-                Text(time, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: darkNavy.withValues(alpha: 0.5))),
+                Text(time,
+                    style: AppTypography.small
+                        .copyWith(color: darkNavy.withValues(alpha: 0.5))),
                 SizedBox(height: 8.h),
-                Container(width: 12.w, height: 12.h, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                Container(width: 2.w, height: 60.h, color: Colors.grey.shade300),
+                Container(
+                    width: 12.w,
+                    height: 12.h,
+                    decoration:
+                        BoxDecoration(color: color, shape: BoxShape.circle)),
+                Container(
+                    width: 2.w, height: 60.h, color: Colors.grey.shade300),
               ],
             ),
             SizedBox(width: 16.w),
             Expanded(
               child: Container(
                 padding: EdgeInsets.all(16.r),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20.r)),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20.r)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(child: Text(title, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: darkNavy))),
-                        if (progress > 0) Text('${(progress * 100).round()}%', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: color)),
+                        Expanded(
+                            child: Text(title,
+                                style: AppTypography.body
+                                    .copyWith(color: darkNavy))),
+                        if (progress > 0)
+                          Text('${(progress * 100).round()}%',
+                              style:
+                                  AppTypography.caption.copyWith(color: color)),
                       ],
                     ),
-                    Text(subtitle, style: GoogleFonts.inter(fontSize: 12.sp, color: darkNavy.withValues(alpha: 0.6))),
+                    Text(subtitle,
+                        style: AppTypography.caption
+                            .copyWith(color: darkNavy.withValues(alpha: 0.6))),
                     SizedBox(height: 12.h),
                     Row(
                       children: [
                         _tagButton(status, color.withValues(alpha: 0.1), color),
-                        if (extra != null) _tagButton(extra, accentAmber.withValues(alpha: 0.1), accentAmber),
+                        if (extra != null)
+                          _tagButton(extra, accentAmber.withValues(alpha: 0.1),
+                              accentAmber),
                       ],
                     ),
                   ],
@@ -519,21 +647,26 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Weekly planner', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+              Text('Weekly planner',
+                  style: AppTypography.bodyLarge.copyWith(color: darkNavy)),
               GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLessonScreen())),
-                child: Text('+ Add', style: GoogleFonts.inter(color: accentBlue, fontWeight: FontWeight.w700)),
+                onTap: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const AddLessonScreen())),
+                child: Text('+ Add',
+                    style: GoogleFonts.inter(
+                        color: accentBlue, fontWeight: FontWeight.w700)),
               ),
             ],
           ),
           SizedBox(height: 16.h),
           Container(
             padding: EdgeInsets.all(20.r),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
+            decoration: BoxDecoration(
+                color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('This week — May 12–16', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700)),
+                Text('This week — May 12–16', style: AppTypography.small),
                 SizedBox(height: 16.h),
                 _weeklyBar('Monday', 1.0, accentGreen, '4/4'),
                 _weeklyBar('Tuesday', 0.75, accentBlue, '3/4'),
@@ -544,11 +677,15 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
             ),
           ),
           SizedBox(height: 24.h),
-          _buildSectionCard('Approval workflow', 'Quantum Mechanics Lesson Plan', [
-            _workflowStep('Teacher', true),
-            _workflowStep('HOD', false, active: true),
-            _workflowStep('Principal', false),
-          ], footer: 'Awaiting HOD review'),
+          _buildSectionCard(
+              'Approval workflow',
+              'Quantum Mechanics Lesson Plan',
+              [
+                _workflowStep('Teacher', true),
+                _workflowStep('HOD', false, active: true),
+                _workflowStep('Principal', false),
+              ],
+              footer: 'Awaiting HOD review'),
           SizedBox(height: 24.h),
           _buildUpcomingExams(),
         ],
@@ -561,29 +698,47 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
       padding: EdgeInsets.only(bottom: 12.h),
       child: Row(
         children: [
-          SizedBox(width: 80.w, child: Text(day, style: GoogleFonts.inter(fontSize: 12.sp, color: darkNavy.withValues(alpha: 0.6)))),
-          Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(10.r), child: LinearProgressIndicator(value: val, minHeight: 12, backgroundColor: backgroundGrey, valueColor: AlwaysStoppedAnimation(col)))),
+          SizedBox(
+              width: 80.w,
+              child: Text(day,
+                  style: AppTypography.caption
+                      .copyWith(color: darkNavy.withValues(alpha: 0.6)))),
+          Expanded(
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: LinearProgressIndicator(
+                      value: val,
+                      minHeight: 12,
+                      backgroundColor: backgroundGrey,
+                      valueColor: AlwaysStoppedAnimation(col)))),
           SizedBox(width: 12.w),
-          Text(count, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: col)),
+          Text(count, style: AppTypography.caption.copyWith(color: col)),
         ],
       ),
     );
   }
 
-  Widget _buildSectionCard(String title, String subtitle, List<Widget> items, {String? footer}) {
+  Widget _buildSectionCard(String title, String subtitle, List<Widget> items,
+      {String? footer}) {
     return Container(
       padding: EdgeInsets.all(20.r),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800)),
-          Text(subtitle, style: GoogleFonts.inter(fontSize: 13.sp, color: darkNavy.withValues(alpha: 0.6))),
+          Text(title, style: AppTypography.body),
+          Text(subtitle,
+              style: AppTypography.caption
+                  .copyWith(color: darkNavy.withValues(alpha: 0.6))),
           SizedBox(height: 20.h),
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: items),
+          Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: items),
           if (footer != null) ...[
             SizedBox(height: 16.h),
-            Text(footer, style: GoogleFonts.inter(fontSize: 12.sp, color: accentBlue, fontWeight: FontWeight.w600)),
+            Text(footer,
+                style: AppTypography.caption.copyWith(color: accentBlue)),
           ],
         ],
       ),
@@ -596,25 +751,34 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
         margin: EdgeInsets.symmetric(horizontal: 4.w),
         padding: EdgeInsets.symmetric(vertical: 12.h),
         decoration: BoxDecoration(
-          color: done ? accentGreen.withValues(alpha: 0.1) : (active ? accentBlue.withValues(alpha: 0.1) : backgroundGrey),
+          color: done
+              ? accentGreen.withValues(alpha: 0.1)
+              : (active ? accentBlue.withValues(alpha: 0.1) : backgroundGrey),
           borderRadius: BorderRadius.circular(12.r),
           border: active ? Border.all(color: accentBlue) : null,
         ),
-        child: Center(child: Text(label, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: done ? accentGreen : (active ? accentBlue : Colors.grey)))),
+        child: Center(
+            child: Text(label,
+                style: AppTypography.caption.copyWith(
+                    color: done
+                        ? accentGreen
+                        : (active ? accentBlue : Colors.grey)))),
       ),
     );
   }
 
   Widget _buildUpcomingExams() {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HomeworkScreen())),
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const HomeworkScreen())),
       child: Container(
         padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Upcoming exams', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+            Text('Upcoming exams', style: AppTypography.body),
             SizedBox(height: 16.h),
             _examItem('Physics Unit Test', 'May 18 · 6 days', accentRose),
             _examItem('Biology Mid Term', 'May 22 · 10 days', accentAmber),
@@ -631,8 +795,10 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: GoogleFonts.inter(fontSize: 13.sp, color: darkNavy.withValues(alpha: 0.6))),
-          Text(date, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: col)),
+          Text(title,
+              style: AppTypography.caption
+                  .copyWith(color: darkNavy.withValues(alpha: 0.6))),
+          Text(date, style: AppTypography.caption.copyWith(color: col)),
         ],
       ),
     );
@@ -645,7 +811,10 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsDetailScreen())),
+            onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AnalyticsDetailScreen())),
             child: _buildAnalyticsCard('Subject completion %', [
               _analyticsBar('Physics', 0.78, accentBlue, '78%'),
               _analyticsBar('Chemistry', 0.55, accentGreen, '55%'),
@@ -654,7 +823,8 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           ),
           SizedBox(height: 20.h),
           GestureDetector(
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HomeworkScreen())),
+            onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const HomeworkScreen())),
             child: _buildAnalyticsCard('Homework completion by class', [
               _analyticsBar('Class 12A', 0.89, accentGreen, '89%'),
               _analyticsBar('Class 11B', 0.72, accentAmber, '72%'),
@@ -671,10 +841,16 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
           SizedBox(height: 20.h),
           Row(
             children: [
-              Text('12 students need remedial support.', style: GoogleFonts.inter(fontSize: 13.sp, color: darkNavy.withValues(alpha: 0.6))),
+              Text('12 students need remedial support.',
+                  style: AppTypography.caption
+                      .copyWith(color: darkNavy.withValues(alpha: 0.6))),
               GestureDetector(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsDetailScreen())),
-                child: Text(' View list →', style: GoogleFonts.inter(fontSize: 13.sp, color: accentBlue, fontWeight: FontWeight.w700)),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AnalyticsDetailScreen())),
+                child: Text(' View list →',
+                    style: AppTypography.caption.copyWith(color: accentBlue)),
               ),
             ],
           ),
@@ -686,11 +862,12 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
   Widget _buildAnalyticsCard(String title, List<Widget> bars) {
     return Container(
       padding: EdgeInsets.all(20.r),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+          Text(title, style: AppTypography.body),
           SizedBox(height: 20.h),
           ...bars,
         ],
@@ -703,10 +880,21 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
       padding: EdgeInsets.only(bottom: 16.h),
       child: Row(
         children: [
-          SizedBox(width: 100.w, child: Text(label, style: GoogleFonts.inter(fontSize: 13.sp, color: darkNavy.withValues(alpha: 0.6)))),
-          Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(10.r), child: LinearProgressIndicator(value: val, minHeight: 8, backgroundColor: backgroundGrey, valueColor: AlwaysStoppedAnimation(col)))),
+          SizedBox(
+              width: 100.w,
+              child: Text(label,
+                  style: AppTypography.caption
+                      .copyWith(color: darkNavy.withValues(alpha: 0.6)))),
+          Expanded(
+              child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10.r),
+                  child: LinearProgressIndicator(
+                      value: val,
+                      minHeight: 8,
+                      backgroundColor: backgroundGrey,
+                      valueColor: AlwaysStoppedAnimation(col)))),
           SizedBox(width: 12.w),
-          Text(pct, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: darkNavy)),
+          Text(pct, style: AppTypography.caption.copyWith(color: darkNavy)),
         ],
       ),
     );
@@ -716,28 +904,29 @@ class _LessonPlanScreenState extends State<LessonPlanScreen> with SingleTickerPr
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(vertical: 16.h),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16.r)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16.r)),
       child: Center(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add, color: Colors.white, size: 20.sp),
             SizedBox(width: 8.w),
-            Text(label, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text(label,
+                style: AppTypography.tableHeader.copyWith(color: Colors.white)),
           ],
         ),
       ),
     );
   }
-
-
 }
 
 class ChapterDetailScreen extends StatelessWidget {
   final String title;
   final String chapter;
 
-  const ChapterDetailScreen({super.key, required this.title, required this.chapter});
+  const ChapterDetailScreen(
+      {super.key, required this.title, required this.chapter});
 
   @override
   Widget build(BuildContext context) {
@@ -751,17 +940,28 @@ class ChapterDetailScreen extends StatelessWidget {
         children: [
           Container(
             color: darkNavy,
-            padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 10, bottom: 20, left: 20, right: 20),
+            padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 10,
+                bottom: 20,
+                left: 20,
+                right: 20),
             child: Row(
               children: [
-                IconButton(icon: const Icon(Icons.arrow_back_rounded, color: Colors.white), onPressed: () => Navigator.pop(context)),
+                IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded,
+                        color: Colors.white),
+                    onPressed: () => Navigator.pop(context)),
                 SizedBox(width: 8.w),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.w800, color: Colors.white)),
-                      Text('$chapter · Physics Grade 12', style: GoogleFonts.inter(fontSize: 14.sp, color: Colors.white.withValues(alpha: 0.6))),
+                      Text(title,
+                          style:
+                              AppTypography.h4.copyWith(color: Colors.white)),
+                      Text('$chapter · Physics Grade 12',
+                          style: AppTypography.small.copyWith(
+                              color: Colors.white.withValues(alpha: 0.6))),
                     ],
                   ),
                 ),
@@ -776,33 +976,60 @@ class ChapterDetailScreen extends StatelessWidget {
                 children: [
                   Container(
                     padding: EdgeInsets.all(24.r),
-                    decoration: BoxDecoration(color: const Color(0xFF334155), borderRadius: BorderRadius.circular(24.r)),
+                    decoration: BoxDecoration(
+                        color: const Color(0xFF334155),
+                        borderRadius: BorderRadius.circular(24.r)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('ACTIVE · 6/10 LESSONS', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white.withValues(alpha: 0.6))),
+                        Text('ACTIVE · 6/10 LESSONS',
+                            style: AppTypography.caption.copyWith(
+                                color: Colors.white.withValues(alpha: 0.6))),
                         SizedBox(height: 12.h),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('60%', style: GoogleFonts.inter(fontSize: 48.sp, fontWeight: FontWeight.w900, color: Colors.white)),
-                            SizedBox(width: 70.w, height: 70.h, child: CircularProgressIndicator(value: 0.6, strokeWidth: 8, backgroundColor: Colors.white.withValues(alpha: 0.1), valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)))),
+                            Text('60%',
+                                style: AppTypography.h1
+                                    .copyWith(color: Colors.white)),
+                            SizedBox(
+                                width: 70.w,
+                                height: 70.h,
+                                child: CircularProgressIndicator(
+                                    value: 0.6,
+                                    strokeWidth: 8,
+                                    backgroundColor:
+                                        Colors.white.withValues(alpha: 0.1),
+                                    valueColor: const AlwaysStoppedAnimation(
+                                        Color(0xFF10B981)))),
                           ],
                         ),
-                        Text('6 of 10 lessons completed', style: GoogleFonts.inter(fontSize: 14.sp, color: Colors.white.withValues(alpha: 0.8))),
+                        Text('6 of 10 lessons completed',
+                            style: AppTypography.small.copyWith(
+                                color: Colors.white.withValues(alpha: 0.8))),
                         SizedBox(height: 16.h),
-                        ClipRRect(borderRadius: BorderRadius.circular(10.r), child: LinearProgressIndicator(value: 0.6, minHeight: 8, backgroundColor: Colors.white.withValues(alpha: 0.1), valueColor: const AlwaysStoppedAnimation(Color(0xFF10B981)))),
+                        ClipRRect(
+                            borderRadius: BorderRadius.circular(10.r),
+                            child: LinearProgressIndicator(
+                                value: 0.6,
+                                minHeight: 8,
+                                backgroundColor:
+                                    Colors.white.withValues(alpha: 0.1),
+                                valueColor: const AlwaysStoppedAnimation(
+                                    Color(0xFF10B981)))),
                       ],
                     ),
                   ),
                   SizedBox(height: 24.h),
                   Container(
                     padding: EdgeInsets.all(20.r),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24.r)),
+                    decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24.r)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Chapter info', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+                        Text('Chapter info', style: AppTypography.body),
                         SizedBox(height: 16.h),
                         _infoRow('Teaching method', 'Animation + Discussion'),
                         _infoRow('Bloom\'s level', 'Apply, Evaluate'),
@@ -812,17 +1039,25 @@ class ChapterDetailScreen extends StatelessWidget {
                     ),
                   ),
                   SizedBox(height: 24.h),
-                  Text('Lessons breakdown', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800)),
+                  Text('Lessons breakdown', style: AppTypography.body),
                   SizedBox(height: 12.h),
-                  _lessonItem(context, 'Lesson 1 — Completed', 'Done', accentGreen),
-                  _lessonItem(context, 'Lesson 2 — Completed', 'Done', accentGreen),
-                  _lessonItem(context, 'Lesson 3 — Completed', 'Done', accentGreen),
-                  _lessonItem(context, 'Lesson 7 — Active', 'Active', accentBlue),
+                  _lessonItem(
+                      context, 'Lesson 1 — Completed', 'Done', accentGreen),
+                  _lessonItem(
+                      context, 'Lesson 2 — Completed', 'Done', accentGreen),
+                  _lessonItem(
+                      context, 'Lesson 3 — Completed', 'Done', accentGreen),
+                  _lessonItem(
+                      context, 'Lesson 7 — Active', 'Active', accentBlue),
                   _lessonItem(context, 'Lesson 8', 'Pending', Colors.grey),
                   SizedBox(height: 24.h),
                   GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddLessonScreen())),
-                    child: _buildDetailAddButton(darkNavy, 'Add lesson to this chapter'),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AddLessonScreen())),
+                    child: _buildDetailAddButton(
+                        darkNavy, 'Add lesson to this chapter'),
                   ),
                 ],
               ),
@@ -839,33 +1074,50 @@ class ChapterDetailScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 14.sp, color: Colors.grey)),
+          Text(label, style: AppTypography.small.copyWith(color: Colors.grey)),
           if (isStatus)
             Container(
               padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-              decoration: BoxDecoration(color: const Color(0xFF3B82F6).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8.r)),
-              child: Text(val, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800, color: const Color(0xFF3B82F6))),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF3B82F6).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8.r)),
+              child: Text(val,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF3B82F6))),
             )
           else
-            Text(val, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700)),
+            Text(val, style: AppTypography.small),
         ],
       ),
     );
   }
 
-  Widget _lessonItem(BuildContext context, String title, String status, Color col) {
+  Widget _lessonItem(
+      BuildContext context, String title, String status, Color col) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => LessonDetailScreen(title: title, chapter: 'Chapter 2'))),
+      onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+              builder: (_) =>
+                  LessonDetailScreen(title: title, chapter: 'Chapter 2'))),
       child: Container(
         margin: EdgeInsets.only(bottom: 12.h),
         padding: EdgeInsets.all(16.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r)),
+        decoration: BoxDecoration(
+            color: Colors.white, borderRadius: BorderRadius.circular(16.r)),
         child: Row(
           children: [
-            Container(width: 12.w, height: 12.h, decoration: BoxDecoration(color: col.withValues(alpha: 0.2), shape: BoxShape.circle)),
+            Container(
+                width: 12.w,
+                height: 12.h,
+                decoration: BoxDecoration(
+                    color: col.withValues(alpha: 0.2), shape: BoxShape.circle)),
             SizedBox(width: 16.w),
-            Expanded(child: Text(title, style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: status == 'Active' ? col : Colors.black))),
-            Text(status, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: col)),
+            Expanded(
+                child: Text(title,
+                    style: AppTypography.small.copyWith(
+                        color: status == 'Active' ? col : Colors.black))),
+            Text(status, style: AppTypography.caption.copyWith(color: col)),
           ],
         ),
       ),
@@ -876,9 +1128,11 @@ class ChapterDetailScreen extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(vertical: 16.h),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16.r)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16.r)),
       child: Center(
-        child: Text(label, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+        child: Text(label,
+            style: AppTypography.tableHeader.copyWith(color: Colors.white)),
       ),
     );
   }

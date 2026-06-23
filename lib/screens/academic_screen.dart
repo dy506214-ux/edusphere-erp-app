@@ -20,6 +20,7 @@ import 'features/student_timetable_screen.dart';
 import 'features/announcements_screen.dart';
 import '../services/api_service.dart';
 import '../widgets/common_widgets.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Academic Screen — supports student Academic Overview & teacher Academic Management
@@ -46,7 +47,8 @@ class AcademicScreen extends StatefulWidget {
 
 class _AcademicScreenState extends State<AcademicScreen> {
   // ── Teacher/Management State ──
-  int _activeTab = 0; // 0 = Classes, 1 = Subjects, 2 = Sections, 3 = Exams & Results
+  int _activeTab =
+      0; // 0 = Classes, 1 = Subjects, 2 = Sections, 3 = Exams & Results
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _showFabMenu = true;
@@ -72,46 +74,184 @@ class _AcademicScreenState extends State<AcademicScreen> {
   final List<Map<String, dynamic>> _attendanceRecords = [];
   double _attendanceRate = 100.0;
   bool _hasAttendanceData = false;
-  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey = GlobalKey<RefreshIndicatorState>();
-
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      GlobalKey<RefreshIndicatorState>();
 
   // ── Selected day for timetable ──
   final int _selectedTimetableDay = DateTime.now().weekday;
 
   final Map<int, List<Map<String, dynamic>>> _mockTimetable = {
-    1: [ // Monday
-      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 201', 'type': 'CORE'},
-      {'subject': 'English', 'code': 'ENG-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 105', 'type': 'CORE'},
-      {'subject': 'Science', 'code': 'SCI-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Lab 402', 'type': 'CORE'},
-      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Room 102', 'type': 'CORE'},
+    1: [
+      // Monday
+      {
+        'subject': 'Mathematics',
+        'code': 'MAT-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Room 201',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'English',
+        'code': 'ENG-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Room 105',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Science',
+        'code': 'SCI-3',
+        'time': '11:00 AM - 12:00 PM',
+        'room': 'Lab 402',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Hindi',
+        'code': 'HIN-3',
+        'time': '01:00 PM - 02:00 PM',
+        'room': 'Room 102',
+        'type': 'CORE'
+      },
     ],
-    2: [ // Tuesday
-      {'subject': 'Science', 'code': 'SCI-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Lab 402', 'type': 'CORE'},
-      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 201', 'type': 'CORE'},
-      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 108', 'type': 'CORE'},
-      {'subject': 'Computer', 'code': 'COM-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
+    2: [
+      // Tuesday
+      {
+        'subject': 'Science',
+        'code': 'SCI-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Lab 402',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Mathematics',
+        'code': 'MAT-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Room 201',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Social Science',
+        'code': 'SOC-3',
+        'time': '11:00 AM - 12:00 PM',
+        'room': 'Room 108',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Computer',
+        'code': 'COM-3',
+        'time': '01:00 PM - 02:00 PM',
+        'room': 'Lab 501',
+        'type': 'ELECTIVE'
+      },
     ],
-    3: [ // Wednesday
-      {'subject': 'English', 'code': 'ENG-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 105', 'type': 'CORE'},
-      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 102', 'type': 'CORE'},
-      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 201', 'type': 'CORE'},
-      {'subject': 'Science', 'code': 'SCI-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 402', 'type': 'CORE'},
+    3: [
+      // Wednesday
+      {
+        'subject': 'English',
+        'code': 'ENG-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Room 105',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Hindi',
+        'code': 'HIN-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Room 102',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Mathematics',
+        'code': 'MAT-3',
+        'time': '11:00 AM - 12:00 PM',
+        'room': 'Room 201',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Science',
+        'code': 'SCI-3',
+        'time': '01:00 PM - 02:00 PM',
+        'room': 'Lab 402',
+        'type': 'CORE'
+      },
     ],
-    4: [ // Thursday
-      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 108', 'type': 'CORE'},
-      {'subject': 'Science', 'code': 'SCI-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Lab 402', 'type': 'CORE'},
-      {'subject': 'English', 'code': 'ENG-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 105', 'type': 'CORE'},
-      {'subject': 'Computer', 'code': 'COM-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
+    4: [
+      // Thursday
+      {
+        'subject': 'Social Science',
+        'code': 'SOC-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Room 108',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Science',
+        'code': 'SCI-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Lab 402',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'English',
+        'code': 'ENG-3',
+        'time': '11:00 AM - 12:00 PM',
+        'room': 'Room 105',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Computer',
+        'code': 'COM-3',
+        'time': '01:00 PM - 02:00 PM',
+        'room': 'Lab 501',
+        'type': 'ELECTIVE'
+      },
     ],
-    5: [ // Friday
-      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Room 201', 'type': 'CORE'},
-      {'subject': 'Hindi', 'code': 'HIN-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 102', 'type': 'CORE'},
-      {'subject': 'Social Science', 'code': 'SOC-3', 'time': '11:00 AM - 12:00 PM', 'room': 'Room 108', 'type': 'CORE'},
-      {'subject': 'English', 'code': 'ENG-3', 'time': '01:00 PM - 02:00 PM', 'room': 'Room 105', 'type': 'CORE'},
+    5: [
+      // Friday
+      {
+        'subject': 'Mathematics',
+        'code': 'MAT-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Room 201',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Hindi',
+        'code': 'HIN-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Room 102',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'Social Science',
+        'code': 'SOC-3',
+        'time': '11:00 AM - 12:00 PM',
+        'room': 'Room 108',
+        'type': 'CORE'
+      },
+      {
+        'subject': 'English',
+        'code': 'ENG-3',
+        'time': '01:00 PM - 02:00 PM',
+        'room': 'Room 105',
+        'type': 'CORE'
+      },
     ],
-    6: [ // Saturday
-      {'subject': 'Computer', 'code': 'COM-3', 'time': '08:30 AM - 09:30 AM', 'room': 'Lab 501', 'type': 'ELECTIVE'},
-      {'subject': 'Mathematics', 'code': 'MAT-3', 'time': '09:45 AM - 10:45 AM', 'room': 'Room 201', 'type': 'CORE'},
+    6: [
+      // Saturday
+      {
+        'subject': 'Computer',
+        'code': 'COM-3',
+        'time': '08:30 AM - 09:30 AM',
+        'room': 'Lab 501',
+        'type': 'ELECTIVE'
+      },
+      {
+        'subject': 'Mathematics',
+        'code': 'MAT-3',
+        'time': '09:45 AM - 10:45 AM',
+        'room': 'Room 201',
+        'type': 'CORE'
+      },
     ],
   };
 
@@ -153,7 +293,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'student1@demoschool.com';
+      final savedEmail = prefs.getString('student_email') ??
+          prefs.getString('user_email') ??
+          'student1@demoschool.com';
       _studentEmail = savedEmail;
 
       // 1. Fetch User and Student profile
@@ -165,7 +307,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
       if (userRes != null) {
         final userId = userRes['id'] as String;
-        _studentName = '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
+        _studentName =
+            '${userRes['firstName'] ?? ''} ${userRes['lastName'] ?? ''}'.trim();
 
         final studentRes = await Supabase.instance.client
             .from('Student')
@@ -178,7 +321,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
           _classId = studentRes['currentClassId'] as String? ?? '';
           _sectionId = studentRes['sectionId'] as String? ?? '';
           if (studentRes['currentClass'] != null) {
-            _className = studentRes['currentClass']['name'] as String? ?? 'Grade 1';
+            _className =
+                studentRes['currentClass']['name'] as String? ?? 'Grade 1';
           }
         }
       } else {
@@ -196,7 +340,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
             .from('Subject')
             .select()
             .eq('classId', _classId);
-        
+
         _studentSubjects = List<Map<String, dynamic>>.from(subjectsRes);
       }
 
@@ -206,7 +350,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
             .from('TimetableSlot')
             .select('*, subject:Subject(name, code)')
             .eq('sectionId', _sectionId);
-        
+
         _timetableSlots = List<Map<String, dynamic>>.from(slotsRes);
       }
 
@@ -222,48 +366,57 @@ class _AcademicScreenState extends State<AcademicScreen> {
           List<Map<String, dynamic>> validRecords = [];
 
           for (var r in rawList) {
-             final dateStr = r['date']?.toString() ?? '';
-             if (dateStr.isEmpty) continue;
-             
-             validRecords.add(Map<String, dynamic>.from(r));
-             
-             final status = r['status']?.toString() ?? '';
-             if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'HALF_DAY') {
-               present++;
-             }
+            final dateStr = r['date']?.toString() ?? '';
+            if (dateStr.isEmpty) continue;
+
+            validRecords.add(Map<String, dynamic>.from(r));
+
+            final status = r['status']?.toString() ?? '';
+            if (status == 'PRESENT' ||
+                status == 'P' ||
+                status == 'LATE' ||
+                status == 'HALF_DAY') {
+              present++;
+            }
           }
 
-          _attendanceRate = rawList.isNotEmpty ? (present / rawList.length) * 100 : 100.0;
+          _attendanceRate =
+              rawList.isNotEmpty ? (present / rawList.length) * 100 : 100.0;
           _hasAttendanceData = true;
 
           _attendanceRecords.clear();
-          
+
           final DateTime today = DateTime.now();
           for (int i = 0; i < 7; i++) {
-             final date = today.subtract(Duration(days: i));
-             final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-             
-             final matchingRecord = validRecords.where((r) => r['date']?.toString().startsWith(dateStr) == true).toList();
-             final isWeekend = date.weekday == DateTime.saturday || date.weekday == DateTime.sunday;
-             
-             if (matchingRecord.isNotEmpty) {
-                 final rec = matchingRecord.first;
-                 _attendanceRecords.add({
-                    ...rec,
-                    'date': dateStr, // normalized
-                    'isWeekend': isWeekend,
-                    'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
-                 });
-             } else {
-                 _attendanceRecords.add({
-                    'date': dateStr,
-                    'status': isWeekend ? 'WEEKEND' : 'NOT_MARKED',
-                    'isWeekend': isWeekend,
-                 });
-             }
+            final date = today.subtract(Duration(days: i));
+            final dateStr =
+                '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+            final matchingRecord = validRecords
+                .where((r) => r['date']?.toString().startsWith(dateStr) == true)
+                .toList();
+            final isWeekend = date.weekday == DateTime.saturday ||
+                date.weekday == DateTime.sunday;
+
+            if (matchingRecord.isNotEmpty) {
+              final rec = matchingRecord.first;
+              _attendanceRecords.add({
+                ...rec,
+                'date': dateStr, // normalized
+                'isWeekend': isWeekend,
+                'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
+              });
+            } else {
+              _attendanceRecords.add({
+                'date': dateStr,
+                'status': isWeekend ? 'WEEKEND' : 'NOT_MARKED',
+                'isWeekend': isWeekend,
+              });
+            }
           }
         } catch (e) {
-          dev.log('❌ Error fetching Attendance from Supabase: $e', name: 'AcademicScreen');
+          dev.log('❌ Error fetching Attendance from Supabase: $e',
+              name: 'AcademicScreen');
           _hasAttendanceData = false;
         }
       }
@@ -290,122 +443,135 @@ class _AcademicScreenState extends State<AcademicScreen> {
         client.removeChannel(_realtimeChannel!);
       }
 
-      dev.log('📡 Subscribing to Supabase Realtime changes for Academic Screen...', name: 'AcademicScreen');
-      _realtimeChannel = client.channel('public:academic_screen_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AttendanceRecord',
-          callback: (payload) {
-            dev.log('🔥 Real-time attendance change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+      dev.log(
+          '📡 Subscribing to Supabase Realtime changes for Academic Screen...',
+          name: 'AcademicScreen');
+      _realtimeChannel = client
+          .channel('public:academic_screen_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AttendanceRecord',
+            callback: (payload) {
+              dev.log('🔥 Real-time attendance change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Subject',
-          callback: (payload) {
-            dev.log('🔥 Real-time subject change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Subject',
+            callback: (payload) {
+              dev.log('🔥 Real-time subject change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'TimetableSlot',
-          callback: (payload) {
-            dev.log('🔥 Real-time timetable slot change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'TimetableSlot',
+            callback: (payload) {
+              dev.log('🔥 Real-time timetable slot change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Student',
-          callback: (payload) {
-            dev.log('🔥 Real-time student profile change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Student',
+            callback: (payload) {
+              dev.log('🔥 Real-time student profile change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Class',
-          callback: (payload) {
-            dev.log('🔥 Real-time class change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Class',
+            callback: (payload) {
+              dev.log('🔥 Real-time class change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Section',
-          callback: (payload) {
-            dev.log('🔥 Real-time section change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Section',
+            callback: (payload) {
+              dev.log('🔥 Real-time section change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AttendanceRecord',
-          callback: (payload) {
-            dev.log('🔥 Real-time attendance change payload: $payload', name: 'AcademicScreen');
-            if (mounted) {
-              if (widget.role == 'student') {
-                _loadStudentOverviewData(showLoading: false);
-              } else {
-                _loadLocalData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AttendanceRecord',
+            callback: (payload) {
+              dev.log('🔥 Real-time attendance change payload: $payload',
+                  name: 'AcademicScreen');
+              if (mounted) {
+                if (widget.role == 'student') {
+                  _loadStudentOverviewData(showLoading: false);
+                } else {
+                  _loadLocalData();
+                }
               }
-            }
-          },
-        );
+            },
+          );
 
       _realtimeChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Academic channel status: $status', name: 'AcademicScreen');
+        dev.log('📡 Supabase Realtime Academic channel status: $status',
+            name: 'AcademicScreen');
         if (error != null) {
-          dev.log('❌ Supabase Realtime Academic subscription error: $error', name: 'AcademicScreen');
+          dev.log('❌ Supabase Realtime Academic subscription error: $error',
+              name: 'AcademicScreen');
         }
       });
     } catch (e) {
-      dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e', name: 'AcademicScreen');
+      dev.log('⚠️ Error connecting Supabase Realtime Academic channel: $e',
+          name: 'AcademicScreen');
     }
 
     // Polling fallback every 30 seconds
@@ -426,7 +592,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
   Future<void> _loadLocalData() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _userName = prefs.getString('teacher_name') ?? prefs.getString('student_name') ?? 'Emma Johnson';
+      _userName = prefs.getString('teacher_name') ??
+          prefs.getString('student_name') ??
+          'Emma Johnson';
       _userRole = prefs.getString('user_role') ?? 'teacher';
 
       // Fetch from ApiService for real-time accurate backend data
@@ -436,18 +604,23 @@ class _AcademicScreenState extends State<AcademicScreen> {
         ApiService.instance.get('academic/sections'),
       ]);
 
-      final rawClasses = (results[0]['classes'] ?? results[0]['data'] ?? []) as List;
-      final rawSubjects = (results[1]['subjects'] ?? results[1]['data'] ?? []) as List;
-      final rawSections = (results[2]['sections'] ?? results[2]['data'] ?? []) as List;
+      final rawClasses =
+          (results[0]['classes'] ?? results[0]['data'] ?? []) as List;
+      final rawSubjects =
+          (results[1]['subjects'] ?? results[1]['data'] ?? []) as List;
+      final rawSections =
+          (results[2]['sections'] ?? results[2]['data'] ?? []) as List;
 
       final List<Map<String, dynamic>> loadedClasses = rawClasses.map((c) {
         final classTeacherUser = c['classTeacher'] as Map?;
         final tName = classTeacherUser != null
-            ? '${classTeacherUser['firstName'] ?? ''} ${classTeacherUser['lastName'] ?? ''}'.trim()
+            ? '${classTeacherUser['firstName'] ?? ''} ${classTeacherUser['lastName'] ?? ''}'
+                .trim()
             : '—';
-            
+
         // Use Prisma's _count if available, else 0
-        final stCount = c['_count']?['students'] ?? c['_count']?['Student'] ?? 0;
+        final stCount =
+            c['_count']?['students'] ?? c['_count']?['Student'] ?? 0;
 
         return {
           'id': c['id'],
@@ -458,10 +631,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
           'students': stCount,
         };
       }).toList();
-      
+
       final List<Map<String, dynamic>> loadedSubjects = rawSubjects.map((s) {
         final classData = s['Class'] ?? s['class'] as Map?;
-        final className = classData != null ? classData['name']?.toString() ?? '—' : '—';
+        final className =
+            classData != null ? classData['name']?.toString() ?? '—' : '—';
         return {
           'id': s['id'],
           'name': s['name']?.toString() ?? '',
@@ -474,9 +648,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
       final List<Map<String, dynamic>> loadedSections = rawSections.map((sec) {
         final classData = sec['Class'] ?? sec['class'] as Map?;
-        final className = classData != null ? classData['name']?.toString() ?? '—' : '—';
-        
-        final stCount = sec['_count']?['students'] ?? sec['_count']?['Student'] ?? 0;
+        final className =
+            classData != null ? classData['name']?.toString() ?? '—' : '—';
+
+        final stCount =
+            sec['_count']?['students'] ?? sec['_count']?['Student'] ?? 0;
 
         return {
           'id': sec['id'],
@@ -532,8 +708,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
       if (filtered.isNotEmpty) {
         // Sort by period number
         filtered.sort((a, b) {
-          final pa = a['period'] is int ? a['period'] as int : int.tryParse(a['period']?.toString() ?? '0') ?? 0;
-          final pb = b['period'] is int ? b['period'] as int : int.tryParse(b['period']?.toString() ?? '0') ?? 0;
+          final pa = a['period'] is int
+              ? a['period'] as int
+              : int.tryParse(a['period']?.toString() ?? '0') ?? 0;
+          final pb = b['period'] is int
+              ? b['period'] as int
+              : int.tryParse(b['period']?.toString() ?? '0') ?? 0;
           return pa.compareTo(pb);
         });
         return filtered.map((slot) {
@@ -541,7 +721,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
           final subCode = slot['subject']?['code'] ?? 'N/A';
           final roomId = slot['roomId'];
           final period = slot['period'];
-          final room = (roomId != null && roomId.toString().isNotEmpty) 
+          final room = (roomId != null && roomId.toString().isNotEmpty)
               ? roomId.toString()
               : (period != null ? 'Period $period' : 'Classroom');
           return {
@@ -557,16 +737,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
     // Fallback to mock data for the selected day
     final mockList = _mockTimetable[_selectedTimetableDay] ?? [];
-    return mockList.map((slot) => {
-      'title': '${_className.split(' ')[0]} • ${slot['subject']}',
-      'time': slot['time'],
-      'subject': slot['subject'],
-      'code': slot['code'],
-      'room': slot['room'],
-    }).toList();
+    return mockList
+        .map((slot) => {
+              'title': '${_className.split(' ')[0]} • ${slot['subject']}',
+              'time': slot['time'],
+              'subject': slot['subject'],
+              'code': slot['code'],
+              'room': slot['room'],
+            })
+        .toList();
   }
-
-
 
   void _showAllTimetablesSheet() {
     Navigator.push(
@@ -615,60 +795,62 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 )
               : Stack(
                   children: [
-              // Main scroll content
-              RefreshIndicator(
-                key: _refreshIndicatorKey,
-                onRefresh: () => _loadStudentOverviewData(showLoading: false),
-                color: const Color(0xFF0076F6),
-                child: SingleChildScrollView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.all(24.r),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Row (Academic Overview / Refresh)
-                      _buildStudentHeader(),
-                      SizedBox(height: 24.h),
-
-                      // Column / Desktop Row of current subjects & timetable
-                      if (isDesktop)
-                        Row(
+                    // Main scroll content
+                    RefreshIndicator(
+                      key: _refreshIndicatorKey,
+                      onRefresh: () =>
+                          _loadStudentOverviewData(showLoading: false),
+                      color: const Color(0xFF0076F6),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: EdgeInsets.all(24.r),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _buildCurrentSubjectsCard()),
-                            SizedBox(width: 24.w),
-                            Expanded(child: _buildTimetableCard()),
-                          ],
-                        )
-                      else
-                        Column(
-                          children: [
-                            _buildCurrentSubjectsCard(),
+                            // Header Row (Academic Overview / Refresh)
+                            _buildStudentHeader(),
                             SizedBox(height: 24.h),
-                            _buildTimetableCard(),
+
+                            // Column / Desktop Row of current subjects & timetable
+                            if (isDesktop)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(child: _buildCurrentSubjectsCard()),
+                                  SizedBox(width: 24.w),
+                                  Expanded(child: _buildTimetableCard()),
+                                ],
+                              )
+                            else
+                              Column(
+                                children: [
+                                  _buildCurrentSubjectsCard(),
+                                  SizedBox(height: 24.h),
+                                  _buildTimetableCard(),
+                                ],
+                              ),
+                            SizedBox(height: 24.h),
+
+                            // Academic Status Cards
+                            _buildAcademicStatusSection(isDesktop),
+                            SizedBox(height: 24.h),
+
+                            // Attendance History
+                            _buildAttendanceHistoryCard(),
                           ],
                         ),
-                      SizedBox(height: 24.h),
-
-                      // Academic Status Cards
-                      _buildAcademicStatusSection(isDesktop),
-                      SizedBox(height: 24.h),
-
-                      // Attendance History
-                      _buildAttendanceHistoryCard(),
-                    ],
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ),
       ),
     );
   }
 
   Widget _buildStudentHeader() {
-    final canGoBack = widget.showBackButton && (widget.onBack != null || Navigator.canPop(context));
+    final canGoBack = widget.showBackButton &&
+        (widget.onBack != null || Navigator.canPop(context));
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -696,7 +878,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   )
                 ],
               ),
-              child: Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
+              child: Icon(Icons.arrow_back_ios_new_rounded,
+                  color: const Color(0xFF0F2547), size: 16.sp),
             ),
           ),
         ],
@@ -708,22 +891,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 'Academic Overview',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 24.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0066CC),
-                ),
+                style:
+                    AppTypography.h3.copyWith(color: const Color(0xFF0066CC)),
               ),
               SizedBox(height: 4.h),
               Text(
                 'Manage your academic journey',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B7A90),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF6B7A90)),
               ),
             ],
           ),
@@ -761,7 +938,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
-                child: Icon(Icons.book_outlined, color: const Color(0xFF0076F6), size: 20.sp),
+                child: Icon(Icons.book_outlined,
+                    color: const Color(0xFF0076F6), size: 20.sp),
               ),
               SizedBox(width: 14.w),
               Column(
@@ -769,11 +947,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 children: [
                   Text(
                     'Current Subjects',
-                    style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547)),
                   ),
                   Text(
                     'Subjects assigned to your class',
-                    style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF6B7A90)),
                   ),
                 ],
               ),
@@ -784,9 +964,23 @@ class _AcademicScreenState extends State<AcademicScreen> {
           // Table Header
           Row(
             children: [
-              Expanded(flex: 3, child: Text('Subject', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700))),
-              Expanded(flex: 2, child: Center(child: Text('Code', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700)))),
-              Expanded(flex: 2, child: Center(child: Text('Type', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF94A3B8), fontWeight: FontWeight.w700)))),
+              Expanded(
+                  flex: 3,
+                  child: Text('Subject',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF94A3B8)))),
+              Expanded(
+                  flex: 2,
+                  child: Center(
+                      child: Text('Code',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF94A3B8))))),
+              Expanded(
+                  flex: 2,
+                  child: Center(
+                      child: Text('Type',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF94A3B8))))),
             ],
           ),
           const Divider(color: Color(0xFFE2E8F0)),
@@ -809,7 +1003,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       flex: 3,
                       child: Text(
                         sub['name'] as String,
-                        style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547)),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F2547)),
                       ),
                     ),
                     Expanded(
@@ -817,7 +1012,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       child: Center(
                         child: Text(
                           sub['code'] as String,
-                          style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w600),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF6B7A90)),
                         ),
                       ),
                     ),
@@ -825,14 +1021,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       flex: 2,
                       child: Center(
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 3.h),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(6.r),
                           ),
                           child: Text(
                             (sub['type'] ?? 'CORE').toString().toUpperCase(),
-                            style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF475569)),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF475569)),
                           ),
                         ),
                       ),
@@ -878,7 +1076,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
-                child: Icon(Icons.schedule_rounded, color: const Color(0xFF0076F6), size: 20.sp),
+                child: Icon(Icons.schedule_rounded,
+                    color: const Color(0xFF0076F6), size: 20.sp),
               ),
               SizedBox(width: 14.w),
               Column(
@@ -886,11 +1085,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 children: [
                   Text(
                     'Timetable',
-                    style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547)),
                   ),
                   Text(
                     'Recent class schedules',
-                    style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF6B7A90)),
                   ),
                 ],
               ),
@@ -910,12 +1111,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
               children: [
                 Text(
                   '${_className.split(' ')[0]} - A Weekly Routine',
-                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF0F2547)),
                 ),
                 SizedBox(height: 6.h),
                 Text(
                   'Class A',
-                  style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF6B7A90)),
                 ),
               ],
             ),
@@ -935,7 +1138,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
               child: Center(
                 child: Text(
                   'View All',
-                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0076F6)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0076F6)),
                 ),
               ),
             ),
@@ -951,11 +1155,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
       children: [
         Row(
           children: [
-            Icon(Icons.trending_up_rounded, color: const Color(0xFF0076F6), size: 20.sp),
+            Icon(Icons.trending_up_rounded,
+                color: const Color(0xFF0076F6), size: 20.sp),
             SizedBox(width: 8.w),
             Text(
               'Academic Status',
-              style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F2547)),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF0F2547)),
             ),
           ],
         ),
@@ -974,7 +1180,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
               child: _buildStatusMetricCard(
                 icon: Icons.check_circle_outline_rounded,
                 label: 'Attendance Progress',
-                value: _hasAttendanceData ? '${_attendanceRate.toStringAsFixed(1)}%' : 'Data Available',
+                value: _hasAttendanceData
+                    ? '${_attendanceRate.toStringAsFixed(1)}%'
+                    : 'Data Available',
               ),
             ),
           ],
@@ -983,7 +1191,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
     );
   }
 
-  Widget _buildStatusMetricCard({required IconData icon, required String label, required String value}) {
+  Widget _buildStatusMetricCard(
+      {required IconData icon, required String label, required String value}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
       decoration: BoxDecoration(
@@ -1004,12 +1213,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
           SizedBox(height: 12.h),
           Text(
             label,
-            style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w600),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF6B7A90)),
           ),
           SizedBox(height: 4.h),
           Text(
             value,
-            style: GoogleFonts.inter(fontSize: 13.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0076F6)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0076F6)),
           ),
         ],
       ),
@@ -1044,7 +1255,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(12.r),
                 ),
-                child: Icon(Icons.calendar_month_outlined, color: const Color(0xFF0076F6), size: 20.sp),
+                child: Icon(Icons.calendar_month_outlined,
+                    color: const Color(0xFF0076F6), size: 20.sp),
               ),
               SizedBox(width: 14.w),
               Column(
@@ -1052,11 +1264,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 children: [
                   Text(
                     'Attendance History',
-                    style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547)),
                   ),
                   Text(
                     'Recent attendance records',
-                    style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF6B7A90)),
                   ),
                 ],
               ),
@@ -1072,12 +1286,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   SizedBox(height: 14.h),
                   Text(
                     'No attendance records found',
-                    style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547)),
                   ),
                   SizedBox(height: 4.h),
                   Text(
                     'Your attendance records will appear here',
-                    style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF6B7A90)),
                   ),
                   SizedBox(height: 20.h),
                 ],
@@ -1091,22 +1307,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   flex: 3,
                   child: Text(
                     'Date',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF475569),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF475569)),
                   ),
                 ),
                 Expanded(
                   flex: 2,
                   child: Text(
                     'Status',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF475569),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF475569)),
                   ),
                 ),
                 Expanded(
@@ -1114,11 +1324,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   child: Center(
                     child: Text(
                       'Marked By',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF475569),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569)),
                     ),
                   ),
                 ),
@@ -1126,18 +1333,15 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   flex: 2,
                   child: Text(
                     'Check-in Time',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF475569),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF475569)),
                     textAlign: TextAlign.right,
                   ),
                 ),
               ],
             ),
             Divider(color: const Color(0xFFE2E8F0), thickness: 1, height: 24.h),
-            
+
             ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1146,17 +1350,18 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 final record = _attendanceRecords[index];
                 final rawDate = record['date']?.toString() ?? '';
                 final isWeekend = record['isWeekend'] == true;
-                final status = (record['status']?.toString() ?? 'PRESENT').toUpperCase();
-                
+                final status =
+                    (record['status']?.toString() ?? 'PRESENT').toUpperCase();
+
                 DateTime? parsedDate;
                 try {
                   parsedDate = DateTime.parse(rawDate).toLocal();
                 } catch (_) {}
-                
-                final displayDate = parsedDate != null 
+
+                final displayDate = parsedDate != null
                     ? intl.DateFormat('EEE, MMM dd, yyyy').format(parsedDate)
                     : rawDate;
-                    
+
                 String checkInStr = '—';
                 String markedByStr = '—';
 
@@ -1166,7 +1371,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 if (timeSource != null) {
                   try {
                     final parsedTime = DateTime.parse(timeSource.toString());
-                    checkInStr = intl.DateFormat('hh:mm a').format(parsedTime.toLocal());
+                    checkInStr =
+                        intl.DateFormat('hh:mm a').format(parsedTime.toLocal());
                   } catch (_) {}
                 }
 
@@ -1179,7 +1385,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   } else if (scannedByRFID) {
                     markedByStr = 'RFID';
                   } else if (markedByVal != null && markedByVal.isNotEmpty) {
-                    markedByStr = markedByVal.length > 20 ? 'Teacher' : markedByVal;
+                    markedByStr =
+                        markedByVal.length > 20 ? 'Teacher' : markedByVal;
                   } else {
                     markedByStr = 'System';
                   }
@@ -1242,21 +1449,15 @@ class _AcademicScreenState extends State<AcademicScreen> {
                           children: [
                             Text(
                               displayDate,
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w700,
-                                color: const Color(0xFF0F2547),
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF0F2547)),
                             ),
                             if (isWeekend) ...[
                               SizedBox(height: 2.h),
                               Text(
                                 'HOLIDAY/WEEKEND',
-                                style: GoogleFonts.inter(
-                                  fontSize: 9.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF94A3B8),
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF94A3B8)),
                               ),
                             ],
                           ],
@@ -1266,18 +1467,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       Expanded(
                         flex: 2,
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color: badgeBg,
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
                             badgeLabel,
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: badgeText,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: badgeText),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1288,11 +1487,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                         child: Center(
                           child: Text(
                             markedByStr,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF475569),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF475569)),
                           ),
                         ),
                       ),
@@ -1301,11 +1497,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                         flex: 2,
                         child: Text(
                           checkInStr,
-                          style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF475569),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF475569)),
                           textAlign: TextAlign.right,
                         ),
                       ),
@@ -1360,7 +1553,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 // Calendar grid rows
                 Expanded(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: List.generate(4, (rowIndex) {
@@ -1372,7 +1566,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               width: 6.w,
                               height: 6.w,
                               decoration: BoxDecoration(
-                                color: isSelected ? const Color(0xFF3B82F6) : const Color(0xFFE2EAF4),
+                                color: isSelected
+                                    ? const Color(0xFF3B82F6)
+                                    : const Color(0xFFE2EAF4),
                                 borderRadius: BorderRadius.circular(1.5.r),
                               ),
                             );
@@ -1450,7 +1646,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Text('AS', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0284C7))),
+                    child: Text('AS',
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0284C7))),
                   ),
                 ),
               ],
@@ -1489,7 +1687,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
               ],
             )
           : null,
-      bottomNavigationBar: widget.showAppBar ? _buildBottomNavigationBar() : null,
+      bottomNavigationBar:
+          widget.showAppBar ? _buildBottomNavigationBar() : null,
     );
   }
 
@@ -1523,10 +1722,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 SizedBox(height: 4.h),
                 Text(
                   'Manage classes, subjects, and sections',
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    color: const Color(0xFF64748B),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
               ],
             ),
@@ -1592,11 +1789,10 @@ class _AcademicScreenState extends State<AcademicScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            color: isSelected ? const Color(0xFF2563EB) : const Color(0xFF64748B),
-          ),
+          style: AppTypography.caption.copyWith(
+              color: isSelected
+                  ? const Color(0xFF2563EB)
+                  : const Color(0xFF64748B)),
         ),
       ),
     );
@@ -1641,14 +1837,21 @@ class _AcademicScreenState extends State<AcademicScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Classes', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text('Classes',
+                    style: GoogleFonts.outfit(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A))),
                 SizedBox(height: 4.h),
-                Text('Manage class/grade levels', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                Text('Manage class/grade levels',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
           ),
           _classesList.isEmpty
-              ? _buildEmptyState('No classes found. Create one to get started.', _showAddClassDialog)
+              ? _buildEmptyState('No classes found. Create one to get started.',
+                  _showAddClassDialog)
               : _buildCustomClassesTable(),
         ],
       ),
@@ -1663,15 +1866,28 @@ class _AcademicScreenState extends State<AcademicScreen> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+            border:
+                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
           ),
           child: Row(
             children: [
-              Expanded(flex: 3, child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(flex: 2, child: _buildTableHeaderCell('Level', TextAlign.center)),
-              Expanded(flex: 3, child: _buildTableHeaderCell('Academic Year', TextAlign.center)),
-              Expanded(flex: 4, child: _buildTableHeaderCell('Class Teacher', TextAlign.center)),
-              Expanded(flex: 3, child: _buildTableHeaderCell('Students', TextAlign.center)),
+              Expanded(
+                  flex: 3,
+                  child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(
+                  flex: 2,
+                  child: _buildTableHeaderCell('Level', TextAlign.center)),
+              Expanded(
+                  flex: 3,
+                  child:
+                      _buildTableHeaderCell('Academic Year', TextAlign.center)),
+              Expanded(
+                  flex: 4,
+                  child:
+                      _buildTableHeaderCell('Class Teacher', TextAlign.center)),
+              Expanded(
+                  flex: 3,
+                  child: _buildTableHeaderCell('Students', TextAlign.center)),
             ],
           ),
         ),
@@ -1684,7 +1900,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
             academicYear: c['academic_year']?.toString() ?? '—',
             classTeacher: c['class_teacher']?.toString() ?? '—',
             students: c['students']?.toString() ?? '0',
-            isHoveredDemo: false, // Ensure this relies on real hover, not demo effect
+            isHoveredDemo:
+                false, // Ensure this relies on real hover, not demo effect
           );
         }),
         SizedBox(height: 12.h),
@@ -1692,15 +1909,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
     );
   }
 
-  Widget _buildTableHeaderCell(String text, [TextAlign align = TextAlign.left]) {
+  Widget _buildTableHeaderCell(String text,
+      [TextAlign align = TextAlign.left]) {
     return Text(
       text,
       textAlign: align,
-      style: GoogleFonts.inter(
-        fontSize: 11.sp,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF64748B),
-      ),
+      style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
     );
   }
 
@@ -1728,19 +1942,27 @@ class _AcademicScreenState extends State<AcademicScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Subjects', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text('Subjects',
+                    style: GoogleFonts.outfit(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A))),
                 SizedBox(height: 4.h),
-                Text('Manage academic subjects', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                Text('Manage academic subjects',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
           ),
-          
+
           // Removed Search Bar as per image
 
           _subjectsList.isEmpty
               ? Padding(
                   padding: EdgeInsets.only(bottom: 20.h),
-                  child: _buildEmptyState('No subjects found. Create one to get started.', _showAddSubjectDialog),
+                  child: _buildEmptyState(
+                      'No subjects found. Create one to get started.',
+                      _showAddSubjectDialog),
                 )
               : _buildCustomSubjectsTable(),
         ],
@@ -1756,15 +1978,26 @@ class _AcademicScreenState extends State<AcademicScreen> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+            border:
+                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
           ),
           child: Row(
             children: [
-              Expanded(flex: 3, child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(flex: 2, child: _buildTableHeaderCell('Code', TextAlign.left)),
-              Expanded(flex: 2, child: _buildTableHeaderCell('Class', TextAlign.left)),
-              Expanded(flex: 2, child: _buildTableHeaderCell('Teacher', TextAlign.left)),
-              Expanded(flex: 2, child: _buildTableHeaderCell('Description', TextAlign.left)),
+              Expanded(
+                  flex: 3,
+                  child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(
+                  flex: 2,
+                  child: _buildTableHeaderCell('Code', TextAlign.left)),
+              Expanded(
+                  flex: 2,
+                  child: _buildTableHeaderCell('Class', TextAlign.left)),
+              Expanded(
+                  flex: 2,
+                  child: _buildTableHeaderCell('Teacher', TextAlign.left)),
+              Expanded(
+                  flex: 2,
+                  child: _buildTableHeaderCell('Description', TextAlign.left)),
             ],
           ),
         ),
@@ -1809,19 +2042,27 @@ class _AcademicScreenState extends State<AcademicScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Sections', style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+                Text('Sections',
+                    style: GoogleFonts.outfit(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF0F172A))),
                 SizedBox(height: 4.h),
-                Text('Manage class sections/divisions', style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                Text('Manage class sections/divisions',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
           ),
-          
+
           // Removed Search Bar
 
           _sectionsList.isEmpty
               ? Padding(
                   padding: EdgeInsets.only(bottom: 20.h),
-                  child: _buildEmptyState('No sections found. Create one to get started.', _showAddSectionDialog),
+                  child: _buildEmptyState(
+                      'No sections found. Create one to get started.',
+                      _showAddSectionDialog),
                 )
               : _buildCustomSectionsTable(),
         ],
@@ -1838,14 +2079,24 @@ class _AcademicScreenState extends State<AcademicScreen> {
         Container(
           padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+            border:
+                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
           ),
           child: Row(
             children: [
-              Expanded(flex: 4, child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(flex: 3, child: _buildTableHeaderCell('Class', TextAlign.left)),
-              Expanded(flex: 3, child: _buildTableHeaderCell('Max\nStudents', TextAlign.left)),
-              Expanded(flex: 3, child: _buildTableHeaderCell('Students', TextAlign.left)),
+              Expanded(
+                  flex: 4,
+                  child: _buildTableHeaderCell('Name', TextAlign.left)),
+              Expanded(
+                  flex: 3,
+                  child: _buildTableHeaderCell('Class', TextAlign.left)),
+              Expanded(
+                  flex: 3,
+                  child:
+                      _buildTableHeaderCell('Max\nStudents', TextAlign.left)),
+              Expanded(
+                  flex: 3,
+                  child: _buildTableHeaderCell('Students', TextAlign.left)),
             ],
           ),
         ),
@@ -1853,7 +2104,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
         ..._sectionsList.map((s) {
           final rawName = s['name']?.toString().trim() ?? '';
           String formattedName = rawName;
-          if (rawName.isNotEmpty && !rawName.toLowerCase().startsWith('section')) {
+          if (rawName.isNotEmpty &&
+              !rawName.toLowerCase().startsWith('section')) {
             formattedName = 'Section\n$rawName';
           } else if (rawName.toLowerCase().startsWith('section ')) {
             // Replace the first space with a newline to match the stacked look
@@ -1879,34 +2131,42 @@ class _AcademicScreenState extends State<AcademicScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Examination & Results', style: GoogleFonts.outfit(fontSize: 16.sp, fontWeight: FontWeight.w800)),
-        Text('Configure terms, grading scales, and manage student results.', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+        Text('Examination & Results',
+            style: GoogleFonts.outfit(
+                fontSize: 16.sp, fontWeight: FontWeight.w800)),
+        Text('Configure terms, grading scales, and manage student results.',
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B))),
         SizedBox(height: 20.h),
-
         _buildActionCard(
           title: 'Exam Management',
-          subtitle: 'Create and schedule exams, assign subjects and marks structure.',
+          subtitle:
+              'Create and schedule exams, assign subjects and marks structure.',
           buttonLabel: 'Go to Exams',
           onPressed: () => MainScreen.navigateTo(context, 8),
         ),
         SizedBox(height: 16.h),
-
         _buildDualActionCard(
           title: 'Terms & Grading',
-          subtitle: 'Define academic terms and customize grading scales for the institution.',
+          subtitle:
+              'Define academic terms and customize grading scales for the institution.',
           btn1Label: 'Terms',
-          onBtn1Pressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ExamTermsScreen(theme: widget.theme))),
+          onBtn1Pressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => ExamTermsScreen(theme: widget.theme))),
           btn2Label: 'Grading',
           onBtn2Pressed: () => _showGradingScaleDialog(),
         ),
         SizedBox(height: 16.h),
-
         _buildActionCard(
           title: 'Approvals',
-          subtitle: 'Principal review and approval of generated student report cards.',
+          subtitle:
+              'Principal review and approval of generated student report cards.',
           buttonLabel: 'Pending Review',
           isPrimary: false,
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResultsScreen())),
+          onPressed: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ResultsScreen())),
         ),
       ],
     );
@@ -1920,7 +2180,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
     bool isPrimary = true,
   }) {
     return CustomPaint(
-      painter: _DashedRectPainter(color: const Color(0xFFCBD5E1), strokeWidth: 1.5, gap: 4, dash: 6, radius: 16.r),
+      painter: _DashedRectPainter(
+          color: const Color(0xFFCBD5E1),
+          strokeWidth: 1.5,
+          gap: 4,
+          dash: 6,
+          radius: 16.r),
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.all(16.r),
@@ -1931,27 +2196,34 @@ class _AcademicScreenState extends State<AcademicScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.outfit(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+            Text(title,
+                style: GoogleFonts.outfit(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A))),
             SizedBox(height: 4.h),
-            Text(subtitle, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+            Text(subtitle,
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B))),
             SizedBox(height: 16.h),
             SizedBox(
               width: double.infinity,
               height: 44.h,
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isPrimary ? const Color(0xFF0066CC) : const Color(0xFFE0F2FE),
+                  backgroundColor: isPrimary
+                      ? const Color(0xFF0066CC)
+                      : const Color(0xFFE0F2FE),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r)),
                 ),
                 onPressed: onPressed,
                 child: Text(
                   buttonLabel,
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp, 
-                    fontWeight: FontWeight.w700, 
-                    color: isPrimary ? Colors.white : const Color(0xFF0F172A),
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color:
+                          isPrimary ? Colors.white : const Color(0xFF0F172A)),
                 ),
               ),
             ),
@@ -1970,7 +2242,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
     required VoidCallback onBtn2Pressed,
   }) {
     return CustomPaint(
-      painter: _DashedRectPainter(color: const Color(0xFFCBD5E1), strokeWidth: 1.5, gap: 4, dash: 6, radius: 16.r),
+      painter: _DashedRectPainter(
+          color: const Color(0xFFCBD5E1),
+          strokeWidth: 1.5,
+          gap: 4,
+          dash: 6,
+          radius: 16.r),
       child: Container(
         width: double.infinity,
         padding: EdgeInsets.all(16.r),
@@ -1981,9 +2258,15 @@ class _AcademicScreenState extends State<AcademicScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: GoogleFonts.outfit(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+            Text(title,
+                style: GoogleFonts.outfit(
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F172A))),
             SizedBox(height: 4.h),
-            Text(subtitle, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+            Text(subtitle,
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B))),
             SizedBox(height: 16.h),
             Row(
               children: [
@@ -1994,12 +2277,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF1F5F9),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r)),
                       ),
                       onPressed: onBtn1Pressed,
                       child: Text(
                         btn1Label,
-                        style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F172A)),
                       ),
                     ),
                   ),
@@ -2012,12 +2297,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF1F5F9),
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10.r)),
                       ),
                       onPressed: onBtn2Pressed,
                       child: Text(
                         btn2Label,
-                        style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F172A)),
                       ),
                     ),
                   ),
@@ -2034,13 +2321,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text('Grading System', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Grading System',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('• A+ : 95% - 100% (Excellent)', style: TextStyle(fontWeight: FontWeight.w500)),
+            Text('• A+ : 95% - 100% (Excellent)',
+                style: TextStyle(fontWeight: FontWeight.w500)),
             SizedBox(height: 6),
             Text('• A  : 90% - 94% (Very Good)'),
             SizedBox(height: 6),
@@ -2052,11 +2342,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
             SizedBox(height: 6),
             Text('• D  : 60% - 69% (Pass)'),
             SizedBox(height: 6),
-            Text('• F  : Below 60% (Fail)', style: TextStyle(color: Colors.red)),
+            Text('• F  : Below 60% (Fail)',
+                style: TextStyle(color: Colors.red)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
         ],
       ),
     );
@@ -2073,8 +2365,10 @@ class _AcademicScreenState extends State<AcademicScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text('Create Class', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Class',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2085,30 +2379,38 @@ class _AcademicScreenState extends State<AcademicScreen> {
               SizedBox(height: 12.h),
               _buildDialogField(yearCtrl, 'Academic Year', 'e.g. 2026-2027'),
               SizedBox(height: 12.h),
-              _buildDialogField(teacherCtrl, 'Class Teacher', 'e.g. Mr. John Doe'),
+              _buildDialogField(
+                  teacherCtrl, 'Class Teacher', 'e.g. Mr. John Doe'),
               SizedBox(height: 12.h),
-              _buildDialogField(studentsCtrl, 'Students Count', 'e.g. 40', keyboardType: TextInputType.number),
+              _buildDialogField(studentsCtrl, 'Students Count', 'e.g. 40',
+                  keyboardType: TextInputType.number),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               final navigator = Navigator.of(ctx);
               try {
                 final client = Supabase.instance.client;
-                final acYears = await client.from('Class').select('academicYearId').limit(1);
-                final academicYearId = acYears.isNotEmpty ? acYears.first['academicYearId'] : null;
+                final acYears = await client
+                    .from('Class')
+                    .select('academicYearId')
+                    .limit(1);
+                final academicYearId =
+                    acYears.isNotEmpty ? acYears.first['academicYearId'] : null;
 
                 await client.from('Class').insert({
                   'name': nameCtrl.text.trim(),
                   'level': levelCtrl.text.trim(),
                   'academicYearId': academicYearId,
                 });
-                
+
                 if (mounted) {
                   showToast(context, 'Class Created Successfully!');
                   navigator.pop();
@@ -2138,8 +2440,10 @@ class _AcademicScreenState extends State<AcademicScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text('Create Subject', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Subject',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2150,31 +2454,43 @@ class _AcademicScreenState extends State<AcademicScreen> {
               SizedBox(height: 12.h),
               _buildDialogField(classCtrl, 'Class/Grade', 'e.g. Class 10'),
               SizedBox(height: 12.h),
-              _buildDialogField(teacherCtrl, 'Subject Teacher', 'e.g. Dr. Emily Green'),
+              _buildDialogField(
+                  teacherCtrl, 'Subject Teacher', 'e.g. Dr. Emily Green'),
               SizedBox(height: 12.h),
-              _buildDialogField(descCtrl, 'Description', 'e.g. Intro to Mechanics'),
+              _buildDialogField(
+                  descCtrl, 'Description', 'e.g. Intro to Mechanics'),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               final navigator = Navigator.of(ctx);
               try {
                 final className = classCtrl.text.trim();
                 final client = Supabase.instance.client;
-                final classes = await client.from('Class').select('id').eq('name', className).limit(1);
+                final classes = await client
+                    .from('Class')
+                    .select('id')
+                    .eq('name', className)
+                    .limit(1);
                 final classId = classes.isNotEmpty ? classes.first['id'] : null;
-                
+
                 String? targetClassId = classId;
                 if (targetClassId == null) {
-                  final insertRes = await client.from('Class').insert({
-                    'name': className,
-                    'level': 'Standard',
-                  }).select('id').single();
+                  final insertRes = await client
+                      .from('Class')
+                      .insert({
+                        'name': className,
+                        'level': 'Standard',
+                      })
+                      .select('id')
+                      .single();
                   targetClassId = insertRes['id'] as String;
                 }
 
@@ -2216,8 +2532,10 @@ class _AcademicScreenState extends State<AcademicScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-        title: Text('Create Section', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+        title: Text('Create Section',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2226,31 +2544,43 @@ class _AcademicScreenState extends State<AcademicScreen> {
               SizedBox(height: 12.h),
               _buildDialogField(classCtrl, 'Class', 'e.g. Class 10'),
               SizedBox(height: 12.h),
-              _buildDialogField(maxCtrl, 'Max Students', 'e.g. 40', keyboardType: TextInputType.number),
+              _buildDialogField(maxCtrl, 'Max Students', 'e.g. 40',
+                  keyboardType: TextInputType.number),
               SizedBox(height: 12.h),
-              _buildDialogField(studentsCtrl, 'Current Students', 'e.g. 35', keyboardType: TextInputType.number),
+              _buildDialogField(studentsCtrl, 'Current Students', 'e.g. 35',
+                  keyboardType: TextInputType.number),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: widget.theme.primary),
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
               final navigator = Navigator.of(ctx);
               try {
                 final className = classCtrl.text.trim();
                 final client = Supabase.instance.client;
-                final classes = await client.from('Class').select('id').eq('name', className).limit(1);
+                final classes = await client
+                    .from('Class')
+                    .select('id')
+                    .eq('name', className)
+                    .limit(1);
                 final classId = classes.isNotEmpty ? classes.first['id'] : null;
-                
+
                 String? targetClassId = classId;
                 if (targetClassId == null) {
-                  final insertRes = await client.from('Class').insert({
-                    'name': className,
-                    'level': 'Standard',
-                  }).select('id').single();
+                  final insertRes = await client
+                      .from('Class')
+                      .insert({
+                        'name': className,
+                        'level': 'Standard',
+                      })
+                      .select('id')
+                      .single();
                   targetClassId = insertRes['id'] as String;
                 }
 
@@ -2291,7 +2621,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: GoogleFonts.inter(fontSize: 12.sp),
+        labelStyle: AppTypography.caption,
         contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
       ),
@@ -2315,22 +2645,26 @@ class _AcademicScreenState extends State<AcademicScreen> {
       ),
       child: Column(
         children: [
-          Icon(Icons.folder_open_rounded, size: 48.sp, color: const Color(0xFFCBD5E1)),
+          Icon(Icons.folder_open_rounded,
+              size: 48.sp, color: const Color(0xFFCBD5E1)),
           SizedBox(height: 12.h),
           Text(
             text,
-            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF94A3B8)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF94A3B8)),
             textAlign: TextAlign.center,
           ),
           SizedBox(height: 16.h),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: widget.theme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8.r)),
               padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
             ),
             onPressed: onCreate,
-            child: const Text('Create One', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Create One', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -2339,14 +2673,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
   Widget _buildFabIcon() {
     if (_activeTab == 0) {
-      return Icon(Icons.person_add_rounded, color: const Color(0xFFFFD700), size: 28.sp);
+      return Icon(Icons.person_add_rounded,
+          color: const Color(0xFFFFD700), size: 28.sp);
     } else if (_activeTab == 1) {
       return Stack(
         alignment: Alignment.center,
         children: [
           Padding(
             padding: EdgeInsets.only(right: 2.w),
-            child: Icon(Icons.menu_book_rounded, color: Colors.white, size: 20.sp),
+            child:
+                Icon(Icons.menu_book_rounded, color: Colors.white, size: 20.sp),
           ),
           Positioned(
             right: 0,
@@ -2357,13 +2693,15 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 color: Color(0xFF0D7DDC),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.add, color: const Color(0xFFFFD700), size: 10.sp),
+              child:
+                  Icon(Icons.add, color: const Color(0xFFFFD700), size: 10.sp),
             ),
           ),
         ],
       );
     } else {
-      return Icon(Icons.group_add_rounded, color: const Color(0xFFFFD700), size: 28.sp);
+      return Icon(Icons.group_add_rounded,
+          color: const Color(0xFFFFD700), size: 28.sp);
     }
   }
 
@@ -2388,51 +2726,37 @@ class _AcademicScreenState extends State<AcademicScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.help_outline_rounded, size: 20.sp, color: const Color(0xFF64748B)),
+          Icon(Icons.help_outline_rounded,
+              size: 20.sp, color: const Color(0xFF64748B)),
           SizedBox(height: 6.h),
           Text(
             'HELP',
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF64748B),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 10.h),
           Text(
             'ARJUNIT',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
           ),
           SizedBox(height: 10.h),
           Text(
             'CCAV',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF64748B),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 10.h),
           Text(
             'BONNI',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0D7DDC),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0D7DDC)),
           ),
           SizedBox(height: 10.h),
           Text(
             'HELP?',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0D7DDC),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0D7DDC)),
           ),
         ],
       ),
@@ -2467,7 +2791,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 onTap: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => MainScreen(role: _userRole, initialIndex: 0)),
+                    MaterialPageRoute(
+                        builder: (_) =>
+                            MainScreen(role: _userRole, initialIndex: 0)),
                     (r) => false,
                   );
                 },
@@ -2526,11 +2852,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
             SizedBox(height: 4.h),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? activeColor : inactiveColor,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: isSelected ? activeColor : inactiveColor),
             ),
           ],
         ),
@@ -2574,12 +2897,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
               padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
               child: Text(
                 'EduSphere',
-                style: GoogleFonts.inter(
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: 0.3,
-                ),
+                style: AppTypography.h4.copyWith(
+                    color: const Color(0xFF0F172A), letterSpacing: 0.3),
               ),
             ),
             Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
@@ -2603,7 +2922,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 0)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'teacher', initialIndex: 0)),
                                 (r) => false,
                               );
                             },
@@ -2618,7 +2939,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 1)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'teacher', initialIndex: 1)),
                                 (r) => false,
                               );
                             },
@@ -2633,7 +2956,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 2)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'teacher', initialIndex: 2)),
                                 (r) => false,
                               );
                             },
@@ -2648,7 +2973,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'teacher', initialIndex: 3)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'teacher', initialIndex: 3)),
                                 (r) => false,
                               );
                             },
@@ -2661,7 +2988,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateAssignmentScreen()));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const CreateAssignmentScreen()));
                             },
                           ),
                           _drawerItem(
@@ -2682,7 +3013,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => const ExamScheduleScreen()));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const ExamScheduleScreen()));
                             },
                           ),
                           _drawerItem(
@@ -2693,7 +3028,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => ScheduleScreen(role: 'teacher', theme: widget.theme)));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => ScheduleScreen(
+                                          role: 'teacher',
+                                          theme: widget.theme)));
                             },
                           ),
                           _drawerItem(
@@ -2704,7 +3044,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => AnnouncementsScreen(theme: widget.theme)));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => AnnouncementsScreen(
+                                          theme: widget.theme)));
                             },
                           ),
                           _drawerItem(
@@ -2715,9 +3059,14 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(
-                                builder: (_) => CommunityScreen(theme: widget.theme, showAppBar: true, onBack: () => Navigator.pop(context)),
-                              ));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CommunityScreen(
+                                        theme: widget.theme,
+                                        showAppBar: true,
+                                        onBack: () => Navigator.pop(context)),
+                                  ));
                             },
                           ),
                           _drawerItem(
@@ -2728,7 +3077,12 @@ class _AcademicScreenState extends State<AcademicScreen> {
                             inactiveText: inactiveText,
                             onTap: () {
                               Navigator.pop(context);
-                              Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(role: 'teacher', theme: widget.theme)));
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => ProfileScreen(
+                                          role: 'teacher',
+                                          theme: widget.theme)));
                             },
                           ),
                         ]
@@ -2743,7 +3097,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 0)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 0)),
                                 (r) => false,
                               );
                             },
@@ -2758,7 +3114,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 1)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 1)),
                                 (r) => false,
                               );
                             },
@@ -2773,7 +3131,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 2)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 2)),
                                 (r) => false,
                               );
                             },
@@ -2798,7 +3158,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 4)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 4)),
                                 (r) => false,
                               );
                             },
@@ -2813,7 +3175,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 5)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 5)),
                                 (r) => false,
                               );
                             },
@@ -2828,7 +3192,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 6)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 6)),
                                 (r) => false,
                               );
                             },
@@ -2843,7 +3209,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 7)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 7)),
                                 (r) => false,
                               );
                             },
@@ -2858,7 +3226,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 8)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 8)),
                                 (r) => false,
                               );
                             },
@@ -2873,7 +3243,9 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               Navigator.pop(context);
                               Navigator.pushAndRemoveUntil(
                                 context,
-                                MaterialPageRoute(builder: (_) => const MainScreen(role: 'student', initialIndex: 9)),
+                                MaterialPageRoute(
+                                    builder: (_) => const MainScreen(
+                                        role: 'student', initialIndex: 9)),
                                 (r) => false,
                               );
                             },
@@ -2917,11 +3289,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                     backgroundColor: activeBlue.withValues(alpha: 0.15),
                     child: Text(
                       initials,
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        fontWeight: FontWeight.w800,
-                        color: activeBlue,
-                      ),
+                      style: AppTypography.caption.copyWith(color: activeBlue),
                     ),
                   ),
                   SizedBox(width: 10.w),
@@ -2931,23 +3299,16 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       children: [
                         Text(
                           _userName,
-                          style: GoogleFonts.inter(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F172A)),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         SizedBox(height: 1.h),
                         Text(
                           _userRole.toUpperCase(),
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            color: activeBlue,
-                            letterSpacing: 0.8,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: activeBlue, letterSpacing: 0.8),
                         ),
                       ],
                     ),
@@ -3015,8 +3376,11 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
         decoration: BoxDecoration(
-          color: _isHovered || widget.isHoveredDemo ? const Color(0xFFF8FAFC) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          color: _isHovered || widget.isHoveredDemo
+              ? const Color(0xFFF8FAFC)
+              : Colors.white,
+          border: const Border(
+              bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
         ),
         child: Row(
           children: [
@@ -3025,11 +3389,8 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
               child: Text(
                 widget.name,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0F172A),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F172A)),
               ),
             ),
             Expanded(
@@ -3037,11 +3398,8 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
               child: Text(
                 widget.level,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3049,11 +3407,8 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
               child: Text(
                 widget.academicYear,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3061,11 +3416,8 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
               child: Text(
                 widget.classTeacher,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3073,11 +3425,8 @@ class _ClassesRowItemState extends State<_ClassesRowItem> {
               child: Text(
                 widget.students,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
           ],
@@ -3131,9 +3480,7 @@ class _PremiumDrawerItemState extends State<_PremiumDrawerItem> {
           curve: Curves.easeInOut,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: showBlue
-                ? widget.activeBlue
-                : Colors.transparent,
+            color: showBlue ? widget.activeBlue : Colors.transparent,
             borderRadius: BorderRadius.circular(14.r),
           ),
           child: Material(
@@ -3167,16 +3514,12 @@ class _PremiumDrawerItemState extends State<_PremiumDrawerItem> {
                     SizedBox(width: 14.w),
                     Expanded(
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 200),
-                        style: GoogleFonts.inter(
-                          fontSize: 15.sp,
-                          fontWeight: showBlue
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: showBlue ? Colors.white : widget.inactiveText,
-                        ),
-                        child: Text(widget.label),
-                      ),
+                          duration: const Duration(milliseconds: 200),
+                          style: AppTypography.small.copyWith(
+                            color:
+                                showBlue ? Colors.white : widget.inactiveText,
+                          ),
+                          child: Text(widget.label)),
                     ),
                   ],
                 ),
@@ -3223,7 +3566,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
         padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
         decoration: BoxDecoration(
           color: _isHovered ? const Color(0xFFF8FAFC) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          border: const Border(
+              bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
         ),
         child: Row(
           children: [
@@ -3231,11 +3575,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
               flex: 3,
               child: Text(
                 widget.name,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0F172A),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F172A)),
               ),
             ),
             Expanded(
@@ -3243,11 +3584,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
               child: Text(
                 widget.code,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3255,11 +3593,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
               child: Text(
                 widget.className,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3267,11 +3602,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
               child: Text(
                 widget.teacher,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3279,11 +3611,8 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
               child: Text(
                 widget.description,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
           ],
@@ -3325,7 +3654,8 @@ class _SectionsRowItemState extends State<_SectionsRowItem> {
         padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
         decoration: BoxDecoration(
           color: _isHovered ? const Color(0xFFF8FAFC) : Colors.white,
-          border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+          border: const Border(
+              bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
         ),
         child: Row(
           children: [
@@ -3333,11 +3663,8 @@ class _SectionsRowItemState extends State<_SectionsRowItem> {
               flex: 4,
               child: Text(
                 widget.name,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0F172A),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F172A)),
               ),
             ),
             Expanded(
@@ -3345,11 +3672,8 @@ class _SectionsRowItemState extends State<_SectionsRowItem> {
               child: Text(
                 widget.className,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3357,11 +3681,8 @@ class _SectionsRowItemState extends State<_SectionsRowItem> {
               child: Text(
                 widget.maxStudents,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
             Expanded(
@@ -3369,11 +3690,8 @@ class _SectionsRowItemState extends State<_SectionsRowItem> {
               child: Text(
                 widget.students,
                 textAlign: TextAlign.left,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1E293B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF1E293B)),
               ),
             ),
           ],

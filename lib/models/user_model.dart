@@ -15,6 +15,16 @@ class AppUser {
 }
 
 const Map<String, Map<String, String>> kCredentials = {
-  'student':    {'email': 'alex.rivera@edusmart.edu',    'password': 'Student@2024',    'name': 'Alex Rivera',       'subtitle': 'Grade 12-A • Roll #24'},
-  'teacher':    {'email': 'prof.harrison@edusmart.edu',  'password': 'Teacher@2024',    'name': 'Prof. Harrison',    'subtitle': 'HOD Physics Dept.'},
+  'student': {
+    'email': 'alex.rivera@edusmart.edu',
+    'password': 'Student@2024',
+    'name': 'Alex Rivera',
+    'subtitle': 'Grade 12-A • Roll #24'
+  },
+  'teacher': {
+    'email': 'prof.harrison@edusmart.edu',
+    'password': 'Teacher@2024',
+    'name': 'Prof. Harrison',
+    'subtitle': 'HOD Physics Dept.'
+  },
 };

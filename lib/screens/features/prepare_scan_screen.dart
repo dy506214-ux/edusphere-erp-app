@@ -5,6 +5,7 @@ import '../../theme/colors.dart';
 import 'scanner_live_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../main_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class PrepareScanScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -55,17 +56,16 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: widget.theme.primary,
-              onPrimary: Colors.white,
-              onSurface: AppColors.textDark,
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: widget.theme.primary,
+              colorScheme: ColorScheme.light(
+                primary: widget.theme.primary,
+                onPrimary: Colors.white,
+                onSurface: AppColors.textDark,
               ),
-            ),
-          ),
+              textButtonTheme: TextButtonThemeData(
+                style: TextButton.styleFrom(
+                  foregroundColor: widget.theme.primary,
+                ),
+              )),
           child: child!,
         );
       },
@@ -105,15 +105,13 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_back_rounded, color: AppColors.textMedium, size: 16.sp),
+                        Icon(Icons.arrow_back_rounded,
+                            color: AppColors.textMedium, size: 16.sp),
                         SizedBox(width: 6.w),
                         Text(
                           'Back to Details',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMedium,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textMedium),
                         ),
                       ],
                     ),
@@ -136,13 +134,12 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                         RichText(
                           textAlign: TextAlign.center,
                           text: TextSpan(
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: AppColors.textMedium,
-                              fontWeight: FontWeight.w500,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textMedium),
                             children: [
-                              const TextSpan(text: 'Configure your scanning parameters for '),
+                              const TextSpan(
+                                  text:
+                                      'Configure your scanning parameters for '),
                               TextSpan(
                                 text: widget.scannerName,
                                 style: TextStyle(
@@ -185,7 +182,8 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                 width: 36.w,
                                 height: 36.h,
                                 decoration: BoxDecoration(
-                                  color: widget.theme.primary.withValues(alpha: 0.08),
+                                  color: widget.theme.primary
+                                      .withValues(alpha: 0.08),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
@@ -201,20 +199,14 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                   children: [
                                     Text(
                                       'Session Parameters',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14.sp,
-                                        fontWeight: FontWeight.w800,
-                                        color: AppColors.textDark,
-                                      ),
+                                      style: AppTypography.small
+                                          .copyWith(color: AppColors.textDark),
                                     ),
                                     SizedBox(height: 2.h),
                                     Text(
                                       'Specify the date and action for this scanning session',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11.sp,
-                                        color: AppColors.textLight,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: AppTypography.caption
+                                          .copyWith(color: AppColors.textLight),
                                     ),
                                   ],
                                 ),
@@ -236,19 +228,21 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                   // Date Picker field
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
-                                            Icon(Icons.calendar_today_rounded, size: 14.sp, color: AppColors.textMedium),
+                                            Icon(Icons.calendar_today_rounded,
+                                                size: 14.sp,
+                                                color: AppColors.textMedium),
                                             SizedBox(width: 6.w),
                                             Text(
                                               'Attendance Date',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 11.sp,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.textMedium,
-                                              ),
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.textMedium),
                                             ),
                                           ],
                                         ),
@@ -256,22 +250,28 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                         GestureDetector(
                                           onTap: () => _selectDate(context),
                                           child: Container(
-                                            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 14.w,
+                                                vertical: 12.h),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFEDF4FC),
-                                              borderRadius: BorderRadius.circular(10.r),
-                                              border: Border.all(color: const Color(0xFFD0E1F4)),
+                                              borderRadius:
+                                                  BorderRadius.circular(10.r),
+                                              border: Border.all(
+                                                  color:
+                                                      const Color(0xFFD0E1F4)),
                                             ),
                                             child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment
+                                                      .spaceBetween,
                                               children: [
                                                 Text(
                                                   _formatDate(_selectedDate),
-                                                  style: GoogleFonts.inter(
-                                                    fontSize: 12.sp,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: AppColors.textDark,
-                                                  ),
+                                                  style: AppTypography.caption
+                                                      .copyWith(
+                                                          color: AppColors
+                                                              .textDark),
                                                 ),
                                                 Icon(
                                                   Icons.calendar_month_rounded,
@@ -290,19 +290,21 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                   // Scanning Action
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
-                                            Icon(Icons.person_search_rounded, size: 14.sp, color: AppColors.textMedium),
+                                            Icon(Icons.person_search_rounded,
+                                                size: 14.sp,
+                                                color: AppColors.textMedium),
                                             SizedBox(width: 6.w),
                                             Text(
                                               'Scanning Action',
-                                              style: GoogleFonts.inter(
-                                                fontSize: 11.sp,
-                                                fontWeight: FontWeight.w700,
-                                                color: AppColors.textMedium,
-                                              ),
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.textMedium),
                                             ),
                                           ],
                                         ),
@@ -311,16 +313,20 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                           padding: EdgeInsets.all(4.r),
                                           decoration: BoxDecoration(
                                             color: const Color(0xFFF1F5F9),
-                                            borderRadius: BorderRadius.circular(10.r),
-                                            border: Border.all(color: AppColors.border),
+                                            borderRadius:
+                                                BorderRadius.circular(10.r),
+                                            border: Border.all(
+                                                color: AppColors.border),
                                           ),
                                           child: Row(
                                             children: [
                                               Expanded(
-                                                child: _buildActionButton('Check-In'),
+                                                child: _buildActionButton(
+                                                    'Check-In'),
                                               ),
                                               Expanded(
-                                                child: _buildActionButton('Check-Out'),
+                                                child: _buildActionButton(
+                                                    'Check-Out'),
                                               ),
                                             ],
                                           ),
@@ -349,20 +355,20 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                       ),
                                     );
                                   },
-                                  icon: Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20.sp),
+                                  icon: Icon(Icons.qr_code_scanner_rounded,
+                                      color: Colors.white, size: 20.sp),
                                   label: Text(
                                     'Start Scanning Mode',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                    ),
+                                    style: AppTypography.small
+                                        .copyWith(color: Colors.white),
                                   ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: widget.theme.primary,
-                                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                                    padding:
+                                        EdgeInsets.symmetric(vertical: 14.h),
                                     elevation: 2,
-                                    shadowColor: widget.theme.primary.withValues(alpha: 0.3),
+                                    shadowColor: widget.theme.primary
+                                        .withValues(alpha: 0.3),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12.r),
                                     ),
@@ -379,35 +385,29 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
                                   children: [
                                     Text(
                                       'All scans will be recorded as ',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11.sp,
-                                        color: AppColors.textMedium,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: AppTypography.caption.copyWith(
+                                          color: AppColors.textMedium),
                                     ),
                                     Container(
-                                      padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 8.w, vertical: 2.h),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF1F5F9),
-                                        border: Border.all(color: const Color(0xFFCBD5E1)),
-                                        borderRadius: BorderRadius.circular(4.r),
+                                        border: Border.all(
+                                            color: const Color(0xFFCBD5E1)),
+                                        borderRadius:
+                                            BorderRadius.circular(4.r),
                                       ),
                                       child: Text(
                                         _selectedAction.toUpperCase(),
-                                        style: GoogleFonts.inter(
-                                          fontSize: 9.sp,
-                                          fontWeight: FontWeight.w800,
-                                          color: const Color(0xFF334155),
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF334155)),
                                       ),
                                     ),
                                     Text(
                                       ' on ${_formatDateForConfirm(_selectedDate)}',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11.sp,
-                                        color: AppColors.textMedium,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                      style: AppTypography.caption.copyWith(
+                                          color: AppColors.textMedium),
                                     ),
                                   ],
                                 ),
@@ -458,11 +458,9 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
         child: Center(
           child: Text(
             action,
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-              color: isSelected ? widget.theme.primary : AppColors.textMedium,
-            ),
+            style: AppTypography.caption.copyWith(
+                color:
+                    isSelected ? widget.theme.primary : AppColors.textMedium),
           ),
         ),
       ),

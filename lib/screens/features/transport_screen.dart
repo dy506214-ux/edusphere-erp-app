@@ -7,11 +7,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../theme/colors.dart';
 import '../../services/api_service.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class TransportScreen extends StatefulWidget {
   final RoleTheme theme;
   final bool showBackButton;
-  const TransportScreen({super.key, required this.theme, this.showBackButton = true});
+  const TransportScreen(
+      {super.key, required this.theme, this.showBackButton = true});
 
   @override
   State<TransportScreen> createState() => _TransportScreenState();
@@ -32,7 +34,7 @@ class _TransportScreenState extends State<TransportScreen> {
   LatLng _busLocation = const LatLng(28.70410, 77.10250);
   Timer? _simulationTimer;
   int _routeIndex = 0;
-  
+
   final List<LatLng> _busRoute = const [
     LatLng(28.70410, 77.10250),
     LatLng(28.70430, 77.10270),
@@ -50,7 +52,6 @@ class _TransportScreenState extends State<TransportScreen> {
     LatLng(28.70670, 77.10510),
     LatLng(28.70690, 77.10530),
   ];
-
 
   @override
   void initState() {
@@ -89,18 +90,18 @@ class _TransportScreenState extends State<TransportScreen> {
         client.removeChannel(_transportChannel!);
       }
 
-      _transportChannel = client.channel('public:transport_allocation_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'TransportAllocation',
-          callback: (payload) {
-            if (mounted) {
-              _loadTransportAllocation();
-            }
-          },
-        );
-      
+      _transportChannel =
+          client.channel('public:transport_allocation_sync').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'TransportAllocation',
+                callback: (payload) {
+                  if (mounted) {
+                    _loadTransportAllocation();
+                  }
+                },
+              );
+
       _transportChannel!.subscribe();
     } catch (_) {}
   }
@@ -112,16 +113,19 @@ class _TransportScreenState extends State<TransportScreen> {
     });
 
     try {
-      final response = await ApiService.instance.get('transport/allocations/my');
-      if (response != null && response['success'] == true && response['allocation'] != null) {
+      final response =
+          await ApiService.instance.get('transport/allocations/my');
+      if (response != null &&
+          response['success'] == true &&
+          response['allocation'] != null) {
         final allocation = response['allocation'] as Map<String, dynamic>;
         _isTransportAssigned = true;
-        
+
         final routeObj = allocation['route'] as Map<String, dynamic>?;
         if (routeObj != null) {
           _routeName = routeObj['name'] as String? ?? 'Route 1 - City Center';
         }
-        
+
         final stopObj = allocation['stop'] as Map<String, dynamic>?;
         if (stopObj != null) {
           _stopName = stopObj['name'] as String? ?? 'Stop A';
@@ -175,8 +179,6 @@ class _TransportScreenState extends State<TransportScreen> {
     return timeStr;
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -203,7 +205,8 @@ class _TransportScreenState extends State<TransportScreen> {
                     // Header Bar with Back Button (if applicable)
                     Row(
                       children: [
-                        if (widget.showBackButton && Navigator.canPop(context)) ...[
+                        if (widget.showBackButton &&
+                            Navigator.canPop(context)) ...[
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: Container(
@@ -212,7 +215,8 @@ class _TransportScreenState extends State<TransportScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10.r),
-                                border: Border.all(color: const Color(0xFFE2EAF4)),
+                                border:
+                                    Border.all(color: const Color(0xFFE2EAF4)),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.02),
@@ -232,20 +236,14 @@ class _TransportScreenState extends State<TransportScreen> {
                             children: [
                               Text(
                                 'Transport Details',
-                                style: GoogleFonts.inter(
-                                  fontSize: 24.sp,
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF0F2547),
-                                ),
+                                style: AppTypography.h3
+                                    .copyWith(color: const Color(0xFF0F2547)),
                               ),
                               SizedBox(height: 2.h),
                               Text(
                                 'View your assigned vehicle, route information, and live location.',
-                                style: GoogleFonts.inter(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF6B7A90),
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF6B7A90)),
                               ),
                             ],
                           ),
@@ -304,22 +302,15 @@ class _TransportScreenState extends State<TransportScreen> {
             SizedBox(height: 16.h),
             Text(
               'No Transport Assigned',
-              style: GoogleFonts.inter(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF334155),
-              ),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF334155)),
             ),
             SizedBox(height: 8.h),
             Text(
               'You are not currently allocated to any school transport route.\nPlease contact the administration.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 11.sp,
-                color: const Color(0xFF64748B),
-                fontWeight: FontWeight.w500,
-                height: 1.5,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B), height: 1.5),
             ),
           ],
         ),
@@ -350,26 +341,39 @@ class _TransportScreenState extends State<TransportScreen> {
                   padding: EdgeInsets.all(16.r),
                   child: Row(
                     children: [
-                      Icon(Icons.map_outlined, color: const Color(0xFF0076F6), size: 20.sp),
+                      Icon(Icons.map_outlined,
+                          color: const Color(0xFF0076F6), size: 20.sp),
                       SizedBox(width: 10.w),
                       Text(
                         'Allocation Summary',
-                        style: GoogleFonts.inter(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF0F2547),
-                        ),
+                        style: AppTypography.button
+                            .copyWith(color: const Color(0xFF0F2547)),
                       ),
                     ],
                   ),
                 ),
-                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
-                _buildAllocationRow('ROUTE NAME', _routeName, Icons.navigation_outlined),
-                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
-                _buildAllocationRow('DESIGNATED STOP', _stopName, Icons.location_on_outlined),
-                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
-                _buildAllocationRow('SCHEDULED TIME', _arrivalTime, Icons.access_time),
-                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                Divider(
+                    color: const Color(0xFFE2EAF4),
+                    height: 1.h,
+                    thickness: 1.h),
+                _buildAllocationRow(
+                    'ROUTE NAME', _routeName, Icons.navigation_outlined),
+                Divider(
+                    color: const Color(0xFFE2EAF4),
+                    height: 1.h,
+                    thickness: 1.h),
+                _buildAllocationRow(
+                    'DESIGNATED STOP', _stopName, Icons.location_on_outlined),
+                Divider(
+                    color: const Color(0xFFE2EAF4),
+                    height: 1.h,
+                    thickness: 1.h),
+                _buildAllocationRow(
+                    'SCHEDULED TIME', _arrivalTime, Icons.access_time),
+                Divider(
+                    color: const Color(0xFFE2EAF4),
+                    height: 1.h,
+                    thickness: 1.h),
                 Padding(
                   padding: EdgeInsets.all(16.r),
                   child: Row(
@@ -380,21 +384,15 @@ class _TransportScreenState extends State<TransportScreen> {
                         children: [
                           Text(
                             'STATUS',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF10B981),
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF10B981),
+                                letterSpacing: 0.5),
                           ),
                           SizedBox(height: 4.h),
                           Text(
                             'Active Enrollment',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF10B981),
-                            ),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF10B981)),
                           ),
                         ],
                       ),
@@ -433,7 +431,8 @@ class _TransportScreenState extends State<TransportScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.warning_amber_rounded, color: const Color(0xFFF59E0B), size: 20.sp),
+                Icon(Icons.warning_amber_rounded,
+                    color: const Color(0xFFF59E0B), size: 20.sp),
                 SizedBox(width: 12.w),
                 Expanded(
                   child: Column(
@@ -441,21 +440,14 @@ class _TransportScreenState extends State<TransportScreen> {
                     children: [
                       Text(
                         'Guidelines',
-                        style: GoogleFonts.inter(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF0F2547),
-                        ),
+                        style: AppTypography.small
+                            .copyWith(color: const Color(0xFF0F2547)),
                       ),
                       SizedBox(height: 6.h),
                       Text(
                         'Students are advised to be at the pickup point at least 5 minutes before the scheduled arrival time.',
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          color: const Color(0xFF475569),
-                          height: 1.4,
-                        ),
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF475569), height: 1.4),
                       ),
                     ],
                   ),
@@ -490,20 +482,19 @@ class _TransportScreenState extends State<TransportScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.location_on_outlined, color: const Color(0xFF0076F6), size: 18.sp),
+                          Icon(Icons.location_on_outlined,
+                              color: const Color(0xFF0076F6), size: 18.sp),
                           SizedBox(width: 8.w),
                           Text(
                             'Live Tracking Map',
-                            style: GoogleFonts.inter(
-                              fontSize: 14.sp,
-                              fontWeight: FontWeight.w500,
-                              color: const Color(0xFF0F2547),
-                            ),
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F2547)),
                           ),
                         ],
                       ),
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10.w, vertical: 4.h),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(color: const Color(0xFFE2EAF4)),
@@ -511,17 +502,17 @@ class _TransportScreenState extends State<TransportScreen> {
                         ),
                         child: Text(
                           'GPS Active',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF475569),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF475569)),
                         ),
                       ),
                     ],
                   ),
                 ),
-                Divider(color: const Color(0xFFE2EAF4), height: 1.h, thickness: 1.h),
+                Divider(
+                    color: const Color(0xFFE2EAF4),
+                    height: 1.h,
+                    thickness: 1.h),
                 Container(
                   height: 300.h,
                   width: double.infinity,
@@ -549,7 +540,8 @@ class _TransportScreenState extends State<TransportScreen> {
                             ),
                             children: [
                               TileLayer(
-                                urlTemplate: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                urlTemplate:
+                                    'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.edusphere.transport',
                               ),
                               PolylineLayer(
@@ -571,9 +563,15 @@ class _TransportScreenState extends State<TransportScreen> {
                                       decoration: const BoxDecoration(
                                         color: Color(0xFF0F2547),
                                         shape: BoxShape.circle,
-                                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                        boxShadow: [
+                                          BoxShadow(
+                                              color: Colors.black26,
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2))
+                                        ],
                                       ),
-                                      child: Icon(Icons.school, color: Colors.white, size: 16.sp),
+                                      child: Icon(Icons.school,
+                                          color: Colors.white, size: 16.sp),
                                     ),
                                   ),
                                   Marker(
@@ -581,13 +579,22 @@ class _TransportScreenState extends State<TransportScreen> {
                                     width: 40.w,
                                     height: 40.w,
                                     child: AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       decoration: const BoxDecoration(
                                         color: Color(0xFF10B981),
                                         shape: BoxShape.circle,
-                                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                        boxShadow: [
+                                          BoxShadow(
+                                              color: Colors.black26,
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2))
+                                        ],
                                       ),
-                                      child: Icon(Icons.directions_bus_filled_outlined, color: Colors.white, size: 20.sp),
+                                      child: Icon(
+                                          Icons.directions_bus_filled_outlined,
+                                          color: Colors.white,
+                                          size: 20.sp),
                                     ),
                                   ),
                                 ],
@@ -619,21 +626,14 @@ class _TransportScreenState extends State<TransportScreen> {
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B7A90),
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF6B7A90), letterSpacing: 0.5),
               ),
               SizedBox(height: 4.h),
               Text(
                 value.toLowerCase() == value ? value : value,
-                style: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF0F2547),
-                ),
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547)),
               ),
             ],
           ),
@@ -649,6 +649,4 @@ class _TransportScreenState extends State<TransportScreen> {
       ),
     );
   }
-
-
 }

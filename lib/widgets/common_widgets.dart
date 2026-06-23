@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../theme/colors.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ── Page Header ───────────────────────────────────────────────────────────────
 class PageHeader extends StatelessWidget {
@@ -39,18 +40,21 @@ class PageHeader extends StatelessWidget {
                 SizedBox(width: 14.w),
               ] else if (showBackButton) ...[
                 GestureDetector(
-                  onTap: onBack ?? () {
-                    if (Navigator.canPop(context)) {
-                      Navigator.pop(context);
-                    }
-                  },
+                  onTap: onBack ??
+                      () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
+                      },
                   child: Container(
-                    width: 40.w, height: 40.w,
+                    width: 40.w,
+                    height: 40.w,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12.r),
                     ),
-                    child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18.sp),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white, size: 18.sp),
                   ),
                 ),
                 SizedBox(width: 14.w),
@@ -59,9 +63,13 @@ class PageHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text(title,
+                        style: AppTypography.bodyLarge
+                            .copyWith(color: Colors.white)),
                     if (subtitle != null)
-                      Text(subtitle!, style: GoogleFonts.inter(fontSize: 12.sp, color: Colors.white.withValues(alpha: 0.7))),
+                      Text(subtitle!,
+                          style: AppTypography.caption.copyWith(
+                              color: Colors.white.withValues(alpha: 0.7))),
                   ],
                 ),
               ),
@@ -127,9 +135,11 @@ class InfoCard extends StatelessWidget {
                 height: iconSize,
                 decoration: BoxDecoration(
                   color: bgColor,
-                  borderRadius: BorderRadius.circular((iconSize * 0.3).clamp(6.0, 12.0)),
+                  borderRadius:
+                      BorderRadius.circular((iconSize * 0.3).clamp(6.0, 12.0)),
                 ),
-                child: Icon(icon, color: iconColor, size: (iconSize * 0.5).clamp(12.0, 20.0)),
+                child: Icon(icon,
+                    color: iconColor, size: (iconSize * 0.5).clamp(12.0, 20.0)),
               ),
               SizedBox(height: spacing),
               Expanded(
@@ -209,28 +219,46 @@ class FeatureCard extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r, offset: Offset(0, 2.h))],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8.r,
+                offset: Offset(0, 2.h))
+          ],
         ),
         child: Row(
           children: [
             Container(
-              width: 52.w, height: 52.w,
-              decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(16.r),
-                boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 10.r, offset: Offset(0, 4.h))]),
-              child: Center(child: Text(emoji, style: TextStyle(fontSize: 24.sp))),
+              width: 52.w,
+              height: 52.w,
+              decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(16.r),
+                  boxShadow: [
+                    BoxShadow(
+                        color: color.withValues(alpha: 0.3),
+                        blurRadius: 10.r,
+                        offset: Offset(0, 4.h))
+                  ]),
+              child: Center(child: Text(emoji, style: AppTypography.h3)),
             ),
             SizedBox(width: 16.w),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: GoogleFonts.inter(fontWeight: FontWeight.w800, color: AppColors.textDark, fontSize: 14.sp)),
+                  Text(title,
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark)),
                   SizedBox(height: 3.h),
-                  Text(desc, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium)),
+                  Text(desc,
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium)),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 20.sp),
+            Icon(Icons.chevron_right_rounded,
+                color: AppColors.textLight, size: 20.sp),
           ],
         ),
       ),
@@ -245,7 +273,12 @@ class QuickBtn extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const QuickBtn({super.key, required this.label, required this.icon, required this.color, required this.onTap});
+  const QuickBtn(
+      {super.key,
+      required this.label,
+      required this.icon,
+      required this.color,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -256,7 +289,10 @@ class QuickBtn extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(20.r),
           border: Border.all(color: AppColors.border),
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r)],
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04), blurRadius: 8.r)
+          ],
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -275,7 +311,8 @@ class QuickBtn extends StatelessWidget {
                     height: iconSize,
                     decoration: BoxDecoration(
                       color: color,
-                      borderRadius: BorderRadius.circular((iconSize * 0.3).clamp(8.0, 14.0)),
+                      borderRadius: BorderRadius.circular(
+                          (iconSize * 0.3).clamp(8.0, 14.0)),
                       boxShadow: [
                         BoxShadow(
                           color: color.withValues(alpha: 0.35),
@@ -284,7 +321,9 @@ class QuickBtn extends StatelessWidget {
                         )
                       ],
                     ),
-                    child: Icon(icon, color: Colors.white, size: (iconSize * 0.46).clamp(12.0, 22.0)),
+                    child: Icon(icon,
+                        color: Colors.white,
+                        size: (iconSize * 0.46).clamp(12.0, 22.0)),
                   ),
                   SizedBox(height: spacing),
                   Text(
@@ -315,7 +354,9 @@ void showToast(BuildContext context, String msg, {bool isError = false}) {
       Icon(isError ? Icons.error_outline : Icons.check_circle_rounded,
           color: isError ? AppColors.error : AppColors.success, size: 18.sp),
       SizedBox(width: 10.w),
-      Expanded(child: Text(msg, style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 13.sp))),
+      Expanded(
+          child: Text(msg,
+              style: AppTypography.caption.copyWith(color: Colors.white))),
     ]),
     backgroundColor: AppColors.textDark,
     behavior: SnackBarBehavior.floating,
@@ -334,9 +375,9 @@ class LoadingButton extends StatefulWidget {
   final Future<void> Function() onPressed;
 
   const LoadingButton({
-    super.key, 
-    required this.label, 
-    required this.color, 
+    super.key,
+    required this.label,
+    required this.color,
     required this.onPressed,
     this.textColor,
     this.isLoading,
@@ -355,19 +396,28 @@ class _LoadingButtonState extends State<LoadingButton> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: activeLoading ? null : () async {
-          setState(() => _loading = true);
-          await widget.onPressed();
-          if (mounted) setState(() => _loading = false);
-        },
+        onPressed: activeLoading
+            ? null
+            : () async {
+                setState(() => _loading = true);
+                await widget.onPressed();
+                if (mounted) setState(() => _loading = false);
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: widget.color,
           padding: EdgeInsets.symmetric(vertical: 16.h),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
         ),
         child: activeLoading
-            ? SizedBox(width: 22.w, height: 22.w, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5.w))
-            : Text(widget.label, style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: widget.textColor ?? Colors.white)),
+            ? SizedBox(
+                width: 22.w,
+                height: 22.w,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5.w))
+            : Text(widget.label,
+                style: AppTypography.small
+                    .copyWith(color: widget.textColor ?? Colors.white)),
       ),
     );
   }
@@ -379,18 +429,23 @@ class SectionTitle extends StatelessWidget {
   final String? action;
   final VoidCallback? onAction;
 
-  const SectionTitle({super.key, required this.title, this.action, this.onAction});
+  const SectionTitle(
+      {super.key, required this.title, this.action, this.onAction});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title.toUpperCase(), style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800, color: AppColors.textDark, letterSpacing: 0.8)),
+        Text(title.toUpperCase(),
+            style: AppTypography.caption
+                .copyWith(color: AppColors.textDark, letterSpacing: 0.8)),
         if (action != null)
           GestureDetector(
             onTap: onAction,
-            child: Text(action!, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.studentPrimary)),
+            child: Text(action!,
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.studentPrimary)),
           ),
       ],
     );
@@ -403,7 +458,11 @@ class NotifItem extends StatelessWidget {
   final String time;
   final String emoji;
 
-  const NotifItem({super.key, required this.title, required this.time, required this.emoji});
+  const NotifItem(
+      {super.key,
+      required this.title,
+      required this.time,
+      required this.emoji});
 
   @override
   Widget build(BuildContext context) {
@@ -417,18 +476,23 @@ class NotifItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(emoji, style: TextStyle(fontSize: 26.sp)),
+          Text(emoji, style: AppTypography.h3),
           SizedBox(width: 14.w),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
-                Text(time, style: GoogleFonts.inter(fontSize: 11.sp, color: AppColors.textLight)),
+                Text(title,
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textDark)),
+                Text(time,
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight)),
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: AppColors.textLight, size: 18.sp),
+          Icon(Icons.chevron_right_rounded,
+              color: AppColors.textLight, size: 18.sp),
         ],
       ),
     );

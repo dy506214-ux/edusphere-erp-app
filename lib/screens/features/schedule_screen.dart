@@ -9,7 +9,7 @@ import '../../widgets/common_widgets.dart';
 import '../../services/api_service.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
-
+import 'package:edusphere/theme/typography.dart';
 
 class ScheduleScreen extends StatefulWidget {
   final String role;
@@ -84,7 +84,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         if (sectionId == null || sectionId.isEmpty) {
           // Fetch student profile first to get sectionId
           final profileRes = await ApiService.instance.get('students/me');
-          if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+          if (profileRes != null &&
+              profileRes['success'] == true &&
+              profileRes['student'] != null) {
             final studentData = profileRes['student'] as Map<String, dynamic>;
             sectionId = studentData['sectionId'] as String?;
             if (sectionId != null) {
@@ -98,7 +100,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
         slotsRes = await client
             .from('TimetableSlot')
-            .select('*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
+            .select(
+                '*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
             .eq('sectionId', sectionId);
       } else {
         String? teacherId = prefs.getString('teacher_id');
@@ -120,7 +123,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         }
         slotsRes = await client
             .from('TimetableSlot')
-            .select('*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
+            .select(
+                '*, Subject(name), Section(name, Class(name)), Teacher(id, User(firstName, lastName))')
             .eq('teacherId', teacherId);
       }
 
@@ -130,10 +134,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final classData = section?['Class'] as Map<String, dynamic>?;
         final teacher = slot['Teacher'] as Map<String, dynamic>?;
         final user = teacher?['User'] as Map<String, dynamic>?;
-        
+
         String resolvedTeacherName = 'Class Teacher';
         if (user != null) {
-          resolvedTeacherName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+          resolvedTeacherName =
+              '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
         }
 
         return {
@@ -172,7 +177,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         final userObj = teacherObj?['user'] as Map<String, dynamic>?;
         String resolvedTeacherName = 'Class Teacher';
         if (userObj != null) {
-          resolvedTeacherName = '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim();
+          resolvedTeacherName =
+              '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'
+                  .trim();
         } else if (teacherObj?['name'] != null) {
           resolvedTeacherName = teacherObj!['name'] as String;
         }
@@ -211,7 +218,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
   void _applyFilters() {
     // Filter and sort by period start_time
     _filteredEntries = _allEntries.where((entry) {
-      return entry['day_of_week'].toString().toLowerCase() == _selectedDay.toLowerCase();
+      return entry['day_of_week'].toString().toLowerCase() ==
+          _selectedDay.toLowerCase();
     }).toList();
 
     _filteredEntries.sort((a, b) {
@@ -221,7 +229,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     });
   }
 
-  bool _isCurrentPeriod(String dayOfWeek, String startTimeStr, String endTimeStr) {
+  bool _isCurrentPeriod(
+      String dayOfWeek, String startTimeStr, String endTimeStr) {
     final now = DateTime.now();
 
     // 1. Day Check
@@ -290,11 +299,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               ),
               child: Text(
                 day,
-                style: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                  color: isSelected ? Colors.white : AppColors.textMedium,
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: isSelected ? Colors.white : AppColors.textMedium),
               ),
             ),
           );
@@ -333,7 +339,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         ),
         boxShadow: [
           BoxShadow(
-            color: isNow 
+            color: isNow
                 ? widget.theme.primary.withValues(alpha: 0.05)
                 : Colors.black.withValues(alpha: 0.02),
             blurRadius: 10.r,
@@ -351,36 +357,26 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
               children: [
                 Text(
                   startTime,
-                  style: GoogleFonts.inter(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.textDark,
-                  ),
+                  style: AppTypography.body.copyWith(color: AppColors.textDark),
                 ),
                 Text(
                   endTime,
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                 ),
                 SizedBox(height: 6.h),
                 if (isNow)
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
                     decoration: BoxDecoration(
                       color: widget.theme.primary,
                       borderRadius: BorderRadius.circular(6.r),
                     ),
                     child: Text(
                       'NOW',
-                      style: GoogleFonts.inter(
-                        fontSize: 9.sp,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 0.5,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: Colors.white, letterSpacing: 0.5),
                     ),
                   ),
               ],
@@ -390,7 +386,9 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
             Container(
               height: 60.h,
               width: 1.w,
-              color: isNow ? widget.theme.primary.withValues(alpha: 0.3) : AppColors.border,
+              color: isNow
+                  ? widget.theme.primary.withValues(alpha: 0.3)
+                  : AppColors.border,
             ),
             SizedBox(width: 16.w),
             // Details
@@ -401,18 +399,16 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 3.h),
                         decoration: BoxDecoration(
                           color: widget.theme.light,
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Text(
                           subjectCode.isNotEmpty ? subjectCode : 'CORE',
-                          style: GoogleFonts.inter(
-                            fontSize: 8.sp,
-                            fontWeight: FontWeight.w900,
-                            color: widget.theme.primary,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: widget.theme.primary),
                         ),
                       ),
                       const Spacer(),
@@ -426,11 +422,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                           SizedBox(width: 4.w),
                           Text(
                             roomNumber,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textMedium,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textMedium),
                           ),
                         ],
                       ),
@@ -439,11 +432,8 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   SizedBox(height: 6.h),
                   Text(
                     subjectName,
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textDark,
-                    ),
+                    style:
+                        AppTypography.small.copyWith(color: AppColors.textDark),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -451,7 +441,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                   Row(
                     children: [
                       Icon(
-                        widget.role == 'student' 
+                        widget.role == 'student'
                             ? Icons.person_outline_rounded
                             : Icons.school_outlined,
                         size: 14.sp,
@@ -460,14 +450,11 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
                       SizedBox(width: 6.w),
                       Expanded(
                         child: Text(
-                          widget.role == 'student' 
+                          widget.role == 'student'
                               ? 'Instructor: $teacherName'
                               : 'Class: $className - $section',
-                          style: GoogleFonts.inter(
-                            fontSize: 11.sp,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textMedium,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textMedium),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -510,21 +497,13 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
           SizedBox(height: 16.h),
           Text(
             'No Classes Today 🎉',
-            style: GoogleFonts.inter(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
-            ),
+            style: AppTypography.body.copyWith(color: AppColors.textDark),
           ),
           SizedBox(height: 8.h),
           Text(
             'Enjoy your study leave or personal project hours. Keep learning!',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              color: AppColors.textMedium,
-              height: 1.5,
-            ),
+            style: AppTypography.caption
+                .copyWith(color: AppColors.textMedium, height: 1.5),
             textAlign: TextAlign.center,
           ),
         ],
@@ -539,8 +518,12 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: (isPushed && isTeacher) ? const EduSphereDrawer(role: 'teacher', activeLabel: 'My Schedule') : null,
-      bottomNavigationBar: (isPushed && isTeacher) ? const TeacherBottomNavBar(activeIndex: 10) : null,
+      drawer: (isPushed && isTeacher)
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'My Schedule')
+          : null,
+      bottomNavigationBar: (isPushed && isTeacher)
+          ? const TeacherBottomNavBar(activeIndex: 10)
+          : null,
       backgroundColor: AppColors.background,
       appBar: (widget.showAppBar && isTeacher)
           ? const TeacherAppBar(title: 'EduSphere')
@@ -574,7 +557,7 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
         children: [
           PageHeader(
             title: 'Class Schedule',
-            subtitle: widget.role == 'student' 
+            subtitle: widget.role == 'student'
                 ? 'Your weekly timetable lectures'
                 : 'Your active classes & slots',
             theme: widget.theme,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class NotificationData {
   final String title;
@@ -40,7 +41,7 @@ class NotificationItem extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(data.emoji, style: TextStyle(fontSize: 28.sp)),
+          Text(data.emoji, style: AppTypography.h2),
           SizedBox(width: 14.w),
           Expanded(
             child: Column(
@@ -48,19 +49,14 @@ class NotificationItem extends StatelessWidget {
               children: [
                 Text(
                   data.title,
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textDark,
-                  ),
+                  style:
+                      AppTypography.caption.copyWith(color: AppColors.textDark),
                 ),
                 SizedBox(height: 3.h),
                 Text(
                   data.time,
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    color: AppColors.textLight,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textLight),
                 ),
               ],
             ),
