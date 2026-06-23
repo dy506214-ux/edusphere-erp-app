@@ -454,8 +454,9 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2563EB)),
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty || selectedClassId == null)
+                if (nameCtrl.text.trim().isEmpty || selectedClassId == null) {
                   return;
+                }
 
                 DateTime startDate;
                 try {

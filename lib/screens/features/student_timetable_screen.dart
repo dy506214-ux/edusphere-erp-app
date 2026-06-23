@@ -87,8 +87,9 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
         }).toList();
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         showToast(context, 'Failed to load timetable', isError: true);
+      }
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

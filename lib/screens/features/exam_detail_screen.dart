@@ -290,8 +290,9 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   }
 
   Future<void> _saveMarks() async {
-    if (_selectedSubjectId == null || _isSavingMarks || _subjects.isEmpty)
+    if (_selectedSubjectId == null || _isSavingMarks || _subjects.isEmpty) {
       return;
+    }
     setState(() => _isSavingMarks = true);
 
     try {

@@ -355,17 +355,19 @@ class _TeacherDashboardState extends State<TeacherDashboard>
           _upcomingEventsLoaded = true;
         });
       } else {
-        if (mounted)
+        if (mounted) {
           setState(() {
             _upcomingEventsLoaded = true;
           });
+        }
       }
     } catch (e) {
       dev.log('Error loading teacher upcoming events from API: $e');
-      if (mounted)
+      if (mounted) {
         setState(() {
           _upcomingEventsLoaded = true;
         });
+      }
     }
     await _loadCalendarEvents();
   }
@@ -963,11 +965,13 @@ class _TeacherDashboardState extends State<TeacherDashboard>
                       final time = event['startTime']?.toString() ?? '';
 
                       Color typeColor = const Color(0xFF0EA5E9);
-                      if (type == 'HOLIDAY')
+                      if (type == 'HOLIDAY') {
                         typeColor = const Color(0xFFEF4444);
+                      }
                       if (type == 'EXAM') typeColor = const Color(0xFFF59E0B);
-                      if (type == 'MEETING')
+                      if (type == 'MEETING') {
                         typeColor = const Color(0xFF8B5CF6);
+                      }
 
                       return Container(
                         margin: EdgeInsets.only(bottom: 8.h),

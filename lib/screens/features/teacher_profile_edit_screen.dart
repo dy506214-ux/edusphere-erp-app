@@ -259,8 +259,9 @@ class _TeacherProfileEditScreenState extends State<TeacherProfileEditScreen>
                   style: ElevatedButton.styleFrom(
                       backgroundColor: widget.theme.primary),
                   onPressed: () {
-                    if (ctrl.text.trim().isNotEmpty)
+                    if (ctrl.text.trim().isNotEmpty) {
                       setState(() => _subjects.add(ctrl.text.trim()));
+                    }
                     Navigator.pop(context);
                   },
                   child:

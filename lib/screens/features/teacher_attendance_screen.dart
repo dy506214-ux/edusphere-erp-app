@@ -8,6 +8,7 @@ import '../../widgets/teacher_app_bar.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -319,7 +320,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
         // Class filter
         if (_analyticsClass != 'All Classes' &&
-            mappedClassName != _analyticsClass) continue;
+            mappedClassName != _analyticsClass) {
+          continue;
+        }
 
         final userMap = student['User'] as Map? ?? {};
         final firstName = userMap['firstName']?.toString() ?? '';
@@ -360,15 +363,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             'L': 0,
             'total': 0
           };
-          if (isPresent)
+          if (isPresent) {
             studentMap[studentId]!['P'] =
                 (studentMap[studentId]!['P'] as int) + 1;
-          if (isAbsent)
+          }
+          if (isAbsent) {
             studentMap[studentId]!['A'] =
                 (studentMap[studentId]!['A'] as int) + 1;
-          if (isLate)
+          }
+          if (isLate) {
             studentMap[studentId]!['L'] =
                 (studentMap[studentId]!['L'] as int) + 1;
+          }
           studentMap[studentId]!['total'] =
               (studentMap[studentId]!['total'] as int) + 1;
         }
@@ -1324,8 +1330,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                 child: child!,
                               ),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setState(() => _analyticsFromDate = picked);
+                            }
                           },
                         ),
                       ],
@@ -1359,8 +1366,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                 child: child!,
                               ),
                             );
-                            if (picked != null)
+                            if (picked != null) {
                               setState(() => _analyticsToDate = picked);
+                            }
                           },
                         ),
                       ],
@@ -2223,6 +2231,12 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       }
 
       if (mounted) {
+        try {
+          SocketService().emit('ATTENDANCE_UPDATED', {'source': 'teacher_bulk_attendance'});
+        } catch (e) {
+          debugPrint('Socket emit error: $e');
+        }
+
         setState(() {
           _isAlreadySubmitted = true;
           _isSubmitting = false;
@@ -2235,8 +2249,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 const Icon(Icons.check_circle_rounded,
                     color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text('Attendance submitted successfully!',
-                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                Expanded(
+                  child: Text('Attendance submitted successfully!',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                ),
               ],
             ),
             backgroundColor: const Color(0xFF10B981),
@@ -2346,10 +2362,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                         children: [
                           Row(
                             children: [
-                              Text(
-                                '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section}',
-                                style: AppTypography.small
-                                    .copyWith(color: const Color(0xFF0F172A)),
+                              Flexible(
+                                child: Text(
+                                  '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section}',
+                                  style: AppTypography.small
+                                      .copyWith(color: const Color(0xFF0F172A)),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               SizedBox(width: 8.w),
                               Container(
@@ -2649,10 +2668,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
             children: [
               Icon(icon, size: 14.sp, color: const Color(0xFF475569)),
               SizedBox(width: 6.w),
-              Text(
-                label,
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF475569)),
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF475569)),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -2690,10 +2712,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 color: isSelected ? Colors.white : const Color(0xFF475569),
               ),
               SizedBox(width: 6.w),
-              Text(
-                label,
-                style: AppTypography.caption.copyWith(
-                    color: isSelected ? Colors.white : const Color(0xFF475569)),
+              Flexible(
+                child: Text(
+                  label,
+                  style: AppTypography.caption.copyWith(
+                      color: isSelected ? Colors.white : const Color(0xFF475569)),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),

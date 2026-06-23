@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../features/attendance_screen.dart';
 import '../features/results_screen.dart';

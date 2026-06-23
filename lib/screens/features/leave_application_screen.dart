@@ -223,8 +223,9 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen>
                                             firstDate: DateTime.now(),
                                             lastDate: DateTime.now()
                                                 .add(const Duration(days: 90)));
-                                        if (d != null)
+                                        if (d != null) {
                                           setState(() => _fromDate = d);
+                                        }
                                       },
                                       child: Container(
                                         padding: EdgeInsets.all(14.r),
@@ -269,8 +270,9 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen>
                                             firstDate: DateTime.now(),
                                             lastDate: DateTime.now()
                                                 .add(const Duration(days: 90)));
-                                        if (d != null)
+                                        if (d != null) {
                                           setState(() => _toDate = d);
+                                        }
                                       },
                                       child: Container(
                                         padding: EdgeInsets.all(14.r),

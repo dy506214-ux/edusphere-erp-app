@@ -1686,8 +1686,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userUpdates['lastName'] = parts.skip(1).join(' ');
       }
       if (data.containsKey('phone')) userUpdates['phone'] = data['phone'];
-      if (data.containsKey('gender'))
+      if (data.containsKey('gender')) {
         userUpdates['gender'] = data['gender']!.toUpperCase();
+      }
       if (data.containsKey('dob')) {
         try {
           final parts = data['dob']!.split('/');
@@ -1702,8 +1703,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           userUpdates['dateOfBirth'] = data['dob'];
         }
       }
-      if (data.containsKey('bloodGroup'))
+      if (data.containsKey('bloodGroup')) {
         userUpdates['bloodGroup'] = data['bloodGroup'];
+      }
       if (data.containsKey('address')) userUpdates['address'] = data['address'];
 
       if (userUpdates.isNotEmpty) {
@@ -1711,12 +1713,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final Map<String, dynamic> teacherUpdates = {};
-      if (data.containsKey('employeeId'))
+      if (data.containsKey('employeeId')) {
         teacherUpdates['employeeId'] = data['employeeId'];
-      if (data.containsKey('designation'))
+      }
+      if (data.containsKey('designation')) {
         teacherUpdates['specialization'] = data['designation'];
-      if (data.containsKey('department'))
+      }
+      if (data.containsKey('department')) {
         teacherUpdates['qualification'] = data['department'];
+      }
 
       if (teacherUpdates.isNotEmpty) {
         await client
@@ -1802,50 +1807,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfileEdits(Map<String, String> data) async {
     final prefs = await SharedPreferences.getInstance();
     if (widget.role == 'teacher') {
-      if (data.containsKey('name'))
+      if (data.containsKey('name')) {
         await prefs.setString('teacher_name', data['name']!);
-      if (data.containsKey('email'))
+      }
+      if (data.containsKey('email')) {
         await prefs.setString('teacher_email', data['email']!);
-      if (data.containsKey('phone'))
+      }
+      if (data.containsKey('phone')) {
         await prefs.setString('teacher_mobile', data['phone']!);
-      if (data.containsKey('gender'))
+      }
+      if (data.containsKey('gender')) {
         await prefs.setString('teacher_gender', data['gender']!);
-      if (data.containsKey('dob'))
+      }
+      if (data.containsKey('dob')) {
         await prefs.setString('teacher_dob', data['dob']!);
-      if (data.containsKey('bloodGroup'))
+      }
+      if (data.containsKey('bloodGroup')) {
         await prefs.setString('teacher_blood', data['bloodGroup']!);
-      if (data.containsKey('address'))
+      }
+      if (data.containsKey('address')) {
         await prefs.setString('teacher_address', data['address']!);
-      if (data.containsKey('employeeId'))
+      }
+      if (data.containsKey('employeeId')) {
         await prefs.setString('teacher_emp_id', data['employeeId']!);
-      if (data.containsKey('designation'))
+      }
+      if (data.containsKey('designation')) {
         await prefs.setString('teacher_design', data['designation']!);
-      if (data.containsKey('department'))
+      }
+      if (data.containsKey('department')) {
         await prefs.setString('teacher_dept', data['department']!);
-      if (data.containsKey('experience'))
+      }
+      if (data.containsKey('experience')) {
         await prefs.setString('teacher_exp', data['experience']!);
+      }
       await _saveTeacherDataToSupabase(data);
     } else {
-      if (data.containsKey('name'))
+      if (data.containsKey('name')) {
         await prefs.setString('student_name', data['name']!);
-      if (data.containsKey('email'))
+      }
+      if (data.containsKey('email')) {
         await prefs.setString('student_email', data['email']!);
-      if (data.containsKey('phone'))
+      }
+      if (data.containsKey('phone')) {
         await prefs.setString('student_phone', data['phone']!);
-      if (data.containsKey('gender'))
+      }
+      if (data.containsKey('gender')) {
         await prefs.setString('student_gender', data['gender']!);
-      if (data.containsKey('dob'))
+      }
+      if (data.containsKey('dob')) {
         await prefs.setString('student_dob', data['dob']!);
-      if (data.containsKey('bloodGroup'))
+      }
+      if (data.containsKey('bloodGroup')) {
         await prefs.setString('student_blood', data['bloodGroup']!);
-      if (data.containsKey('address'))
+      }
+      if (data.containsKey('address')) {
         await prefs.setString('student_address', data['address']!);
-      if (data.containsKey('rollNumber'))
+      }
+      if (data.containsKey('rollNumber')) {
         await prefs.setString('student_roll', data['rollNumber']!);
-      if (data.containsKey('className'))
+      }
+      if (data.containsKey('className')) {
         await prefs.setString('student_class', data['className']!);
-      if (data.containsKey('admissionId'))
+      }
+      if (data.containsKey('admissionId')) {
         await prefs.setString('student_admission_id', data['admissionId']!);
+      }
     }
     await _loadTeacherDataFromSupabase();
     if (mounted) {
@@ -3867,8 +3893,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             client.auth.currentUser?.id ?? prefs.getString('user_id');
 
         if (userId == null) {
-          if (mounted)
+          if (mounted) {
             showToast(context, 'Not logged in. Cannot upload avatar.');
+          }
           return;
         }
 

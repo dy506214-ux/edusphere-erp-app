@@ -574,8 +574,9 @@ class _MainScreenState extends State<MainScreen> {
                                         _lastSeenAnnouncementTime = now;
                                       });
 
-                                      if (button == null || overlay == null)
+                                      if (button == null || overlay == null) {
                                         return;
+                                      }
                                       final RelativeRect position =
                                           RelativeRect.fromRect(
                                         Rect.fromPoints(

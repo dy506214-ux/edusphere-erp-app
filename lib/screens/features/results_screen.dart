@@ -612,8 +612,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
             isError: false);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         showToast(context, 'Failed to generate PDF: $e', isError: true);
+      }
     }
   }
 

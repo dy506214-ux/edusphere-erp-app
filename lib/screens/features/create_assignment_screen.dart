@@ -76,10 +76,12 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   String _getInitials(String name) {
     try {
       final parts = name.trim().split(RegExp(r'\s+'));
-      if (parts.length >= 2)
+      if (parts.length >= 2) {
         return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-      if (parts.isNotEmpty && parts[0].isNotEmpty)
+      }
+      if (parts.isNotEmpty && parts[0].isNotEmpty) {
         return parts[0][0].toUpperCase();
+      }
     } catch (_) {}
     return 'T';
   }
@@ -1105,9 +1107,10 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                                                   child: child!,
                                                 ),
                                               );
-                                              if (picked != null)
+                                              if (picked != null) {
                                                 setDialogState(
                                                     () => tempDueDate = picked);
+                                              }
                                             },
                                             child: Container(
                                               padding: EdgeInsets.symmetric(
@@ -1187,9 +1190,10 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                                           result.files.first.name);
                                     }
                                   } catch (e) {
-                                    if (ctx.mounted)
+                                    if (ctx.mounted) {
                                       showToast(ctx, 'Could not pick file: $e',
                                           isError: true);
+                                    }
                                   }
                                 },
                                 child: Container(
@@ -1314,15 +1318,17 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                                             }
                                           }
                                         } catch (e) {
-                                          if (ctx.mounted)
+                                          if (ctx.mounted) {
                                             showToast(ctx, 'Error: $e',
                                                 isError: true);
+                                          }
                                         } finally {
                                           setDialogState(
                                               () => _isSubmitting = false);
-                                          if (mounted)
+                                          if (mounted) {
                                             setState(
                                                 () => _isSubmitting = false);
+                                          }
                                         }
                                       },
                                 child: _isSubmitting
@@ -1399,8 +1405,9 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                                     color: const Color(0xFF0F172A)))))
                         .toList(),
                     onChanged: (val) {
-                      if (val != null)
+                      if (val != null) {
                         setDialogState(() => selectedGrade = val);
+                      }
                     },
                   )),
                 ),
@@ -1464,8 +1471,9 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                     if (result['success'] == true ||
                         result['submission'] != null) {
                       showToast(context, 'Submission evaluated successfully!');
-                      if (_selectedAssignment != null)
+                      if (_selectedAssignment != null) {
                         await _selectAssignment(_selectedAssignment!);
+                      }
                     } else {
                       showToast(
                           context,
@@ -1476,8 +1484,9 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                     }
                   }
                 } catch (e) {
-                  if (context.mounted)
+                  if (context.mounted) {
                     showToast(context, 'Error saving grade: $e', isError: true);
+                  }
                 }
               },
               child: Text('Submit Grade',

@@ -9,6 +9,7 @@ import '../../theme/colors.dart';
 import '../profile_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../main_screen.dart';
+import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -227,6 +228,12 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
           admissionNo: admissionNo,
         ));
 
+        try {
+          SocketService().emit('ATTENDANCE_UPDATED', {'teacherId': teacherId, 'source': 'teacher_qr_scan'});
+        } catch (e) {
+          debugPrint('Socket emit error: $e');
+        }
+
         // Add to recent scans
         setState(() {
           _recentScans.insert(0, {
@@ -342,6 +349,12 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
         studentName: studentName,
         admissionNo: admissionNo,
       ));
+
+      try {
+        SocketService().emit('ATTENDANCE_UPDATED', {'studentId': studentId, 'source': 'teacher_qr_scan'});
+      } catch (e) {
+        debugPrint('Socket emit error: $e');
+      }
 
       // Add to recent scans
       setState(() {

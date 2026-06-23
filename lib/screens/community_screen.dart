@@ -1248,9 +1248,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
                                 if (picked.isNotEmpty) {
                                   setModalState(() {
                                     selectedImages.addAll(picked);
-                                    if (selectedImages.length > 5)
+                                    if (selectedImages.length > 5) {
                                       selectedImages =
                                           selectedImages.sublist(0, 5);
+                                    }
                                   });
                                 }
                               },

@@ -12,6 +12,7 @@ import 'package:printing/printing.dart';
 import 'dart:developer' as dev;
 import 'package:intl/intl.dart' as intl;
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -59,6 +60,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         Supabase.instance.client.removeChannel(_attendanceChannel!);
       } catch (_) {}
     }
+    try {
+      SocketService().off('ATTENDANCE_UPDATED');
+    } catch (_) {}
     super.dispose();
   }
 
@@ -91,7 +95,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } catch (e) {
       dev.log('⚠️ Error connecting Supabase Realtime Attendance channel: $e', name: 'AttendanceScreen');
     }
-    
+    // Connect Socket.IO events for real-time updates
+    try {
+      SocketService().on('ATTENDANCE_UPDATED', (data) {
+        dev.log('⚡ [SOCKET.IO EVENT] Attendance updated: $data', name: 'AttendanceScreen');
+        if (mounted) {
+          _loadAttendanceData(showLoading: false);
+        }
+      });
+    } catch (e) {
+      dev.log('Error registering Socket.IO events: $e', name: 'AttendanceScreen');
+    }
+
     // Polling fallback every 30 seconds
     _attendancePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       if (mounted) {
@@ -286,7 +301,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('Attendance Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: const PdfColor.fromInt(0xFF0052CC))),
-                    pw.Text('Generated: $dateStr', style: pw.TextStyle(fontSize: 12, color: PdfColors.grey600)),
+                    pw.Text('Generated: $dateStr', style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey600)),
                   ],
                 ),
               ),
@@ -319,7 +334,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               pw.SizedBox(height: 20),
               pw.TableHelper.fromTextArray(
                 context: ctx,
-                headerStyle: pw.TextStyle(fontSize: 12, color: PdfColors.white),
+                headerStyle: const pw.TextStyle(fontSize: 12, color: PdfColors.white),
                 headerDecoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFF0052CC)),
                 oddRowDecoration: const pw.BoxDecoration(color: PdfColors.grey50),
                 cellStyle: const pw.TextStyle(fontSize: 12),

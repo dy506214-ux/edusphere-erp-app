@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -618,10 +617,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   _timeCell(slot),
                   ...List.generate(6, (dayIndex) {
                     final data = _gridData[rowIndex][dayIndex];
-                    if (data == 'Break')
+                    if (data == 'Break') {
                       return _specialCell(Icons.coffee_rounded, 'Break');
-                    if (data == 'Lunch')
+                    }
+                    if (data == 'Lunch') {
                       return _specialCell(Icons.restaurant_rounded, 'Lunch');
+                    }
                     if (data == null) return _emptyCell();
                     return _subjectCell(data);
                   }),
@@ -937,12 +938,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     _studentTimeCell(slot),
                     ...List.generate(6, (dayIndex) {
                       final data = _studentGridData[rowIndex][dayIndex];
-                      if (data == 'BREAK')
+                      if (data == 'BREAK') {
                         return _studentSpecialCell(
                             Icons.coffee_outlined, 'BREAK');
-                      if (data == 'LUNCH')
+                      }
+                      if (data == 'LUNCH') {
                         return _studentSpecialCell(
                             Icons.restaurant_outlined, 'LUNCH');
+                      }
                       return _studentSubjectCell(data);
                     }),
                   ],
