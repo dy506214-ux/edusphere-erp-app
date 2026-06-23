@@ -17,7 +17,9 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     _token = prefs.getString('api_token');
     _initialized = true;
-    dev.log('🔑 ApiService initialized with token: ${_token != null ? "FOUND" : "NOT FOUND"}', name: 'ApiService');
+    dev.log(
+        '🔑 ApiService initialized with token: ${_token != null ? "FOUND" : "NOT FOUND"}',
+        name: 'ApiService');
   }
 
   Map<String, String> _getHeaders() {
@@ -60,16 +62,25 @@ class ApiService {
 
     http.Response response;
 
-    Future<http.Response> runHttp(Uri targetUri, Map<String, String> targetHeaders) async {
+    Future<http.Response> runHttp(
+        Uri targetUri, Map<String, String> targetHeaders) async {
       const timeout = Duration(seconds: 45);
       if (method == 'GET') {
-        return await http.get(targetUri, headers: targetHeaders).timeout(timeout);
+        return await http
+            .get(targetUri, headers: targetHeaders)
+            .timeout(timeout);
       } else if (method == 'POST') {
-        return await http.post(targetUri, headers: targetHeaders, body: body).timeout(timeout);
+        return await http
+            .post(targetUri, headers: targetHeaders, body: body)
+            .timeout(timeout);
       } else if (method == 'PUT') {
-        return await http.put(targetUri, headers: targetHeaders, body: body).timeout(timeout);
+        return await http
+            .put(targetUri, headers: targetHeaders, body: body)
+            .timeout(timeout);
       } else if (method == 'DELETE') {
-        return await http.delete(targetUri, headers: targetHeaders).timeout(timeout);
+        return await http
+            .delete(targetUri, headers: targetHeaders)
+            .timeout(timeout);
       } else {
         throw UnsupportedError('Unsupported HTTP method: $method');
       }
@@ -78,24 +89,34 @@ class ApiService {
     try {
       response = await runHttp(uri, headers);
     } catch (e) {
-      if (e is SocketException && uri.host == 'edusphere-erp.onrender.com') {
-        dev.log('⚠️ [API WARNING] DNS resolution failed for edusphere-erp.onrender.com. Trying fallback IP 216.24.57.9...', name: 'ApiService');
+      if (e is SocketException &&
+          uri.host == 'edusphere-erp-frontend.onrender.com') {
+        dev.log(
+            '⚠️ [API WARNING] DNS resolution failed for edusphere-erp-frontend.onrender.com. Trying fallback IP 216.24.57.9...',
+            name: 'ApiService');
         try {
           final fallbackUri = uri.replace(host: '216.24.57.9');
           final fallbackHeaders = Map<String, String>.from(headers);
-          fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
-          dev.log('📡 [API FALLBACK] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
+          fallbackHeaders['Host'] = 'edusphere-erp-frontend.onrender.com';
+          dev.log(
+              '📡 [API FALLBACK] URL: $fallbackUri | Headers: $fallbackHeaders',
+              name: 'ApiService');
           response = await runHttp(fallbackUri, fallbackHeaders);
         } catch (e2) {
-          dev.log('⚠️ [API WARNING] Fallback to 216.24.57.9 failed. Trying fallback IP 216.24.57.8...', name: 'ApiService');
+          dev.log(
+              '⚠️ [API WARNING] Fallback to 216.24.57.9 failed. Trying fallback IP 216.24.57.8...',
+              name: 'ApiService');
           try {
             final fallbackUri = uri.replace(host: '216.24.57.8');
             final fallbackHeaders = Map<String, String>.from(headers);
-            fallbackHeaders['Host'] = 'edusphere-erp.onrender.com';
-            dev.log('📡 [API FALLBACK 2] URL: $fallbackUri | Headers: $fallbackHeaders', name: 'ApiService');
+            fallbackHeaders['Host'] = 'edusphere-erp-frontend.onrender.com';
+            dev.log(
+                '📡 [API FALLBACK 2] URL: $fallbackUri | Headers: $fallbackHeaders',
+                name: 'ApiService');
             response = await runHttp(fallbackUri, fallbackHeaders);
           } catch (e3) {
-            dev.log('❌ [API ERROR] All fallback IPs failed: $e3', name: 'ApiService');
+            dev.log('❌ [API ERROR] All fallback IPs failed: $e3',
+                name: 'ApiService');
             rethrow;
           }
         }
@@ -105,7 +126,9 @@ class ApiService {
       }
     }
 
-    dev.log('📥 [API RESPONSE] Status: ${response.statusCode} for $method ${uri.path}', name: 'ApiService');
+    dev.log(
+        '📥 [API RESPONSE] Status: ${response.statusCode} for $method ${uri.path}',
+        name: 'ApiService');
     dev.log('📥 [API RESPONSE] Body: ${response.body}', name: 'ApiService');
 
     return response;
@@ -114,7 +137,7 @@ class ApiService {
   // Perform backend login
   Future<Map<String, dynamic>> login(String email, String password) async {
     final url = Uri.parse('${ApiConfig.apiUrl}/auth/login');
-    
+
     final response = await _requestWrapper(
       'POST',
       url,
@@ -147,16 +170,18 @@ class ApiService {
       if (jwtToken != null && jwtToken.isNotEmpty) {
         await setToken(jwtToken);
       } else {
-        dev.log('⚠️ Warning: No JWT token found in login response', name: 'ApiService');
+        dev.log('⚠️ Warning: No JWT token found in login response',
+            name: 'ApiService');
       }
     }
     return data;
   }
 
   // Generic GET request
-  Future<dynamic> get(String endpoint, {Map<String, String>? queryParams}) async {
+  Future<dynamic> get(String endpoint,
+      {Map<String, String>? queryParams}) async {
     await init();
-    
+
     // Clean up queryParams to avoid null keys/values
     Map<String, String>? cleanedParams;
     if (queryParams != null) {
@@ -168,7 +193,8 @@ class ApiService {
       });
     }
 
-    final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint').replace(queryParameters: cleanedParams);
+    final uri = Uri.parse('${ApiConfig.apiUrl}/$endpoint')
+        .replace(queryParameters: cleanedParams);
 
     final response = await _requestWrapper('GET', uri, _getHeaders());
 

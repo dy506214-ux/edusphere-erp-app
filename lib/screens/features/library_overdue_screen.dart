@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class LibraryOverdueScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -30,8 +31,10 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
     setState(() => _isLoading = true);
     try {
       final prefs = await SharedPreferences.getInstance();
-      _studentId = prefs.getString('student_id') ?? Supabase.instance.client.auth.currentUser?.id ?? '';
-      
+      _studentId = prefs.getString('student_id') ??
+          Supabase.instance.client.auth.currentUser?.id ??
+          '';
+
       // Check if user is student or teacher/librarian from roles
       // In EduSphere, if studentId is present, the role is student.
       _isStudent = _studentId.isNotEmpty;
@@ -48,7 +51,8 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
       }
 
       final res = await query;
-      final List<Map<String, dynamic>> allActiveIssues = List<Map<String, dynamic>>.from(res);
+      final List<Map<String, dynamic>> allActiveIssues =
+          List<Map<String, dynamic>>.from(res);
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
@@ -59,13 +63,13 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
         if (dueDateStr.isEmpty) return false;
         try {
           final dueDate = DateTime.parse(dueDateStr);
-          final dueNormalized = DateTime(dueDate.year, dueDate.month, dueDate.day);
+          final dueNormalized =
+              DateTime(dueDate.year, dueDate.month, dueDate.day);
           return dueNormalized.isBefore(today);
         } catch (_) {
           return false;
         }
       }).toList();
-
     } catch (e) {
       debugPrint('Error fetching overdue books: $e');
       if (mounted) {
@@ -106,10 +110,11 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20.r)),
         title: Text(
           'Return & Pay Fine',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 18.sp, color: AppColors.textDark),
+          style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -117,7 +122,7 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
           children: [
             Text(
               'Are you sure you want to return "$title" and settle the fine?',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w500, fontSize: 14.sp, color: AppColors.textMedium),
+              style: AppTypography.small.copyWith(color: AppColors.textMedium),
             ),
             SizedBox(height: 14.h),
             Container(
@@ -128,16 +133,14 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.monetization_on_rounded, color: AppColors.error, size: 20.sp),
+                  Icon(Icons.monetization_on_rounded,
+                      color: AppColors.error, size: 20.sp),
                   SizedBox(width: 10.w),
                   Expanded(
                     child: Text(
                       'Fine: ₹${fineAmount.toStringAsFixed(2)} ($daysOverdue days overdue)',
-                      style: GoogleFonts.inter(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 14.sp,
-                        color: AppColors.error,
-                      ),
+                      style:
+                          AppTypography.small.copyWith(color: AppColors.error),
                     ),
                   ),
                 ],
@@ -150,18 +153,21 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Cancel',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppColors.textMedium),
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700, color: AppColors.textMedium),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.success,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r)),
             ),
             child: Text(
               'Pay & Return',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white),
+              style: GoogleFonts.inter(
+                  fontWeight: FontWeight.w700, color: Colors.white),
             ),
           ),
         ],
@@ -194,32 +200,44 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
         feeStructureId = ledgerRes[0]['feeStructureId'] ?? '';
       } else {
         // Find first active AcademicYear and FeeStructure
-        final ayRes = await Supabase.instance.client.from('AcademicYear').select('id').limit(1);
-        final fsRes = await Supabase.instance.client.from('FeeStructure').select('id').limit(1);
+        final ayRes = await Supabase.instance.client
+            .from('AcademicYear')
+            .select('id')
+            .limit(1);
+        final fsRes = await Supabase.instance.client
+            .from('FeeStructure')
+            .select('id')
+            .limit(1);
 
         if (ayRes.isNotEmpty) academicYearId = ayRes[0]['id'] ?? '';
         if (fsRes.isNotEmpty) feeStructureId = fsRes[0]['id'] ?? '';
 
         if (academicYearId.isNotEmpty && feeStructureId.isNotEmpty) {
           // Dynamic construction of a ledger record
-          final newLedger = await Supabase.instance.client.from('StudentFeeLedger').insert({
-            'studentId': studentId,
-            'academicYearId': academicYearId,
-            'feeStructureId': feeStructureId,
-            'totalPayable': 0.0,
-            'totalPaid': 0.0,
-            'totalPending': 0.0,
-            'totalDiscount': 0.0,
-            'status': 'PENDING',
-            'createdAt': nowStr,
-            'updatedAt': nowStr,
-          }).select('id').single();
+          final newLedger = await Supabase.instance.client
+              .from('StudentFeeLedger')
+              .insert({
+                'studentId': studentId,
+                'academicYearId': academicYearId,
+                'feeStructureId': feeStructureId,
+                'totalPayable': 0.0,
+                'totalPaid': 0.0,
+                'totalPending': 0.0,
+                'totalDiscount': 0.0,
+                'status': 'PENDING',
+                'createdAt': nowStr,
+                'updatedAt': nowStr,
+              })
+              .select('id')
+              .single();
           ledgerId = newLedger['id'] ?? '';
         }
       }
 
       // 2. Perform FeePayment insertion
-      if (ledgerId.isNotEmpty && academicYearId.isNotEmpty && feeStructureId.isNotEmpty) {
+      if (ledgerId.isNotEmpty &&
+          academicYearId.isNotEmpty &&
+          feeStructureId.isNotEmpty) {
         final receiptNo = 'RCPT-FINE-${now.millisecondsSinceEpoch}';
         final txnId = 'TXN-FINE-${now.millisecondsSinceEpoch}';
 
@@ -272,7 +290,8 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
     } catch (e) {
       debugPrint('Error returning book: $e');
       if (mounted) {
-        showToast(context, 'Failed to process return. Please try again.', isError: true);
+        showToast(context, 'Failed to process return. Please try again.',
+            isError: true);
       }
       setState(() => _isLoading = false);
     }
@@ -287,7 +306,9 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
           // Header
           PageHeader(
             title: 'Overdue Fines',
-            subtitle: _isStudent ? 'Settle pending fines and return books' : 'Manage school overdue books',
+            subtitle: _isStudent
+                ? 'Settle pending fines and return books'
+                : 'Manage school overdue books',
             theme: widget.theme,
           ),
 
@@ -376,7 +397,7 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                   borderRadius: BorderRadius.circular(12.r),
                 ),
                 child: Icon(
-                  Icons.assignment_late_rounded, 
+                  Icons.assignment_late_rounded,
                   color: AppColors.error,
                   size: 24.sp,
                 ),
@@ -388,21 +409,15 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.inter(
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.textDark,
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: AppColors.textDark),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       'by $author',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textMedium,
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium),
                     ),
                   ],
                 ),
@@ -422,20 +437,14 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                 children: [
                   Text(
                     'ISSUED DATE',
-                    style: GoogleFonts.inter(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textLight,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                   ),
                   SizedBox(height: 2.h),
                   Text(
                     issueText,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textDark,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textDark),
                   ),
                 ],
               ),
@@ -444,20 +453,14 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                 children: [
                   Text(
                     'DUE DATE',
-                    style: GoogleFonts.inter(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textLight,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                   ),
                   SizedBox(height: 2.h),
                   Text(
                     dateText,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.error,
-                    ),
+                    style:
+                        AppTypography.caption.copyWith(color: AppColors.error),
                   ),
                 ],
               ),
@@ -466,46 +469,38 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                 children: [
                   Text(
                     'OVERDUE',
-                    style: GoogleFonts.inter(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textLight,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                   ),
                   SizedBox(height: 2.h),
                   Text(
                     '$daysOverdue Days',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.error,
-                    ),
+                    style:
+                        AppTypography.caption.copyWith(color: AppColors.error),
                   ),
                 ],
               ),
             ],
           ),
-          
+
           if (!_isStudent) ...[
             SizedBox(height: 12.h),
             Divider(color: AppColors.border, height: 1.h),
             SizedBox(height: 10.h),
             Row(
               children: [
-                Icon(Icons.person_rounded, size: 14.sp, color: AppColors.textLight),
+                Icon(Icons.person_rounded,
+                    size: 14.sp, color: AppColors.textLight),
                 SizedBox(width: 6.w),
                 Text(
                   'Student: $studentName (Roll: $rollNo)',
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textMedium,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textMedium),
                 ),
               ],
             ),
           ],
-          
+
           SizedBox(height: 16.h),
 
           // Fine & Pay CTA
@@ -517,20 +512,13 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                 children: [
                   Text(
                     'PENDING FINE',
-                    style: GoogleFonts.inter(
-                      fontSize: 9.sp,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textLight,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                   ),
                   SizedBox(height: 2.h),
                   Text(
                     '₹${fine.toStringAsFixed(0)}',
-                    style: GoogleFonts.inter(
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.error,
-                    ),
+                    style: AppTypography.h4.copyWith(color: AppColors.error),
                   ),
                 ],
               ),
@@ -538,22 +526,22 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
                 onPressed: () => _returnAndPayFine(issue),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.error,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12.r)),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   elevation: 2,
                   shadowColor: AppColors.error.withValues(alpha: 0.3),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.payment_rounded, color: Colors.white, size: 16.sp),
+                    Icon(Icons.payment_rounded,
+                        color: Colors.white, size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
                       'Return & Pay',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
+                      style:
+                          AppTypography.caption.copyWith(color: Colors.white),
                     ),
                   ],
                 ),
@@ -581,8 +569,8 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
               ),
               child: Center(
                 child: Icon(
-                  Icons.check_circle_rounded, 
-                  color: AppColors.success, 
+                  Icons.check_circle_rounded,
+                  color: AppColors.success,
                   size: 52.sp,
                 ),
               ),
@@ -590,20 +578,14 @@ class _LibraryOverdueScreenState extends State<LibraryOverdueScreen> {
             SizedBox(height: 24.h),
             Text(
               'No overdue books!',
-              style: GoogleFonts.inter(
-                fontSize: 18.sp,
-                fontWeight: FontWeight.w900,
-                color: AppColors.textDark,
-              ),
+              style:
+                  AppTypography.bodyLarge.copyWith(color: AppColors.textDark),
             ),
             SizedBox(height: 8.h),
             Text(
               'Great job 📚 Keep up the fantastic reading habits!',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w600,
-                color: AppColors.textMedium,
-              ),
+              style:
+                  AppTypography.caption.copyWith(color: AppColors.textMedium),
               textAlign: TextAlign.center,
             ),
           ],

@@ -4,11 +4,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ServiceTicketModel {
   final String id;
   final String title;
-  final String category; // e.g. CERTIFICATE, LEAVE, COMPLAINT, HOSTEL, LIBRARY, ACADEMIC, TRANSPORT, OTHER
+  final String
+      category; // e.g. CERTIFICATE, LEAVE, COMPLAINT, HOSTEL, LIBRARY, ACADEMIC, TRANSPORT, OTHER
   final String desc;
   final String status; // APPROVED, REJECTED, PENDING
   final String date; // formatted e.g., '6/5/2026'
@@ -59,7 +61,6 @@ class _ServicesScreenState extends State<ServicesScreen> {
   bool _loading = false;
   List<ServiceTicketModel> _tickets = [];
 
-
   RealtimeChannel? _realtimeChannel;
 
   void _connectRealTime(String userId) {
@@ -69,17 +70,17 @@ class _ServicesScreenState extends State<ServicesScreen> {
         client.removeChannel(_realtimeChannel!);
       }
 
-      _realtimeChannel = client.channel('public:services_sync')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'ServiceRequest',
-            callback: (_) {
-              if (mounted) {
-                _loadTickets();
-              }
-            },
-          );
+      _realtimeChannel =
+          client.channel('public:services_sync').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'ServiceRequest',
+                callback: (_) {
+                  if (mounted) {
+                    _loadTickets();
+                  }
+                },
+              );
 
       _realtimeChannel!.subscribe((status, [error]) {
         if (error != null) {
@@ -132,18 +133,20 @@ class _ServicesScreenState extends State<ServicesScreen> {
     super.dispose();
   }
 
-
-
   Future<void> _loadTickets() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final client = Supabase.instance.client;
-      final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
-      
-      var userRes = await client.from('User').select('id').eq('email', savedEmail).maybeSingle();
-      if (userRes == null) {
-        userRes = await client.from('User').select('id').limit(1).single();
-      }
+      final savedEmail = prefs.getString('student_email') ??
+          prefs.getString('user_email') ??
+          '';
+
+      var userRes = await client
+          .from('User')
+          .select('id')
+          .eq('email', savedEmail)
+          .maybeSingle();
+      userRes ??= await client.from('User').select('id').limit(1).single();
       final userId = userRes['id'] as String;
 
       if (userId.isEmpty) return;
@@ -205,7 +208,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1007',
             'requesterId': userId,
             'subject': 'Classroom AC not working',
-            'description': 'The AC in Room 201 has stopped working since last week.',
+            'description':
+                'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'REJECTED',
             'priority': 'LOW',
@@ -215,7 +219,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1006',
             'requesterId': userId,
             'subject': 'Classroom AC not working',
-            'description': 'The AC in Room 201 has stopped working since last week.',
+            'description':
+                'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'PENDING',
             'priority': 'LOW',
@@ -225,7 +230,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1005',
             'requesterId': userId,
             'subject': 'Classroom AC not working',
-            'description': 'The AC in Room 201 has stopped working since last week.',
+            'description':
+                'The AC in Room 201 has stopped working since last week.',
             'type': 'COMPLAINT',
             'status': 'APPROVED',
             'priority': 'LOW',
@@ -245,7 +251,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1003',
             'requesterId': userId,
             'subject': 'Hostel Wi-Fi down',
-            'description': 'Wi-Fi in Wing B third floor is not working since yesterday.',
+            'description':
+                'Wi-Fi in Wing B third floor is not working since yesterday.',
             'type': 'OTHER',
             'status': 'APPROVED',
             'priority': 'LOW',
@@ -255,7 +262,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1002',
             'requesterId': userId,
             'subject': 'Library card replacement',
-            'description': 'Lost library card during travel. Requesting replacement card.',
+            'description':
+                'Lost library card during travel. Requesting replacement card.',
             'type': 'OTHER',
             'status': 'REJECTED',
             'priority': 'LOW',
@@ -275,23 +283,24 @@ class _ServicesScreenState extends State<ServicesScreen> {
             'requestNumber': 'SR-2026-1000',
             'requesterId': userId,
             'subject': 'Bus Route 12 Delay Issues',
-            'description': 'The bus regularly arrives 10-15 minutes late at Sector-B stop.',
+            'description':
+                'The bus regularly arrives 10-15 minutes late at Sector-B stop.',
             'type': 'OTHER',
             'status': 'REJECTED',
             'priority': 'LOW',
             'updatedAt': DateTime.now().toIso8601String(),
           },
         ];
-        
+
         await client.from('ServiceRequest').insert(defaultTickets);
-        
+
         // Re-load
         final List<dynamic> reloaded = await client
             .from('ServiceRequest')
             .select()
             .eq('requesterId', userId)
             .order('createdAt', ascending: false);
-            
+
         setState(() {
           _tickets = reloaded.map((req) {
             final statusStr = req['status'] as String? ?? 'PENDING';
@@ -323,83 +332,99 @@ class _ServicesScreenState extends State<ServicesScreen> {
       _loading = true;
     });
 
-      Future.delayed(const Duration(milliseconds: 600), () async {
-        if (!mounted) return;
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          final client = Supabase.instance.client;
-          final savedEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? '';
-          
-          var userRes = await client.from('User').select('id').eq('email', savedEmail).maybeSingle();
-          if (userRes == null) {
-            userRes = await client.from('User').select('id').limit(1).single();
-          }
-          final userId = userRes['id'] as String;
-          
-          if (userId.isNotEmpty) {
-            final reqNumber = 'SR-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
-            
-              final newReq = {
-              'requestNumber': reqNumber,
-              'requesterId': userId,
-              'subject': _titleController.text.trim().isEmpty ? 'New Service Request' : _titleController.text.trim(),
-              'description': _descController.text.trim().isEmpty ? 'Please look into this request.' : _descController.text.trim(),
-              'type': _mapCategoryToRequestType(_category),
-              'status': 'PENDING',
-              'priority': _priority.toUpperCase() == 'NORMAL' ? 'LOW' : _priority.toUpperCase(),
-              'updatedAt': DateTime.now().toIso8601String(),
-            };
-            
-            await client.from('ServiceRequest').insert(newReq);
+    Future.delayed(const Duration(milliseconds: 600), () async {
+      if (!mounted) return;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final client = Supabase.instance.client;
+        final savedEmail = prefs.getString('student_email') ??
+            prefs.getString('user_email') ??
+            '';
 
-            if (mounted) {
-              setState(() {
-                // If realtime is fast enough, this manual insert might duplicate.
-                // But since we use Stream/listen, we can just rely on realtime. 
-                // Or manual insert with check. Let's keep manual insert for instant UI feedback.
-                if (!_tickets.any((t) => t.id == reqNumber)) {
-                  _tickets.insert(0, ServiceTicketModel(
-                    id: reqNumber,
-                    title: newReq['subject'] as String,
-                    category: newReq['type'] as String,
-                    desc: newReq['description'] as String,
-                    status: 'PENDING',
-                    date: _formatDate(DateTime.now().toIso8601String()),
-                  ));
-                }
-              });
-              setSheetState(() {
-                _loading = false;
-              });
-              _titleController.clear();
-              _descController.clear();
-              Navigator.pop(context); // Close dialog
+        var userRes = await client
+            .from('User')
+            .select('id')
+            .eq('email', savedEmail)
+            .maybeSingle();
+        userRes ??= await client.from('User').select('id').limit(1).single();
+        final userId = userRes['id'] as String;
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: const Color(0xFF10B981),
-                  content: Text('Support request raised successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                ),
-              );
-            }
-          } else {
-            throw Exception('User not found in database. Please log out and log in again.');
-          }
-        } catch (e) {
-          debugPrint('Error submitting ticket to database: $e');
+        if (userId.isNotEmpty) {
+          final reqNumber =
+              'SR-${DateTime.now().year}-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+
+          final newReq = {
+            'requestNumber': reqNumber,
+            'requesterId': userId,
+            'subject': _titleController.text.trim().isEmpty
+                ? 'New Service Request'
+                : _titleController.text.trim(),
+            'description': _descController.text.trim().isEmpty
+                ? 'Please look into this request.'
+                : _descController.text.trim(),
+            'type': _mapCategoryToRequestType(_category),
+            'status': 'PENDING',
+            'priority': _priority.toUpperCase() == 'NORMAL'
+                ? 'LOW'
+                : _priority.toUpperCase(),
+            'updatedAt': DateTime.now().toIso8601String(),
+          };
+
+          await client.from('ServiceRequest').insert(newReq);
+
           if (mounted) {
+            setState(() {
+              // If realtime is fast enough, this manual insert might duplicate.
+              // But since we use Stream/listen, we can just rely on realtime.
+              // Or manual insert with check. Let's keep manual insert for instant UI feedback.
+              if (!_tickets.any((t) => t.id == reqNumber)) {
+                _tickets.insert(
+                    0,
+                    ServiceTicketModel(
+                      id: reqNumber,
+                      title: newReq['subject'] as String,
+                      category: newReq['type'] as String,
+                      desc: newReq['description'] as String,
+                      status: 'PENDING',
+                      date: _formatDate(DateTime.now().toIso8601String()),
+                    ));
+              }
+            });
             setSheetState(() {
               _loading = false;
             });
+            _titleController.clear();
+            _descController.clear();
+            Navigator.pop(context); // Close dialog
+
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                backgroundColor: const Color(0xFFEF4444),
-                content: Text('Failed: ${e.toString().split('\n').first}', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                backgroundColor: const Color(0xFF10B981),
+                content: Text('Support request raised successfully!',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
               ),
             );
           }
+        } else {
+          throw Exception(
+              'User not found in database. Please log out and log in again.');
         }
-      });
+      } catch (e) {
+        debugPrint('Error submitting ticket to database: $e');
+        if (mounted) {
+          setSheetState(() {
+            _loading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: const Color(0xFFEF4444),
+              content: Text('Failed: ${e.toString().split('\n').first}',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+            ),
+          );
+        }
+      }
+    });
   }
 
   void _openRequestDialog() {
@@ -416,7 +441,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
           builder: (context, setDialogState) {
             return Dialog(
               backgroundColor: const Color(0xFFF2F8FB),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.r)),
               insetPadding: EdgeInsets.symmetric(horizontal: 20.w),
               child: SingleChildScrollView(
                 child: Padding(
@@ -437,19 +463,14 @@ class _ServicesScreenState extends State<ServicesScreen> {
                                 children: [
                                   Text(
                                     'New Service Request',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 18.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFF0F2547),
-                                    ),
+                                    style: AppTypography.bodyLarge.copyWith(
+                                        color: const Color(0xFF0F2547)),
                                   ),
                                   SizedBox(height: 4.h),
                                   Text(
                                     'Fill out the form below to submit a new request.',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13.sp,
-                                      color: const Color(0xFF336282),
-                                    ),
+                                    style: AppTypography.caption.copyWith(
+                                        color: const Color(0xFF336282)),
                                   ),
                                 ],
                               ),
@@ -457,36 +478,61 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             SizedBox(width: 8.w),
                             InkWell(
                               onTap: () => Navigator.pop(ctx),
-                              child: Icon(Icons.close, size: 20.sp, color: const Color(0xFF5B718F)),
+                              child: Icon(Icons.close,
+                                  size: 20.sp, color: const Color(0xFF5B718F)),
                             ),
                           ],
                         ),
                         SizedBox(height: 24.h),
-                        
+
                         // Request Type
-                        Text('Request Type *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        Text('Request Type *',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547))),
                         SizedBox(height: 6.h),
                         DropdownButtonFormField<String>(
-                          value: _category,
-                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8B9CB6), size: 20.sp),
+                          initialValue: _category,
+                          icon: Icon(Icons.keyboard_arrow_down,
+                              color: const Color(0xFF8B9CB6), size: 20.sp),
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: const Color(0xFFF5FAFD),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF62A0D8))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF62A0D8))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFF62A0D8))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFF62A0D8))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14.w, vertical: 12.h),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'Select type', child: Text('Select type')),
-                            DropdownMenuItem(value: 'LEAVE', child: Text('Leave')),
-                            DropdownMenuItem(value: 'CERTIFICATE', child: Text('Certificate')),
-                            DropdownMenuItem(value: 'COMPLAINT', child: Text('Complaint')),
-                            DropdownMenuItem(value: 'HOSTEL', child: Text('Hostel')),
-                            DropdownMenuItem(value: 'LIBRARY', child: Text('Library')),
-                            DropdownMenuItem(value: 'ACADEMIC', child: Text('Academic')),
-                            DropdownMenuItem(value: 'TRANSPORT', child: Text('Transport')),
-                            DropdownMenuItem(value: 'OTHER', child: Text('Other')),
+                            DropdownMenuItem(
+                                value: 'Select type',
+                                child: Text('Select type')),
+                            DropdownMenuItem(
+                                value: 'LEAVE', child: Text('Leave')),
+                            DropdownMenuItem(
+                                value: 'CERTIFICATE',
+                                child: Text('Certificate')),
+                            DropdownMenuItem(
+                                value: 'COMPLAINT', child: Text('Complaint')),
+                            DropdownMenuItem(
+                                value: 'HOSTEL', child: Text('Hostel')),
+                            DropdownMenuItem(
+                                value: 'LIBRARY', child: Text('Library')),
+                            DropdownMenuItem(
+                                value: 'ACADEMIC', child: Text('Academic')),
+                            DropdownMenuItem(
+                                value: 'TRANSPORT', child: Text('Transport')),
+                            DropdownMenuItem(
+                                value: 'OTHER', child: Text('Other')),
                           ],
                           onChanged: (val) {
                             setDialogState(() {
@@ -497,7 +543,9 @@ class _ServicesScreenState extends State<ServicesScreen> {
                         SizedBox(height: 16.h),
 
                         // Subject
-                        Text('Subject *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        Text('Subject *',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547))),
                         SizedBox(height: 6.h),
                         TextFormField(
                           controller: _titleController,
@@ -505,17 +553,30 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             filled: true,
                             fillColor: const Color(0xFFF5FAFD),
                             hintText: 'Brief subject of your request',
-                            hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF60778C)),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                            hintStyle: AppTypography.caption
+                                .copyWith(color: const Color(0xFF60778C)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14.w, vertical: 12.h),
                           ),
                         ),
                         SizedBox(height: 16.h),
 
                         // Description
-                        Text('Description *', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        Text('Description *',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547))),
                         SizedBox(height: 6.h),
                         TextFormField(
                           controller: _descController,
@@ -524,38 +585,66 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             filled: true,
                             fillColor: const Color(0xFFF5FAFD),
                             hintText: 'Detailed description...',
-                            hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF60778C)),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                            hintStyle: AppTypography.caption
+                                .copyWith(color: const Color(0xFF60778C)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14.w, vertical: 12.h),
                             suffixIcon: Padding(
                               padding: const EdgeInsets.all(8.0),
-                              child: Icon(Icons.edit_square, color: const Color(0xFF60778C), size: 16.sp),
+                              child: Icon(Icons.edit_square,
+                                  color: const Color(0xFF60778C), size: 16.sp),
                             ),
                           ),
                         ),
                         SizedBox(height: 16.h),
 
                         // Priority
-                        Text('Priority', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547))),
+                        Text('Priority',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547))),
                         SizedBox(height: 6.h),
                         DropdownButtonFormField<String>(
-                          value: _priority,
-                          icon: Icon(Icons.keyboard_arrow_down, color: const Color(0xFF8B9CB6), size: 20.sp),
+                          initialValue: _priority,
+                          icon: Icon(Icons.keyboard_arrow_down,
+                              color: const Color(0xFF8B9CB6), size: 20.sp),
                           decoration: InputDecoration(
                             filled: true,
                             fillColor: const Color(0xFFF5FAFD),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFFD2E3ED))),
-                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r), borderSide: const BorderSide(color: Color(0xFF0275D8), width: 1.5)),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFD2E3ED))),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8.r),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF0275D8), width: 1.5)),
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 14.w, vertical: 12.h),
                           ),
                           items: const [
                             DropdownMenuItem(value: 'Low', child: Text('Low')),
-                            DropdownMenuItem(value: 'Normal', child: Text('Normal')),
-                            DropdownMenuItem(value: 'High', child: Text('High')),
-                            DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
+                            DropdownMenuItem(
+                                value: 'Normal', child: Text('Normal')),
+                            DropdownMenuItem(
+                                value: 'High', child: Text('High')),
+                            DropdownMenuItem(
+                                value: 'Urgent', child: Text('Urgent')),
                           ],
                           onChanged: (val) {
                             setDialogState(() {
@@ -564,7 +653,7 @@ class _ServicesScreenState extends State<ServicesScreen> {
                           },
                         ),
                         SizedBox(height: 30.h),
-                        
+
                         // Buttons
                         Row(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -572,25 +661,40 @@ class _ServicesScreenState extends State<ServicesScreen> {
                             OutlinedButton(
                               style: OutlinedButton.styleFrom(
                                 backgroundColor: const Color(0xFFF2F8FB),
-                                side: const BorderSide(color: Color(0xFFD2E3ED)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                                side:
+                                    const BorderSide(color: Color(0xFFD2E3ED)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 24.w, vertical: 12.h),
                               ),
                               onPressed: () => Navigator.pop(ctx),
-                              child: Text('Cancel', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w500, color: const Color(0xFF0F2547))),
+                              child: Text('Cancel',
+                                  style: AppTypography.small.copyWith(
+                                      color: const Color(0xFF0F2547))),
                             ),
                             SizedBox(width: 12.w),
                             ElevatedButton(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF0275D8),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 24.w, vertical: 12.h),
                                 elevation: 0,
                               ),
-                              onPressed: _loading ? null : () => _submitTicket(setDialogState),
+                              onPressed: _loading
+                                  ? null
+                                  : () => _submitTicket(setDialogState),
                               child: _loading
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : Text('Submit Request', style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: Colors.white)),
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white, strokeWidth: 2))
+                                  : Text('Submit Request',
+                                      style: AppTypography.small
+                                          .copyWith(color: Colors.white)),
                             ),
                           ],
                         ),
@@ -605,8 +709,6 @@ class _ServicesScreenState extends State<ServicesScreen> {
       },
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -640,130 +742,126 @@ class _ServicesScreenState extends State<ServicesScreen> {
                 padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.contact_support_outlined,
-                              size: 28.sp,
-                              color: const Color(0xFF1A6FDB),
-                            ),
-                            SizedBox(width: 10.w),
-                            Expanded(
-                              child: Text(
-                                'Requests & Services',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 22.sp,
-                                  fontWeight: FontWeight.w900,
-                                  color: const Color(0xFF0F2547),
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                  children: [
+                    // Header Row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.contact_support_outlined,
+                                size: 28.sp,
+                                color: const Color(0xFF1A6FDB),
                               ),
-                            ),
-                          ],
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: Text(
+                                  'Requests & Services',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 22.sp,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF0F2547),
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 12.w),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A6FDB),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                          padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                          elevation: 0,
+                        SizedBox(width: 12.w),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A6FDB),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 14.w, vertical: 10.h),
+                            elevation: 0,
+                          ),
+                          onPressed: _openRequestDialog,
+                          icon: const Icon(Icons.add, size: 16),
+                          label: Text(
+                            'New Request',
+                            style: AppTypography.caption,
+                          ),
                         ),
-                        onPressed: _openRequestDialog,
-                        icon: const Icon(Icons.add, size: 16),
-                        label: Text(
-                          'New Request',
-                          style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 6.h),
-                  Text(
-                    'Apply for certificates, leave, and other administrative requests.',
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF6B7A90),
+                      ],
                     ),
-                  ),
-                  SizedBox(height: 20.h),
-
-                  // Stats Row
-                  Row(
-                    children: [
-                      _buildStatCard(
-                        icon: Icons.access_time_rounded,
-                        iconColor: const Color(0xFFF59E0B),
-                        value: '$pendingCount',
-                        label: 'Pending Requests',
-                        subLabel: 'Awaiting approval',
-                      ),
-                      SizedBox(width: 8.w),
-                      _buildStatCard(
-                        icon: Icons.check_circle_outline_rounded,
-                        iconColor: const Color(0xFF10B981),
-                        value: '$approvedCount',
-                        label: 'Approved',
-                        subLabel: 'Recently approved',
-                      ),
-                      SizedBox(width: 8.w),
-                      _buildStatCard(
-                        icon: Icons.description_outlined,
-                        iconColor: const Color(0xFF1A6FDB),
-                        value: '${_tickets.length}',
-                        label: 'Total Requests',
-                        subLabel: 'All time',
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 24.h),
-
-                  // Recent Activity Header
-                  Text(
-                    'Recent Activity',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F2547),
+                    SizedBox(height: 6.h),
+                    Text(
+                      'Apply for certificates, leave, and other administrative requests.',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF6B7A90)),
                     ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Your recently submitted requests and their status.',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.5.sp,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF868E96),
-                    ),
-                  ),
-                  SizedBox(height: 16.h),
+                    SizedBox(height: 20.h),
 
-                  // Tickets List
-                  _tickets.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _tickets.length,
-                          itemBuilder: (ctx, idx) {
-                            return _buildActivityCard(_tickets[idx]);
-                          },
+                    // Stats Row
+                    Row(
+                      children: [
+                        _buildStatCard(
+                          icon: Icons.access_time_rounded,
+                          iconColor: const Color(0xFFF59E0B),
+                          value: '$pendingCount',
+                          label: 'Pending Requests',
+                          subLabel: 'Awaiting approval',
                         ),
-                  SizedBox(height: 80.h), // spacing for Priya assistant
-                ],
+                        SizedBox(width: 8.w),
+                        _buildStatCard(
+                          icon: Icons.check_circle_outline_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          value: '$approvedCount',
+                          label: 'Approved',
+                          subLabel: 'Recently approved',
+                        ),
+                        SizedBox(width: 8.w),
+                        _buildStatCard(
+                          icon: Icons.description_outlined,
+                          iconColor: const Color(0xFF1A6FDB),
+                          value: '${_tickets.length}',
+                          label: 'Total Requests',
+                          subLabel: 'All time',
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 24.h),
+
+                    // Recent Activity Header
+                    Text(
+                      'Recent Activity',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F2547),
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Your recently submitted requests and their status.',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF868E96)),
+                    ),
+                    SizedBox(height: 16.h),
+
+                    // Tickets List
+                    _tickets.isEmpty
+                        ? _buildEmptyState()
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _tickets.length,
+                            itemBuilder: (ctx, idx) {
+                              return _buildActivityCard(_tickets[idx]);
+                            },
+                          ),
+                    SizedBox(height: 80.h), // spacing for Priya assistant
+                  ],
+                ),
               ),
             ),
-          ),
           ),
         ],
       ),
@@ -807,20 +905,14 @@ class _ServicesScreenState extends State<ServicesScreen> {
             SizedBox(height: 4.h),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF0F2547),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF0F2547)),
             ),
             SizedBox(height: 2.h),
             Text(
               subLabel,
-              style: GoogleFonts.inter(
-                fontSize: 9.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF868E96),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF868E96)),
             ),
           ],
         ),
@@ -874,11 +966,8 @@ class _ServicesScreenState extends State<ServicesScreen> {
               SizedBox(width: 8.w),
               Text(
                 ticket.date,
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF868E96),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF868E96)),
               ),
             ],
           ),
@@ -891,31 +980,20 @@ class _ServicesScreenState extends State<ServicesScreen> {
             ),
             child: Text(
               ticket.status,
-              style: GoogleFonts.inter(
-                fontSize: 9.sp,
-                fontWeight: FontWeight.w900,
-                color: statusColor,
-              ),
+              style: AppTypography.caption.copyWith(color: statusColor),
             ),
           ),
           SizedBox(height: 10.h),
           Text(
             'Type: ${ticket.category}  •  ID: ${ticket.id}',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF868E96),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF868E96)),
           ),
           SizedBox(height: 6.h),
           Text(
             ticket.desc,
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF495057),
-              height: 1.4,
-            ),
+            style: AppTypography.caption
+                .copyWith(color: const Color(0xFF495057), height: 1.4),
           ),
         ],
       ),
@@ -928,20 +1006,17 @@ class _ServicesScreenState extends State<ServicesScreen> {
         padding: EdgeInsets.symmetric(vertical: 40.h),
         child: Column(
           children: [
-            Icon(Icons.confirmation_number_outlined, size: 48.sp, color: const Color(0xFF868E96)),
+            Icon(Icons.confirmation_number_outlined,
+                size: 48.sp, color: const Color(0xFF868E96)),
             SizedBox(height: 12.h),
             Text(
               'No service requests raised yet.',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF868E96),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF868E96)),
             ),
           ],
         ),
       ),
     );
   }
-
 }

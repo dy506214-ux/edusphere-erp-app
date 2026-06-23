@@ -1,4 +1,3 @@
-
 class ApiConfig {
   /// Always connect to the live backend server
   static const bool useLiveBackend = true;

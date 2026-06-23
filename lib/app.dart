@@ -33,7 +33,8 @@ class EduSphereApp extends StatelessWidget {
           theme: ThemeData(
             useMaterial3: true,
             fontFamily: GoogleFonts.inter().fontFamily,
-            colorScheme: ColorScheme.fromSeed(seedColor: AppColors.studentPrimary),
+            colorScheme:
+                ColorScheme.fromSeed(seedColor: AppColors.studentPrimary),
             scaffoldBackgroundColor: AppColors.background,
           ),
           builder: (context, child) {
@@ -45,4 +46,3 @@ class EduSphereApp extends StatelessWidget {
     );
   }
 }
-

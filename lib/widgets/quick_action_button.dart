@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class QuickActionData {
   final String label;
@@ -64,11 +65,8 @@ class QuickActionButton extends StatelessWidget {
             SizedBox(height: 8.h),
             Text(
               data.label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textMedium,
-              ),
+              style:
+                  AppTypography.caption.copyWith(color: AppColors.textMedium),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

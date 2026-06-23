@@ -16,6 +16,7 @@ import '../services/socket_service.dart';
 import 'main_screen.dart';
 import '../config/api_config.dart';
 import '../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ── CUSTOM QR SIMULATOR PAINTER ──
 class QRSimulatorPainter extends CustomPainter {
@@ -33,8 +34,10 @@ class QRSimulatorPainter extends CustomPainter {
     // Helper to draw finder corner square
     void drawFinder(double x, double y) {
       canvas.drawRect(Rect.fromLTWH(x, y, px * 5, px * 5), paint);
-      canvas.drawRect(Rect.fromLTWH(x + px, y + px, px * 3, px * 3), Paint()..color = Colors.white);
-      canvas.drawRect(Rect.fromLTWH(x + px * 1.5, y + px * 1.5, px * 2, px * 2), paint);
+      canvas.drawRect(Rect.fromLTWH(x + px, y + px, px * 3, px * 3),
+          Paint()..color = Colors.white);
+      canvas.drawRect(
+          Rect.fromLTWH(x + px * 1.5, y + px * 1.5, px * 2, px * 2), paint);
     }
 
     drawFinder(0, 0); // Top-left
@@ -71,6 +74,7 @@ class ProfileScreen extends StatefulWidget {
   final String? studentClass;
   final String? admissionNo;
   final String? teacherId;
+  final Function(String)? onAvatarUpdated;
 
   const ProfileScreen({
     super.key,
@@ -85,6 +89,7 @@ class ProfileScreen extends StatefulWidget {
     this.studentClass,
     this.admissionNo,
     this.teacherId,
+    this.onAvatarUpdated,
   });
 
   @override
@@ -92,7 +97,8 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final GlobalKey<ScaffoldState> _teacherScaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey<ScaffoldState> _teacherScaffoldKey =
+      GlobalKey<ScaffoldState>();
   bool _showLogout = false;
 
   // Teacher editing text controllers
@@ -104,7 +110,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
-  final TextEditingController _dobCtrl = TextEditingController();  // Shared state fields
+  final TextEditingController _dobCtrl =
+      TextEditingController(); // Shared state fields
   String _userName = '';
   String _email = '';
   String _phone = '';
@@ -249,10 +256,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // 1. Fetch Attendance Records
     try {
-      final attRes = await ApiService.instance.get('students/$studentId/attendance');
+      final attRes =
+          await ApiService.instance.get('students/$studentId/attendance');
       if (attRes != null && attRes['success'] == true && mounted) {
         setState(() {
-          _attendanceRecords = List<Map<String, dynamic>>.from(attRes['attendance'] ?? []);
+          _attendanceRecords =
+              List<Map<String, dynamic>>.from(attRes['attendance'] ?? []);
         });
       } else {
         final List<dynamic> attResDb = await client
@@ -272,26 +281,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // 2. Fetch Fee Ledger and Payments
     try {
-      final feeRes = await ApiService.instance.get('fees/students/$studentId/status');
+      final feeRes =
+          await ApiService.instance.get('fees/students/$studentId/status');
       if (feeRes != null && feeRes['hasLedger'] == true && mounted) {
         final ledgers = feeRes['ledgers'] as List<dynamic>? ?? [];
-        final recentPayments = (feeRes['recentPayments'] ?? feeRes['payments']) as List<dynamic>? ?? [];
+        final recentPayments = (feeRes['recentPayments'] ?? feeRes['payments'])
+                as List<dynamic>? ??
+            [];
         setState(() {
-          _feeLedger = ledgers.isNotEmpty ? Map<String, dynamic>.from(ledgers[0]) : null;
+          _feeLedger =
+              ledgers.isNotEmpty ? Map<String, dynamic>.from(ledgers[0]) : null;
           _feePayments = List<Map<String, dynamic>>.from(recentPayments);
         });
       } else {
         final feeLedgerRes = await client
             .from('StudentFeeLedger')
-            .select('id, totalPayable, totalPaid, totalPending, status, feeStructure:FeeStructure(name)')
+            .select(
+                'id, totalPayable, totalPaid, totalPending, status, feeStructure:FeeStructure(name)')
             .eq('studentId', studentId)
             .maybeSingle();
-        
+
         if (feeLedgerRes != null && mounted) {
           setState(() {
             _feeLedger = Map<String, dynamic>.from(feeLedgerRes);
           });
-          
+
           final List<dynamic> paymentsRes = await client
               .from('FeePayment')
               .select('receiptNumber, amount, paymentDate, paymentMode, status')
@@ -312,8 +326,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       if (widget.studentId == null) {
         // Logged-in student checking their own allocation
-        final transRes = await ApiService.instance.get('transport/allocations/my');
-        if (transRes != null && transRes['success'] == true && transRes['allocation'] != null && mounted) {
+        final transRes =
+            await ApiService.instance.get('transport/allocations/my');
+        if (transRes != null &&
+            transRes['success'] == true &&
+            transRes['allocation'] != null &&
+            mounted) {
           final allocation = transRes['allocation'] as Map<String, dynamic>;
           setState(() {
             _transportAllocation = {
@@ -325,8 +343,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
       } else {
         // Teacher viewing student profile. Query specific studentId.
-        final transRes = await ApiService.instance.get('transport/allocations?studentId=$studentId');
-        if (transRes != null && transRes['success'] == true && transRes['allocation'] != null && mounted) {
+        final transRes = await ApiService.instance
+            .get('transport/allocations?studentId=$studentId');
+        if (transRes != null &&
+            transRes['success'] == true &&
+            transRes['allocation'] != null &&
+            mounted) {
           final allocation = transRes['allocation'] as Map<String, dynamic>;
           setState(() {
             _transportAllocation = {
@@ -357,19 +379,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // 4. Fetch Timetable slots if sectionId is present
     if (sectionId != null) {
       try {
-        final timetableRes = await ApiService.instance.get('timetable/student/$sectionId');
-        if (timetableRes != null && timetableRes['success'] == true && mounted) {
+        final timetableRes =
+            await ApiService.instance.get('timetable/student/$sectionId');
+        if (timetableRes != null &&
+            timetableRes['success'] == true &&
+            mounted) {
           final rawSchedule = timetableRes['schedule'] as List<dynamic>? ?? [];
           final Map<int, List<Map<String, dynamic>>> grouped = {};
-          
+
           for (var slot in rawSchedule) {
             final sMap = slot as Map<String, dynamic>;
             final day = sMap['dayOfWeek'] as int? ?? 1;
-            
+
             final teacherObj = sMap['teacher'] as Map<String, dynamic>?;
             final userObj = teacherObj?['user'] as Map<String, dynamic>?;
             final roomObj = sMap['room'] as Map<String, dynamic>?;
-            
+
             final formattedSlot = {
               'dayOfWeek': day,
               'startTime': sMap['startTime'] ?? '—',
@@ -390,7 +415,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           final List<dynamic> slotsRes = await client
               .from('TimetableSlot')
-              .select('dayOfWeek, startTime, endTime, period, durationMinutes, subject:Subject(name, code), teacher:Teacher(User(firstName, lastName)), room:Room(name)')
+              .select(
+                  'dayOfWeek, startTime, endTime, period, durationMinutes, subject:Subject(name, code), teacher:Teacher(User(firstName, lastName)), room:Room(name)')
               .eq('sectionId', sectionId)
               .order('period', ascending: true);
 
@@ -413,13 +439,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // 5. Fetch Documents
     try {
-      final docRes = await ApiService.instance.get('students/$studentId/documents');
+      final docRes =
+          await ApiService.instance.get('students/$studentId/documents');
       if (docRes != null && docRes['success'] == true && mounted) {
         final docsList = docRes['documents'] as List<dynamic>? ?? [];
         setState(() {
           _uploadedDocuments = docsList.map((d) {
             final dMap = d as Map<String, dynamic>;
-            final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+            final String docName =
+                dMap['documentName'] as String? ?? 'Document.pdf';
             final String? uploadDateStr = dMap['uploadedAt'] as String?;
             String dateStr = '—';
             if (uploadDateStr != null) {
@@ -466,7 +494,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nationality = '—';
     _avatarUrl = null;
     _dbQrCode = null;
-    
+
     _userName = '—';
     _email = '—';
     _phone = '—';
@@ -513,7 +541,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final client = Supabase.instance.client;
       Map<String, dynamic>? studentRes;
 
-      debugPrint('🔍 DB/API Student Profile request initiated. Student ID: ${widget.studentId}');
+      debugPrint(
+          '🔍 DB/API Student Profile request initiated. Student ID: ${widget.studentId}');
 
       if (widget.studentId != null) {
         final res = await client
@@ -540,25 +569,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (studentRes != null) {
         final studentData = studentRes;
-        debugPrint('✅ DB Student data loaded successfully. ID: ${studentData['id']}');
-        
+        debugPrint(
+            '✅ DB Student data loaded successfully. ID: ${studentData['id']}');
+
         final userMap = studentData['User'] as Map<String, dynamic>? ?? {};
         final classMap = studentData['Class'] as Map<String, dynamic>? ?? {};
-        final sectionMap = studentData['Section'] as Map<String, dynamic>? ?? {};
-        
+        final sectionMap =
+            studentData['Section'] as Map<String, dynamic>? ?? {};
+
         final String firstName = userMap['firstName'] as String? ?? '';
         final String lastName = userMap['lastName'] as String? ?? '';
-        
-        _studentUserId = studentData['userId']?.toString() ?? userMap['id']?.toString();
+
+        _studentUserId =
+            studentData['userId']?.toString() ?? userMap['id']?.toString();
 
         setState(() {
           _studentName = '$firstName $lastName'.trim();
           if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
-          
-          _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
-          _admissionNo = studentData['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
-          
-          final String rawClassName = classMap['name']?.toString() ?? widget.studentClass ?? '—';
+
+          _studentEmail =
+              userMap['email'] as String? ?? widget.studentEmail ?? '—';
+          _admissionNo = studentData['admissionNumber'] as String? ??
+              widget.admissionNo ??
+              '—';
+
+          final String rawClassName =
+              classMap['name']?.toString() ?? widget.studentClass ?? '—';
           if (rawClassName.contains(' - ')) {
             final parts = rawClassName.split(' - ');
             _studentClass = parts[0];
@@ -567,27 +603,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _studentClass = rawClassName;
             _section = sectionMap['name']?.toString() ?? '—';
           }
-          
+
           _rollNo = studentData['rollNumber']?.toString() ?? '—';
           final academicYear = studentData['AcademicYear'] as Map<String, dynamic>? ?? classMap['AcademicYear'] as Map<String, dynamic>?;
           _batch = academicYear?['name'] as String? ?? '—';
           _medium = studentData['medium'] as String? ?? '—';
-          
+
           final joinDateStr = studentData['joiningDate'] as String?;
           if (joinDateStr != null) {
             try {
               final parsed = DateTime.parse(joinDateStr);
-              _studentJoinedDate = '${parsed.month}/${parsed.day}/${parsed.year}';
+              _studentJoinedDate =
+                  '${parsed.month}/${parsed.day}/${parsed.year}';
             } catch (_) {
               _studentJoinedDate = '—';
             }
           } else {
             _studentJoinedDate = '—';
           }
-          
-          _emergencyInfo = studentData['emergencyPhone'] as String? ?? studentData['emergencyContact'] as String? ?? '—';
+
+          _emergencyInfo = studentData['emergencyPhone'] as String? ??
+              studentData['emergencyContact'] as String? ??
+              '—';
           if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
-          
+
           final rawGender = userMap['gender'] as String? ?? '—';
           if (rawGender.toUpperCase() == 'MALE') {
             _studentGender = 'Male';
@@ -596,32 +635,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
           } else {
             _studentGender = rawGender;
           }
-          
+
           final dobStr = userMap['dateOfBirth'] as String?;
           if (dobStr != null) {
             try {
               final parsed = DateTime.parse(dobStr);
-              _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+              _studentDob =
+                  '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
             } catch (_) {
               _studentDob = dobStr;
             }
           } else {
             _studentDob = '—';
           }
-          
+
           _studentBloodGroup = userMap['bloodGroup'] as String? ?? '—';
           _religion = studentData['religion'] as String? ?? '—';
           _casteGroup = studentData['caste'] as String? ?? '—';
           _nationality = studentData['nationality'] as String? ?? '—';
           _dbQrCode = userMap['qrCode'] as String?;
-          
+
           final rawAvatar = userMap['avatar']?.toString() ?? '';
           if (rawAvatar.isNotEmpty) {
-            _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+            _avatarUrl = (rawAvatar.startsWith('http') ||
+                    rawAvatar.startsWith('data:image'))
+                ? rawAvatar
+                : '${ApiConfig.serverBaseUrl}$rawAvatar';
           } else {
             _avatarUrl = null;
           }
-          
+          SharedPreferences.getInstance().then((prefs) {
+            if (_avatarUrl != null) {
+              prefs.setString('student_photo_url', _avatarUrl!);
+            } else {
+              prefs.remove('student_photo_url');
+            }
+          });
+
           _userName = _studentName;
           _email = _studentEmail;
           _phone = userMap['phone'] as String? ?? '—';
@@ -630,21 +680,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _bloodGroup = _studentBloodGroup;
           _address = userMap['address'] as String? ?? '—';
           _rollNumber = _rollNo;
-          _className = sectionMap['name'] != null ? '$_studentClass - $_section' : _studentClass;
+          _className = sectionMap['name'] != null
+              ? '$_studentClass - $_section'
+              : _studentClass;
           _admissionId = _admissionNo;
-          
+
           String father = '—';
           String mother = '—';
-          String guardianPhoneVal = studentData['emergencyPhone'] as String? ?? '—';
- 
-          final studentParentList = studentData['StudentParent'] as List<dynamic>? ?? [];
+          String guardianPhoneVal =
+              studentData['emergencyPhone'] as String? ?? '—';
+
+          final studentParentList =
+              studentData['StudentParent'] as List<dynamic>? ?? [];
           if (studentParentList.isNotEmpty) {
             for (var sp in studentParentList) {
               final spMap = sp as Map<String, dynamic>;
               final rel = spMap['relationship'] as String?;
               final parentObj = spMap['Parent'] as Map<String, dynamic>?;
               if (parentObj != null) {
-                final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pFullName =
+                    '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'
+                        .trim();
                 final pPhone = parentObj['phone'] as String? ?? '—';
                 if (rel == 'FATHER') {
                   father = pFullName;
@@ -656,21 +712,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             }
           }
- 
+
           if (father == '—' && mother == '—') {
             father = studentData['emergencyContact'] as String? ?? '—';
           }
- 
+
           _fatherName = father;
           _motherName = mother;
           _guardianPhone = guardianPhoneVal;
- 
+
           List<Map<String, String>> docs = [];
-          final studentDocList = studentData['StudentDocument'] as List<dynamic>? ?? [];
+          final studentDocList =
+              studentData['StudentDocument'] as List<dynamic>? ?? [];
           if (studentDocList.isNotEmpty) {
             docs = studentDocList.map((d) {
               final dMap = d as Map<String, dynamic>;
-              final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+              final String docName =
+                  dMap['documentName'] as String? ?? 'Document.pdf';
               final String? uploadDateStr = dMap['uploadedAt'] as String?;
               String dateStr = '—';
               if (uploadDateStr != null) {
@@ -690,7 +748,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _currentStudentDbId = studentData['id'] as String?;
           _isProfileLoading = false;
         });
- 
+
         final studentId = studentData['id'] as String;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('student_id', studentId);
@@ -703,15 +761,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _inAppNotifications = localInApp;
           });
         }
- 
         final String? sectionId = studentData['sectionId'] as String?;
         _loadAllTabDetails(studentId, sectionId);
         _connectRealTimeSync();
- 
+
         if (userMap['id'] != null) {
           try {
-            final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
-            if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+            final qrRes =
+                await ApiService.instance.get('users/${userMap['id']}/qr');
+            if (qrRes != null &&
+                qrRes['success'] == true &&
+                qrRes['qrCode'] != null) {
               final qr = qrRes['qrCode'] as String?;
               if (qr != null && qr.isNotEmpty) {
                 setState(() {
@@ -724,25 +784,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
         return;
       }
- 
-      debugPrint('📡 Supabase student returned empty result. Falling back to REST API...');
+
+      debugPrint(
+          '📡 Supabase student returned empty result. Falling back to REST API...');
       final response = widget.studentId != null
           ? await ApiService.instance.get('students/${widget.studentId}')
           : await ApiService.instance.get('students/me');
-      
-      if (response == null || response['success'] != true || response['student'] == null) {
-        throw Exception('API details fetch failed or returned invalid response format.');
+
+      if (response == null ||
+          response['success'] != true ||
+          response['student'] == null) {
+        throw Exception(
+            'API details fetch failed or returned invalid response format.');
       }
- 
+
       final studentResMap = response['student'] as Map<String, dynamic>;
       debugPrint('✅ REST API student details successfully retrieved.');
       final userMap = studentResMap['user'] as Map<String, dynamic>? ?? {};
-      final classMap = studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
-      final sectionMap = studentResMap['section'] as Map<String, dynamic>? ?? {};
-      
+      final classMap =
+          studentResMap['currentClass'] as Map<String, dynamic>? ?? {};
+      final sectionMap =
+          studentResMap['section'] as Map<String, dynamic>? ?? {};
+
       final String firstName = userMap['firstName'] as String? ?? '';
       final String lastName = userMap['lastName'] as String? ?? '';
-      _studentUserId = studentResMap['userId']?.toString() ?? userMap['id']?.toString();
+      _studentUserId =
+          studentResMap['userId']?.toString() ?? userMap['id']?.toString();
 
       // Try to get batch from academicYear data (before setState)
       final classAcademicYear = classMap['academicYear'] as Map? ??
@@ -759,16 +826,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _studentName = '$firstName $lastName'.trim();
         if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
-        
-        _studentEmail = userMap['email'] as String? ?? widget.studentEmail ?? '—';
-        _admissionNo = studentResMap['admissionNumber'] as String? ?? widget.admissionNo ?? '—';
-        _studentClass = classMap['name'] as String? ?? widget.studentClass ?? '—';
+
+        _studentEmail =
+            userMap['email'] as String? ?? widget.studentEmail ?? '—';
+        _admissionNo = studentResMap['admissionNumber'] as String? ??
+            widget.admissionNo ??
+            '—';
+        _studentClass =
+            classMap['name'] as String? ?? widget.studentClass ?? '—';
         _section = sectionMap['name'] as String? ?? '—';
         _rollNo = studentResMap['rollNumber']?.toString() ?? '—';
+<<<<<<< HEAD
         
         _batch = batchValue;
+=======
+
+        _batch = '—';
+>>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
         _medium = studentResMap['medium'] as String? ?? '—';
-        
+
         final joinDateStr = studentResMap['joiningDate'] as String?;
         if (joinDateStr != null) {
           try {
@@ -780,10 +856,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           _studentJoinedDate = '—';
         }
-        
+
         _emergencyInfo = studentResMap['emergencyPhone'] as String? ?? '—';
         if (_emergencyInfo.isEmpty) _emergencyInfo = '—';
-        
+
         final rawGender = userMap['gender'] as String? ?? '—';
         if (rawGender.toUpperCase() == 'MALE') {
           _studentGender = 'Male';
@@ -792,32 +868,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
         } else {
           _studentGender = rawGender;
         }
-        
+
         final dobStr = userMap['dateOfBirth'] as String?;
         if (dobStr != null) {
           try {
             final parsed = DateTime.parse(dobStr);
-            _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _studentDob =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _studentDob = dobStr;
           }
         } else {
           _studentDob = '—';
         }
-        
+
         _studentBloodGroup = studentResMap['bloodGroup'] as String? ?? '—';
         _religion = studentResMap['religion'] as String? ?? '—';
         _casteGroup = studentResMap['caste'] as String? ?? '—';
         _nationality = studentResMap['nationality'] as String? ?? '—';
         _dbQrCode = userMap['qrCode'] as String?;
-        
-        final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? userMap['profileImage']?.toString() ?? '';
+
+        final rawAvatar = userMap['avatar'] ??
+            userMap['photoUrl'] ??
+            userMap['profileImage']?.toString() ??
+            '';
         if (rawAvatar.isNotEmpty) {
-          _avatarUrl = rawAvatar.startsWith('http') ? rawAvatar : '${ApiConfig.serverBaseUrl}$rawAvatar';
+          _avatarUrl = (rawAvatar.startsWith('http') ||
+                  rawAvatar.startsWith('data:image'))
+              ? rawAvatar
+              : '${ApiConfig.serverBaseUrl}$rawAvatar';
         } else {
           _avatarUrl = null;
         }
- 
+        SharedPreferences.getInstance().then((prefs) {
+          if (_avatarUrl != null) {
+            prefs.setString('student_photo_url', _avatarUrl!);
+          } else {
+            prefs.remove('student_photo_url');
+          }
+        });
+
         _userName = _studentName;
         _email = _studentEmail;
         _phone = userMap['phone'] as String? ?? '—';
@@ -826,15 +916,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _bloodGroup = _studentBloodGroup;
         _address = userMap['address'] as String? ?? '—';
         _rollNumber = _rollNo;
-        _className = sectionMap['name'] != null ? '$_studentClass - $_section' : _studentClass;
+        _className = sectionMap['name'] != null
+            ? '$_studentClass - $_section'
+            : _studentClass;
         _admissionId = _admissionNo;
         _isProfileLoading = false;
       });
- 
+
       if (userMap['id'] != null) {
         try {
-          final qrRes = await ApiService.instance.get('users/${userMap['id']}/qr');
-          if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+          final qrRes =
+              await ApiService.instance.get('users/${userMap['id']}/qr');
+          if (qrRes != null &&
+              qrRes['success'] == true &&
+              qrRes['qrCode'] != null) {
             final qr = qrRes['qrCode'] as String?;
             if (qr != null && qr.isNotEmpty) {
               setState(() {
@@ -847,28 +942,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           debugPrint('Error fetching QR from API: $e');
         }
       }
- 
+
       final studentId = studentResMap['id'] as String;
       await prefs.setString('student_id', studentId);
- 
+
       final String? sectionId = studentResMap['sectionId'] as String?;
       _loadAllTabDetails(studentId, sectionId);
       _connectRealTimeSync();
- 
+
       try {
         final parentsList = studentResMap['parents'] as List<dynamic>? ?? [];
         if (parentsList.isNotEmpty) {
           String father = '—';
           String mother = '—';
           String guardianPhone = '—';
- 
+
           for (var sp in parentsList) {
             final spMap = sp as Map<String, dynamic>;
             final rel = spMap['relationship'] as String?;
             final parentObj = spMap['parent'] as Map<String, dynamic>?;
-            
+
             if (parentObj != null) {
-              final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+              final pFullName =
+                  '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'
+                      .trim();
               final pPhone = parentObj['phone'] as String? ?? '—';
               if (rel == 'FATHER') {
                 father = pFullName;
@@ -881,7 +978,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }
             }
           }
-          
+
           setState(() {
             _fatherName = father;
             _motherName = mother;
@@ -891,13 +988,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       } catch (e) {
         debugPrint('Error parsing parents: $e');
       }
- 
+
       try {
         final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
         setState(() {
           _uploadedDocuments = docsList.map((d) {
             final dMap = d as Map<String, dynamic>;
-            final String docName = dMap['documentName'] as String? ?? 'Document.pdf';
+            final String docName =
+                dMap['documentName'] as String? ?? 'Document.pdf';
             final String? uploadDateStr = dMap['uploadedAt'] as String?;
             String dateStr = '—';
             if (uploadDateStr != null) {
@@ -917,7 +1015,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         debugPrint('Error parsing documents: $e');
       }
     } catch (e) {
-      debugPrint('🚨 Supabase/REST Student Profile queries both failed. Error: $e');
+      debugPrint(
+          '🚨 Supabase/REST Student Profile queries both failed. Error: $e');
       if (widget.studentId != null) {
         setState(() {
           _isProfileLoading = false;
@@ -967,12 +1066,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _realtimeChannels.clear();
 
       final String targetStudentId = widget.studentId ?? '';
-      final String targetUserId = widget.studentId != null ? (_studentUserId ?? '') : (widget.teacherId ?? currentUser.id);
+      final String targetUserId = widget.studentId != null
+          ? (_studentUserId ?? '')
+          : (widget.teacherId ?? currentUser.id);
 
-      debugPrint('🔌 Connecting Real-Time Sync. Student ID: $targetStudentId, User ID: $targetUserId');
+      debugPrint(
+          '🔌 Connecting Real-Time Sync. Student ID: $targetStudentId, User ID: $targetUserId');
 
       if (targetUserId.isNotEmpty) {
-        final userChannel = client.channel('public:user_profile_sync_$targetUserId')
+        final userChannel = client
+            .channel('public:user_profile_sync_$targetUserId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
@@ -983,7 +1086,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: targetUserId,
               ),
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on User: $targetUserId. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on User: $targetUserId. Reloading...');
                 if (mounted) {
                   if (widget.role == 'student') {
                     _loadStudentDataFromSupabase();
@@ -999,9 +1103,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (widget.role == 'student') {
         final String studentFilterValue = widget.studentId ?? currentUser.id;
-        final String studentFilterColumn = widget.studentId != null ? 'id' : 'userId';
+        final String studentFilterColumn =
+            widget.studentId != null ? 'id' : 'userId';
 
-        final studentChannel = client.channel('public:student_profile_sync_$studentFilterValue')
+        final studentChannel = client
+            .channel('public:student_profile_sync_$studentFilterValue')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
@@ -1012,7 +1118,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: studentFilterValue,
               ),
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on Student. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on Student. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -1021,13 +1128,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         studentChannel.subscribe();
         _realtimeChannels.add(studentChannel);
 
-        final docChannel = client.channel('public:student_doc_sync_$targetStudentId')
+        final docChannel = client
+            .channel('public:student_doc_sync_$targetStudentId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'StudentDocument',
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on StudentDocument. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on StudentDocument. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -1036,13 +1145,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         docChannel.subscribe();
         _realtimeChannels.add(docChannel);
 
-        final parentChannel = client.channel('public:student_parent_sync_$targetStudentId')
+        final parentChannel = client
+            .channel('public:student_parent_sync_$targetStudentId')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
               table: 'StudentParent',
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on StudentParent. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on StudentParent. Reloading...');
                 if (mounted) {
                   _loadStudentDataFromSupabase();
                 }
@@ -1051,7 +1162,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         parentChannel.subscribe();
         _realtimeChannels.add(parentChannel);
       } else if (widget.role == 'teacher') {
-        final teacherChannel = client.channel('public:teacher_profile_sync_${widget.teacherId ?? currentUser.id}')
+        final teacherChannel = client
+            .channel(
+                'public:teacher_profile_sync_${widget.teacherId ?? currentUser.id}')
             .onPostgresChanges(
               event: PostgresChangeEvent.all,
               schema: 'public',
@@ -1062,7 +1175,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 value: widget.teacherId ?? currentUser.id,
               ),
               callback: (_) {
-                debugPrint('🔄 Realtime update detected on Teacher. Reloading...');
+                debugPrint(
+                    '🔄 Realtime update detected on Teacher. Reloading...');
                 if (mounted) {
                   _loadTeacherDataFromSupabase();
                 }
@@ -1076,10 +1190,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       SocketService().on('STUDENT_UPDATED', (data) {
         if (!mounted) return;
         try {
-          final String? updatedStudentId = data?['id']?.toString() ?? data?['studentId']?.toString();
-          debugPrint('📡 Socket.IO STUDENT_UPDATED received. Updated Student ID: $updatedStudentId, Current Viewed ID: ${widget.studentId}');
-          if (widget.studentId != null && updatedStudentId == widget.studentId) {
-            debugPrint('🔄 Socket.IO student matches viewed student. Reloading...');
+          final String? updatedStudentId =
+              data?['id']?.toString() ?? data?['studentId']?.toString();
+          debugPrint(
+              '📡 Socket.IO STUDENT_UPDATED received. Updated Student ID: $updatedStudentId, Current Viewed ID: ${widget.studentId}');
+          if (widget.studentId != null &&
+              updatedStudentId == widget.studentId) {
+            debugPrint(
+                '🔄 Socket.IO student matches viewed student. Reloading...');
             _loadStudentDataFromSupabase();
           } else if (widget.studentId == null && widget.role == 'student') {
             _loadStudentDataFromSupabase();
@@ -1220,8 +1338,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadStudentData() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _studentName = prefs.getString('student_name') ?? prefs.getString('user_name') ?? 'Kavya Yadav';
-      _studentEmail = prefs.getString('student_email') ?? prefs.getString('user_email') ?? 'kavya.yadav@edusmart.edu';
+      _studentName = prefs.getString('student_name') ??
+          prefs.getString('user_name') ??
+          'Kavya Yadav';
+      _studentEmail = prefs.getString('student_email') ??
+          prefs.getString('user_email') ??
+          'kavya.yadav@edusmart.edu';
       _admissionNo = prefs.getString('student_admission_no') ?? 'ADM-2023-0681';
       _dbQrCode = prefs.getString('student_qrcode');
       _studentClass = prefs.getString('student_class') ?? 'Grade 11';
@@ -1229,7 +1351,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _rollNo = prefs.getString('student_roll') ?? '118';
       _batch = prefs.getString('student_batch') ?? '2024-25';
       _medium = prefs.getString('student_medium') ?? 'ENGLISH';
-      _studentJoinedDate = prefs.getString('student_joined_date') ?? '4/16/2023';
+      _studentJoinedDate =
+          prefs.getString('student_joined_date') ?? '4/16/2023';
       _emergencyInfo = prefs.getString('student_emergency_info') ?? 'UNSET';
 
       _studentGender = prefs.getString('student_gender') ?? '—';
@@ -1241,15 +1364,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       _fatherName = prefs.getString('student_father') ?? 'Rajesh Sharma';
       _motherName = prefs.getString('student_mother') ?? 'Priya Sharma';
-      _guardianPhone = prefs.getString('student_guardian_phone') ?? '+91 98765 43210';
+      _guardianPhone =
+          prefs.getString('student_guardian_phone') ?? '+91 98765 43210';
 
       _pushNotifications = prefs.getBool('push_notifications_enabled') ?? true;
-      _inAppNotifications = prefs.getBool('in_app_notifications_enabled') ?? true;
+      _inAppNotifications =
+          prefs.getBool('in_app_notifications_enabled') ?? true;
 
       final docsJson = prefs.getString('student_uploaded_documents');
       if (docsJson != null) {
         final decoded = json.decode(docsJson) as List<dynamic>;
-        _uploadedDocuments = decoded.map((e) => Map<String, String>.from(e as Map)).toList();
+        _uploadedDocuments =
+            decoded.map((e) => Map<String, String>.from(e as Map)).toList();
       } else {
         _uploadedDocuments = [];
       }
@@ -1351,7 +1477,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               backgroundColor: const Color(0xFF1A6FDB),
-              content: Text('Document "$docName" uploaded successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              content: Text('Document "$docName" uploaded successfully!',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             ),
           );
         }
@@ -1416,6 +1543,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+<<<<<<< HEAD
   void _showEditEmergencyInfoDialog() {
     final ctrl = TextEditingController(text: _emergencyInfo == '—' || _emergencyInfo == 'UNSET' ? '' : _emergencyInfo);
     showDialog(
@@ -1430,6 +1558,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             hintText: 'Enter emergency phone number',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
           ),
+=======
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFFE03131),
+          content: Text('Document "$name" removed.',
+              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+>>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
         ),
         actions: [
           TextButton(
@@ -1535,7 +1671,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Expanded(child: _buildEditTextField('Class', classCtrl)),
                       SizedBox(width: 12.w),
-                      Expanded(child: _buildEditTextField('Section', sectionCtrl)),
+                      Expanded(
+                          child: _buildEditTextField('Section', sectionCtrl)),
                     ],
                   ),
                   Row(
@@ -1547,16 +1684,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   Row(
                     children: [
-                      Expanded(child: _buildEditTextField('Gender', genderCtrl)),
+                      Expanded(
+                          child: _buildEditTextField('Gender', genderCtrl)),
                       SizedBox(width: 12.w),
-                      Expanded(child: _buildEditTextField('Blood Group', bloodCtrl)),
+                      Expanded(
+                          child: _buildEditTextField('Blood Group', bloodCtrl)),
                     ],
                   ),
                   Row(
                     children: [
-                      Expanded(child: _buildEditTextField('Date of Birth', dobCtrl)),
+                      Expanded(
+                          child: _buildEditTextField('Date of Birth', dobCtrl)),
                       SizedBox(width: 12.w),
-                      Expanded(child: _buildEditTextField('Caste Group', casteCtrl)),
+                      Expanded(
+                          child: _buildEditTextField('Caste Group', casteCtrl)),
                     ],
                   ),
                   Row(
@@ -1574,7 +1715,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF1A6FDB),
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16.r)),
                         padding: EdgeInsets.symmetric(vertical: 16.h),
                         elevation: 0,
                       ),
@@ -1600,11 +1742,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: const Color(0xFF10B981),
-                            content: Text('Profile updated successfully!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                            content: Text('Profile updated successfully!',
+                                style: GoogleFonts.inter(
+                                    fontWeight: FontWeight.w700)),
                           ),
                         );
                       },
-                      child: Text('Save Changes', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800)),
+                      child: Text('Save Changes', style: AppTypography.small),
                     ),
                   ),
                 ],
@@ -1622,17 +1766,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF495057))),
+          Text(label,
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF495057))),
           SizedBox(height: 6.h),
           TextFormField(
             controller: ctrl,
-            style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F2547)),
+            style: AppTypography.small.copyWith(color: const Color(0xFF0F2547)),
             decoration: InputDecoration(
               filled: true,
               fillColor: const Color(0xFFF8FAFC),
-              contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
+              enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12.r),
+                  borderSide: const BorderSide(color: Color(0xFFE2EAF4))),
             ),
           ),
         ],
@@ -1653,7 +1804,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final prefs = await SharedPreferences.getInstance();
       final client = Supabase.instance.client;
       final currentUser = client.auth.currentUser;
-      
+
       String? currentUserId = widget.teacherId ?? currentUser?.id;
       if (currentUserId == null || currentUserId.isEmpty) {
         currentUserId = prefs.getString('user_id');
@@ -1688,7 +1839,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       String? qrCode;
       try {
         final qrRes = await ApiService.instance.get('users/$currentUserId/qr');
-        if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+        if (qrRes != null &&
+            qrRes['success'] == true &&
+            qrRes['qrCode'] != null) {
           qrCode = qrRes['qrCode'] as String?;
         }
       } catch (e) {
@@ -1702,7 +1855,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (_userName.isEmpty) _userName = 'Vikram Yadav';
         _email = userMap['email'] as String? ?? '';
         _phone = userMap['phone'] as String? ?? 'N/A';
-        
+
+        final rawAvatar = userMap['avatar']?.toString() ?? '';
+        if (rawAvatar.isNotEmpty) {
+          _avatarUrl = (rawAvatar.startsWith('http') ||
+                  rawAvatar.startsWith('data:image'))
+              ? rawAvatar
+              : '${ApiConfig.serverBaseUrl}$rawAvatar';
+        } else {
+          _avatarUrl = null;
+        }
+        SharedPreferences.getInstance().then((prefs) {
+          if (_avatarUrl != null) {
+            prefs.setString('teacher_photo_url', _avatarUrl!);
+          } else {
+            prefs.remove('teacher_photo_url');
+          }
+        });
+
         final rawGender = userMap['gender'] as String? ?? 'Not Specified';
         if (rawGender.toUpperCase() == 'MALE') {
           _gender = 'Male';
@@ -1716,7 +1886,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (dobStr != null) {
           try {
             final parsed = DateTime.parse(dobStr);
-            _dob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _dob =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _dob = dobStr;
           }
@@ -1726,31 +1897,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         _bloodGroup = userMap['bloodGroup'] as String? ?? 'Not assigned';
         _address = userMap['address'] as String? ?? 'No location registered';
-        
+
         final lastPwdStr = userMap['lastPasswordChange'] as String?;
         if (lastPwdStr != null) {
           try {
             final parsed = DateTime.parse(lastPwdStr);
-            _lastPasswordChange = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _lastPasswordChange =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _lastPasswordChange = lastPwdStr;
           }
         }
-        
+
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
-        
+
         _employeeId = teacherMap['employeeId'] as String? ?? 'ID_PENDING';
         _designation = teacherMap['specialization'] as String? ?? 'TEACHER';
         _department = teacherMap['qualification'] as String? ?? 'CORE_SYSTEM';
-        
+
         final rawExp = teacherMap['experience']?.toString();
-        _experience = (rawExp != null && rawExp.isNotEmpty) ? '$rawExp Years' : 'N/A';
+        _experience =
+            (rawExp != null && rawExp.isNotEmpty) ? '$rawExp Years' : 'N/A';
 
         final joinDateStr = teacherMap['joiningDate'] as String?;
         if (joinDateStr != null) {
           try {
             final parsed = DateTime.parse(joinDateStr);
-            _joinedDate = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+            _joinedDate =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _joinedDate = joinDateStr;
           }
@@ -1796,20 +1970,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
         userUpdates['lastName'] = parts.skip(1).join(' ');
       }
       if (data.containsKey('phone')) userUpdates['phone'] = data['phone'];
-      if (data.containsKey('gender')) userUpdates['gender'] = data['gender']!.toUpperCase();
+      if (data.containsKey('gender'))
+        userUpdates['gender'] = data['gender']!.toUpperCase();
       if (data.containsKey('dob')) {
         try {
           final parts = data['dob']!.split('/');
           if (parts.length == 3) {
-            userUpdates['dateOfBirth'] = '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
+            userUpdates['dateOfBirth'] =
+                '${parts[2]}-${parts[1].padLeft(2, '0')}-${parts[0].padLeft(2, '0')}';
           } else {
-            userUpdates['dateOfBirth'] = DateTime.parse(data['dob']!).toIso8601String();
+            userUpdates['dateOfBirth'] =
+                DateTime.parse(data['dob']!).toIso8601String();
           }
         } catch (_) {
           userUpdates['dateOfBirth'] = data['dob'];
         }
       }
-      if (data.containsKey('bloodGroup')) userUpdates['bloodGroup'] = data['bloodGroup'];
+      if (data.containsKey('bloodGroup'))
+        userUpdates['bloodGroup'] = data['bloodGroup'];
       if (data.containsKey('address')) userUpdates['address'] = data['address'];
 
       if (userUpdates.isNotEmpty) {
@@ -1817,12 +1995,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       final Map<String, dynamic> teacherUpdates = {};
-      if (data.containsKey('employeeId')) teacherUpdates['employeeId'] = data['employeeId'];
-      if (data.containsKey('designation')) teacherUpdates['specialization'] = data['designation'];
-      if (data.containsKey('department')) teacherUpdates['qualification'] = data['department'];
-      
+      if (data.containsKey('employeeId'))
+        teacherUpdates['employeeId'] = data['employeeId'];
+      if (data.containsKey('designation'))
+        teacherUpdates['specialization'] = data['designation'];
+      if (data.containsKey('department'))
+        teacherUpdates['qualification'] = data['department'];
+
       if (teacherUpdates.isNotEmpty) {
-        await client.from('Teacher').update(teacherUpdates).eq('userId', currentUser.id);
+        await client
+            .from('Teacher')
+            .update(teacherUpdates)
+            .eq('userId', currentUser.id);
       }
     } catch (e) {
       debugPrint('Error saving teacher profile to Supabase: $e');
@@ -1856,12 +2040,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _admissionNo = _employeeId;
         } else {
           _userName = prefs.getString('teacher_name') ?? 'Vikram Yadav';
-          _email = prefs.getString('teacher_email') ?? 'teacher1@demoschool.com';
+          _email =
+              prefs.getString('teacher_email') ?? 'teacher1@demoschool.com';
           _phone = prefs.getString('teacher_mobile') ?? 'N/A';
           _gender = prefs.getString('teacher_gender') ?? 'Not Specified';
           _dob = prefs.getString('teacher_dob') ?? 'Not set';
           _bloodGroup = prefs.getString('teacher_blood') ?? 'Not assigned';
-          _address = prefs.getString('teacher_address') ?? 'No location registered';
+          _address =
+              prefs.getString('teacher_address') ?? 'No location registered';
           _employeeId = prefs.getString('teacher_emp_id') ?? 'ID_PENDING';
           _designation = prefs.getString('teacher_design') ?? 'TEACHER';
           _department = prefs.getString('teacher_dept') ?? 'CORE_SYSTEM';
@@ -1869,7 +2055,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _activityStatus = prefs.getString('teacher_activity') ?? 'Offline';
           _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
           _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
-          _lastPasswordChange = prefs.getString('teacher_last_pwd') ?? 'Action Required';
+          _lastPasswordChange =
+              prefs.getString('teacher_last_pwd') ?? 'Action Required';
           _dbQrCode = prefs.getString('teacher_qrcode');
           _studentName = _userName;
           _admissionNo = _employeeId;
@@ -1881,14 +2068,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _gender = prefs.getString('student_gender') ?? 'Not Specified';
         _dob = prefs.getString('student_dob') ?? 'Not set';
         _bloodGroup = prefs.getString('student_blood') ?? 'Not assigned';
-        _address = prefs.getString('student_address') ?? 'No location registered';
+        _address =
+            prefs.getString('student_address') ?? 'No location registered';
         _rollNumber = prefs.getString('student_roll') ?? '24';
         _className = prefs.getString('student_class') ?? 'Grade 12-A';
-        _admissionId = prefs.getString('student_admission_id') ?? 'ADM-2026-024';
+        _admissionId =
+            prefs.getString('student_admission_id') ?? 'ADM-2026-024';
         _activityStatus = prefs.getString('student_activity') ?? 'Offline';
         _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
         _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
-        _lastPasswordChange = prefs.getString('student_last_pwd') ?? 'Action Required';
+        _lastPasswordChange =
+            prefs.getString('student_last_pwd') ?? 'Action Required';
       }
     });
   }
@@ -1896,36 +2086,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _saveProfileEdits(Map<String, String> data) async {
     final prefs = await SharedPreferences.getInstance();
     if (widget.role == 'teacher') {
-      if (data.containsKey('name')) await prefs.setString('teacher_name', data['name']!);
-      if (data.containsKey('email')) await prefs.setString('teacher_email', data['email']!);
-      if (data.containsKey('phone')) await prefs.setString('teacher_mobile', data['phone']!);
-      if (data.containsKey('gender')) await prefs.setString('teacher_gender', data['gender']!);
-      if (data.containsKey('dob')) await prefs.setString('teacher_dob', data['dob']!);
-      if (data.containsKey('bloodGroup')) await prefs.setString('teacher_blood', data['bloodGroup']!);
-      if (data.containsKey('address')) await prefs.setString('teacher_address', data['address']!);
-      if (data.containsKey('employeeId')) await prefs.setString('teacher_emp_id', data['employeeId']!);
-      if (data.containsKey('designation')) await prefs.setString('teacher_design', data['designation']!);
-      if (data.containsKey('department')) await prefs.setString('teacher_dept', data['department']!);
-      if (data.containsKey('experience')) await prefs.setString('teacher_exp', data['experience']!);
+      if (data.containsKey('name'))
+        await prefs.setString('teacher_name', data['name']!);
+      if (data.containsKey('email'))
+        await prefs.setString('teacher_email', data['email']!);
+      if (data.containsKey('phone'))
+        await prefs.setString('teacher_mobile', data['phone']!);
+      if (data.containsKey('gender'))
+        await prefs.setString('teacher_gender', data['gender']!);
+      if (data.containsKey('dob'))
+        await prefs.setString('teacher_dob', data['dob']!);
+      if (data.containsKey('bloodGroup'))
+        await prefs.setString('teacher_blood', data['bloodGroup']!);
+      if (data.containsKey('address'))
+        await prefs.setString('teacher_address', data['address']!);
+      if (data.containsKey('employeeId'))
+        await prefs.setString('teacher_emp_id', data['employeeId']!);
+      if (data.containsKey('designation'))
+        await prefs.setString('teacher_design', data['designation']!);
+      if (data.containsKey('department'))
+        await prefs.setString('teacher_dept', data['department']!);
+      if (data.containsKey('experience'))
+        await prefs.setString('teacher_exp', data['experience']!);
       await _saveTeacherDataToSupabase(data);
     } else {
-      if (data.containsKey('name')) await prefs.setString('student_name', data['name']!);
-      if (data.containsKey('email')) await prefs.setString('student_email', data['email']!);
-      if (data.containsKey('phone')) await prefs.setString('student_phone', data['phone']!);
-      if (data.containsKey('gender')) await prefs.setString('student_gender', data['gender']!);
-      if (data.containsKey('dob')) await prefs.setString('student_dob', data['dob']!);
-      if (data.containsKey('bloodGroup')) await prefs.setString('student_blood', data['bloodGroup']!);
-      if (data.containsKey('address')) await prefs.setString('student_address', data['address']!);
-      if (data.containsKey('rollNumber')) await prefs.setString('student_roll', data['rollNumber']!);
-      if (data.containsKey('className')) await prefs.setString('student_class', data['className']!);
-      if (data.containsKey('admissionId')) await prefs.setString('student_admission_id', data['admissionId']!);
+      if (data.containsKey('name'))
+        await prefs.setString('student_name', data['name']!);
+      if (data.containsKey('email'))
+        await prefs.setString('student_email', data['email']!);
+      if (data.containsKey('phone'))
+        await prefs.setString('student_phone', data['phone']!);
+      if (data.containsKey('gender'))
+        await prefs.setString('student_gender', data['gender']!);
+      if (data.containsKey('dob'))
+        await prefs.setString('student_dob', data['dob']!);
+      if (data.containsKey('bloodGroup'))
+        await prefs.setString('student_blood', data['bloodGroup']!);
+      if (data.containsKey('address'))
+        await prefs.setString('student_address', data['address']!);
+      if (data.containsKey('rollNumber'))
+        await prefs.setString('student_roll', data['rollNumber']!);
+      if (data.containsKey('className'))
+        await prefs.setString('student_class', data['className']!);
+      if (data.containsKey('admissionId'))
+        await prefs.setString('student_admission_id', data['admissionId']!);
     }
     await _loadTeacherDataFromSupabase();
     if (mounted) {
       showToast(context, 'Profile updated successfully!');
     }
   }
-
 
   // --- RESPONSIVE TABBED STUDENT PROFILE METHODS ---
   Widget _buildTabbedStudentProfile(bool isDesktop) {
@@ -1943,7 +2153,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 16.h),
             Text(
               'Fetching student profile data...',
-              style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF64748B)),
             ),
           ],
         ),
@@ -1958,41 +2169,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(16.r),
             border: Border.all(color: const Color(0xFFFECACA)),
             boxShadow: [
-              BoxShadow(color: Colors.red.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
+              BoxShadow(
+                  color: Colors.red.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4)),
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline_rounded, color: const Color(0xFFEF4444), size: 48.sp),
+              Icon(Icons.error_outline_rounded,
+                  color: const Color(0xFFEF4444), size: 48.sp),
               SizedBox(height: 16.h),
               Text(
                 'Failed to load student details',
-                style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                style:
+                    AppTypography.body.copyWith(color: const Color(0xFF0F2547)),
               ),
               SizedBox(height: 8.h),
               Text(
                 'Please check your network connection and try again.',
                 textAlign: TextAlign.center,
-                style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
               ),
               SizedBox(height: 20.h),
               ElevatedButton.icon(
                 onPressed: _loadStudentDataFromSupabase,
                 icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-                label: Text('Retry', style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
+                label: Text('Retry',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A6FDB),
                   foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
-                  padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r)),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
                 ),
               ),
               if (widget.onBack != null) ...[
                 SizedBox(height: 12.h),
                 TextButton(
                   onPressed: widget.onBack,
-                  child: Text('Go Back', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: const Color(0xFF1A6FDB))),
+                  child: Text('Go Back',
+                      style: GoogleFonts.inter(
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF1A6FDB))),
                 ),
               ],
             ],
@@ -2001,7 +2224,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
     } else {
       bodyContent = SingleChildScrollView(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding, vertical: verticalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2012,6 +2236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+<<<<<<< HEAD
                     Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
@@ -2021,6 +2246,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF0F2547),
                       ),
+=======
+                    Icon(Icons.arrow_back,
+                        color: const Color(0xFF0F2547), size: 16.sp),
+                    SizedBox(width: 8.w),
+                    Text(
+                      'Back to Students',
+                      style: AppTypography.small
+                          .copyWith(color: const Color(0xFF0F2547)),
+>>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
                     ),
                   ],
                 ),
@@ -2056,7 +2290,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 16.h),
 
             // Digital Identity & QR Attendance
-            _buildDigitalIdentityCard(isDesktop, customTitle: widget.studentId != null ? 'Student Digital Identity Card' : null),
+            _buildDigitalIdentityCard(isDesktop,
+                customTitle: widget.studentId != null
+                    ? 'Student Digital Identity Card'
+                    : null),
             SizedBox(height: 24.h),
 
             // Logout Button
@@ -2074,9 +2311,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.logout_rounded, color: AppColors.error, size: 20.sp),
+                      Icon(Icons.logout_rounded,
+                          color: AppColors.error, size: 20.sp),
                       SizedBox(width: 10.w),
-                      Text('Sign Out', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: AppColors.error)),
+                      Text('Sign Out',
+                          style: AppTypography.small
+                              .copyWith(color: AppColors.error)),
                     ],
                   ),
                 ),
@@ -2644,9 +2884,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildTabbedHeaderCard(bool isDesktop) {
     final List<String> parts = _studentName.trim().split(RegExp(r'\s+'));
-    final String initials = parts.length >= 2 
+    final String initials = parts.length >= 2
         ? '${parts[0][0]}${parts[1][0]}'.toUpperCase()
-        : (parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0].toUpperCase() : 'ST');
+        : (parts.isNotEmpty && parts[0].isNotEmpty
+            ? parts[0][0].toUpperCase()
+            : 'ST');
 
     return Container(
       width: double.infinity,
@@ -2680,22 +2922,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       shape: BoxShape.circle,
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(isDesktop ? 32.r : 26.r),
+                      borderRadius:
+                          BorderRadius.circular(isDesktop ? 32.r : 26.r),
                       child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                          ? Image.network(
-                              _avatarUrl!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Center(
-                                child: Text(
-                                  initials,
-                                  style: GoogleFonts.inter(
-                                    fontSize: isDesktop ? 22.sp : 18.sp,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF1A6FDB),
+                          ? (_avatarUrl!.startsWith('data:image')
+                              ? Image.memory(
+                                  base64Decode(_avatarUrl!.split(',').last),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Center(
+                                    child: Text(
+                                      initials,
+                                      style: GoogleFonts.inter(
+                                        fontSize: isDesktop ? 22.sp : 18.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF1A6FDB),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            )
+                                )
+                              : Image.network(
+                                  _avatarUrl!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Center(
+                                    child: Text(
+                                      initials,
+                                      style: GoogleFonts.inter(
+                                        fontSize: isDesktop ? 22.sp : 18.sp,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF1A6FDB),
+                                      ),
+                                    ),
+                                  ),
+                                ))
                           : Center(
                               child: Text(
                                 initials,
@@ -2716,9 +2976,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: const BoxDecoration(
                           color: Color(0xFF1A6FDB),
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                          boxShadow: [
+                            BoxShadow(color: Colors.black12, blurRadius: 4)
+                          ],
                         ),
-                        child: Icon(Icons.edit_rounded, size: 10.sp, color: Colors.white),
+                        child: Icon(Icons.edit_rounded,
+                            size: 10.sp, color: Colors.white),
                       ),
                     ),
                 ],
@@ -2771,13 +3034,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (isDesktop)
             Row(
               children: [
-                Expanded(child: _buildHeaderItem(Icons.email_outlined, 'Email', _studentEmail)),
+                Expanded(
+                    child: _buildHeaderItem(
+                        Icons.email_outlined, 'Email', _studentEmail)),
                 SizedBox(width: 20.w),
-                Expanded(child: _buildHeaderItem(Icons.phone_outlined, 'Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A')),
+                Expanded(
+                    child: _buildHeaderItem(Icons.phone_outlined, 'Phone',
+                        _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A')),
                 SizedBox(width: 20.w),
-                Expanded(child: _buildHeaderItem(Icons.calendar_today_outlined, 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A')),
+                Expanded(
+                    child: _buildHeaderItem(
+                        Icons.calendar_today_outlined,
+                        'Date of Birth',
+                        _studentDob != '—' ? _studentDob : 'N/A')),
                 SizedBox(width: 20.w),
-                Expanded(child: _buildHeaderItem(Icons.menu_book_outlined, 'Class', '$_studentClass - $_section')),
+                Expanded(
+                    child: _buildHeaderItem(Icons.menu_book_outlined, 'Class',
+                        '$_studentClass - $_section')),
               ],
             )
           else
@@ -2787,19 +3060,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
               children: [
                 SizedBox(
                   width: 145.w,
-                  child: _buildHeaderItem(Icons.email_outlined, 'Email', _studentEmail),
+                  child: _buildHeaderItem(
+                      Icons.email_outlined, 'Email', _studentEmail),
                 ),
                 SizedBox(
                   width: 145.w,
-                  child: _buildHeaderItem(Icons.phone_outlined, 'Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
+                  child: _buildHeaderItem(Icons.phone_outlined, 'Phone',
+                      _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
                 ),
                 SizedBox(
                   width: 145.w,
-                  child: _buildHeaderItem(Icons.calendar_today_outlined, 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A'),
+                  child: _buildHeaderItem(
+                      Icons.calendar_today_outlined,
+                      'Date of Birth',
+                      _studentDob != '—' ? _studentDob : 'N/A'),
                 ),
                 SizedBox(
                   width: 145.w,
-                  child: _buildHeaderItem(Icons.menu_book_outlined, 'Class', '$_studentClass - $_section'),
+                  child: _buildHeaderItem(Icons.menu_book_outlined, 'Class',
+                      '$_studentClass - $_section'),
                 ),
               ],
             ),
@@ -2820,20 +3099,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
               ),
               SizedBox(height: 2.h),
               Text(
                 value,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F2547),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F2547)),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -2862,9 +3135,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onTap: () => setState(() => _selectedTab = tab),
               child: Container(
                 margin: EdgeInsets.only(right: 6.w),
-                padding: EdgeInsets.symmetric(horizontal: isDesktop ? 20.w : 14.w, vertical: 8.h),
+                padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? 20.w : 14.w, vertical: 8.h),
                 decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFFDFEEFA) : Colors.transparent,
+                  color:
+                      isActive ? const Color(0xFFDFEEFA) : Colors.transparent,
                   borderRadius: BorderRadius.circular(8.r),
                 ),
                 child: Text(
@@ -2872,7 +3147,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   style: GoogleFonts.inter(
                     fontSize: isDesktop ? 13.sp : 12.sp,
                     fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                    color: isActive ? const Color(0xFF0F2547) : const Color(0xFF475569),
+                    color: isActive
+                        ? const Color(0xFF0F2547)
+                        : const Color(0xFF475569),
                   ),
                 ),
               ),
@@ -2910,11 +3187,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Personal Information', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            Text('Personal Information',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547))),
             SizedBox(height: 20.h),
-            _buildGridRow('Gender', _studentGender != '—' ? _studentGender : 'N/A', 'Blood Group', _studentBloodGroup != '—' ? _studentBloodGroup : 'N/A'),
+            _buildGridRow(
+                'Gender',
+                _studentGender != '—' ? _studentGender : 'N/A',
+                'Blood Group',
+                _studentBloodGroup != '—' ? _studentBloodGroup : 'N/A'),
             SizedBox(height: 16.h),
-            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A', 'Admission Number', _admissionNo),
+            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A',
+                'Admission Number', _admissionNo),
           ],
         ),
       );
@@ -2929,11 +3213,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Core Identity', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            Text('Core Identity',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547))),
             SizedBox(height: 20.h),
-            _buildGridRow('Caste Group', _casteGroup.isNotEmpty ? _casteGroup : 'N/A', 'Religion', _religion.isNotEmpty ? _religion : 'N/A'),
+            _buildGridRow(
+                'Caste Group',
+                _casteGroup.isNotEmpty ? _casteGroup : 'N/A',
+                'Religion',
+                _religion.isNotEmpty ? _religion : 'N/A'),
             SizedBox(height: 16.h),
-            _buildGridRow('Nationality', _nationality.isNotEmpty ? _nationality : 'N/A', 'Date of Birth', _studentDob != '—' ? _studentDob : 'N/A'),
+            _buildGridRow(
+                'Nationality',
+                _nationality.isNotEmpty ? _nationality : 'N/A',
+                'Date of Birth',
+                _studentDob != '—' ? _studentDob : 'N/A'),
           ],
         ),
       );
@@ -2948,11 +3242,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Guardian Details', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            Text('Guardian Details',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547))),
             SizedBox(height: 20.h),
-            _buildGridRow('Father Name', _fatherName.isNotEmpty ? _fatherName : 'N/A', 'Mother Name', _motherName.isNotEmpty ? _motherName : 'N/A'),
+            _buildGridRow(
+                'Father Name',
+                _fatherName.isNotEmpty ? _fatherName : 'N/A',
+                'Mother Name',
+                _motherName.isNotEmpty ? _motherName : 'N/A'),
             SizedBox(height: 16.h),
-            _buildGridRow('Guardian Phone', _guardianPhone.isNotEmpty ? _guardianPhone : 'N/A', 'Emergency Phone', _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
+            _buildGridRow(
+                'Guardian Phone',
+                _guardianPhone.isNotEmpty ? _guardianPhone : 'N/A',
+                'Emergency Phone',
+                _emergencyInfo != 'UNSET' ? _emergencyInfo : 'N/A'),
           ],
         ),
       );
@@ -2985,11 +3289,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Address Info', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                        Text('Address Info',
+                            style: AppTypography.small
+                                .copyWith(color: const Color(0xFF0F2547))),
                         SizedBox(height: 20.h),
-                        Text('Address', style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                        Text('Address',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF64748B))),
                         SizedBox(height: 4.h),
-                        Text(_address.isNotEmpty && _address != 'No location registered' ? _address : 'No registered address available', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700)),
+                        Text(
+                            _address.isNotEmpty &&
+                                    _address != 'No location registered'
+                                ? _address
+                                : 'No registered address available',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547))),
                       ],
                     ),
                   ),
@@ -3018,11 +3332,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Address Info', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                  Text('Address Info',
+                      style: AppTypography.small
+                          .copyWith(color: const Color(0xFF0F2547))),
                   SizedBox(height: 20.h),
-                  Text('Address', style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+                  Text('Address',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B))),
                   SizedBox(height: 4.h),
-                  Text(_address.isNotEmpty && _address != 'No location registered' ? _address : 'No registered address available', style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700)),
+                  Text(
+                      _address.isNotEmpty &&
+                              _address != 'No location registered'
+                          ? _address
+                          : 'No registered address available',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F2547))),
                 ],
               ),
             ),
@@ -3043,28 +3367,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Academic Details', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+            Text('Academic Details',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547))),
             SizedBox(height: 20.h),
             _buildGridRow('Current Class', _studentClass, 'Section', _section),
             SizedBox(height: 16.h),
-            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A', 'Admission Number', _admissionNo),
+            _buildGridRow('Roll Number', _rollNo.isNotEmpty ? _rollNo : 'N/A',
+                'Admission Number', _admissionNo),
             SizedBox(height: 16.h),
-            _buildGridRow('Academic Batch', _batch, 'Medium of Instruction', _medium),
+            _buildGridRow(
+                'Academic Batch', _batch, 'Medium of Instruction', _medium),
             SizedBox(height: 16.h),
-            _buildGridRow('Enrollment Date', _studentJoinedDate, 'Status', 'ACTIVE'),
+            _buildGridRow(
+                'Enrollment Date', _studentJoinedDate, 'Status', 'ACTIVE'),
           ],
         ),
       );
     }
 
     if (_selectedTab == 'Attendance') {
-
       final int total = _attendanceRecords.length;
-      final int present = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'PRESENT').length;
-      final int late = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'LATE').length;
-      final int absent = _attendanceRecords.where((r) => r['status']?.toString().toUpperCase() == 'ABSENT').length;
-      
-      final double percentage = total > 0 ? (present + late) / total * 100 : 92.5;
+      final int present = _attendanceRecords
+          .where((r) => r['status']?.toString().toUpperCase() == 'PRESENT')
+          .length;
+      final int late = _attendanceRecords
+          .where((r) => r['status']?.toString().toUpperCase() == 'LATE')
+          .length;
+      final int absent = _attendanceRecords
+          .where((r) => r['status']?.toString().toUpperCase() == 'ABSENT')
+          .length;
+
+      final double percentage =
+          total > 0 ? (present + late) / total * 100 : 92.5;
       final int displayPresent = total > 0 ? present + late : 24;
       final int displayAbsent = total > 0 ? absent : 2;
       final int displayTotal = total > 0 ? total : 26;
@@ -3073,11 +3408,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              _buildAttendanceStatCard('Attendance Rate', '${percentage.toStringAsFixed(1)}%', const Color(0xFF1A6FDB), const Color(0xFFE8F1FB)),
+              _buildAttendanceStatCard(
+                  'Attendance Rate',
+                  '${percentage.toStringAsFixed(1)}%',
+                  const Color(0xFF1A6FDB),
+                  const Color(0xFFE8F1FB)),
               SizedBox(width: 8.w),
-              _buildAttendanceStatCard('Days Present', '$displayPresent/$displayTotal', const Color(0xFF10B981), const Color(0xFFECFDF5)),
+              _buildAttendanceStatCard(
+                  'Days Present',
+                  '$displayPresent/$displayTotal',
+                  const Color(0xFF10B981),
+                  const Color(0xFFECFDF5)),
               SizedBox(width: 8.w),
-              _buildAttendanceStatCard('Days Absent', '$displayAbsent', const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
+              _buildAttendanceStatCard('Days Absent', '$displayAbsent',
+                  const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
             ],
           ),
           SizedBox(height: 16.h),
@@ -3092,7 +3436,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recent Attendance Log', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                Text('Recent Attendance Log',
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547))),
                 SizedBox(height: 16.h),
                 if (_attendanceRecords.isEmpty)
                   _buildMockAttendanceList()
@@ -3100,12 +3446,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _attendanceRecords.length > 5 ? 5 : _attendanceRecords.length,
+                    itemCount: _attendanceRecords.length > 5
+                        ? 5
+                        : _attendanceRecords.length,
                     itemBuilder: (ctx, idx) {
                       final r = _attendanceRecords[idx];
                       final dateStr = r['date']?.toString() ?? '—';
                       final status = r['status']?.toString() ?? 'PRESENT';
-                      final remarks = r['remarks']?.toString() ?? 'Scanned via QR Code';
+                      final remarks =
+                          r['remarks']?.toString() ?? 'Scanned via QR Code';
                       return _buildAttendanceRow(dateStr, status, remarks);
                     },
                   ),
@@ -3117,13 +3466,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (_selectedTab == 'Fees') {
-      final double payable = _feeLedger != null ? double.tryParse(_feeLedger!['totalPayable']?.toString() ?? '45000') ?? 45000.0 : 45000.0;
-      final double paid = _feeLedger != null ? double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '30000') ?? 30000.0 : 30000.0;
-      final double pending = _feeLedger != null ? double.tryParse(_feeLedger!['totalPending']?.toString() ?? '15000') ?? 15000.0 : 15000.0;
-      final String status = _feeLedger != null ? _feeLedger!['status']?.toString() ?? 'PARTIALLY_PAID' : 'PARTIALLY_PAID';
-      final String structureName = _feeLedger != null && _feeLedger!['feeStructure'] != null 
-          ? _feeLedger!['feeStructure']['name'].toString() 
-          : 'Grade 11 Annual Fee';
+      final double payable = _feeLedger != null
+          ? double.tryParse(
+                  _feeLedger!['totalPayable']?.toString() ?? '45000') ??
+              45000.0
+          : 45000.0;
+      final double paid = _feeLedger != null
+          ? double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '30000') ??
+              30000.0
+          : 30000.0;
+      final double pending = _feeLedger != null
+          ? double.tryParse(
+                  _feeLedger!['totalPending']?.toString() ?? '15000') ??
+              15000.0
+          : 15000.0;
+      final String status = _feeLedger != null
+          ? _feeLedger!['status']?.toString() ?? 'PARTIALLY_PAID'
+          : 'PARTIALLY_PAID';
+      final String structureName =
+          _feeLedger != null && _feeLedger!['feeStructure'] != null
+              ? _feeLedger!['feeStructure']['name'].toString()
+              : 'Grade 11 Annual Fee';
 
       Color statusColor = const Color(0xFFF59E0B);
       Color statusBg = const Color(0xFFFFFBEB);
@@ -3154,25 +3517,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: Text(
                         structureName,
-                        style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                        style: AppTypography.small
+                            .copyWith(color: const Color(0xFF0F2547)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                      decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6.r)),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                      decoration: BoxDecoration(
+                          color: statusBg,
+                          borderRadius: BorderRadius.circular(6.r)),
                       child: Text(
                         status.replaceAll('_', ' ').toUpperCase(),
-                        style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w800, color: statusColor),
+                        style:
+                            AppTypography.caption.copyWith(color: statusColor),
                       ),
                     ),
                   ],
                 ),
                 SizedBox(height: 20.h),
-                _buildGridRow('Total Fee Payable', '₹${payable.toStringAsFixed(2)}', 'Total Amount Paid', '₹${paid.toStringAsFixed(2)}'),
+                _buildGridRow(
+                    'Total Fee Payable',
+                    '₹${payable.toStringAsFixed(2)}',
+                    'Total Amount Paid',
+                    '₹${paid.toStringAsFixed(2)}'),
                 SizedBox(height: 16.h),
-                _buildGridRow('Pending Balance', '₹${pending.toStringAsFixed(2)}', 'Academic Year', _batch),
+                _buildGridRow('Pending Balance',
+                    '₹${pending.toStringAsFixed(2)}', 'Academic Year', _batch),
               ],
             ),
           ),
@@ -3188,7 +3561,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Recent Payment Transactions', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                Text('Recent Payment Transactions',
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547))),
                 SizedBox(height: 16.h),
                 if (_feePayments.isEmpty)
                   _buildMockFeePayments()
@@ -3200,10 +3575,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     itemBuilder: (ctx, idx) {
                       final p = _feePayments[idx];
                       final receipt = p['receiptNumber']?.toString() ?? '—';
-                      final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0.0;
+                      final amount =
+                          double.tryParse(p['amount']?.toString() ?? '0') ??
+                              0.0;
                       final dateStr = p['paymentDate']?.toString() ?? '—';
                       final mode = p['paymentMode']?.toString() ?? 'ONLINE';
-                      return _buildFeePaymentRow(receipt, amount, dateStr, mode);
+                      return _buildFeePaymentRow(
+                          receipt, amount, dateStr, mode);
                     },
                   ),
               ],
@@ -3240,7 +3618,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Color(0xFFEFF6FF),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.access_time_filled_rounded, color: const Color(0xFF1A6FDB), size: 22.sp),
+                  child: Icon(Icons.access_time_filled_rounded,
+                      color: const Color(0xFF1A6FDB), size: 22.sp),
                 ),
                 SizedBox(width: 14.w),
                 Column(
@@ -3257,11 +3636,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     SizedBox(height: 3.h),
                     Text(
                       'Weekly period distribution and timings',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF64748B),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -3275,18 +3651,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (_selectedTab == 'Transport') {
-      final String routeName = _transportAllocation != null && _transportAllocation!['route'] != null
-          ? _transportAllocation!['route']['name'].toString()
-          : 'Route 102 - North Delhi Bypass';
-      final String stopName = _transportAllocation != null && _transportAllocation!['stop'] != null
-          ? _transportAllocation!['stop']['name'].toString()
-          : 'Rohini Sector 15 Crossing';
-      final String startLoc = _transportAllocation != null && _transportAllocation!['route'] != null
-          ? _transportAllocation!['route']['startLocation']?.toString() ?? 'School Campus'
-          : 'School Campus';
-      final String endLoc = _transportAllocation != null && _transportAllocation!['route'] != null
-          ? _transportAllocation!['route']['endLocation']?.toString() ?? 'Rohini Bus Depot'
-          : 'Rohini Bus Depot';
+      final String routeName =
+          _transportAllocation != null && _transportAllocation!['route'] != null
+              ? _transportAllocation!['route']['name'].toString()
+              : 'Route 102 - North Delhi Bypass';
+      final String stopName =
+          _transportAllocation != null && _transportAllocation!['stop'] != null
+              ? _transportAllocation!['stop']['name'].toString()
+              : 'Rohini Sector 15 Crossing';
+      final String startLoc =
+          _transportAllocation != null && _transportAllocation!['route'] != null
+              ? _transportAllocation!['route']['startLocation']?.toString() ??
+                  'School Campus'
+              : 'School Campus';
+      final String endLoc =
+          _transportAllocation != null && _transportAllocation!['route'] != null
+              ? _transportAllocation!['route']['endLocation']?.toString() ??
+                  'Rohini Bus Depot'
+              : 'Rohini Bus Depot';
       final String transStatus = _transportAllocation != null
           ? _transportAllocation!['status'].toString()
           : 'ACTIVE';
@@ -3305,21 +3687,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Transport Bus Allocation', style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547))),
+                Text('Transport Bus Allocation',
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F2547))),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                  decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6.r)),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(6.r)),
                   child: Text(
                     transStatus.toUpperCase(),
-                    style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF10B981)),
                   ),
                 ),
               ],
             ),
             SizedBox(height: 20.h),
-            _buildGridRow('Assigned Route', routeName, 'Assigned Bus Stop', stopName),
+            _buildGridRow(
+                'Assigned Route', routeName, 'Assigned Bus Stop', stopName),
             SizedBox(height: 16.h),
-            _buildGridRow('Route Start Location', startLoc, 'Route End Location', endLoc),
+            _buildGridRow(
+                'Route Start Location', startLoc, 'Route End Location', endLoc),
             SizedBox(height: 20.h),
             Container(
               padding: EdgeInsets.all(14.r),
@@ -3330,12 +3720,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.directions_bus_filled_outlined, color: const Color(0xFF1A6FDB), size: 20.sp),
+                  Icon(Icons.directions_bus_filled_outlined,
+                      color: const Color(0xFF1A6FDB), size: 20.sp),
                   SizedBox(width: 12.w),
                   Expanded(
                     child: Text(
                       'Bus routes run on schedule every working day. Student scans RFID card upon entry and exit for real-time tracking.',
-                      style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w500, height: 1.3),
+                      style: AppTypography.caption.copyWith(
+                          color: const Color(0xFF64748B), height: 1.3),
                     ),
                   ),
                 ],
@@ -3361,26 +3753,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Center(
         child: Text(
           '$_selectedTab details coming soon...',
-          style: GoogleFonts.inter(
-            fontSize: 14.sp,
-            color: const Color(0xFF94A3B8),
-            fontWeight: FontWeight.w500,
-          ),
+          style: AppTypography.small.copyWith(color: const Color(0xFF94A3B8)),
         ),
       ),
     );
   }
 
-  Widget _buildGridRow(String label1, String value1, String label2, String value2) {
+  Widget _buildGridRow(
+      String label1, String value1, String label2, String value2) {
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label1, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(label1,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B))),
               SizedBox(height: 4.h),
-              Text(value1, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(value1,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0F2547)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -3389,9 +3784,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label2, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B), fontWeight: FontWeight.w600)),
+              Text(label2,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B))),
               SizedBox(height: 4.h),
-              Text(value2, style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F2547), fontWeight: FontWeight.w700), maxLines: 2, overflow: TextOverflow.ellipsis),
+              Text(value2,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0F2547)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -3399,7 +3800,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildAttendanceStatCard(String label, String value, Color textColor, Color bgColor) {
+  Widget _buildAttendanceStatCard(
+      String label, String value, Color textColor, Color bgColor) {
     return Expanded(
       child: Container(
         padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 12.w),
@@ -3409,9 +3811,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         child: Column(
           children: [
-            Text(label, style: GoogleFonts.inter(fontSize: 10.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)), textAlign: TextAlign.center),
+            Text(label,
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
+                textAlign: TextAlign.center),
             SizedBox(height: 6.h),
-            Text(value, style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w900, color: textColor)),
+            Text(value, style: AppTypography.body.copyWith(color: textColor)),
           ],
         ),
       ),
@@ -3452,17 +3857,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(formattedDate, style: GoogleFonts.inter(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+              Text(formattedDate,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0F2547))),
               SizedBox(height: 2.h),
-              Text(remarks, style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF868E96))),
+              Text(remarks,
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF868E96))),
             ],
           ),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-            decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(6.r)),
+            decoration: BoxDecoration(
+                color: badgeBg, borderRadius: BorderRadius.circular(6.r)),
             child: Text(
               status.toUpperCase(),
-              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: badgeText),
+              style: AppTypography.caption.copyWith(color: badgeText),
             ),
           ),
         ],
@@ -3472,10 +3882,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildMockAttendanceList() {
     final List<Map<String, String>> mockData = [
-      {'date': '2026-06-08', 'status': 'PRESENT', 'remarks': 'Scanned at Library Gate'},
-      {'date': '2026-06-05', 'status': 'PRESENT', 'remarks': 'Scanned at Main Entry Gate'},
-      {'date': '2026-06-04', 'status': 'ABSENT', 'remarks': 'Absent (No scan detected)'},
-      {'date': '2026-06-03', 'status': 'PRESENT', 'remarks': 'Scanned at Classroom Gate'},
+      {
+        'date': '2026-06-08',
+        'status': 'PRESENT',
+        'remarks': 'Scanned at Library Gate'
+      },
+      {
+        'date': '2026-06-05',
+        'status': 'PRESENT',
+        'remarks': 'Scanned at Main Entry Gate'
+      },
+      {
+        'date': '2026-06-04',
+        'status': 'ABSENT',
+        'remarks': 'Absent (No scan detected)'
+      },
+      {
+        'date': '2026-06-03',
+        'status': 'PRESENT',
+        'remarks': 'Scanned at Classroom Gate'
+      },
     ];
     return ListView.builder(
       shrinkWrap: true,
@@ -3488,7 +3914,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildFeePaymentRow(String receipt, double amount, String dateStr, String mode) {
+  Widget _buildFeePaymentRow(
+      String receipt, double amount, String dateStr, String mode) {
     String formattedDate = dateStr;
     try {
       final dateObj = DateTime.parse(dateStr);
@@ -3509,14 +3936,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Receipt #$receipt', style: GoogleFonts.inter(fontSize: 12.5.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+              Text('Receipt #$receipt',
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0F2547))),
               SizedBox(height: 2.h),
-              Text('Paid on $formattedDate via $mode', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF868E96))),
+              Text('Paid on $formattedDate via $mode',
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF868E96))),
             ],
           ),
           Text(
             '₹${amount.toStringAsFixed(2)}',
-            style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF10B981)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF10B981)),
           ),
         ],
       ),
@@ -3525,8 +3957,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildMockFeePayments() {
     final List<Map<String, dynamic>> mockData = [
-      {'receipt': 'RCPT-2026-9081', 'amount': 15000.0, 'date': '2026-05-10', 'mode': 'UPI'},
-      {'receipt': 'RCPT-2026-4402', 'amount': 15000.0, 'date': '2026-04-12', 'mode': 'CASH'},
+      {
+        'receipt': 'RCPT-2026-9081',
+        'amount': 15000.0,
+        'date': '2026-05-10',
+        'mode': 'UPI'
+      },
+      {
+        'receipt': 'RCPT-2026-4402',
+        'amount': 15000.0,
+        'date': '2026-04-12',
+        'mode': 'CASH'
+      },
     ];
     return ListView.builder(
       shrinkWrap: true,
@@ -3534,12 +3976,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       itemCount: mockData.length,
       itemBuilder: (ctx, idx) {
         final p = mockData[idx];
-        return _buildFeePaymentRow(p['receipt']!, p['amount']!, p['date']!, p['mode']!);
+        return _buildFeePaymentRow(
+            p['receipt']!, p['amount']!, p['date']!, p['mode']!);
       },
     );
   }
 
-  final List<String> _timetableDays = const ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  final List<String> _timetableDays = const [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday'
+  ];
 
   final List<Map<String, String>> _timetableColumns = const [
     {'title': 'PERIOD 1', 'time': '08:00 - 08:40', 'start': '08:00'},
@@ -3573,7 +4022,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         String hh = parts[0].padLeft(2, '0');
         String mm = parts[1].padLeft(2, '0');
         String normalizedStartTime = '$hh:$mm';
-        
+
         if (normalizedStartTime == startPrefix) {
           final subject = slot['subject'];
           if (subject is Map) {
@@ -3619,8 +4068,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          _buildCell('DAY', width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
-          ..._timetableColumns.map((col) => _buildTimeCell(col['title']!, col['time']!)),
+          _buildCell('DAY',
+              width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
+          ..._timetableColumns
+              .map((col) => _buildTimeCell(col['title']!, col['time']!)),
         ],
       ),
     );
@@ -3633,13 +4084,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       child: Row(
         children: [
-          _buildCell(day, width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
+          _buildCell(day,
+              width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
           ..._timetableColumns.map((col) {
             if (col['title'] == 'LUNCH BREAK') {
-              return _buildCell('Lunch Break', width: 110.w, isLunchBreak: true, bgColor: const Color(0xFFFFF9F2));
+              return _buildCell('Lunch Break',
+                  width: 110.w,
+                  isLunchBreak: true,
+                  bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
-            return _buildCell(subject ?? 'Unassigned', width: 110.w, isUnassigned: subject == null);
+            return _buildCell(subject ?? 'Unassigned',
+                width: 110.w, isUnassigned: subject == null);
           }),
         ],
       ),
@@ -3657,7 +4113,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             title,
-            style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF4A5568)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF4A5568)),
           ),
           SizedBox(height: 6.h),
           Container(
@@ -3670,11 +4127,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.access_time, size: 10.sp, color: const Color(0xFFA0AEC0)),
+                Icon(Icons.access_time,
+                    size: 10.sp, color: const Color(0xFFA0AEC0)),
                 SizedBox(width: 4.w),
                 Text(
                   time,
-                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w600, color: const Color(0xFF718096)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF718096)),
                 ),
               ],
             ),
@@ -3700,17 +4159,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       alignment: alignment,
       decoration: BoxDecoration(
         color: bgColor,
-        border: const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
+        border:
+            const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
       ),
       child: Text(
         text,
         style: GoogleFonts.inter(
           fontSize: isHeader || isDayLabel ? 11.sp : 12.sp,
-          fontWeight: isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
-          fontStyle: isUnassigned || isLunchBreak ? FontStyle.italic : FontStyle.normal,
-          color: isLunchBreak 
-              ? const Color(0xFFE87D3E) 
-              : isUnassigned 
+          fontWeight:
+              isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
+          fontStyle: isUnassigned || isLunchBreak
+              ? FontStyle.italic
+              : FontStyle.normal,
+          color: isLunchBreak
+              ? const Color(0xFFE87D3E)
+              : isUnassigned
                   ? const Color(0xFF94A3B8)
                   : const Color(0xFF2D3748),
         ),
@@ -3718,8 +4181,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
-
-
 
   @override
   Widget build(BuildContext context) {
@@ -3732,6 +4193,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return _buildTabbedStudentProfile(isDesktop);
   }
+
   Widget _buildDocumentsVault() {
     return Container(
       width: double.infinity,
@@ -3746,7 +4208,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.insert_drive_file_outlined, size: 18.sp, color: const Color(0xFF1A6FDB)),
+              Icon(Icons.insert_drive_file_outlined,
+                  size: 18.sp, color: const Color(0xFF1A6FDB)),
               SizedBox(width: 8.w),
               Text(
                 'Documents Asset Vault',
@@ -3765,11 +4228,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     padding: EdgeInsets.symmetric(vertical: 20.h),
                     child: Column(
                       children: [
-                        Icon(Icons.insert_drive_file_outlined, size: 36.sp, color: const Color(0xFF868E96)),
+                        Icon(Icons.insert_drive_file_outlined,
+                            size: 36.sp, color: const Color(0xFF868E96)),
                         SizedBox(height: 12.h),
                         Text(
                           'No documents uploaded yet',
-                          style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF868E96)),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF868E96)),
                         ),
                         SizedBox(height: 16.h),
                         ElevatedButton.icon(
@@ -3777,17 +4242,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF1A6FDB),
                             side: const BorderSide(color: Color(0xFF1A6FDB)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12.r)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 8.h),
                             elevation: 0,
                           ),
-                          onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                          onPressed:
+                              _isUploadingDoc ? null : _simulateDocumentUpload,
                           icon: _isUploadingDoc
-                              ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.upload_file, size: 14),
                           label: Text(
-                            _isUploadingDoc ? 'Uploading...' : 'Upload Document',
-                            style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
+                            _isUploadingDoc
+                                ? 'Uploading...'
+                                : 'Upload Document',
+                            style: AppTypography.caption,
                           ),
                         ),
                       ],
@@ -3804,7 +4278,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         final doc = _uploadedDocuments[idx];
                         return Container(
                           margin: EdgeInsets.only(bottom: 8.h),
-                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.w, vertical: 10.h),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF8FAFC),
                             borderRadius: BorderRadius.circular(12.r),
@@ -3812,7 +4287,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.insert_drive_file_outlined, size: 18.sp, color: const Color(0xFF868E96)),
+                              Icon(Icons.insert_drive_file_outlined,
+                                  size: 18.sp, color: const Color(0xFF868E96)),
                               SizedBox(width: 10.w),
                               Expanded(
                                 child: Column(
@@ -3820,18 +4296,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   children: [
                                     Text(
                                       doc['name'] ?? '',
-                                      style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F2547)),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF0F2547)),
                                     ),
                                     SizedBox(height: 2.h),
                                     Text(
                                       'Uploaded on: ${doc['date']}',
-                                      style: GoogleFonts.inter(fontSize: 9.5.sp, fontWeight: FontWeight.w600, color: const Color(0xFF868E96)),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF868E96)),
                                     ),
                                   ],
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFE03131), size: 18),
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    color: Color(0xFFE03131), size: 18),
                                 onPressed: () => _removeDocument(idx),
                               ),
                             ],
@@ -3846,17 +4325,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           backgroundColor: Colors.white,
                           foregroundColor: const Color(0xFF1A6FDB),
                           side: const BorderSide(color: Color(0xFF1A6FDB)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12.r)),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16.w, vertical: 8.h),
                           elevation: 0,
                         ),
-                        onPressed: _isUploadingDoc ? null : _simulateDocumentUpload,
+                        onPressed:
+                            _isUploadingDoc ? null : _simulateDocumentUpload,
                         icon: _isUploadingDoc
-                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
                             : const Icon(Icons.upload_file, size: 14),
                         label: Text(
                           _isUploadingDoc ? 'Uploading...' : 'Upload Document',
-                          style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800),
+                          style: AppTypography.caption,
                         ),
                       ),
                     ),
@@ -3881,7 +4367,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              Icon(Icons.qr_code_2_rounded, size: 18.sp, color: const Color(0xFF1A6FDB)),
+              Icon(Icons.qr_code_2_rounded,
+                  size: 18.sp, color: const Color(0xFF1A6FDB)),
               SizedBox(width: 8.w),
               Text(
                 customTitle ?? 'Digital Identity & QR Attendance',
@@ -3928,12 +4415,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             'ATTENDANCE QR CODE',
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF868E96),
-              letterSpacing: 0.5,
-            ),
+            style: AppTypography.caption
+                .copyWith(color: const Color(0xFF868E96), letterSpacing: 0.5),
           ),
           SizedBox(height: 12.h),
           Container(
@@ -3957,7 +4440,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return Center(
                             child: Text(
                               'QR Error',
-                              style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontSize: 10.sp),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF0F2547)),
                             ),
                           );
                         },
@@ -3966,7 +4450,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return Center(
                         child: Text(
                           'QR Error',
-                          style: GoogleFonts.inter(color: const Color(0xFF0F2547), fontSize: 10.sp),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F2547)),
                         ),
                       );
                     }
@@ -3988,7 +4473,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return Center(
                         child: Text(
                           'Error',
-                          style: GoogleFonts.inter(color: const Color(0xFF0F2547)),
+                          style:
+                              GoogleFonts.inter(color: const Color(0xFF0F2547)),
                         ),
                       );
                     },
@@ -4012,11 +4498,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Text(
               widget.role == 'teacher' ? 'TEACHER' : 'STUDENT',
-              style: GoogleFonts.inter(
-                fontSize: 8.5.sp,
-                fontWeight: FontWeight.w800,
-                color: const Color(0xFF1A6FDB),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF1A6FDB)),
             ),
           ),
           SizedBox(height: 16.h),
@@ -4025,7 +4508,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: const Color(0xFF10B981),
-                  content: Text('Attendance QR Code downloaded to gallery!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                  content: Text('Attendance QR Code downloaded to gallery!',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                 ),
               );
             },
@@ -4039,11 +4523,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.download_rounded, color: Colors.white, size: 14.sp),
+                  Icon(Icons.download_rounded,
+                      color: Colors.white, size: 14.sp),
                   SizedBox(width: 6.w),
                   Text(
                     'Download',
-                    style: GoogleFonts.inter(fontSize: 11.5.sp, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: AppTypography.caption.copyWith(color: Colors.white),
                   ),
                 ],
               ),
@@ -4056,7 +4541,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SnackBar(
                   backgroundColor: const Color(0xFF1A6FDB),
                   content: Text(
-                    widget.role == 'teacher' ? 'Teacher ID: $_admissionNo' : 'Student ID: $_admissionNo',
+                    widget.role == 'teacher'
+                        ? 'Teacher ID: $_admissionNo'
+                        : 'Student ID: $_admissionNo',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -4070,7 +4557,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Text(
                 widget.role == 'teacher' ? 'TEACHER ID' : 'STUDENT ID',
-                style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF495057)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF495057)),
               ),
             ),
           ),
@@ -4090,13 +4578,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               margin: EdgeInsets.only(top: 4.h),
               width: 5.w,
               height: 5.w,
-              decoration: const BoxDecoration(color: Color(0xFF1A6FDB), shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                  color: Color(0xFF1A6FDB), shape: BoxShape.circle),
             ),
             SizedBox(width: 8.w),
             Expanded(
               child: Text(
                 'This QR code is used for scanning attendance at QR scanner devices located throughout the campus.',
-                style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500, height: 1.3),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF6B7A90), height: 1.3),
               ),
             ),
           ],
@@ -4109,13 +4599,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               margin: EdgeInsets.only(top: 4.h),
               width: 5.w,
               height: 5.w,
-              decoration: const BoxDecoration(color: Color(0xFF1A6FDB), shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                  color: Color(0xFF1A6FDB), shape: BoxShape.circle),
             ),
             SizedBox(width: 8.w),
             Expanded(
               child: Text(
                 'Each scan will update present/absent status in real-time to HMS account.',
-                style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500, height: 1.3),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF6B7A90), height: 1.3),
               ),
             ),
           ],
@@ -4128,13 +4620,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               margin: EdgeInsets.only(top: 4.h),
               width: 5.w,
               height: 5.w,
-              decoration: const BoxDecoration(color: Color(0xFF1A6FDB), shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                  color: Color(0xFF1A6FDB), shape: BoxShape.circle),
             ),
             SizedBox(width: 8.w),
             Expanded(
               child: Text(
                 'Admins can regenerate the QR if it is lost or compromised.',
-                style: GoogleFonts.inter(fontSize: 11.5.sp, color: const Color(0xFF6B7A90), fontWeight: FontWeight.w500, height: 1.3),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF6B7A90), height: 1.3),
               ),
             ),
           ],
@@ -4145,16 +4639,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFECFDF5),
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+            border: Border.all(
+                color: const Color(0xFF10B981).withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              Icon(Icons.shield_outlined, color: const Color(0xFF10B981), size: 16.sp),
+              Icon(Icons.shield_outlined,
+                  color: const Color(0xFF10B981), size: 16.sp),
               SizedBox(width: 10.w),
               Expanded(
                 child: Text(
                   'The QR is valid at any active scanner. The user\'s data is allowed on.',
-                  style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF10B981), fontWeight: FontWeight.w700),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF10B981)),
                 ),
               ),
             ],
@@ -4166,16 +4663,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFFF3F8FC),
             borderRadius: BorderRadius.circular(12.r),
-            border: Border.all(color: const Color(0xFF1A6FDB).withValues(alpha: 0.3)),
+            border: Border.all(
+                color: const Color(0xFF1A6FDB).withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              Icon(Icons.location_on_outlined, color: const Color(0xFF1A6FDB), size: 16.sp),
+              Icon(Icons.location_on_outlined,
+                  color: const Color(0xFF1A6FDB), size: 16.sp),
               SizedBox(width: 10.w),
               Expanded(
                 child: Text(
                   'GPS geofencing is enforced by the scanner device, not the QR code itself.',
-                  style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF1A6FDB), fontWeight: FontWeight.w700),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF1A6FDB)),
                 ),
               ),
             ],
@@ -4185,6 +4685,109 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _pickAndUploadAvatar() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final platformFile = result.files.single;
+        final bytes = platformFile.bytes;
+        final extension = platformFile.extension?.toLowerCase() ?? 'png';
+
+        if (bytes == null) {
+          if (mounted) showToast(context, 'Failed to read image data.');
+          return;
+        }
+
+        final client = Supabase.instance.client;
+        final prefs = await SharedPreferences.getInstance();
+        final userId =
+            client.auth.currentUser?.id ?? prefs.getString('user_id');
+
+        if (userId == null) {
+          if (mounted)
+            showToast(context, 'Not logged in. Cannot upload avatar.');
+          return;
+        }
+
+        if (mounted) showToast(context, 'Uploading avatar...');
+
+        final storagePath =
+            'avatars/$userId-${DateTime.now().millisecondsSinceEpoch}.$extension';
+
+        // Optimistically update UI using base64 memory image to avoid 404 caching from CDN delays
+        final base64String = base64Encode(bytes);
+        final base64DataUrl = 'data:image/$extension;base64,$base64String';
+        if (mounted) {
+          setState(() {
+            _avatarUrl = base64DataUrl;
+          });
+        }
+
+        try {
+          // Try to create the bucket in case it's not created
+          try {
+            await client.storage
+                .createBucket('avatars', const BucketOptions(public: true));
+          } catch (_) {}
+
+          // Try uploading to Supabase Storage
+          await client.storage.from('avatars').uploadBinary(
+                storagePath,
+                bytes,
+                fileOptions:
+                    FileOptions(contentType: 'image/$extension', upsert: true),
+              );
+
+          final publicUrl =
+              client.storage.from('avatars').getPublicUrl(storagePath);
+
+          await client
+              .from('User')
+              .update({'avatar': publicUrl}).eq('id', userId);
+          await prefs.setString('${widget.role}_photo_url', publicUrl);
+
+          if (widget.onAvatarUpdated != null) {
+            widget.onAvatarUpdated!(publicUrl);
+          }
+
+          if (mounted) {
+            showToast(context, 'Avatar updated successfully!');
+          }
+        } catch (storageErr) {
+          debugPrint(
+              'Storage upload failed: $storageErr. Falling back to database base64 storage...');
+
+          // Fallback to storing image directly in User.avatar as base64 Data URL
+          final base64String = base64Encode(bytes);
+          final base64DataUrl = 'data:image/$extension;base64,$base64String';
+
+          await client
+              .from('User')
+              .update({'avatar': base64DataUrl}).eq('id', userId);
+          await prefs.setString('${widget.role}_photo_url', base64DataUrl);
+
+          if (widget.onAvatarUpdated != null) {
+            widget.onAvatarUpdated!(base64DataUrl);
+          }
+
+          if (mounted) {
+            setState(() {
+              _avatarUrl = base64DataUrl;
+            });
+            showToast(
+                context, 'Avatar updated successfully (base64 fallback)!');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Avatar upload error: $e');
+      if (mounted) showToast(context, 'Failed to update avatar: $e');
+    }
+  }
 
   Widget _buildTeacherProfile() {
     final bool isPushed = Navigator.canPop(context);
@@ -4193,13 +4796,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Scaffold(
       key: _teacherScaffoldKey,
-      drawer: isPushed ? const EduSphereDrawer(role: 'teacher', activeLabel: 'My Profile') : null,
-      bottomNavigationBar: isPushed ? const TeacherBottomNavBar(activeIndex: 13) : null,
+      drawer: isPushed
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'My Profile')
+          : null,
+      bottomNavigationBar:
+          isPushed ? const TeacherBottomNavBar(activeIndex: 13) : null,
       backgroundColor: const Color(0xFFEFF6FF), // From image background color
-      appBar: widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(isDesktop ? 32.r : 16.r, 20.r, isDesktop ? 32.r : 16.r, 120.r),
+        padding: EdgeInsets.fromLTRB(
+            isDesktop ? 32.r : 16.r, 20.r, isDesktop ? 32.r : 16.r, 120.r),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -4215,11 +4823,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 4.h),
             Text(
               'Manage your account and view your detailed information',
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                color: const Color(0xFF64748B),
-                height: 1.4,
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B), height: 1.4),
             ),
             SizedBox(height: 24.h),
 
@@ -4231,25 +4836,67 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (isDesktop)
               Row(
                 children: [
-                  Expanded(child: _buildSummaryCard('Last Session', _lastSession, Icons.access_time_rounded, const Color(0xFF3B82F6), true)),
+                  Expanded(
+                      child: _buildSummaryCard(
+                          'Last Session',
+                          _lastSession,
+                          Icons.access_time_rounded,
+                          const Color(0xFF3B82F6),
+                          true)),
                   SizedBox(width: 16.w),
-                  Expanded(child: _buildSummaryCard('Activity Status', _activityStatus, Icons.check_circle_outline, const Color(0xFF10B981), false)),
+                  Expanded(
+                      child: _buildSummaryCard(
+                          'Activity Status',
+                          _activityStatus,
+                          Icons.check_circle_outline,
+                          const Color(0xFF10B981),
+                          false)),
                   SizedBox(width: 16.w),
-                  Expanded(child: _buildSummaryCard('Employment', _designation, Icons.business_center_outlined, const Color(0xFF8B5CF6), false, true)),
+                  Expanded(
+                      child: _buildSummaryCard(
+                          'Employment',
+                          _designation,
+                          Icons.business_center_outlined,
+                          const Color(0xFF8B5CF6),
+                          false,
+                          true)),
                   SizedBox(width: 16.w),
-                  Expanded(child: _buildSummaryCard('Joined Date', _joinedDate, Icons.calendar_month_outlined, const Color(0xFF06B6D4), false)),
+                  Expanded(
+                      child: _buildSummaryCard(
+                          'Joined Date',
+                          _joinedDate,
+                          Icons.calendar_month_outlined,
+                          const Color(0xFF06B6D4),
+                          false)),
                 ],
               )
             else
               Column(
                 children: [
-                  _buildSummaryCard('Last Session', _lastSession, Icons.access_time_rounded, const Color(0xFF3B82F6), true),
+                  _buildSummaryCard('Last Session', _lastSession,
+                      Icons.access_time_rounded, const Color(0xFF3B82F6), true),
                   SizedBox(height: 16.h),
-                  _buildSummaryCard('Activity Status', _activityStatus, Icons.check_circle_outline, const Color(0xFF10B981), false),
+                  _buildSummaryCard(
+                      'Activity Status',
+                      _activityStatus,
+                      Icons.check_circle_outline,
+                      const Color(0xFF10B981),
+                      false),
                   SizedBox(height: 16.h),
-                  _buildSummaryCard('Employment', _designation, Icons.business_center_outlined, const Color(0xFF8B5CF6), false, true),
+                  _buildSummaryCard(
+                      'Employment',
+                      _designation,
+                      Icons.business_center_outlined,
+                      const Color(0xFF8B5CF6),
+                      false,
+                      true),
                   SizedBox(height: 16.h),
-                  _buildSummaryCard('Joined Date', _joinedDate, Icons.calendar_month_outlined, const Color(0xFF06B6D4), false),
+                  _buildSummaryCard(
+                      'Joined Date',
+                      _joinedDate,
+                      Icons.calendar_month_outlined,
+                      const Color(0xFF06B6D4),
+                      false),
                 ],
               ),
             SizedBox(height: 24.h),
@@ -4299,19 +4946,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-      floatingActionButton: (widget.role == 'teacher' && widget.teacherId != null && widget.teacherId != Supabase.instance.client.auth.currentUser?.id)
+      floatingActionButton: (widget.role == 'teacher' &&
+              widget.teacherId != null &&
+              widget.teacherId != Supabase.instance.client.auth.currentUser?.id)
           ? null
           : FloatingActionButton(
               onPressed: _showEditProfileSheet,
               backgroundColor: const Color(0xFF0284C7),
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16.r)),
               child: const Icon(Icons.edit_note, color: Colors.white, size: 28),
             ),
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon, Color color, bool isTopBorder, [bool isUpperValue = false]) {
+  Widget _buildSummaryCard(
+      String title, String value, IconData icon, Color color, bool isTopBorder,
+      [bool isUpperValue = false]) {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
@@ -4353,12 +5005,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     title,
-                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                   SizedBox(height: 8.h),
                   Text(
                     isUpperValue ? value.toUpperCase() : value,
-                    style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A)),
+                    style: AppTypography.body
+                        .copyWith(color: const Color(0xFF0F172A)),
                   ),
                 ],
               ),
@@ -4406,10 +5060,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 90.r,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: const Color(0xFFE2E8F0), width: 3),
-                    image: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                        ? DecorationImage(image: NetworkImage(_avatarUrl!), fit: BoxFit.cover)
-                        : const DecorationImage(image: AssetImage('assets/images/bus.png'), fit: BoxFit.cover), // placeholder image like in mockup
+                    border:
+                        Border.all(color: const Color(0xFFE2E8F0), width: 3),
+                  ),
+                  child: ClipOval(
+                    child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                        ? (_avatarUrl!.startsWith('data:image')
+                            ? Image.memory(
+                                base64Decode(_avatarUrl!.split(',').last),
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.network(
+                                _avatarUrl!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ))
+                        : Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.cover,
+                          ),
                   ),
                 ),
                 Container(
@@ -4419,7 +5097,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2),
                   ),
-                  child: Icon(Icons.camera_alt_outlined, color: Colors.white, size: 12.sp),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: Colors.white, size: 12.sp),
                 ),
               ],
             ),
@@ -4427,11 +5106,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             Text(
               _userName,
-              style: GoogleFonts.inter(
-                fontSize: 22.sp,
-                fontWeight: FontWeight.w900,
-                color: const Color(0xFF0F2547),
-              ),
+              style: AppTypography.h4.copyWith(color: const Color(0xFF0F2547)),
               textAlign: TextAlign.center,
             ),
             SizedBox(height: 8.h),
@@ -4443,12 +5118,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Text(
                 widget.role.toUpperCase(),
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF2563EB),
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF2563EB), letterSpacing: 0.5),
               ),
             ),
             SizedBox(height: 12.h),
@@ -4460,22 +5131,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.email_outlined, size: 16.sp, color: const Color(0xFF64748B)),
+                    Icon(Icons.email_outlined,
+                        size: 16.sp, color: const Color(0xFF64748B)),
                     SizedBox(width: 6.w),
                     Text(
                       _email,
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF475569)),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569)),
                     ),
                   ],
                 ),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.phone_outlined, size: 16.sp, color: const Color(0xFF64748B)),
+                    Icon(Icons.phone_outlined,
+                        size: 16.sp, color: const Color(0xFF64748B)),
                     SizedBox(width: 6.w),
                     Text(
                       _phone,
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF475569)),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569)),
                     ),
                   ],
                 ),
@@ -4487,13 +5162,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: () {
-                  showToast(context, 'Avatar picker activated!');
-                },
-                icon: Icon(Icons.camera_alt_outlined, size: 16.sp, color: const Color(0xFF0F172A)),
+                onPressed: _pickAndUploadAvatar,
+                icon: Icon(Icons.camera_alt_outlined,
+                    size: 16.sp, color: const Color(0xFF0F172A)),
                 label: Text(
                   'Update Avatar',
-                  style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0F172A)),
                 ),
                 style: OutlinedButton.styleFrom(
                   backgroundColor: const Color(0xFFF8FAFC),
@@ -4537,9 +5212,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(color: const Color(0xFFE2E8F0), width: 3),
-                  image: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                      ? DecorationImage(image: NetworkImage(_avatarUrl!), fit: BoxFit.cover)
-                      : const DecorationImage(image: AssetImage('assets/images/bus.png'), fit: BoxFit.cover),
+                ),
+                child: ClipOval(
+                  child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                      ? (_avatarUrl!.startsWith('data:image')
+                          ? Image.memory(
+                              base64Decode(_avatarUrl!.split(',').last),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Image.network(
+                              _avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Image.asset(
+                                'assets/images/logo.png',
+                                fit: BoxFit.cover,
+                              ),
+                            ))
+                      : Image.asset(
+                          'assets/images/logo.png',
+                          fit: BoxFit.cover,
+                        ),
                 ),
               ),
               Container(
@@ -4549,7 +5247,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 1.5),
                 ),
-                child: Icon(Icons.camera_alt_outlined, color: Colors.white, size: 10.sp),
+                child: Icon(Icons.camera_alt_outlined,
+                    color: Colors.white, size: 10.sp),
               ),
             ],
           ),
@@ -4564,27 +5263,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       _userName,
-                      style: GoogleFonts.inter(
-                        fontSize: 20.sp,
-                        fontWeight: FontWeight.w900,
-                        color: const Color(0xFF0F2547),
-                      ),
+                      style: AppTypography.h4
+                          .copyWith(color: const Color(0xFF0F2547)),
                     ),
                     SizedBox(width: 12.w),
                     Container(
-                      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 2.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 2.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFFDBEAFE),
                         borderRadius: BorderRadius.circular(12.r),
                       ),
                       child: Text(
                         widget.role.toUpperCase(),
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF2563EB),
-                          letterSpacing: 0.5,
-                        ),
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF2563EB), letterSpacing: 0.5),
                       ),
                     ),
                   ],
@@ -4592,18 +5285,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(height: 8.h),
                 Row(
                   children: [
-                    Icon(Icons.email_outlined, size: 16.sp, color: const Color(0xFF64748B)),
+                    Icon(Icons.email_outlined,
+                        size: 16.sp, color: const Color(0xFF64748B)),
                     SizedBox(width: 6.w),
                     Text(
                       _email,
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF475569)),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569)),
                     ),
                     SizedBox(width: 24.w),
-                    Icon(Icons.phone_outlined, size: 16.sp, color: const Color(0xFF64748B)),
+                    Icon(Icons.phone_outlined,
+                        size: 16.sp, color: const Color(0xFF64748B)),
                     SizedBox(width: 6.w),
                     Text(
                       _phone,
-                      style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF475569)),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569)),
                     ),
                   ],
                 ),
@@ -4611,13 +5308,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           OutlinedButton.icon(
-            onPressed: () {
-              showToast(context, 'Avatar picker activated!');
-            },
-            icon: Icon(Icons.camera_alt_outlined, size: 16.sp, color: const Color(0xFF0F172A)),
+            onPressed: _pickAndUploadAvatar,
+            icon: Icon(Icons.camera_alt_outlined,
+                size: 16.sp, color: const Color(0xFF0F172A)),
             label: Text(
               'Update Avatar',
-              style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF0F172A)),
             ),
             style: OutlinedButton.styleFrom(
               backgroundColor: const Color(0xFFF8FAFC),
@@ -4633,7 +5330,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildListCard(String title, IconData titleIcon, List<Widget> children) {
+  Widget _buildListCard(
+      String title, IconData titleIcon, List<Widget> children) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -4659,11 +5357,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 SizedBox(width: 8.w),
                 Text(
                   title,
-                  style: GoogleFonts.inter(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0F2547),
-                  ),
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF0F2547)),
                 ),
               ],
             ),
@@ -4680,7 +5375,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildListItem(IconData icon, String label, String value, {bool isRedValue = false}) {
+  Widget _buildListItem(IconData icon, String label, String value,
+      {bool isRedValue = false}) {
     return Padding(
       padding: EdgeInsets.only(bottom: 16.h),
       child: Column(
@@ -4694,7 +5390,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   SizedBox(width: 12.w),
                   Text(
                     label,
-                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600, color: const Color(0xFF475569)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF475569)),
                   ),
                 ],
               ),
@@ -4702,11 +5399,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Text(
                   value,
                   textAlign: TextAlign.right,
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: isRedValue ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: isRedValue
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF0F172A)),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4739,22 +5435,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Icons.military_tech_outlined,
       [
         _buildListItem(Icons.badge_outlined, 'Employee ID', _employeeId),
-        _buildListItem(Icons.business_center_outlined, 'Designation', _designation),
+        _buildListItem(
+            Icons.business_center_outlined, 'Designation', _designation),
         _buildListItem(Icons.domain, 'Department', _department),
       ],
     );
   }
 
   Widget _buildSecurityStatusCard() {
-    final bool isOwnProfile = widget.role == 'student' 
-        ? (widget.studentId == null) 
-        : (widget.teacherId == null || widget.teacherId == Supabase.instance.client.auth.currentUser?.id);
+    final bool isOwnProfile = widget.role == 'student'
+        ? (widget.studentId == null)
+        : (widget.teacherId == null ||
+            widget.teacherId == Supabase.instance.client.auth.currentUser?.id);
 
     return _buildListCard(
       'Security Status',
       Icons.lock_outline,
       [
-        _buildListItem(Icons.access_time, 'Last Password Change', _lastPasswordChange, isRedValue: _lastPasswordChange.contains('Action')),
+        _buildListItem(
+            Icons.access_time, 'Last Password Change', _lastPasswordChange,
+            isRedValue: _lastPasswordChange.contains('Action')),
         if (isOwnProfile) ...[
           SizedBox(height: 4.h),
           SizedBox(
@@ -4763,10 +5463,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () {
                 _showChangePasswordSheet();
               },
-              icon: Icon(Icons.vpn_key_outlined, size: 16.sp, color: const Color(0xFF0F172A)),
+              icon: Icon(Icons.vpn_key_outlined,
+                  size: 16.sp, color: const Color(0xFF0F172A)),
               label: Text(
                 'Change Password',
-                style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F172A)),
               ),
               style: OutlinedButton.styleFrom(
                 backgroundColor: const Color(0xFFF8FAFC),
@@ -4794,16 +5496,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Push Notifications', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                Text('Push Notifications',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF0F172A))),
                 SizedBox(height: 2.h),
-                Text('Receive browser push alerts', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+                Text('Receive browser push alerts',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
             Switch(
               value: _pushEnabled,
               onChanged: (val) {
                 setState(() => _pushEnabled = val);
-                SharedPreferences.getInstance().then((p) => p.setBool('notifications_enabled', val));
+                SharedPreferences.getInstance()
+                    .then((p) => p.setBool('notifications_enabled', val));
               },
               activeThumbColor: Colors.white,
               activeTrackColor: const Color(0xFF3B82F6),
@@ -4819,16 +5526,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('In-App Notifications', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
+                Text('In-App Notifications',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF0F172A))),
                 SizedBox(height: 2.h),
-                Text('Show alerts inside dashboard', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+                Text('Show alerts inside dashboard',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
             Switch(
               value: _inAppEnabled,
               onChanged: (val) {
                 setState(() => _inAppEnabled = val);
-                SharedPreferences.getInstance().then((p) => p.setBool('in_app_notifications', val));
+                SharedPreferences.getInstance()
+                    .then((p) => p.setBool('in_app_notifications', val));
               },
               activeThumbColor: Colors.white,
               activeTrackColor: const Color(0xFF3B82F6),
@@ -4861,15 +5573,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: EdgeInsets.all(20.r),
             child: Row(
               children: [
-                Icon(Icons.qr_code, color: const Color(0xFF0284C7), size: 20.sp),
+                Icon(Icons.qr_code,
+                    color: const Color(0xFF0284C7), size: 20.sp),
                 SizedBox(width: 8.w),
                 Text(
                   'Digital Identity & QR Attendance',
-                  style: GoogleFonts.inter(
-                    fontSize: 15.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0F2547),
-                  ),
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF0F2547)),
                 ),
               ],
             ),
@@ -4913,16 +5623,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.qr_code_2, size: 16.sp, color: const Color(0xFF475569)),
+              Icon(Icons.qr_code_2,
+                  size: 16.sp, color: const Color(0xFF475569)),
               SizedBox(width: 6.w),
               Text(
                 'ATTENDANCE QR CODE',
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF475569),
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF475569), letterSpacing: 0.5),
               ),
             ],
           ),
@@ -4948,7 +5655,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           return Center(
                             child: Text(
                               'QR Error',
-                              style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.sp),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF0F172A)),
                             ),
                           );
                         },
@@ -4957,7 +5665,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return Center(
                         child: Text(
                           'QR Error',
-                          style: GoogleFonts.inter(color: const Color(0xFF0F172A), fontSize: 10.sp),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F172A)),
                         ),
                       );
                     }
@@ -4979,7 +5688,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return Center(
                         child: Text(
                           'Error',
-                          style: GoogleFonts.inter(color: const Color(0xFF0F172A)),
+                          style:
+                              GoogleFonts.inter(color: const Color(0xFF0F172A)),
                         ),
                       );
                     },
@@ -4988,7 +5698,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(height: 16.h),
           Text(
             _userName,
-            style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
+            style: AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
           ),
           SizedBox(height: 4.h),
           Container(
@@ -4999,7 +5709,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             child: Text(
               widget.role.toUpperCase(),
-              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF2563EB)),
             ),
           ),
           SizedBox(height: 20.h),
@@ -5008,17 +5719,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   backgroundColor: const Color(0xFF10B981),
-                  content: Text('Attendance QR Code downloaded to gallery!', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                  content: Text('Attendance QR Code downloaded to gallery!',
+                      style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
                 ),
               );
             },
-            icon: const Icon(Icons.file_download_outlined, size: 18, color: Colors.white),
-            label: Text('Download', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.file_download_outlined,
+                size: 18, color: Colors.white),
+            label: Text('Download', style: AppTypography.caption),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF8B5CF6),
               foregroundColor: Colors.white,
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r)),
               minimumSize: Size(double.infinity, 44.h),
             ),
           ),
@@ -5032,7 +5746,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Text(
                 'ISSUED & LOCKED',
-                style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 0.5),
+                style: AppTypography.caption
+                    .copyWith(color: Colors.white, letterSpacing: 0.5),
               ),
             ),
           ),
@@ -5047,45 +5762,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Row(
           children: [
-            Container(width: 8.r, height: 8.r, decoration: const BoxDecoration(color: Color(0xFF10B981), shape: BoxShape.circle)),
+            Container(
+                width: 8.r,
+                height: 8.r,
+                decoration: const BoxDecoration(
+                    color: Color(0xFF10B981), shape: BoxShape.circle)),
             SizedBox(width: 8.w),
             Text(
               'QR Code Info',
-              style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
             ),
             SizedBox(width: 6.w),
-            Icon(Icons.lock_outline, size: 14.sp, color: const Color(0xFF64748B)),
+            Icon(Icons.lock_outline,
+                size: 14.sp, color: const Color(0xFF64748B)),
           ],
         ),
         SizedBox(height: 8.h),
         Text(
           'This QR code is used for scanning attendance at QR scanner devices located throughout the campus.',
-          style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B), height: 1.5),
+          style: AppTypography.caption
+              .copyWith(color: const Color(0xFF64748B), height: 1.5),
         ),
         SizedBox(height: 16.h),
-        _buildInfoBulletPoint('Each user has a unique, permanent QR code tied to their account.'),
+        _buildInfoBulletPoint(
+            'Each user has a unique, permanent QR code tied to their account.'),
         SizedBox(height: 12.h),
-        _buildInfoBulletPoint('The QR is valid at any active scanner the user\'s role is allowed on.'),
+        _buildInfoBulletPoint(
+            'The QR is valid at any active scanner the user\'s role is allowed on.'),
         SizedBox(height: 12.h),
-        _buildInfoBulletPoint('Admins can regenerate the QR if it is lost or compromised.'),
+        _buildInfoBulletPoint(
+            'Admins can regenerate the QR if it is lost or compromised.'),
         SizedBox(height: 12.h),
-        _buildInfoBulletPoint('GPS geofencing is enforced by the scanner device, not the QR code itself.'),
+        _buildInfoBulletPoint(
+            'GPS geofencing is enforced by the scanner device, not the QR code itself.'),
       ],
     );
   }
-
-
 
   Widget _buildInfoBulletPoint(String text) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(Icons.check_circle_outline, color: const Color(0xFF0284C7), size: 18.sp),
+        Icon(Icons.check_circle_outline,
+            color: const Color(0xFF0284C7), size: 18.sp),
         SizedBox(width: 10.w),
         Expanded(
           child: Text(
             text,
-            style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF475569), height: 1.5),
+            style: AppTypography.caption
+                .copyWith(color: const Color(0xFF475569), height: 1.5),
           ),
         ),
       ],
@@ -5106,22 +5832,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Logout', style: GoogleFonts.inter(fontSize: 20.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A))),
+              Text('Logout',
+                  style: AppTypography.h4
+                      .copyWith(color: const Color(0xFF0F172A))),
               SizedBox(height: 16.h),
-              Text('Are you sure you want to log out?', style: GoogleFonts.inter(fontSize: 14.sp, color: const Color(0xFF475569))),
+              Text('Are you sure you want to log out?',
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF475569))),
               SizedBox(height: 24.h),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  TextButton(onPressed: () => setState(() => _showLogout = false), child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xFF64748B)))),
+                  TextButton(
+                      onPressed: () => setState(() => _showLogout = false),
+                      child: Text('Cancel',
+                          style: GoogleFonts.inter(
+                              color: const Color(0xFF64748B)))),
                   SizedBox(width: 16.w),
                   ElevatedButton(
                     onPressed: () {
                       setState(() => _showLogout = false);
                       Navigator.pushReplacementNamed(context, '/login');
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
-                    child: Text('Logout', style: GoogleFonts.inter(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEF4444)),
+                    child: Text('Logout',
+                        style: GoogleFonts.inter(color: Colors.white)),
                   ),
                 ],
               ),
@@ -5150,29 +5886,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
           ),
-          padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r, MediaQuery.of(context).viewInsets.bottom + 20.r),
+          padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r,
+              MediaQuery.of(context).viewInsets.bottom + 20.r),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
-                child: Container(width: 40.w, height: 4.h, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2.r))),
+                child: Container(
+                    width: 40.w,
+                    height: 4.h,
+                    decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2.r))),
               ),
               SizedBox(height: 20.h),
-              Text('Change Password', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+              Text('Change Password',
+                  style: AppTypography.bodyLarge
+                      .copyWith(color: const Color(0xFF0F172A))),
               SizedBox(height: 20.h),
-              _buildPasswordField('Current Password', currentPasswordCtrl, showCurrent, (val) => setSheetState(() => showCurrent = val)),
+              _buildPasswordField('Current Password', currentPasswordCtrl,
+                  showCurrent, (val) => setSheetState(() => showCurrent = val)),
               SizedBox(height: 12.h),
-              _buildPasswordField('New Password', newPasswordCtrl, showNew, (val) => setSheetState(() => showNew = val)),
+              _buildPasswordField('New Password', newPasswordCtrl, showNew,
+                  (val) => setSheetState(() => showNew = val)),
               SizedBox(height: 12.h),
-              _buildPasswordField('Confirm Password', confirmPasswordCtrl, showConfirm, (val) => setSheetState(() => showConfirm = val)),
+              _buildPasswordField('Confirm Password', confirmPasswordCtrl,
+                  showConfirm, (val) => setSheetState(() => showConfirm = val)),
               SizedBox(height: 24.h),
               LoadingButton(
                 label: 'Update Password',
                 color: const Color(0xFF6366F1),
                 onPressed: () async {
-                  if (currentPasswordCtrl.text.isEmpty || newPasswordCtrl.text.isEmpty || confirmPasswordCtrl.text.isEmpty) {
-                    showToast(context, 'All fields are required', isError: true);
+                  if (currentPasswordCtrl.text.isEmpty ||
+                      newPasswordCtrl.text.isEmpty ||
+                      confirmPasswordCtrl.text.isEmpty) {
+                    showToast(context, 'All fields are required',
+                        isError: true);
                     return;
                   }
                   if (newPasswordCtrl.text != confirmPasswordCtrl.text) {
@@ -5180,7 +5930,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     return;
                   }
                   final prefs = await SharedPreferences.getInstance();
-                  final dateStr = '${DateTime.now().day} ${_getMonth(DateTime.now().month)} ${DateTime.now().year}';
+                  final dateStr =
+                      '${DateTime.now().day} ${_getMonth(DateTime.now().month)} ${DateTime.now().year}';
                   if (widget.role == 'teacher') {
                     await prefs.setString('teacher_last_pwd', dateStr);
                   } else {
@@ -5202,15 +5953,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _getMonth(int m) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     return months[m - 1];
   }
 
-  Widget _buildPasswordField(String label, TextEditingController ctrl, bool show, Function(bool) onToggle) {
+  Widget _buildPasswordField(String label, TextEditingController ctrl,
+      bool show, Function(bool) onToggle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
+        Text(label,
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B))),
         SizedBox(height: 6.h),
         TextFormField(
           controller: ctrl,
@@ -5218,10 +5985,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.r),
+                borderSide: BorderSide.none),
             prefixIcon: const Icon(Icons.lock_outline, size: 16),
             suffixIcon: IconButton(
-              icon: Icon(show ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 16),
+              icon: Icon(
+                  show
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  size: 16),
               onPressed: () => onToggle(!show),
             ),
             contentPadding: EdgeInsets.all(12.r),
@@ -5259,18 +6032,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
         ),
-        padding: EdgeInsets.fromLTRB(20.r, 20.r, 20.r, MediaQuery.of(context).viewInsets.bottom + 20.r),
+        padding: EdgeInsets.fromLTRB(
+            20.r, 20.r, 20.r, MediaQuery.of(context).viewInsets.bottom + 20.r),
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.75),
+          constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.75),
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                  child: Container(width: 40.w, height: 4.h, decoration: BoxDecoration(color: const Color(0xFFCBD5E1), borderRadius: BorderRadius.circular(2.r))),
+                  child: Container(
+                      width: 40.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                          color: const Color(0xFFCBD5E1),
+                          borderRadius: BorderRadius.circular(2.r))),
                 ),
                 SizedBox(height: 20.h),
-                Text('Edit Profile Details', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                Text('Edit Profile Details',
+                    style: AppTypography.bodyLarge
+                        .copyWith(color: const Color(0xFF0F172A))),
                 SizedBox(height: 20.h),
                 _buildEditField('Full Name', nameCtrl),
                 SizedBox(height: 12.h),
@@ -5338,11 +6120,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildEditField(String label, TextEditingController ctrl, {int maxLines = 1}) {
+  Widget _buildEditField(String label, TextEditingController ctrl,
+      {int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
+        Text(label,
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B))),
         SizedBox(height: 6.h),
         TextFormField(
           controller: ctrl,
@@ -5350,17 +6135,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: BorderSide.none),
+            border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10.r),
+                borderSide: BorderSide.none),
             contentPadding: EdgeInsets.all(12.r),
           ),
         ),
       ],
     );
   }
-
-
-
-
 }
 
 // ── CUSTOM STYLIZED QR CODE WIDGET ──
@@ -5403,14 +6186,21 @@ class QrPainter extends CustomPainter {
     // Draw locator patterns (7x7 modules)
     void drawLocator(double dx, double dy) {
       // Outer 7x7 module square
-      canvas.drawRect(Rect.fromLTWH(dx, dy, moduleSize * 7, moduleSize * 7), paint);
+      canvas.drawRect(
+          Rect.fromLTWH(dx, dy, moduleSize * 7, moduleSize * 7), paint);
       // Inner 5x5 module white square
       final whitePaint = Paint()
         ..color = Colors.white
         ..style = PaintingStyle.fill;
-      canvas.drawRect(Rect.fromLTWH(dx + moduleSize, dy + moduleSize, moduleSize * 5, moduleSize * 5), whitePaint);
+      canvas.drawRect(
+          Rect.fromLTWH(
+              dx + moduleSize, dy + moduleSize, moduleSize * 5, moduleSize * 5),
+          whitePaint);
       // Center 3x3 module square
-      canvas.drawRect(Rect.fromLTWH(dx + moduleSize * 2, dy + moduleSize * 2, moduleSize * 3, moduleSize * 3), paint);
+      canvas.drawRect(
+          Rect.fromLTWH(dx + moduleSize * 2, dy + moduleSize * 2,
+              moduleSize * 3, moduleSize * 3),
+          paint);
     }
 
     // Top-left locator
@@ -5425,13 +6215,16 @@ class QrPainter extends CustomPainter {
     for (int r = 0; r < modulesCount; r++) {
       for (int c = 0; c < modulesCount; c++) {
         // Skip locator pattern regions (7x7 zones in corners)
-        if ((r < 8 && c < 8) || (r < 8 && c >= modulesCount - 8) || (r >= modulesCount - 8 && c < 8)) {
+        if ((r < 8 && c < 8) ||
+            (r < 8 && c >= modulesCount - 8) ||
+            (r >= modulesCount - 8 && c < 8)) {
           continue;
         }
         // Draw random module block with 50% probability
         if (random.nextBool()) {
           canvas.drawRect(
-            Rect.fromLTWH(c * moduleSize, r * moduleSize, moduleSize, moduleSize),
+            Rect.fromLTWH(
+                c * moduleSize, r * moduleSize, moduleSize, moduleSize),
             paint,
           );
         }

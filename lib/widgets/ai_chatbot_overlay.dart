@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../services/api_service.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class AIChatbotOverlay extends StatefulWidget {
   final Widget child;
@@ -41,21 +42,25 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     super.initState();
     _loadStudentDataAndPrefetch();
     AIChatbotOverlay.visible.addListener(_onVisibilityChanged);
-    _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      if (event == AuthChangeEvent.signedIn) {
-        _loadStudentDataAndPrefetch();
+    try {
+      _authSub = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+        final event = data.event;
+        if (event == AuthChangeEvent.signedIn) {
+          _loadStudentDataAndPrefetch();
+          _startRefreshTimer();
+        } else if (event == AuthChangeEvent.signedOut) {
+          _stopRefreshTimer();
+          setState(() {
+            _firstName = 'User';
+            _initChat();
+          });
+        }
+      });
+      if (Supabase.instance.client.auth.currentUser != null) {
         _startRefreshTimer();
-      } else if (event == AuthChangeEvent.signedOut) {
-        _stopRefreshTimer();
-        setState(() {
-          _firstName = 'User';
-          _initChat();
-        });
       }
-    });
-    if (Supabase.instance.client.auth.currentUser != null) {
-      _startRefreshTimer();
+    } catch (e) {
+      debugPrint('Supabase not initialized: $e');
     }
   }
 
@@ -94,33 +99,38 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
       final prefs = await SharedPreferences.getInstance();
       final role = prefs.getString('user_role') ?? 'student';
       final savedEmail = prefs.getString('${role}_email') ??
-                         prefs.getString('student_email') ?? 
-                         prefs.getString('teacher_email') ?? 
-                         prefs.getString('user_email');
+          prefs.getString('student_email') ??
+          prefs.getString('teacher_email') ??
+          prefs.getString('user_email');
       final savedName = prefs.getString('${role}_name') ??
-                        prefs.getString('student_name') ?? 
-                        prefs.getString('teacher_name') ?? 
-                        prefs.getString('user_name') ?? 
-                        'User';
+          prefs.getString('student_name') ??
+          prefs.getString('teacher_name') ??
+          prefs.getString('user_name') ??
+          'User';
       _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
 
       if (_chatMessages.isEmpty) {
         _initChat();
-      } else if (_chatMessages.length == 1 && _chatMessages[0]['sender'] == 'bot') {
-        _chatMessages[0]['text'] = 'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?';
+      } else if (_chatMessages.length == 1 &&
+          _chatMessages[0]['sender'] == 'bot') {
+        _chatMessages[0]['text'] =
+            'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?';
       }
 
       if (savedEmail == null) return;
 
       final response = await ApiService.instance.get('dashboard/stats');
-      if (response != null && response['success'] == true && response['stats'] != null) {
+      if (response != null &&
+          response['success'] == true &&
+          response['stats'] != null) {
         final stats = response['stats'] as Map<String, dynamic>;
-        
+
         if (role == 'student') {
-          _attendanceRate = (stats['attendancePercentage'] as num? ?? 100.0).toDouble();
+          _attendanceRate =
+              (stats['attendancePercentage'] as num? ?? 100.0).toDouble();
           _pendingFee = (stats['pendingFees'] as num? ?? 0).toInt();
           _booksDue = (stats['booksDue'] as num? ?? 0).toInt();
-          
+
           final transportObj = stats['transport'] as Map<String, dynamic>?;
           if (transportObj != null) {
             _routeName = transportObj['route'] as String? ?? 'None Assigned';
@@ -134,13 +144,15 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
             _stopName = 'None';
             _arrivalTime = '—';
           }
-          
+
           // Fallback prefetch for pending assignments
           try {
             final classId = prefs.getString('student_class_id') ?? '';
             if (classId.isNotEmpty) {
-              final assignmentsRes = await ApiService.instance.get('assignments/teacher');
-              final List<dynamic> rawAssignments = assignmentsRes['assignments'] ?? [];
+              final assignmentsRes =
+                  await ApiService.instance.get('assignments/teacher');
+              final List<dynamic> rawAssignments =
+                  assignmentsRes['assignments'] ?? [];
               _pendingAssignments = rawAssignments.length;
             }
           } catch (_) {}
@@ -176,7 +188,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     _chatMessages.clear();
     _chatMessages.add({
       'sender': 'bot',
-      'text': 'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?'
+      'text':
+          'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?'
     });
   }
 
@@ -219,26 +232,43 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
       String reply = '';
       final query = text.toLowerCase();
 
-      if (query.contains('attendance') || query.contains('present') || query.contains('absent') || query.contains('classes')) {
-        reply = 'Hi $_firstName! Your overall attendance rate is ${_attendanceRate.toStringAsFixed(1)}% this month.';
-      } else if (query.contains('fee') || query.contains('payment') || query.contains('due') || query.contains('balance')) {
+      if (query.contains('attendance') ||
+          query.contains('present') ||
+          query.contains('absent') ||
+          query.contains('classes')) {
+        reply =
+            'Hi $_firstName! Your overall attendance rate is ${_attendanceRate.toStringAsFixed(1)}% this month.';
+      } else if (query.contains('fee') ||
+          query.contains('payment') ||
+          query.contains('due') ||
+          query.contains('balance')) {
         reply = _pendingFee > 0
             ? 'Hi $_firstName! You have a pending fee balance of ₹$_pendingFee due. You can pay it from the Fees screen.'
             : 'Hi $_firstName! Great news! You have no pending fees.';
-      } else if (query.contains('transport') || query.contains('bus') || query.contains('route') || query.contains('stop') || query.contains('timing')) {
+      } else if (query.contains('transport') ||
+          query.contains('bus') ||
+          query.contains('route') ||
+          query.contains('stop') ||
+          query.contains('timing')) {
         reply = _routeName != 'None Assigned'
             ? 'Hi $_firstName! Your transport details are:\n\n• Route: $_routeName\n• Stop: $_stopName\n• Scheduled Time: $_arrivalTime'
             : 'Hi $_firstName! You are not currently allocated to any transport route.';
-      } else if (query.contains('book') || query.contains('library') || query.contains('overdue')) {
+      } else if (query.contains('book') ||
+          query.contains('library') ||
+          query.contains('overdue')) {
         reply = _booksDue > 0
             ? 'Hi $_firstName! You have $_booksDue book(s) currently overdue in the library. Please return them as soon as possible.'
             : 'Hi $_firstName! You have no overdue library books at the moment.';
-      } else if (query.contains('assignment') || query.contains('homework') || query.contains('pending') || query.contains('task')) {
+      } else if (query.contains('assignment') ||
+          query.contains('homework') ||
+          query.contains('pending') ||
+          query.contains('task')) {
         reply = _pendingAssignments > 0
             ? 'Hi $_firstName! You have $_pendingAssignments pending assignment(s) to submit. Check the Assignments section to view them.'
             : 'Hi $_firstName! You have completed all assignments! Keep it up!';
       } else {
-        reply = "Hi $_firstName! I can help you check attendance, pending fees, library books, transport route, and assignments. Try typing: 'Check my fees' or 'Show my transport details'.";
+        reply =
+            "Hi $_firstName! I can help you check attendance, pending fees, library books, transport route, and assignments. Try typing: 'Check my fees' or 'Show my transport details'.";
       }
 
       setState(() {
@@ -251,7 +281,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
 
   bool get _shouldShowChatbot {
     try {
-      return AIChatbotOverlay.visible.value && Supabase.instance.client.auth.currentUser != null;
+      return AIChatbotOverlay.visible.value &&
+          Supabase.instance.client.auth.currentUser != null;
     } catch (_) {
       return false;
     }
@@ -358,7 +389,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
                     CircleAvatar(
                       radius: 16.r,
                       backgroundColor: Colors.white.withValues(alpha: 0.2),
-                      child: Icon(Icons.face_retouching_natural_rounded, color: Colors.white, size: 18.sp),
+                      child: Icon(Icons.face_retouching_natural_rounded,
+                          color: Colors.white, size: 18.sp),
                     ),
                     SizedBox(width: 10.w),
                     Column(
@@ -366,11 +398,13 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
                       children: [
                         Text(
                           'Priya Assistant',
-                          style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.bold, color: Colors.white),
+                          style:
+                              AppTypography.small.copyWith(color: Colors.white),
                         ),
                         Text(
                           'AI Support Online',
-                          style: GoogleFonts.inter(fontSize: 10.sp, color: Colors.white70, fontWeight: FontWeight.w500),
+                          style: AppTypography.caption
+                              .copyWith(color: Colors.white70),
                         ),
                       ],
                     ),
@@ -383,7 +417,7 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
               ],
             ),
           ),
-          
+
           // Chat Messages List
           Expanded(
             child: Container(
@@ -396,28 +430,34 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
                   final msg = _chatMessages[index];
                   final isMe = msg['sender'] == 'user';
                   return Align(
-                    alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                    alignment:
+                        isMe ? Alignment.centerRight : Alignment.centerLeft,
                     child: Container(
                       margin: EdgeInsets.only(bottom: 12.h),
-                      padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 14.w, vertical: 10.h),
                       decoration: BoxDecoration(
                         color: isMe ? const Color(0xFF0076F6) : Colors.white,
-                        border: isMe ? null : Border.all(color: const Color(0xFFE2EAF4)),
+                        border: isMe
+                            ? null
+                            : Border.all(color: const Color(0xFFE2EAF4)),
                         borderRadius: BorderRadius.only(
                           topLeft: Radius.circular(16.r),
                           topRight: Radius.circular(16.r),
-                          bottomLeft: isMe ? Radius.circular(16.r) : Radius.circular(4.r),
-                          bottomRight: isMe ? Radius.circular(4.r) : Radius.circular(16.r),
+                          bottomLeft: isMe
+                              ? Radius.circular(16.r)
+                              : Radius.circular(4.r),
+                          bottomRight: isMe
+                              ? Radius.circular(4.r)
+                              : Radius.circular(16.r),
                         ),
                       ),
                       constraints: BoxConstraints(maxWidth: 240.w),
                       child: Text(
                         msg['text']!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5.sp,
-                          color: isMe ? Colors.white : const Color(0xFF1E293B),
-                          fontWeight: isMe ? FontWeight.w600 : FontWeight.w500,
-                        ),
+                        style: AppTypography.caption.copyWith(
+                            color:
+                                isMe ? Colors.white : const Color(0xFF1E293B)),
                       ),
                     ),
                   );
@@ -432,7 +472,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
               child: const SizedBox(
                 width: 20,
                 height: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF0076F6)),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Color(0xFF0076F6)),
               ),
             ),
 
@@ -450,7 +491,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
                     controller: _chatInputCtrl,
                     decoration: InputDecoration(
                       hintText: 'Type your message...',
-                      hintStyle: GoogleFonts.inter(fontSize: 12.5.sp, color: Colors.grey),
+                      hintStyle:
+                          AppTypography.caption.copyWith(color: Colors.grey),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(horizontal: 10.w),
                     ),
@@ -458,7 +500,8 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.send_rounded, color: Color(0xFF0076F6)),
+                  icon:
+                      const Icon(Icons.send_rounded, color: Color(0xFF0076F6)),
                   onPressed: _handleSendChatMessage,
                 ),
               ],

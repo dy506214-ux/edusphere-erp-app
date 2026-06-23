@@ -4,6 +4,7 @@ import '../../theme/colors.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:developer' as dev;
+import 'package:edusphere/theme/typography.dart';
 
 class TimetableScreen extends StatefulWidget {
   final bool isStudent;
@@ -102,7 +103,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           .eq('userId', currentUser.id)
           .maybeSingle();
 
-      final teacherId = teacherRes != null ? teacherRes['id'] as String : currentUser.id;
+      final teacherId =
+          teacherRes != null ? teacherRes['id'] as String : currentUser.id;
 
       final slotsRes = await client
           .from('TimetableSlot')
@@ -110,7 +112,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           .eq('teacherId', teacherId);
 
       if (slotsRes.isNotEmpty) {
-        final List<List<dynamic>> newGrid = List.generate(9, (r) => List.generate(6, (c) => null));
+        final List<List<dynamic>> newGrid =
+            List.generate(9, (r) => List.generate(6, (c) => null));
         for (int day = 0; day < 6; day++) {
           newGrid[3][day] = 'Break';
           newGrid[6][day] = 'Lunch';
@@ -118,14 +121,22 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
         int getRowIndex(int period) {
           switch (period) {
-            case 1: return 0;
-            case 2: return 1;
-            case 3: return 2;
-            case 4: return 4;
-            case 5: return 5;
-            case 6: return 7;
-            case 7: return 8;
-            default: return -1;
+            case 1:
+              return 0;
+            case 2:
+              return 1;
+            case 3:
+              return 2;
+            case 4:
+              return 4;
+            case 5:
+              return 5;
+            case 6:
+              return 7;
+            case 7:
+              return 8;
+            default:
+              return -1;
           }
         }
 
@@ -133,38 +144,51 @@ class _TimetableScreenState extends State<TimetableScreen> {
           final dayVal = slot['dayOfWeek'];
           final periodVal = slot['period'];
           if (dayVal == null || periodVal == null) continue;
-          
-          final int day = dayVal is int ? dayVal : int.tryParse(dayVal.toString()) ?? 1;
-          final int period = periodVal is int ? periodVal : int.tryParse(periodVal.toString()) ?? 1;
-          
+
+          final int day =
+              dayVal is int ? dayVal : int.tryParse(dayVal.toString()) ?? 1;
+          final int period = periodVal is int
+              ? periodVal
+              : int.tryParse(periodVal.toString()) ?? 1;
+
           final colIndex = day - 1;
           final rowIndex = getRowIndex(period);
-          
+
           if (colIndex >= 0 && colIndex < 6 && rowIndex >= 0 && rowIndex < 9) {
             final subject = slot['Subject'] as Map?;
             final section = slot['Section'] as Map?;
             final classData = section != null ? section['Class'] as Map? : null;
-            
-            final subName = subject != null ? subject['name']?.toString() ?? '' : '';
-            final secName = section != null ? section['name']?.toString() ?? '' : '';
-            final clsName = classData != null ? classData['name']?.toString() ?? '' : '';
-            
-            final displayClass = clsName.isNotEmpty ? (secName.isNotEmpty ? '$clsName - $secName' : clsName) : 'Class 8A';
+
+            final subName =
+                subject != null ? subject['name']?.toString() ?? '' : '';
+            final secName =
+                section != null ? section['name']?.toString() ?? '' : '';
+            final clsName =
+                classData != null ? classData['name']?.toString() ?? '' : '';
+
+            final displayClass = clsName.isNotEmpty
+                ? (secName.isNotEmpty ? '$clsName - $secName' : clsName)
+                : 'Class 8A';
             final room = slot['roomId']?.toString() ?? 'Room 201';
-            
+
             Color cardColor = const Color(0xFFDCFCE7);
             Color textColor = const Color(0xFF166534);
-            
+
             if (subName.contains('Math')) {
               cardColor = const Color(0xFFDCFCE7);
               textColor = const Color(0xFF166534);
-            } else if (subName.contains('Science') || subName.contains('Physics') || subName.contains('Chemistry') || subName.contains('Biology')) {
+            } else if (subName.contains('Science') ||
+                subName.contains('Physics') ||
+                subName.contains('Chemistry') ||
+                subName.contains('Biology')) {
               cardColor = const Color(0xFFF3E8FF);
               textColor = const Color(0xFF6B21A8);
             } else if (subName.contains('English')) {
               cardColor = const Color(0xFFFEF9C3);
               textColor = const Color(0xFF854D0E);
-            } else if (subName.contains('Social') || subName.contains('History') || subName.contains('SST')) {
+            } else if (subName.contains('Social') ||
+                subName.contains('History') ||
+                subName.contains('SST')) {
               cardColor = const Color(0xFFDBEAFE);
               textColor = const Color(0xFF1E40AF);
             } else {
@@ -219,46 +243,196 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   final List<List<dynamic>> _studentGridData = [
     [
-      {'sub': 'Math', 'icon': Icons.book_outlined, 'color': const Color(0xFFEFF6FF), 'text': const Color(0xFF1D4ED8)},
-      {'sub': 'English', 'icon': Icons.book_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Science', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Hindi', 'icon': Icons.menu_book_outlined, 'color': const Color(0xFFFFF7ED), 'text': const Color(0xFFC2410C)},
-      {'sub': 'Computer', 'icon': Icons.computer_outlined, 'color': const Color(0xFFF0F9FF), 'text': const Color(0xFF0369A1)},
-      {'sub': 'GK', 'icon': Icons.lightbulb_outline, 'color': const Color(0xFFFFF1F2), 'text': const Color(0xFFBE123C)},
+      {
+        'sub': 'Math',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFEFF6FF),
+        'text': const Color(0xFF1D4ED8)
+      },
+      {
+        'sub': 'English',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Science',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Hindi',
+        'icon': Icons.menu_book_outlined,
+        'color': const Color(0xFFFFF7ED),
+        'text': const Color(0xFFC2410C)
+      },
+      {
+        'sub': 'Computer',
+        'icon': Icons.computer_outlined,
+        'color': const Color(0xFFF0F9FF),
+        'text': const Color(0xFF0369A1)
+      },
+      {
+        'sub': 'GK',
+        'icon': Icons.lightbulb_outline,
+        'color': const Color(0xFFFFF1F2),
+        'text': const Color(0xFFBE123C)
+      },
     ],
     [
-      {'sub': 'Physics', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Math', 'icon': Icons.book_outlined, 'color': const Color(0xFFEFF6FF), 'text': const Color(0xFF1D4ED8)},
-      {'sub': 'SST', 'icon': Icons.public_outlined, 'color': const Color(0xFFFFF7ED), 'text': const Color(0xFFC2410C)},
-      {'sub': 'English', 'icon': Icons.book_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Chemistry', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Sports', 'icon': Icons.sports_basketball_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
+      {
+        'sub': 'Physics',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Math',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFEFF6FF),
+        'text': const Color(0xFF1D4ED8)
+      },
+      {
+        'sub': 'SST',
+        'icon': Icons.public_outlined,
+        'color': const Color(0xFFFFF7ED),
+        'text': const Color(0xFFC2410C)
+      },
+      {
+        'sub': 'English',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Chemistry',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Sports',
+        'icon': Icons.sports_basketball_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
     ],
     List.generate(6, (index) => 'BREAK'),
     [
-      {'sub': 'Chemistry', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Biology', 'icon': Icons.eco_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Math', 'icon': Icons.book_outlined, 'color': const Color(0xFFEFF6FF), 'text': const Color(0xFF1D4ED8)},
-      {'sub': 'Physics', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Hindi', 'icon': Icons.menu_book_outlined, 'color': const Color(0xFFFFF7ED), 'text': const Color(0xFFC2410C)},
-      {'sub': 'Library', 'icon': Icons.library_books_outlined, 'color': const Color(0xFFFFF7ED), 'text': const Color(0xFFC2410C)},
+      {
+        'sub': 'Chemistry',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Biology',
+        'icon': Icons.eco_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Math',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFEFF6FF),
+        'text': const Color(0xFF1D4ED8)
+      },
+      {
+        'sub': 'Physics',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Hindi',
+        'icon': Icons.menu_book_outlined,
+        'color': const Color(0xFFFFF7ED),
+        'text': const Color(0xFFC2410C)
+      },
+      {
+        'sub': 'Library',
+        'icon': Icons.library_books_outlined,
+        'color': const Color(0xFFFFF7ED),
+        'text': const Color(0xFFC2410C)
+      },
     ],
     [
-      {'sub': 'Computer', 'icon': Icons.computer_outlined, 'color': const Color(0xFFF0F9FF), 'text': const Color(0xFF0369A1)},
-      {'sub': 'SST', 'icon': Icons.public_outlined, 'color': const Color(0xFFFFF7ED), 'text': const Color(0xFFC2410C)},
-      {'sub': 'English', 'icon': Icons.book_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Math', 'icon': Icons.book_outlined, 'color': const Color(0xFFEFF6FF), 'text': const Color(0xFF1D4ED8)},
-      {'sub': 'Science', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Activity', 'icon': Icons.star_outline, 'color': const Color(0xFFFFF1F2), 'text': const Color(0xFFBE123C)},
+      {
+        'sub': 'Computer',
+        'icon': Icons.computer_outlined,
+        'color': const Color(0xFFF0F9FF),
+        'text': const Color(0xFF0369A1)
+      },
+      {
+        'sub': 'SST',
+        'icon': Icons.public_outlined,
+        'color': const Color(0xFFFFF7ED),
+        'text': const Color(0xFFC2410C)
+      },
+      {
+        'sub': 'English',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Math',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFEFF6FF),
+        'text': const Color(0xFF1D4ED8)
+      },
+      {
+        'sub': 'Science',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Activity',
+        'icon': Icons.star_outline,
+        'color': const Color(0xFFFFF1F2),
+        'text': const Color(0xFFBE123C)
+      },
     ],
     List.generate(6, (index) => 'LUNCH'),
     [
-      {'sub': 'Sports', 'icon': Icons.sports_basketball_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Computer', 'icon': Icons.computer_outlined, 'color': const Color(0xFFF0F9FF), 'text': const Color(0xFF0369A1)},
-      {'sub': 'Biology', 'icon': Icons.eco_outlined, 'color': const Color(0xFFF0FDF4), 'text': const Color(0xFF15803D)},
-      {'sub': 'Chemistry', 'icon': Icons.science_outlined, 'color': const Color(0xFFF5F3FF), 'text': const Color(0xFF6D28D9)},
-      {'sub': 'Math', 'icon': Icons.book_outlined, 'color': const Color(0xFFEFF6FF), 'text': const Color(0xFF1D4ED8)},
-      {'sub': 'Art', 'icon': Icons.palette_outlined, 'color': const Color(0xFFFFF1F2), 'text': const Color(0xFFBE123C)},
+      {
+        'sub': 'Sports',
+        'icon': Icons.sports_basketball_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Computer',
+        'icon': Icons.computer_outlined,
+        'color': const Color(0xFFF0F9FF),
+        'text': const Color(0xFF0369A1)
+      },
+      {
+        'sub': 'Biology',
+        'icon': Icons.eco_outlined,
+        'color': const Color(0xFFF0FDF4),
+        'text': const Color(0xFF15803D)
+      },
+      {
+        'sub': 'Chemistry',
+        'icon': Icons.science_outlined,
+        'color': const Color(0xFFF5F3FF),
+        'text': const Color(0xFF6D28D9)
+      },
+      {
+        'sub': 'Math',
+        'icon': Icons.book_outlined,
+        'color': const Color(0xFFEFF6FF),
+        'text': const Color(0xFF1D4ED8)
+      },
+      {
+        'sub': 'Art',
+        'icon': Icons.palette_outlined,
+        'color': const Color(0xFFFFF1F2),
+        'text': const Color(0xFFBE123C)
+      },
     ],
   ];
 
@@ -305,7 +479,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.teacherPrimary, AppColors.teacherPrimary.withValues(alpha: 0.8)],
+          colors: [
+            AppColors.teacherPrimary,
+            AppColors.teacherPrimary.withValues(alpha: 0.8)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -318,9 +495,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 40.w, height: 40.h,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12.r)),
-                  child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18.sp),
+                  width: 40.w,
+                  height: 40.h,
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12.r)),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white, size: 18.sp),
                 ),
               ),
               SizedBox(width: 14.w),
@@ -328,13 +509,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('My Timetable', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.white)),
-                    Text('Academic Year: 2024-25  |  Semester: I', style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.7))),
+                    Text('My Timetable',
+                        style: AppTypography.bodyLarge
+                            .copyWith(color: Colors.white)),
+                    Text('Academic Year: 2024-25  |  Semester: I',
+                        style: AppTypography.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.7))),
                   ],
                 ),
               ),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Colors.white)),
-              const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/svg?seed=Priya')),
+              IconButton(
+                  onPressed: () {},
+                  icon: const Icon(Icons.notifications_none_rounded,
+                      color: Colors.white)),
+              const CircleAvatar(
+                  radius: 18,
+                  backgroundImage: NetworkImage(
+                      'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya')),
             ],
           ),
         ),
@@ -349,13 +540,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
         children: [
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-            decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(8.r)),
+            decoration: BoxDecoration(
+                border: Border.all(color: AppColors.border),
+                borderRadius: BorderRadius.circular(8.r)),
             child: Row(children: [
-              Icon(Icons.calendar_today_rounded, size: 16.sp, color: AppColors.textMedium),
+              Icon(Icons.calendar_today_rounded,
+                  size: 16.sp, color: AppColors.textMedium),
               SizedBox(width: 8.w),
-              Text('20 May – 25 May 2024', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textDark)),
+              Text('20 May – 25 May 2024',
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textDark)),
               SizedBox(width: 4.w),
-              Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: AppColors.textLight),
+              Icon(Icons.keyboard_arrow_down_rounded,
+                  size: 18.sp, color: AppColors.textLight),
             ]),
           ),
           SizedBox(width: 12.w),
@@ -367,11 +564,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
           SizedBox(width: 8.w),
           Container(
             padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-            decoration: BoxDecoration(color: AppColors.teacherPrimary, borderRadius: BorderRadius.circular(8.r)),
+            decoration: BoxDecoration(
+                color: AppColors.teacherPrimary,
+                borderRadius: BorderRadius.circular(8.r)),
             child: Row(children: [
-              Icon(Icons.file_download_outlined, color: Colors.white, size: 18.sp),
+              Icon(Icons.file_download_outlined,
+                  color: Colors.white, size: 18.sp),
               SizedBox(width: 6.w),
-              Text('Export', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+              Text('Export',
+                  style: AppTypography.caption.copyWith(color: Colors.white)),
             ]),
           ),
         ],
@@ -380,10 +581,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Widget _topActionBtn(String label) => Container(
-    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-    decoration: BoxDecoration(border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(8.r)),
-    child: Text(label, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
-  );
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+        decoration: BoxDecoration(
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(8.r)),
+        child: Text(label,
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
+      );
 
   Widget _buildWeeklyGrid() {
     return SingleChildScrollView(
@@ -396,10 +600,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
         child: Table(
           defaultColumnWidth: const FixedColumnWidth(160),
           columnWidths: const {0: FixedColumnWidth(110)},
-          border: TableBorder.all(color: AppColors.border.withValues(alpha: 0.3), width: 0.5.w),
+          border: TableBorder.all(
+              color: AppColors.border.withValues(alpha: 0.3), width: 0.5.w),
           children: [
             TableRow(
-              decoration: BoxDecoration(color: AppColors.background.withValues(alpha: 0.5)),
+              decoration: BoxDecoration(
+                  color: AppColors.background.withValues(alpha: 0.5)),
               children: [
                 _headerCell('Time'),
                 ..._days.map((d) => _headerCell('${d['day']}\n${d['date']}')),
@@ -412,8 +618,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   _timeCell(slot),
                   ...List.generate(6, (dayIndex) {
                     final data = _gridData[rowIndex][dayIndex];
-                    if (data == 'Break') return _specialCell(Icons.coffee_rounded, 'Break');
-                    if (data == 'Lunch') return _specialCell(Icons.restaurant_rounded, 'Lunch');
+                    if (data == 'Break')
+                      return _specialCell(Icons.coffee_rounded, 'Break');
+                    if (data == 'Lunch')
+                      return _specialCell(Icons.restaurant_rounded, 'Lunch');
                     if (data == null) return _emptyCell();
                     return _subjectCell(data);
                   }),
@@ -427,55 +635,76 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Widget _headerCell(String t) => Padding(
-    padding: EdgeInsets.symmetric(vertical: 20.h),
-    child: Text(t, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.teacherPrimary)),
-  );
+        padding: EdgeInsets.symmetric(vertical: 20.h),
+        child: Text(t,
+            textAlign: TextAlign.center,
+            style: AppTypography.caption
+                .copyWith(color: AppColors.teacherPrimary)),
+      );
 
   Widget _timeCell(String t) => Container(
-    height: 110.h,
-    alignment: Alignment.center,
-    child: Text(t, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
-  );
+        height: 110.h,
+        alignment: Alignment.center,
+        child: Text(t,
+            textAlign: TextAlign.center,
+            style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
+      );
 
   Widget _specialCell(IconData icon, String label) => Container(
-    height: 110.h,
-    decoration: BoxDecoration(color: AppColors.background.withValues(alpha: 0.3)),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 18.sp, color: AppColors.textLight),
-        SizedBox(width: 8.w),
-        Text(label, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: AppColors.textLight)),
-      ],
-    ),
-  );
+        height: 110.h,
+        decoration:
+            BoxDecoration(color: AppColors.background.withValues(alpha: 0.3)),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18.sp, color: AppColors.textLight),
+            SizedBox(width: 8.w),
+            Text(label,
+                style:
+                    AppTypography.caption.copyWith(color: AppColors.textLight)),
+          ],
+        ),
+      );
 
-  Widget _emptyCell() => Container(height: 110.h, alignment: Alignment.center, child: Text('–', style: GoogleFonts.inter(color: AppColors.textLight, fontSize: 14.sp)));
+  Widget _emptyCell() => Container(
+      height: 110.h,
+      alignment: Alignment.center,
+      child: Text('–',
+          style: AppTypography.small.copyWith(color: AppColors.textLight)));
 
   Widget _subjectCell(Map<String, dynamic> data) {
     return Container(
       height: 110.h,
       margin: EdgeInsets.all(4.r),
       padding: EdgeInsets.all(12.r),
-      decoration: BoxDecoration(color: data['color'] as Color, borderRadius: BorderRadius.circular(10.r)),
+      decoration: BoxDecoration(
+          color: data['color'] as Color,
+          borderRadius: BorderRadius.circular(10.r)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             children: [
-              Icon(Icons.book_rounded, size: 16.sp, color: data['text'] as Color),
+              Icon(Icons.book_rounded,
+                  size: 16.sp, color: data['text'] as Color),
               SizedBox(width: 6.w),
               Expanded(
-                child: Text(data['sub'] as String, 
-                  style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: data['text'] as Color),
-                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: Text(data['sub'] as String,
+                    style: AppTypography.caption
+                        .copyWith(color: data['text'] as Color),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
           SizedBox(height: 8.h),
-          Text(data['cls'] as String, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w700, color: (data['text'] as Color).withValues(alpha: 0.8))),
-          Text(data['rm'] as String, style: GoogleFonts.inter(fontSize: 11.sp, color: (data['text'] as Color).withValues(alpha: 0.6))),
+          Text(data['cls'] as String,
+              style: AppTypography.caption.copyWith(
+                  color: (data['text'] as Color).withValues(alpha: 0.8))),
+          Text(data['rm'] as String,
+              style: AppTypography.caption.copyWith(
+                  color: (data['text'] as Color).withValues(alpha: 0.6))),
         ],
       ),
     );
@@ -492,18 +721,29 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Legend', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+        Text('Legend',
+            style: AppTypography.caption.copyWith(color: AppColors.textDark)),
         SizedBox(height: 12.h),
         Wrap(
-          spacing: 16, runSpacing: 10,
-          children: legends.map((l) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(width: 12.w, height: 12.h, decoration: BoxDecoration(color: l['color'] as Color, shape: BoxShape.circle)),
-              SizedBox(width: 8.w),
-              Text(l['cls'] as String, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
-            ],
-          )).toList(),
+          spacing: 16,
+          runSpacing: 10,
+          children: legends
+              .map((l) => Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                          width: 12.w,
+                          height: 12.h,
+                          decoration: BoxDecoration(
+                              color: l['color'] as Color,
+                              shape: BoxShape.circle)),
+                      SizedBox(width: 8.w),
+                      Text(l['cls'] as String,
+                          style: AppTypography.caption
+                              .copyWith(color: AppColors.textMedium)),
+                    ],
+                  ))
+              .toList(),
         ),
       ],
     );
@@ -527,9 +767,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.access_time_rounded, size: 20.sp, color: AppColors.textMedium),
+                          Icon(Icons.access_time_rounded,
+                              size: 20.sp, color: AppColors.textMedium),
                           SizedBox(width: 10.w),
-                          Text('Weekly Timetable', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w800, color: AppColors.textDark)),
+                          Text('Weekly Timetable',
+                              style: AppTypography.bodyLarge
+                                  .copyWith(color: AppColors.textDark)),
                         ],
                       ),
                       SizedBox(height: 16.h),
@@ -540,24 +783,33 @@ class _TimetableScreenState extends State<TimetableScreen> {
                             _arrowBtn(Icons.keyboard_arrow_left_rounded),
                             SizedBox(width: 8.w),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-                              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(8.r)),
-                              child: Text('This Week', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 14.w, vertical: 8.h),
+                              decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: AppColors.border),
+                                  borderRadius: BorderRadius.circular(8.r)),
+                              child: Text('This Week',
+                                  style: AppTypography.caption
+                                      .copyWith(color: AppColors.textDark)),
                             ),
                             SizedBox(width: 8.w),
                             _arrowBtn(Icons.keyboard_arrow_right_rounded),
                             SizedBox(width: 16.w),
                             ElevatedButton.icon(
                               onPressed: () {},
-                              icon: Icon(Icons.file_download_outlined, size: 18.sp),
+                              icon: Icon(Icons.file_download_outlined,
+                                  size: 18.sp),
                               label: const Text('Download'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFF6366F1),
                                 foregroundColor: Colors.white,
                                 elevation: 0,
-                                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                                textStyle: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w, vertical: 10.h),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8.r)),
+                                textStyle: AppTypography.caption,
                               ),
                             ),
                           ],
@@ -585,7 +837,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppColors.studentPrimary, AppColors.studentPrimary.withValues(alpha: 0.8)],
+          colors: [
+            AppColors.studentPrimary,
+            AppColors.studentPrimary.withValues(alpha: 0.8)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -598,9 +853,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: Container(
-                  width: 40.w, height: 40.h,
-                  decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12.r)),
-                  child: Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 18.sp),
+                  width: 40.w,
+                  height: 40.h,
+                  decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(12.r)),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white, size: 18.sp),
                 ),
               ),
               SizedBox(width: 14.w),
@@ -608,13 +867,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('My Timetable', style: GoogleFonts.inter(fontSize: 18.sp, fontWeight: FontWeight.w900, color: Colors.white)),
-                    Text('Academic Year: 2024-25  |  Semester: I', style: GoogleFonts.inter(fontSize: 11.sp, color: Colors.white.withValues(alpha: 0.7))),
+                    Text('My Timetable',
+                        style: AppTypography.bodyLarge
+                            .copyWith(color: Colors.white)),
+                    Text('Academic Year: 2024-25  |  Semester: I',
+                        style: AppTypography.caption.copyWith(
+                            color: Colors.white.withValues(alpha: 0.7))),
                   ],
                 ),
               ),
-              IconButton(onPressed: () {}, icon: const Icon(Icons.notifications_none_rounded, color: Colors.white)),
-              const CircleAvatar(radius: 18, backgroundImage: NetworkImage('https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun')),
+              IconButton(
+                  onPressed: () {},
+                  icon: const Icon(Icons.notifications_none_rounded,
+                      color: Colors.white)),
+              const CircleAvatar(
+                  radius: 18,
+                  backgroundImage: NetworkImage(
+                      'https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun')),
             ],
           ),
         ),
@@ -623,10 +892,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Widget _arrowBtn(IconData icon) => Container(
-    padding: EdgeInsets.all(6.r),
-    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: AppColors.border), borderRadius: BorderRadius.circular(6.r)),
-    child: Icon(icon, size: 20.sp, color: AppColors.textMedium),
-  );
+        padding: EdgeInsets.all(6.r),
+        decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: AppColors.border),
+            borderRadius: BorderRadius.circular(6.r)),
+        child: Icon(icon, size: 20.sp, color: AppColors.textMedium),
+      );
 
   Widget _buildStudentGrid() {
     return Container(
@@ -634,7 +906,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
         color: Colors.white,
         border: Border.all(color: AppColors.border.withValues(alpha: 0.5)),
         borderRadius: BorderRadius.circular(12.r),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4))
+        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12.r),
@@ -643,7 +920,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           child: Table(
             defaultColumnWidth: const FixedColumnWidth(140),
             columnWidths: const {0: FixedColumnWidth(100)},
-            border: TableBorder.all(color: AppColors.border.withValues(alpha: 0.3), width: 0.5.w),
+            border: TableBorder.all(
+                color: AppColors.border.withValues(alpha: 0.3), width: 0.5.w),
             children: [
               TableRow(
                 decoration: const BoxDecoration(color: Color(0xFFF8FAFC)),
@@ -659,8 +937,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     _studentTimeCell(slot),
                     ...List.generate(6, (dayIndex) {
                       final data = _studentGridData[rowIndex][dayIndex];
-                      if (data == 'BREAK') return _studentSpecialCell(Icons.coffee_outlined, 'BREAK');
-                      if (data == 'LUNCH') return _studentSpecialCell(Icons.restaurant_outlined, 'LUNCH');
+                      if (data == 'BREAK')
+                        return _studentSpecialCell(
+                            Icons.coffee_outlined, 'BREAK');
+                      if (data == 'LUNCH')
+                        return _studentSpecialCell(
+                            Icons.restaurant_outlined, 'LUNCH');
                       return _studentSubjectCell(data);
                     }),
                   ],
@@ -674,23 +956,27 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Widget _studentTimeCell(String t) => Container(
-    height: 90.h,
-    alignment: Alignment.center,
-    child: Text(t, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: AppColors.textDark)),
-  );
+        height: 90.h,
+        alignment: Alignment.center,
+        child: Text(t,
+            textAlign: TextAlign.center,
+            style: AppTypography.caption.copyWith(color: AppColors.textDark)),
+      );
 
   Widget _studentSpecialCell(IconData icon, String label) => Container(
-    height: 90.h,
-    color: const Color(0xFFF8FAFC),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 18.sp, color: AppColors.textLight),
-        SizedBox(height: 4.h),
-        Text(label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: AppColors.textLight, letterSpacing: 0.5)),
-      ],
-    ),
-  );
+        height: 90.h,
+        color: const Color(0xFFF8FAFC),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 18.sp, color: AppColors.textLight),
+            SizedBox(height: 4.h),
+            Text(label,
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textLight, letterSpacing: 0.5)),
+          ],
+        ),
+      );
 
   Widget _studentSubjectCell(Map<String, dynamic> data) {
     return Container(
@@ -700,16 +986,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
       decoration: BoxDecoration(
         color: data['color'] as Color,
         borderRadius: BorderRadius.circular(8.r),
-        border: Border.all(color: (data['text'] as Color).withValues(alpha: 0.1)),
+        border:
+            Border.all(color: (data['text'] as Color).withValues(alpha: 0.1)),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(data['sub'] as String, 
-            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w800, color: data['text'] as Color),
-            textAlign: TextAlign.center),
+          Text(data['sub'] as String,
+              style:
+                  AppTypography.caption.copyWith(color: data['text'] as Color),
+              textAlign: TextAlign.center),
           SizedBox(height: 6.h),
-          Icon(data['icon'] as IconData, size: 16.sp, color: (data['text'] as Color).withValues(alpha: 0.6)),
+          Icon(data['icon'] as IconData,
+              size: 16.sp,
+              color: (data['text'] as Color).withValues(alpha: 0.6)),
         ],
       ),
     );
@@ -728,28 +1018,42 @@ class _TimetableScreenState extends State<TimetableScreen> {
       alignment: WrapAlignment.center,
       spacing: 20,
       runSpacing: 12,
-      children: legends.map((l) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 10.w, height: 10.h, decoration: BoxDecoration(color: l['color'] as Color, shape: BoxShape.circle)),
-          SizedBox(width: 8.w),
-          Text(l['label'] as String, style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: AppColors.textMedium)),
-        ],
-      )).toList(),
+      children: legends
+          .map((l) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                      width: 10.w,
+                      height: 10.h,
+                      decoration: BoxDecoration(
+                          color: l['color'] as Color, shape: BoxShape.circle)),
+                  SizedBox(width: 8.w),
+                  Text(l['label'] as String,
+                      style: AppTypography.caption
+                          .copyWith(color: AppColors.textMedium)),
+                ],
+              ))
+          .toList(),
     );
   }
 
   Widget _buildNote() {
     return Container(
       padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(color: Colors.blue.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(12.r), border: Border.all(color: Colors.blue.withValues(alpha: 0.1))),
+      decoration: BoxDecoration(
+          color: Colors.blue.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: Colors.blue.withValues(alpha: 0.1))),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, size: 20.sp, color: const Color(0xFF3B82F6)),
+          Icon(Icons.info_outline_rounded,
+              size: 20.sp, color: const Color(0xFF3B82F6)),
           SizedBox(width: 12.w),
           Expanded(
-            child: Text('Timetable is subject to change. Please check regularly for updates or contact administration for any discrepancies.', 
-              style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium, height: 1.5.h)),
+            child: Text(
+                'Timetable is subject to change. Please check regularly for updates or contact administration for any discrepancies.',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textMedium, height: 1.5.h)),
           ),
         ],
       ),

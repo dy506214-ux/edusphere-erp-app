@@ -1,4 +1,5 @@
 import 'package:supabase/supabase.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   final supabase = SupabaseClient(
@@ -16,6 +17,9 @@ void main() async {
       'uploadedAt': DateTime.now().toIso8601String(),
     }).select();
     print('SUCCESS! Inserted row: $response');
+
+    final users = await supabase.from('User').select('email, id');
+    debugPrint('Users in DB: $users');
   } catch (e) {
     print('Error: $e');
   } finally {

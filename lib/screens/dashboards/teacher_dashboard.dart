@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../main_screen.dart';
 import '../features/teacher_overdue_management_screen.dart';
 import '../features/teacher_self_attendance_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class TeacherDashboard extends StatefulWidget {
   final RoleTheme theme;
@@ -23,7 +24,8 @@ class TeacherDashboard extends StatefulWidget {
   State<TeacherDashboard> createState() => _TeacherDashboardState();
 }
 
-class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBindingObserver {
+class _TeacherDashboardState extends State<TeacherDashboard>
+    with WidgetsBindingObserver {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
@@ -67,7 +69,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
         Supabase.instance.client.removeChannel(_teacherDashChannel!);
       } catch (_) {}
     }
-    
+
     // Clean up Socket.IO listeners
     try {
       final socketEvents = [
@@ -83,7 +85,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
         SocketService().off(event);
       }
     } catch (e) {
-      dev.log('Error unregistering Socket.IO events: $e', name: 'TeacherDashboard');
+      dev.log('Error unregistering Socket.IO events: $e',
+          name: 'TeacherDashboard');
     }
 
     WidgetsBinding.instance.removeObserver(this);
@@ -93,7 +96,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      dev.log('📱 App resumed from background. Triggering dashboard refresh...', name: 'TeacherDashboard');
+      dev.log('📱 App resumed from background. Triggering dashboard refresh...',
+          name: 'TeacherDashboard');
       _loadUpcomingEvents();
       _fetchDashboardData('app_resume');
     }
@@ -118,64 +122,75 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
   Future<void> _connectRealTime() async {
     try {
       final client = Supabase.instance.client;
-      _teacherDashChannel = client.channel('public:teacher_dash_events')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'SchoolCalendar',
-          callback: (_) {
-            dev.log('⚡ Realtime DB change on SchoolCalendar', name: 'TeacherDashboard');
-            if (mounted) {
-              _loadUpcomingEvents();
-              _fetchDashboardData('realtime_event', eventName: 'Supabase:SchoolCalendar');
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AttendanceRecord',
-          callback: (_) {
-            dev.log('⚡ Realtime DB change on AttendanceRecord', name: 'TeacherDashboard');
-            if (mounted) {
-              _fetchDashboardData('realtime_event', eventName: 'Supabase:AttendanceRecord');
-              _loadTeacherAttendance();
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Student',
-          callback: (_) {
-            dev.log('⚡ Realtime DB change on Student', name: 'TeacherDashboard');
-            if (mounted) {
-              _fetchDashboardData('realtime_event', eventName: 'Supabase:Student');
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'Class',
-          callback: (_) {
-            dev.log('⚡ Realtime DB change on Class', name: 'TeacherDashboard');
-            if (mounted) {
-              _fetchDashboardData('realtime_event', eventName: 'Supabase:Class');
-            }
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'LibraryIssue',
-          callback: (_) {
-            dev.log('⚡ Realtime DB change on LibraryIssue', name: 'TeacherDashboard');
-            if (mounted) {
-              _fetchDashboardData('realtime_event', eventName: 'Supabase:LibraryIssue');
-            }
-          },
-        );
+      _teacherDashChannel = client
+          .channel('public:teacher_dash_events')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'SchoolCalendar',
+            callback: (_) {
+              dev.log('⚡ Realtime DB change on SchoolCalendar',
+                  name: 'TeacherDashboard');
+              if (mounted) {
+                _loadUpcomingEvents();
+                _fetchDashboardData('realtime_event',
+                    eventName: 'Supabase:SchoolCalendar');
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'AttendanceRecord',
+            callback: (_) {
+              dev.log('⚡ Realtime DB change on AttendanceRecord',
+                  name: 'TeacherDashboard');
+              if (mounted) {
+                _fetchDashboardData('realtime_event',
+                    eventName: 'Supabase:AttendanceRecord');
+                _loadTeacherAttendance();
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Student',
+            callback: (_) {
+              dev.log('⚡ Realtime DB change on Student',
+                  name: 'TeacherDashboard');
+              if (mounted) {
+                _fetchDashboardData('realtime_event',
+                    eventName: 'Supabase:Student');
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'Class',
+            callback: (_) {
+              dev.log('⚡ Realtime DB change on Class',
+                  name: 'TeacherDashboard');
+              if (mounted) {
+                _fetchDashboardData('realtime_event',
+                    eventName: 'Supabase:Class');
+              }
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'LibraryIssue',
+            callback: (_) {
+              dev.log('⚡ Realtime DB change on LibraryIssue',
+                  name: 'TeacherDashboard');
+              if (mounted) {
+                _fetchDashboardData('realtime_event',
+                    eventName: 'Supabase:LibraryIssue');
+              }
+            },
+          );
       _teacherDashChannel!.subscribe();
     } catch (e) {
       dev.log('Teacher dash realtime error: $e');
@@ -195,7 +210,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
 
       for (var event in socketEvents) {
         SocketService().on(event, (data) {
-          dev.log('⚡ Socket.IO event received: $event', name: 'TeacherDashboard');
+          dev.log('⚡ Socket.IO event received: $event',
+              name: 'TeacherDashboard');
           if (mounted) {
             _loadUpcomingEvents();
             _fetchDashboardData('realtime_event', eventName: 'SocketIO:$event');
@@ -203,7 +219,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
         });
       }
     } catch (e) {
-      dev.log('Error registering Socket.IO events: $e', name: 'TeacherDashboard');
+      dev.log('Error registering Socket.IO events: $e',
+          name: 'TeacherDashboard');
     }
 
     _teacherDashTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -217,7 +234,9 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
 
   Future<void> _loadTeacherName() async {
     final prefs = await SharedPreferences.getInstance();
-    final name = prefs.getString('teacher_name') ?? prefs.getString('user_name') ?? 'Teacher';
+    final name = prefs.getString('teacher_name') ??
+        prefs.getString('user_name') ??
+        'Teacher';
     if (mounted) {
       setState(() {
         _teacherName = name.trim().split(' ').first;
@@ -229,7 +248,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
     await _fetchDashboardData('initial');
   }
 
-  Future<void> _fetchDashboardData(String triggerSource, {String? eventName}) async {
+  Future<void> _fetchDashboardData(String triggerSource,
+      {String? eventName}) async {
     const apiUrl = 'dashboard/stats';
     dev.log('📡 FETCHING Teacher Dashboard stats...', name: 'TeacherDashboard');
     dev.log('🔗 API URL Path: $apiUrl', name: 'TeacherDashboard');
@@ -240,15 +260,17 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
 
     try {
       final response = await ApiService.instance.get(apiUrl);
-      
+
       dev.log('📥 Response Data: $response', name: 'TeacherDashboard');
 
       if (response != null && response['success'] == true) {
         final stats = response['stats'] as Map<String, dynamic>? ?? {};
-        
-        final studentCount = stats['totalStudents'] as int? ?? stats['activeStudents'] as int? ?? 60;
+
+        final studentCount = stats['totalStudents'] as int? ??
+            stats['activeStudents'] as int? ??
+            60;
         final overdueCount = stats['overdueBooks'] as int? ?? 0;
-        
+
         final attDetails = stats['attendanceDetails'] as Map<String, dynamic>?;
         double attendancePct = 90.0;
         int pendingAttend = 0;
@@ -268,14 +290,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
             _attendanceTodayPercentage = attendancePct;
             _pendingAttendance = pendingAttend;
             _lastRefreshTime = DateTime.now();
-
           });
         }
-        
-        dev.log('🕒 Last Refresh Time: ${_lastRefreshTime.toString()} | Trigger: $triggerSource | Event: $eventName', name: 'TeacherDashboard');
+
+        dev.log(
+            '🕒 Last Refresh Time: ${_lastRefreshTime.toString()} | Trigger: $triggerSource | Event: $eventName',
+            name: 'TeacherDashboard');
       }
     } catch (e) {
-      dev.log('❌ Error fetching dashboard REST API: $e', name: 'TeacherDashboard');
+      dev.log('❌ Error fetching dashboard REST API: $e',
+          name: 'TeacherDashboard');
     }
   }
 
@@ -295,7 +319,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
       int total = 0;
       for (var record in list) {
         final status = record['status']?.toString().toUpperCase() ?? '';
-        if (status == 'PRESENT' || status == 'P' || status == 'LATE' || status == 'Late' || status == 'HALF_DAY') {
+        if (status == 'PRESENT' ||
+            status == 'P' ||
+            status == 'LATE' ||
+            status == 'Late' ||
+            status == 'HALF_DAY') {
           present++;
           total++;
         } else if (status == 'ABSENT' || status == 'A') {
@@ -309,7 +337,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
         });
       }
     } catch (e) {
-      dev.log('Error loading teacher attendance stats: $e', name: 'TeacherDashboard');
+      dev.log('Error loading teacher attendance stats: $e',
+          name: 'TeacherDashboard');
     }
   }
 
@@ -317,7 +346,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
 
   Future<void> _loadUpcomingEvents() async {
     try {
-      final res = await ApiService.instance.get('calendar/upcoming', queryParams: {'limit': '8'});
+      final res = await ApiService.instance
+          .get('calendar/upcoming', queryParams: {'limit': '8'});
       if (res['success'] == true && mounted) {
         final events = res['events'] as List? ?? [];
         setState(() {
@@ -325,11 +355,17 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
           _upcomingEventsLoaded = true;
         });
       } else {
-        if (mounted) setState(() { _upcomingEventsLoaded = true; });
+        if (mounted)
+          setState(() {
+            _upcomingEventsLoaded = true;
+          });
       }
     } catch (e) {
       dev.log('Error loading teacher upcoming events from API: $e');
-      if (mounted) setState(() { _upcomingEventsLoaded = true; });
+      if (mounted)
+        setState(() {
+          _upcomingEventsLoaded = true;
+        });
     }
     await _loadCalendarEvents();
   }
@@ -351,7 +387,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
           if (dateStr == null) continue;
           try {
             final parsedDate = DateTime.parse(dateStr).toLocal();
-            final key = '${parsedDate.year}-${parsedDate.month}-${parsedDate.day}';
+            final key =
+                '${parsedDate.year}-${parsedDate.month}-${parsedDate.day}';
             newEvents.putIfAbsent(key, () => []).add(item);
           } catch (_) {}
         }
@@ -469,7 +506,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                       borderRadius: BorderRadius.circular(8.r),
                       onTap: _isRefreshing ? null : _refreshDashboard,
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 8.h),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(8.r),
                           border: Border.all(color: const Color(0xFFE2E8F0)),
@@ -491,9 +529,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                             SizedBox(width: 6.w),
                             Text(
                               _isRefreshing ? 'Refreshing...' : 'Refresh',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13.sp,
-                                  fontWeight: FontWeight.w600,
+                              style: AppTypography.caption.copyWith(
                                   color: _isRefreshing
                                       ? const Color(0xFF0EA5E9)
                                       : const Color(0xFF475569)),
@@ -505,7 +541,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                   ),
                   SizedBox(width: 12.w),
                   Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                     decoration: BoxDecoration(
                       color: const Color(0xFFE0F2FE),
                       borderRadius: BorderRadius.circular(8.r),
@@ -513,13 +550,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.calendar_month_rounded, size: 16.sp, color: const Color(0xFF0284C7)),
+                        Icon(Icons.calendar_month_rounded,
+                            size: 16.sp, color: const Color(0xFF0284C7)),
                         SizedBox(width: 6.w),
-                        Text(DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
-                            style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF0284C7))),
+                        Text(
+                            DateFormat('EEEE, d MMMM yyyy')
+                                .format(DateTime.now()),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0284C7))),
                       ],
                     ),
                   ),
@@ -528,10 +566,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
             ],
           ),
           SizedBox(height: 6.h),
-          Text('Good day, $_teacherName. Here\'s what\'s happening in your classes.',
-              style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF64748B))),
+          Text(
+              'Good day, $_teacherName. Here\'s what\'s happening in your classes.',
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B))),
         ],
       );
     } else {
@@ -544,10 +582,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                   fontWeight: FontWeight.w800,
                   color: const Color(0xFF0F172A))),
           SizedBox(height: 4.h),
-          Text('Good day, $_teacherName. Here\'s what\'s happening in your classes.',
-              style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF64748B))),
+          Text(
+              'Good day, $_teacherName. Here\'s what\'s happening in your classes.',
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B))),
           SizedBox(height: 16.h),
           Row(
             children: [
@@ -588,13 +626,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                           SizedBox(width: 6.w),
                           Text(
                             _isRefreshing ? 'Refreshing...' : 'Refresh',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: _isRefreshing
-                                  ? const Color(0xFF0EA5E9)
-                                  : const Color(0xFF475569),
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: _isRefreshing
+                                    ? const Color(0xFF0EA5E9)
+                                    : const Color(0xFF475569)),
                           ),
                         ],
                       ),
@@ -615,11 +650,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     child: Text(
                       DateFormat('EEEE, d MMMM yyyy').format(DateTime.now()),
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w600,
-                        color: const Color(0xFF0284C7),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0284C7)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -633,12 +665,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
     }
   }
 
-
   Widget _buildMetricsGrid(bool isDesktop) {
     final cards = [
       _buildResponsiveStatCard(
         title: 'ATTENDANCE TODAY',
-        value: _teacherAttendanceLoaded ? '${_teacherAttendanceRate.toStringAsFixed(0)}%' : '—%',
+        value: _teacherAttendanceLoaded
+            ? '${_teacherAttendanceRate.toStringAsFixed(0)}%'
+            : '—%',
         color: const Color(0xFF3B82F6),
         showProgress: true,
         progress: _teacherAttendanceRate,
@@ -646,7 +679,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => TeacherPersonalAttendanceScreen(theme: widget.theme),
+              builder: (_) =>
+                  TeacherPersonalAttendanceScreen(theme: widget.theme),
             ),
           );
         },
@@ -685,7 +719,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
       );
     } else {
       return Column(
-        children: cards.expand((c) => [c, SizedBox(height: 12.h)]).toList()..removeLast(),
+        children: cards.expand((c) => [c, SizedBox(height: 12.h)]).toList()
+          ..removeLast(),
       );
     }
   }
@@ -720,12 +755,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
             children: [
               Text(
                 title,
-                style: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF475569),
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF475569), letterSpacing: 0.5),
               ),
               if (onTap != null)
                 Container(
@@ -762,7 +793,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: ((progress ?? _attendanceTodayPercentage) / 100.0).clamp(0.0, 1.0),
+                widthFactor: ((progress ?? _attendanceTodayPercentage) / 100.0)
+                    .clamp(0.0, 1.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: color,
@@ -820,8 +852,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                 ),
                 SizedBox(height: 4.h),
                 Text('Academic schedule & events',
-                    style: GoogleFonts.inter(
-                        fontSize: 12.sp, color: const Color(0xFF64748B))),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B))),
               ],
             ),
           ),
@@ -843,33 +875,27 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
             headerStyle: HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
-              titleTextStyle: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF0F172A)),
-              leftChevronIcon:
-                  Icon(Icons.chevron_left, color: const Color(0xFF0F172A), size: 24.sp),
-              rightChevronIcon:
-                  Icon(Icons.chevron_right, color: const Color(0xFF0F172A), size: 24.sp),
+              titleTextStyle:
+                  AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
+              leftChevronIcon: Icon(Icons.chevron_left,
+                  color: const Color(0xFF0F172A), size: 24.sp),
+              rightChevronIcon: Icon(Icons.chevron_right,
+                  color: const Color(0xFF0F172A), size: 24.sp),
               headerPadding: EdgeInsets.symmetric(vertical: 8.h),
             ),
             daysOfWeekStyle: DaysOfWeekStyle(
-              weekdayStyle: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B)),
-              weekendStyle: GoogleFonts.inter(
-                  fontSize: 11.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF64748B)),
+              weekdayStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B)),
+              weekendStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B)),
             ),
             calendarStyle: CalendarStyle(
-              defaultTextStyle: GoogleFonts.inter(
-                  fontSize: 13.sp, color: const Color(0xFF1E293B)),
-              weekendTextStyle: GoogleFonts.inter(
-                  fontSize: 13.sp, color: const Color(0xFF1E293B)),
-              outsideTextStyle: GoogleFonts.inter(
-                  fontSize: 13.sp, color: const Color(0xFF94A3B8)),
+              defaultTextStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF1E293B)),
+              weekendTextStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF1E293B)),
+              outsideTextStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF94A3B8)),
               markerDecoration: const BoxDecoration(
                 color: Color(0xFF0EA5E9),
                 shape: BoxShape.circle,
@@ -880,19 +906,15 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(8.r),
               ),
-              todayTextStyle: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0EA5E9)),
+              todayTextStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF0EA5E9)),
               selectedDecoration: BoxDecoration(
                 color: const Color(0xFF0EA5E9),
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(8.r),
               ),
-              selectedTextStyle: GoogleFonts.inter(
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white),
+              selectedTextStyle:
+                  AppTypography.caption.copyWith(color: Colors.white),
             ),
           ),
           Padding(
@@ -902,11 +924,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
               children: [
                 Text(
                     'EVENTS FOR ${DateFormat('d MMM').format(_selectedDay ?? DateTime.now()).toUpperCase()}',
-                    style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF64748B),
-                        letterSpacing: 0.5)),
+                    style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF64748B), letterSpacing: 0.5)),
                 SizedBox(height: 12.h),
                 const Divider(color: Color(0xFFE2E8F0)),
                 SizedBox(height: 16.h),
@@ -923,8 +942,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                               color: const Color(0xFFCBD5E1), size: 32.sp),
                           SizedBox(height: 12.h),
                           Text('No events scheduled',
-                              style: GoogleFonts.inter(
-                                  fontSize: 13.sp,
+                              style: AppTypography.caption.copyWith(
                                   fontStyle: FontStyle.italic,
                                   color: const Color(0xFF64748B))),
                         ],
@@ -938,14 +956,18 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     itemBuilder: (context, index) {
                       final event = dayEvents[index];
                       final title = event['title']?.toString() ?? 'Event';
-                      final type = (event['type']?.toString() ?? 'EVENT').toUpperCase();
-                      final description = event['description']?.toString() ?? '';
+                      final type =
+                          (event['type']?.toString() ?? 'EVENT').toUpperCase();
+                      final description =
+                          event['description']?.toString() ?? '';
                       final time = event['startTime']?.toString() ?? '';
 
                       Color typeColor = const Color(0xFF0EA5E9);
-                      if (type == 'HOLIDAY') typeColor = const Color(0xFFEF4444);
+                      if (type == 'HOLIDAY')
+                        typeColor = const Color(0xFFEF4444);
                       if (type == 'EXAM') typeColor = const Color(0xFFF59E0B);
-                      if (type == 'MEETING') typeColor = const Color(0xFF8B5CF6);
+                      if (type == 'MEETING')
+                        typeColor = const Color(0xFF8B5CF6);
 
                       return Container(
                         margin: EdgeInsets.only(bottom: 8.h),
@@ -972,17 +994,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                                 children: [
                                   Text(
                                     title,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 13.sp,
-                                        fontWeight: FontWeight.w700,
+                                    style: AppTypography.caption.copyWith(
                                         color: const Color(0xFF0F172A)),
                                   ),
                                   if (description.isNotEmpty) ...[
                                     SizedBox(height: 2.h),
                                     Text(
                                       description,
-                                      style: GoogleFonts.inter(
-                                          fontSize: 11.sp,
+                                      style: AppTypography.caption.copyWith(
                                           color: const Color(0xFF64748B)),
                                     ),
                                   ],
@@ -992,10 +1011,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                             if (time.isNotEmpty)
                               Text(
                                 time,
-                                style: GoogleFonts.inter(
-                                    fontSize: 11.sp,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF64748B)),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF64748B)),
                               ),
                           ],
                         ),
@@ -1010,7 +1027,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     if (isDesktop) {
                       MainScreen.navigateTo(context, 1);
                     } else {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()));
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AcademicCalendarScreen()));
                     }
                   },
                   child: Container(
@@ -1024,10 +1044,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text('View Full Academic Schedule',
-                            style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF0F172A))),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F172A))),
                         SizedBox(width: 4.w),
                         Icon(Icons.chevron_right,
                             size: 16.sp, color: const Color(0xFF0F172A)),
@@ -1049,7 +1067,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
         color: const Color(0xFF0B1120),
         borderRadius: BorderRadius.circular(16.r),
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 20, offset: const Offset(0, 10))
+          BoxShadow(
+              color: Colors.black.withValues(alpha: 0.1),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
         ],
       ),
       child: Column(
@@ -1065,15 +1086,20 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.calendar_month_rounded, color: const Color(0xFF0EA5E9), size: 20.sp),
+                        Icon(Icons.calendar_month_rounded,
+                            color: const Color(0xFF0EA5E9), size: 20.sp),
                         SizedBox(width: 8.w),
                         Text('Upcoming Events',
-                            style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w700, color: Colors.white)),
+                            style: GoogleFonts.outfit(
+                                fontSize: 18.sp,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white)),
                       ],
                     ),
                     SizedBox(height: 4.h),
                     Text('School activities & schedule',
-                        style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8))),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF94A3B8))),
                   ],
                 ),
                 Row(
@@ -1081,10 +1107,13 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     Container(
                       width: 7.w,
                       height: 7.w,
-                      decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
+                      decoration: const BoxDecoration(
+                          color: Color(0xFF22C55E), shape: BoxShape.circle),
                     ),
                     SizedBox(width: 4.w),
-                    Text('LIVE', style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: const Color(0xFF22C55E))),
+                    Text('LIVE',
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF22C55E))),
                   ],
                 ),
               ],
@@ -1101,8 +1130,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 20.h),
                       child: SizedBox(
-                        width: 22.w, height: 22.w,
-                        child: const CircularProgressIndicator(strokeWidth: 2.5, color: Color(0xFF0EA5E9)),
+                        width: 22.w,
+                        height: 22.w,
+                        child: const CircularProgressIndicator(
+                            strokeWidth: 2.5, color: Color(0xFF0EA5E9)),
                       ),
                     ),
                   )
@@ -1114,12 +1145,16 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                         children: [
                           Container(
                             padding: EdgeInsets.all(16.r),
-                            decoration: const BoxDecoration(color: Color(0xFF1E293B), shape: BoxShape.circle),
-                            child: Icon(Icons.calendar_today_rounded, color: const Color(0xFF475569), size: 32.sp),
+                            decoration: const BoxDecoration(
+                                color: Color(0xFF1E293B),
+                                shape: BoxShape.circle),
+                            child: Icon(Icons.calendar_today_rounded,
+                                color: const Color(0xFF475569), size: 32.sp),
                           ),
                           SizedBox(height: 16.h),
                           Text('No upcoming events scheduled',
-                              style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w500, color: const Color(0xFF94A3B8))),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF94A3B8))),
                         ],
                       ),
                     ),
@@ -1128,11 +1163,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                   ...(_upcomingEvents.map((event) {
                     final title = event['title']?.toString() ?? 'Event';
                     final description = event['description']?.toString() ?? '';
-                    final type = (event['type']?.toString() ?? 'EVENT').toUpperCase();
+                    final type =
+                        (event['type']?.toString() ?? 'EVENT').toUpperCase();
                     final rawDate = event['date']?.toString() ?? '';
 
                     DateTime? parsedDate;
-                    try { parsedDate = DateTime.parse(rawDate).toLocal(); } catch (_) {}
+                    try {
+                      parsedDate = DateTime.parse(rawDate).toLocal();
+                    } catch (_) {}
                     final displayDate = parsedDate != null
                         ? DateFormat('dd MMM').format(parsedDate)
                         : rawDate.split('T')[0];
@@ -1166,7 +1204,8 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(color: typeColor.withValues(alpha: 0.2)),
+                        border:
+                            Border.all(color: typeColor.withValues(alpha: 0.2)),
                       ),
                       child: Row(
                         children: [
@@ -1182,8 +1221,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                                 Icon(typeIcon, size: 14.sp, color: typeColor),
                                 SizedBox(height: 2.h),
                                 Text(
-                                  parsedDate != null ? '${parsedDate.day}' : '--',
-                                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w900, color: typeColor),
+                                  parsedDate != null
+                                      ? '${parsedDate.day}'
+                                      : '--',
+                                  style: AppTypography.small
+                                      .copyWith(color: typeColor),
                                 ),
                               ],
                             ),
@@ -1194,17 +1236,23 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(title,
-                                    style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: Colors.white),
-                                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    style: AppTypography.caption
+                                        .copyWith(color: Colors.white),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
                                 if (description.isNotEmpty) ...[
                                   SizedBox(height: 2.h),
                                   Text(description,
-                                      style: GoogleFonts.inter(fontSize: 10.5.sp, color: const Color(0xFF94A3B8)),
-                                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF94A3B8)),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis),
                                 ],
                                 SizedBox(height: 3.h),
                                 Text('$dayName, $displayDate',
-                                    style: GoogleFonts.inter(fontSize: 10.sp, color: typeColor.withValues(alpha: 0.8), fontWeight: FontWeight.w600)),
+                                    style: AppTypography.caption.copyWith(
+                                        color:
+                                            typeColor.withValues(alpha: 0.8))),
                               ],
                             ),
                           ),
@@ -1212,7 +1260,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                       ),
                     );
                   }).toList()),
-
                 SizedBox(height: 12.h),
                 GestureDetector(
                   onTap: () {
@@ -1220,7 +1267,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                     if (isDesktop) {
                       MainScreen.navigateTo(context, 1);
                     } else {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AcademicCalendarScreen()));
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const AcademicCalendarScreen()));
                     }
                   },
                   child: Container(
@@ -1234,9 +1284,11 @@ class _TeacherDashboardState extends State<TeacherDashboard> with WidgetsBinding
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text('View Full Schedule',
-                            style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF38BDF8))),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF38BDF8))),
                         SizedBox(width: 4.w),
-                        Icon(Icons.chevron_right, size: 16.sp, color: const Color(0xFF38BDF8)),
+                        Icon(Icons.chevron_right,
+                            size: 16.sp, color: const Color(0xFF38BDF8)),
                       ],
                     ),
                   ),

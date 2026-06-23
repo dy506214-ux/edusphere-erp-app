@@ -8,8 +8,7 @@ import '../../widgets/teacher_app_bar.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/api_service.dart';
-
-
+import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Teacher Attendance Screen — matches the EduSphere attendance design
@@ -50,8 +49,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Future<void> _loadApiClasses() async {
     if (!mounted) return;
     try {
-      final classesRes = await _supabase.from('Class').select('id, name').order('name');
-      final sectionsRes = await _supabase.from('Section').select('id, name, classId').order('name');
+      final classesRes =
+          await _supabase.from('Class').select('id, name').order('name');
+      final sectionsRes = await _supabase
+          .from('Section')
+          .select('id, name, classId')
+          .order('name');
 
       if (mounted) {
         setState(() {
@@ -61,7 +64,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
             if (name.isNotEmpty && !_classes.contains(name)) {
-              if (name == 'Class 8' || name == 'Class 9' || name == 'Class 10') {
+              if (name == 'Class 8' ||
+                  name == 'Class 9' ||
+                  name == 'Class 10') {
                 _classes.add(name);
               }
             }
@@ -92,7 +97,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     _sections.add('All Sections');
     if (cls.isNotEmpty) {
       final classId = cls['id']?.toString();
-      final secList = _allSections.where((s) => s['classId']?.toString() == classId).toList();
+      final secList = _allSections
+          .where((s) => s['classId']?.toString() == classId)
+          .toList();
       for (var s in secList) {
         final sName = s['name']?.toString() ?? '';
         if (sName.isNotEmpty) {
@@ -112,7 +119,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // ── Analytics filters ──
   String _analyticsClass = 'All Classes';
   String _analyticsSection = 'All Sections';
-  DateTime _analyticsFromDate = DateTime.now().subtract(const Duration(days: 30));
+  DateTime _analyticsFromDate =
+      DateTime.now().subtract(const Duration(days: 30));
   DateTime _analyticsToDate = DateTime.now();
   bool _analyticsLoaded = false;
   List<Map<String, dynamic>> _analyticsStudentData = [];
@@ -131,18 +139,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   void _connectRealtime() {
     try {
-      _realtimeChannel = _supabase.channel('public:teacher_attendance_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'AttendanceRecord',
-          callback: (payload) {
-            if (mounted) {
-              _loadExistingSlotsForDate();
-              _loadAnalytics();
-            }
-          },
-        );
+      _realtimeChannel =
+          _supabase.channel('public:teacher_attendance_sync').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'AttendanceRecord',
+                callback: (payload) {
+                  if (mounted) {
+                    _loadExistingSlotsForDate();
+                    _loadAnalytics();
+                  }
+                },
+              );
       _realtimeChannel!.subscribe();
     } catch (e) {
       dev.log('Error subscribing to teacher attendance realtime: $e');
@@ -175,12 +183,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
       // 1. Fetch classes, sections, and students
       final classesRes = await _supabase.from('Class').select('id, name');
-      final sectionsRes = await _supabase.from('Section').select('id, name, classId');
+      final sectionsRes =
+          await _supabase.from('Section').select('id, name, classId');
 
       // 2. Fetch all attendance records for the selected date
       final attendanceRecords = await _supabase
           .from('AttendanceRecord')
-          .select('studentId, status, Student(id, currentClassId, sectionId, admissionNumber, User(firstName, lastName, email))')
+          .select(
+              'studentId, status, Student(id, currentClassId, sectionId, admissionNumber, User(firstName, lastName, email))')
           .eq('date', dateStr);
 
       // Group attendance records by classId and sectionId
@@ -200,21 +210,25 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final classId = parts[0];
         final sectionId = parts[1];
 
-        final cls = classesRes.firstWhere((c) => c['id']?.toString() == classId, orElse: () => {});
+        final cls = classesRes.firstWhere((c) => c['id']?.toString() == classId,
+            orElse: () => {});
         final sec = sectionId != 'null'
-            ? sectionsRes.firstWhere((s) => s['id']?.toString() == sectionId, orElse: () => {})
+            ? sectionsRes.firstWhere((s) => s['id']?.toString() == sectionId,
+                orElse: () => {})
             : {};
 
         final dbClassName = cls['name']?.toString() ?? 'Class';
         final displayClassName = _mapClassName(dbClassName);
-        final sectionName = sec.isNotEmpty ? 'Section ${sec['name']}' : 'All Sections';
+        final sectionName =
+            sec.isNotEmpty ? 'Section ${sec['name']}' : 'All Sections';
 
         final records = groupedRecords[key]!;
 
         // Fetch students for this class and section
         var studentQuery = _supabase
             .from('Student')
-            .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+            .select(
+                'id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
             .eq('currentClassId', classId);
 
         if (sectionId != 'null') {
@@ -226,7 +240,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final List<Map<String, dynamic>> studentList = [];
         for (var s in studentRes) {
           final user = s['User'] as Map? ?? {};
-          final name = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+          final name =
+              '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
           studentList.add({
             'id': s['id']?.toString() ?? '',
             'name': name.isNotEmpty ? name : 'Unknown',
@@ -272,8 +287,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   String get _dateStr => DateFormat('dd-MM-yyyy').format(_selectedDate);
 
-
-
   Future<void> _loadAnalytics() async {
     setState(() {
       _isAnalyticsLoading = true;
@@ -282,7 +295,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     try {
       var query = _supabase
           .from('AttendanceRecord')
-          .select('id, studentId, date, status, Student(currentClassId, Class(name), User(firstName, lastName))')
+          .select(
+              'id, studentId, date, status, Student(currentClassId, Class(name), User(firstName, lastName))')
           .eq('attendeeType', 'STUDENT')
           .gte('date', DateFormat('yyyy-MM-dd').format(_analyticsFromDate))
           .lte('date', DateFormat('yyyy-MM-dd').format(_analyticsToDate))
@@ -304,7 +318,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final mappedClassName = _mapClassName(className);
 
         // Class filter
-        if (_analyticsClass != 'All Classes' && mappedClassName != _analyticsClass) continue;
+        if (_analyticsClass != 'All Classes' &&
+            mappedClassName != _analyticsClass) continue;
 
         final userMap = student['User'] as Map? ?? {};
         final firstName = userMap['firstName']?.toString() ?? '';
@@ -313,13 +328,22 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final studentId = record['studentId']?.toString() ?? '';
 
         final status = record['status']?.toString() ?? 'PRESENT';
-        final isPresent = status == 'PRESENT' || status == 'P' || status == 'Present';
-        final isAbsent = status == 'ABSENT' || status == 'A' || status == 'Absent';
+        final isPresent =
+            status == 'PRESENT' || status == 'P' || status == 'Present';
+        final isAbsent =
+            status == 'ABSENT' || status == 'A' || status == 'Absent';
         final isLate = status == 'LATE' || status == 'L' || status == 'Late';
 
         // Date grouping
         if (!grouped.containsKey(date)) {
-          grouped[date] = {'date': date, 'className': mappedClassName, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
+          grouped[date] = {
+            'date': date,
+            'className': mappedClassName,
+            'P': 0,
+            'A': 0,
+            'L': 0,
+            'total': 0
+          };
         }
         if (isPresent) grouped[date]!['P'] = (grouped[date]!['P'] as int) + 1;
         if (isAbsent) grouped[date]!['A'] = (grouped[date]!['A'] as int) + 1;
@@ -328,11 +352,25 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
         // Student grouping
         if (studentId.isNotEmpty) {
-          studentMap[studentId] ??= {'name': studentName, 'class': mappedClassName, 'P': 0, 'A': 0, 'L': 0, 'total': 0};
-          if (isPresent) studentMap[studentId]!['P'] = (studentMap[studentId]!['P'] as int) + 1;
-          if (isAbsent) studentMap[studentId]!['A'] = (studentMap[studentId]!['A'] as int) + 1;
-          if (isLate) studentMap[studentId]!['L'] = (studentMap[studentId]!['L'] as int) + 1;
-          studentMap[studentId]!['total'] = (studentMap[studentId]!['total'] as int) + 1;
+          studentMap[studentId] ??= {
+            'name': studentName,
+            'class': mappedClassName,
+            'P': 0,
+            'A': 0,
+            'L': 0,
+            'total': 0
+          };
+          if (isPresent)
+            studentMap[studentId]!['P'] =
+                (studentMap[studentId]!['P'] as int) + 1;
+          if (isAbsent)
+            studentMap[studentId]!['A'] =
+                (studentMap[studentId]!['A'] as int) + 1;
+          if (isLate)
+            studentMap[studentId]!['L'] =
+                (studentMap[studentId]!['L'] as int) + 1;
+          studentMap[studentId]!['total'] =
+              (studentMap[studentId]!['total'] as int) + 1;
         }
       }
 
@@ -367,8 +405,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     }
   }
 
-
-
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -378,13 +414,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.teacherPrimary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textDark,
-            ),
-          ),
+              colorScheme: const ColorScheme.light(
+            primary: AppColors.teacherPrimary,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: AppColors.textDark,
+          )),
           child: child!,
         );
       },
@@ -405,10 +440,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(title: 'EduSphere')
-          : null,
-      bottomNavigationBar: widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 3) : null,
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
+      bottomNavigationBar:
+          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 3) : null,
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -418,11 +453,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             children: [
               Text(
                 'Mark daily attendance and view date-wise analytics',
-                style: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF475569),
-                ),
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF475569)),
               ),
               SizedBox(height: 16.h),
 
@@ -503,16 +535,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             Icon(
               icon,
               size: 16.sp,
-              color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
+              color: isSelected
+                  ? const Color(0xFF0F172A)
+                  : const Color(0xFF64748B),
             ),
             SizedBox(width: 6.w),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                color: isSelected ? const Color(0xFF0F172A) : const Color(0xFF64748B),
-              ),
+              style: AppTypography.caption.copyWith(
+                  color: isSelected
+                      ? const Color(0xFF0F172A)
+                      : const Color(0xFF64748B)),
             ),
           ],
         ),
@@ -567,10 +600,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           SizedBox(height: 4.h),
           Text(
             'Choose user type, class, and date',
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              color: const Color(0xFF94A3B8),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF94A3B8)),
           ),
           SizedBox(height: 20.h),
 
@@ -640,11 +671,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   Expanded(
                     child: Text(
                       _dateStr,
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                   ),
                   Icon(Icons.calendar_today_outlined,
@@ -661,11 +689,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   Widget _buildFieldLabel(String text) {
     return Text(
       text,
-      style: GoogleFonts.inter(
-        fontSize: 12.sp,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFF374151),
-      ),
+      style: AppTypography.caption.copyWith(color: const Color(0xFF374151)),
     );
   }
 
@@ -694,18 +718,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                 hint: hint != null
                     ? Text(
                         hint,
-                        style: GoogleFonts.inter(
-                            fontSize: 14.sp, color: const Color(0xFF94A3B8)),
+                        style: AppTypography.small
+                            .copyWith(color: const Color(0xFF94A3B8)),
                       )
                     : null,
                 isExpanded: true,
                 icon: Icon(Icons.keyboard_arrow_down_rounded,
                     color: const Color(0xFF64748B), size: 22.sp),
-                style: GoogleFonts.inter(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF0F172A),
-                ),
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F172A)),
                 items: items
                     .map((c) => DropdownMenuItem(
                           value: c,
@@ -720,8 +741,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       ),
     );
   }
-
-
 
   Widget _buildAttendanceSlotsCard() {
     return Container(
@@ -744,7 +763,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           // Header
           Row(
             children: [
-              Icon(Icons.access_time_rounded, size: 20.sp, color: const Color(0xFF0F172A)),
+              Icon(Icons.access_time_rounded,
+                  size: 20.sp, color: const Color(0xFF0F172A)),
               SizedBox(width: 8.w),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -760,10 +780,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   SizedBox(height: 2.h),
                   Text(
                     "Today's attendance slots",
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      color: const Color(0xFF94A3B8),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF94A3B8)),
                   ),
                 ],
               ),
@@ -779,14 +797,11 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
               label: Text(
                 'Create Slot',
-                style: GoogleFonts.inter(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 14.sp,
-                ),
+                style: AppTypography.small.copyWith(color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0052CC), // Blue color matching mockup
+                backgroundColor:
+                    const Color(0xFF0052CC), // Blue color matching mockup
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(24.r), // Pill shape
                 ),
@@ -826,11 +841,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   Text(
                     'Click "Create Slot" to create an attendance slot and start marking',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 12.sp,
-                      color: const Color(0xFF64748B),
-                      height: 1.5,
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B), height: 1.5),
                   ),
                   SizedBox(height: 20.h),
                 ],
@@ -850,9 +862,11 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
                 final rawClass = slot['class'] as String;
                 final displayClass = rawClass.replaceAll('Class', 'Grade');
-                final String displayTitle = (slot['section'] == 'All Sections' || (slot['section'] as String).isEmpty)
-                    ? displayClass
-                    : '$displayClass - ${slot['section']}';
+                final String displayTitle =
+                    (slot['section'] == 'All Sections' ||
+                            (slot['section'] as String).isEmpty)
+                        ? displayClass
+                        : '$displayClass - ${slot['section']}';
 
                 return GestureDetector(
                   onTap: () async {
@@ -863,8 +877,10 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                           className: slot['class'] as String,
                           section: slot['section'] as String,
                           date: slot['date'] as DateTime,
-                          students: List<Map<String, dynamic>>.from(slot['students'] as Iterable),
-                          initialAttendanceStatus: Map<String, String>.from(slot['attendanceStatus'] as Map),
+                          students: List<Map<String, dynamic>>.from(
+                              slot['students'] as Iterable),
+                          initialAttendanceStatus: Map<String, String>.from(
+                              slot['attendanceStatus'] as Map),
                           isAlreadySubmitted: isSub,
                           supabase: _supabase,
                         ),
@@ -904,12 +920,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         Container(
                           padding: EdgeInsets.all(10.r),
                           decoration: BoxDecoration(
-                            color: isSub ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            color: isSub
+                                ? const Color(0xFFDCFCE7)
+                                : const Color(0xFFFEF3C7),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            isSub ? Icons.check_rounded : Icons.access_time_rounded,
-                            color: isSub ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            isSub
+                                ? Icons.check_rounded
+                                : Icons.access_time_rounded,
+                            color: isSub
+                                ? const Color(0xFF10B981)
+                                : const Color(0xFFF59E0B),
                             size: 20.sp,
                           ),
                         ),
@@ -920,36 +942,35 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                             children: [
                               Text(
                                 displayTitle,
-                                style: GoogleFonts.inter(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0F172A),
-                                ),
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFF0F172A)),
                               ),
                               SizedBox(height: 4.h),
                               Text(
-                                isSub ? '$totalRecs records marked' : '$totalRecs records',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
-                                  color: const Color(0xFF64748B),
-                                ),
+                                isSub
+                                    ? '$totalRecs records marked'
+                                    : '$totalRecs records',
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF64748B)),
                               ),
                             ],
                           ),
                         ),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
-                            color: isSub ? const Color(0xFFDCFCE7) : const Color(0xFFFEF3C7),
+                            color: isSub
+                                ? const Color(0xFFDCFCE7)
+                                : const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(12.r),
                           ),
                           child: Text(
                             isSub ? 'Done' : 'Open',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: isSub ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: isSub
+                                    ? const Color(0xFF15803D)
+                                    : const Color(0xFFB45309)),
                           ),
                         ),
                       ],
@@ -965,11 +986,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                 child: Text(
                   'Select a class above to create a new slot or\nview/update existing attendance',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 11.sp,
-                    color: const Color(0xFF94A3B8),
-                    height: 1.5,
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF94A3B8), height: 1.5),
                 ),
               ),
             ),
@@ -987,7 +1005,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           margin: EdgeInsets.all(16.r),
         ),
       );
@@ -1007,7 +1026,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
           backgroundColor: AppColors.warning,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -1034,7 +1054,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         final secName = _selectedSection.replaceAll('Section ', '').trim();
         // Look up section from our Supabase-sourced sections list
         final sec = _allSections.firstWhere(
-          (s) => s['classId']?.toString() == classId && s['name']?.toString() == secName,
+          (s) =>
+              s['classId']?.toString() == classId &&
+              s['name']?.toString() == secName,
           orElse: () => {},
         );
         if (sec.isNotEmpty) {
@@ -1045,7 +1067,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       // 1. Fetch students for the class/section via Supabase
       var studentQuery = _supabase
           .from('Student')
-          .select('id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
+          .select(
+              'id, admissionNumber, currentClassId, sectionId, User(firstName, lastName, email)')
           .eq('currentClassId', classId);
 
       if (sectionId != null) {
@@ -1078,7 +1101,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
         studentList.add({
           'id': sId,
-          'name': fullName.isNotEmpty ? fullName : (email.isNotEmpty ? email.split('@')[0] : 'Unknown'),
+          'name': fullName.isNotEmpty
+              ? fullName
+              : (email.isNotEmpty ? email.split('@')[0] : 'Unknown'),
           'email': email,
           'class_name': _selectedClass!,
           'admission_no': admission,
@@ -1122,14 +1147,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Text('Attendance slot created', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                Text('Attendance slot created',
+                    style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
               ],
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -1141,10 +1169,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to create slot: $e', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            content: Text('Failed to create slot: $e',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
             backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -1156,12 +1186,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   Widget _buildAnalyticsContent() {
     const Color primary = Color(0xFF0D7DDC);
-    const Color green  = Color(0xFF10B981);
-    const Color red    = Color(0xFFEF4444);
-    const Color amber  = Color(0xFFF59E0B);
+    const Color green = Color(0xFF10B981);
+    const Color red = Color(0xFFEF4444);
+    const Color amber = Color(0xFFF59E0B);
 
     final allClasses = ['All Classes', ..._classes];
-    final allSections = ['All Sections', ..._sections.where((s) => s != 'All Sections')];
+    final allSections = [
+      'All Sections',
+      ..._sections.where((s) => s != 'All Sections')
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1193,7 +1226,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       color: primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
-                    child: Icon(Icons.bar_chart_rounded, size: 18.sp, color: primary),
+                    child: Icon(Icons.bar_chart_rounded,
+                        size: 18.sp, color: primary),
                   ),
                   SizedBox(width: 10.w),
                   Column(
@@ -1209,10 +1243,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       ),
                       Text(
                         'Date-wise breakdown, trends, and student matrix',
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          color: const Color(0xFF94A3B8),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF94A3B8)),
                       ),
                     ],
                   ),
@@ -1227,12 +1259,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Class', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF374151))),
+                        Text('Class',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF374151))),
                         SizedBox(height: 6.h),
                         _buildAnalyticsDropdown(
                           value: _analyticsClass,
                           items: allClasses,
-                          onChanged: (v) => setState(() => _analyticsClass = v ?? 'All Classes'),
+                          onChanged: (v) => setState(
+                              () => _analyticsClass = v ?? 'All Classes'),
                         ),
                       ],
                     ),
@@ -1242,12 +1277,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Section', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF374151))),
+                        Text('Section',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF374151))),
                         SizedBox(height: 6.h),
                         _buildAnalyticsDropdown(
                           value: _analyticsSection,
                           items: allSections,
-                          onChanged: (v) => setState(() => _analyticsSection = v ?? 'All Sections'),
+                          onChanged: (v) => setState(
+                              () => _analyticsSection = v ?? 'All Sections'),
                         ),
                       ],
                     ),
@@ -1263,7 +1301,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('From Date', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF374151))),
+                        Text('From Date',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF374151))),
                         SizedBox(height: 6.h),
                         _buildAnalyticsDateField(
                           date: _analyticsFromDate,
@@ -1275,17 +1315,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                               lastDate: DateTime(2027),
                               builder: (ctx, child) => Theme(
                                 data: Theme.of(ctx).copyWith(
-                                  colorScheme: const ColorScheme.light(
-                                    primary: AppColors.teacherPrimary,
-                                    onPrimary: Colors.white,
-                                    surface: Colors.white,
-                                    onSurface: Color(0xFF0F172A),
-                                  ),
-                                ),
+                                    colorScheme: const ColorScheme.light(
+                                  primary: AppColors.teacherPrimary,
+                                  onPrimary: Colors.white,
+                                  surface: Colors.white,
+                                  onSurface: Color(0xFF0F172A),
+                                )),
                                 child: child!,
                               ),
                             );
-                            if (picked != null) setState(() => _analyticsFromDate = picked);
+                            if (picked != null)
+                              setState(() => _analyticsFromDate = picked);
                           },
                         ),
                       ],
@@ -1296,7 +1336,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('To Date', style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w600, color: const Color(0xFF374151))),
+                        Text('To Date',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF374151))),
                         SizedBox(height: 6.h),
                         _buildAnalyticsDateField(
                           date: _analyticsToDate,
@@ -1308,17 +1350,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                               lastDate: DateTime(2027),
                               builder: (ctx, child) => Theme(
                                 data: Theme.of(ctx).copyWith(
-                                  colorScheme: const ColorScheme.light(
-                                    primary: AppColors.teacherPrimary,
-                                    onPrimary: Colors.white,
-                                    surface: Colors.white,
-                                    onSurface: Color(0xFF0F172A),
-                                  ),
-                                ),
+                                    colorScheme: const ColorScheme.light(
+                                  primary: AppColors.teacherPrimary,
+                                  onPrimary: Colors.white,
+                                  surface: Colors.white,
+                                  onSurface: Color(0xFF0F172A),
+                                )),
                                 child: child!,
                               ),
                             );
-                            if (picked != null) setState(() => _analyticsToDate = picked);
+                            if (picked != null)
+                              setState(() => _analyticsToDate = picked);
                           },
                         ),
                       ],
@@ -1340,14 +1382,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : Icon(Icons.trending_up_rounded, size: 16.sp, color: Colors.white),
+                            : Icon(Icons.trending_up_rounded,
+                                size: 16.sp, color: Colors.white),
                         label: Text(
                           'Load Analytics',
-                          style: GoogleFonts.inter(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primary,
@@ -1413,10 +1453,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   SizedBox(height: 6.h),
                   Text(
                     'Select filters above and click "Load Analytics"',
-                    style: GoogleFonts.inter(
-                      fontSize: 11.sp,
-                      color: const Color(0xFF94A3B8),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF94A3B8)),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -1436,7 +1474,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.inbox_outlined, size: 48.sp, color: const Color(0xFFCBD5E1)),
+                  Icon(Icons.inbox_outlined,
+                      size: 48.sp, color: const Color(0xFFCBD5E1)),
                   SizedBox(height: 12.h),
                   Text(
                     'No records found',
@@ -1449,7 +1488,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   SizedBox(height: 6.h),
                   Text(
                     'Try adjusting your filters or date range',
-                    style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF94A3B8)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF94A3B8)),
                   ),
                 ],
               ),
@@ -1475,7 +1515,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               SizedBox(height: 10.h),
 
               // — Date cards
-              ..._analyticsData.map((r) => _buildNewAnalyticsCard(r, green, red, amber, primary)),
+              ..._analyticsData.map(
+                  (r) => _buildNewAnalyticsCard(r, green, red, amber, primary)),
 
               // — Student matrix (if any)
               if (_analyticsStudentData.isNotEmpty) ...[
@@ -1515,17 +1556,21 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         child: DropdownButton<String>(
           value: items.contains(value) ? value : items.first,
           isExpanded: true,
-          icon: Icon(Icons.keyboard_arrow_down_rounded, size: 18.sp, color: const Color(0xFF94A3B8)),
-          style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w600, color: const Color(0xFF0F172A)),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              size: 18.sp, color: const Color(0xFF94A3B8)),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
           onChanged: onChanged,
-          items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+          items: items
+              .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+              .toList(),
         ),
       ),
     );
   }
 
   // ── Date field for analytics
-  Widget _buildAnalyticsDateField({required DateTime date, required VoidCallback onTap}) {
+  Widget _buildAnalyticsDateField(
+      {required DateTime date, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -1541,14 +1586,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             Expanded(
               child: Text(
                 DateFormat('dd-MM-yyyy').format(date),
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0F172A),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF0F172A)),
               ),
             ),
-            Icon(Icons.calendar_today_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
+            Icon(Icons.calendar_today_rounded,
+                size: 14.sp, color: const Color(0xFF94A3B8)),
           ],
         ),
       ),
@@ -1565,18 +1608,26 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       totalAll += (r['total'] as int? ?? 0);
     }
     final pct = totalAll > 0 ? (totalP / totalAll * 100).round() : 0;
-    final pctColor = pct >= 90 ? green : pct >= 75 ? amber : red;
+    final pctColor = pct >= 90
+        ? green
+        : pct >= 75
+            ? amber
+            : red;
 
     return Container(
       padding: EdgeInsets.all(16.r),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF0D7DDC).withValues(alpha: 0.08), const Color(0xFF0D7DDC).withValues(alpha: 0.02)],
+          colors: [
+            const Color(0xFF0D7DDC).withValues(alpha: 0.08),
+            const Color(0xFF0D7DDC).withValues(alpha: 0.02)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFF0D7DDC).withValues(alpha: 0.2)),
+        border:
+            Border.all(color: const Color(0xFF0D7DDC).withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
@@ -1596,7 +1647,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   ),
                   Text(
                     '${_analyticsData.length} days • $totalAll total records',
-                    style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF94A3B8)),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF94A3B8)),
                   ),
                 ],
               ),
@@ -1654,11 +1706,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             ),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w600,
-                color: color.withValues(alpha: 0.8),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: color.withValues(alpha: 0.8)),
             ),
           ],
         ),
@@ -1674,14 +1723,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     Color amber,
     Color primary,
   ) {
-    final dateStr   = record['date']?.toString() ?? '';
+    final dateStr = record['date']?.toString() ?? '';
     final className = record['className']?.toString() ?? '';
-    final present   = record['P'] as int? ?? 0;
-    final absent    = record['A'] as int? ?? 0;
-    final late      = record['L'] as int? ?? 0;
-    final total     = record['total'] as int? ?? 0;
-    final pct       = total > 0 ? (present / total * 100).round() : 0;
-    final pctColor  = pct >= 90 ? green : pct >= 75 ? amber : red;
+    final present = record['P'] as int? ?? 0;
+    final absent = record['A'] as int? ?? 0;
+    final late = record['L'] as int? ?? 0;
+    final total = record['total'] as int? ?? 0;
+    final pct = total > 0 ? (present / total * 100).round() : 0;
+    final pctColor = pct >= 90
+        ? green
+        : pct >= 75
+            ? amber
+            : red;
 
     String fmtDate = dateStr;
     try {
@@ -1718,7 +1771,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                       color: primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8.r),
                     ),
-                    child: Icon(Icons.calendar_today_rounded, size: 14.sp, color: primary),
+                    child: Icon(Icons.calendar_today_rounded,
+                        size: 14.sp, color: primary),
                   ),
                   SizedBox(width: 10.w),
                   Column(
@@ -1726,19 +1780,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                     children: [
                       Text(
                         fmtDate,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F172A)),
                       ),
                       if (className.isNotEmpty)
                         Text(
                           className,
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            color: const Color(0xFF94A3B8),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF94A3B8)),
                         ),
                     ],
                   ),
@@ -1753,11 +1802,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                 ),
                 child: Text(
                   '$pct%',
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w800,
-                    color: pctColor,
-                  ),
+                  style: AppTypography.caption.copyWith(color: pctColor),
                 ),
               ),
             ],
@@ -1836,11 +1881,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             ),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 9.sp,
-                fontWeight: FontWeight.w600,
-                color: color.withValues(alpha: 0.75),
-              ),
+              style: AppTypography.caption
+                  .copyWith(color: color.withValues(alpha: 0.75)),
             ),
           ],
         ),
@@ -1873,46 +1915,70 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               children: [
                 Expanded(
                   flex: 3,
-                  child: Text('Student', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF475569))),
+                  child: Text('Student',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF475569))),
                 ),
                 SizedBox(
                   width: 44.w,
-                  child: Center(child: Text('P', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: green))),
+                  child: Center(
+                      child: Text('P',
+                          style: AppTypography.caption.copyWith(color: green))),
                 ),
                 SizedBox(
                   width: 44.w,
-                  child: Center(child: Text('A', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: red))),
+                  child: Center(
+                      child: Text('A',
+                          style: AppTypography.caption.copyWith(color: red))),
                 ),
                 SizedBox(
                   width: 44.w,
-                  child: Center(child: Text('L', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: amber))),
+                  child: Center(
+                      child: Text('L',
+                          style: AppTypography.caption.copyWith(color: amber))),
                 ),
                 SizedBox(
                   width: 44.w,
-                  child: Center(child: Text('%', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF6366F1)))),
+                  child: Center(
+                      child: Text('%',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF6366F1)))),
                 ),
               ],
             ),
           ),
 
           // Rows — limit to 20 for perf
-          ...(_analyticsStudentData.take(20).toList().asMap().entries.map((entry) {
-            final i   = entry.key;
-            final s   = entry.value;
-            final p   = s['P'] as int? ?? 0;
-            final a   = s['A'] as int? ?? 0;
-            final l   = s['L'] as int? ?? 0;
+          ...(_analyticsStudentData
+              .take(20)
+              .toList()
+              .asMap()
+              .entries
+              .map((entry) {
+            final i = entry.key;
+            final s = entry.value;
+            final p = s['P'] as int? ?? 0;
+            final a = s['A'] as int? ?? 0;
+            final l = s['L'] as int? ?? 0;
             final tot = s['total'] as int? ?? 0;
             final pct = tot > 0 ? (p / tot * 100).round() : 0;
-            final pctColor = pct >= 90 ? green : pct >= 75 ? amber : red;
-            final name = (s['name'] as String? ?? '').isNotEmpty ? s['name'] as String : 'Student';
+            final pctColor = pct >= 90
+                ? green
+                : pct >= 75
+                    ? amber
+                    : red;
+            final name = (s['name'] as String? ?? '').isNotEmpty
+                ? s['name'] as String
+                : 'Student';
 
             return Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
               decoration: BoxDecoration(
                 color: i.isEven ? Colors.white : const Color(0xFFFAFAFC),
                 border: Border(
-                  bottom: BorderSide(color: const Color(0xFFF1F5F9), width: i < _analyticsStudentData.length - 1 ? 1 : 0),
+                  bottom: BorderSide(
+                      color: const Color(0xFFF1F5F9),
+                      width: i < _analyticsStudentData.length - 1 ? 1 : 0),
                 ),
               ),
               child: Row(
@@ -1926,22 +1992,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                           backgroundColor: const Color(0xFFE0E7FF),
                           child: Text(
                             name.isNotEmpty ? name[0].toUpperCase() : 'S',
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF6366F1),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF6366F1)),
                           ),
                         ),
                         SizedBox(width: 8.w),
                         Expanded(
                           child: Text(
                             name,
-                            style: GoogleFonts.inter(
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF0F172A),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F172A)),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
@@ -1951,37 +2011,38 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   SizedBox(
                     width: 44.w,
                     child: Center(
-                      child: Text('$p', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: green)),
+                      child: Text('$p',
+                          style: AppTypography.caption.copyWith(color: green)),
                     ),
                   ),
                   SizedBox(
                     width: 44.w,
                     child: Center(
-                      child: Text('$a', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: red)),
+                      child: Text('$a',
+                          style: AppTypography.caption.copyWith(color: red)),
                     ),
                   ),
                   SizedBox(
                     width: 44.w,
                     child: Center(
-                      child: Text('$l', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: amber)),
+                      child: Text('$l',
+                          style: AppTypography.caption.copyWith(color: amber)),
                     ),
                   ),
                   SizedBox(
                     width: 44.w,
                     child: Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 6.w, vertical: 2.h),
                         decoration: BoxDecoration(
                           color: pctColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6.r),
                         ),
                         child: Text(
                           '$pct%',
-                          style: GoogleFonts.inter(
-                            fontSize: 10.sp,
-                            fontWeight: FontWeight.w700,
-                            color: pctColor,
-                          ),
+                          style:
+                              AppTypography.caption.copyWith(color: pctColor),
                         ),
                       ),
                     ),
@@ -1997,7 +2058,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               padding: EdgeInsets.all(12.r),
               child: Text(
                 'Showing top 20 students by attendance rate',
-                style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF94A3B8)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF94A3B8)),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -2082,28 +2144,34 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       final confirm = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text(
             'Unmarked Students',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18),
+            style:
+                GoogleFonts.outfit(fontWeight: FontWeight.w800, fontSize: 18),
           ),
           content: Text(
             '${unmarkedStudents.length} student(s) are not marked.\n\nDo you want to mark them as Absent and submit?',
-            style: GoogleFonts.inter(fontSize: 13, color: const Color(0xFF475569)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF475569)),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text('Cancel', style: GoogleFonts.inter(color: const Color(0xFF64748B))),
+              child: Text('Cancel',
+                  style: GoogleFonts.inter(color: const Color(0xFF64748B))),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0D7DDC),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text('Mark Absent & Submit',
-                  style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w700)),
+                  style: GoogleFonts.inter(
+                      color: Colors.white, fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -2146,9 +2214,12 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         'attendanceData': attendanceData,
       };
 
-      final response = await ApiService.instance.post('attendance/bulk', body: payload);
+      final response =
+          await ApiService.instance.post('attendance/bulk', body: payload);
       if (response == null || response['success'] != true) {
-        throw response != null ? (response['message'] ?? 'API response error') : 'No response from API';
+        throw response != null
+            ? (response['message'] ?? 'API response error')
+            : 'No response from API';
       }
 
       if (mounted) {
@@ -2161,7 +2232,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                const Icon(Icons.check_circle_rounded,
+                    color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Text('Attendance submitted successfully!',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
@@ -2169,7 +2241,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
             ),
             backgroundColor: const Color(0xFF10B981),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
 
@@ -2190,7 +2263,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.wifi_off_rounded, color: Colors.white, size: 20),
+                const Icon(Icons.wifi_off_rounded,
+                    color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2203,7 +2277,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
             ),
             backgroundColor: const Color(0xFFF59E0B),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             duration: const Duration(seconds: 4),
           ),
         );
@@ -2219,15 +2294,19 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   Widget build(BuildContext context) {
     // Stats calculation
     final totalCount = _students.length;
-    final presentCount = _attendanceStatus.values.where((status) => status == 'P').length;
-    final absentCount = _attendanceStatus.values.where((status) => status == 'A').length;
+    final presentCount =
+        _attendanceStatus.values.where((status) => status == 'P').length;
+    final absentCount =
+        _attendanceStatus.values.where((status) => status == 'A').length;
 
     final bool canGoBack = Navigator.canPop(context);
 
     return Scaffold(
       key: _scaffoldKey,
       // Only show drawer when NOT pushed on top of another route
-      drawer: canGoBack ? null : const EduSphereDrawer(role: 'teacher', activeLabel: 'Attendance'),
+      drawer: canGoBack
+          ? null
+          : const EduSphereDrawer(role: 'teacher', activeLabel: 'Attendance'),
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: const TeacherAppBar(title: 'Mark Attendance'),
       body: SafeArea(
@@ -2243,7 +2322,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14.r),
-                  border: Border.all(color: const Color(0xFF0052CC), width: 1.5),
+                  border:
+                      Border.all(color: const Color(0xFF0052CC), width: 1.5),
                 ),
                 child: Row(
                   children: [
@@ -2268,15 +2348,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                             children: [
                               Text(
                                 '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section}',
-                                style: GoogleFonts.inter(
-                                  fontSize: 14.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0F172A),
-                                ),
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFF0F172A)),
                               ),
                               SizedBox(width: 8.w),
                               Container(
-                                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w, vertical: 2.h),
                                 decoration: BoxDecoration(
                                   color: _isAlreadySubmitted
                                       ? const Color(0xFFD1FAE5)
@@ -2298,14 +2376,13 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                                       SizedBox(width: 4.w),
                                     ],
                                     Text(
-                                      _isAlreadySubmitted ? 'Submitted' : 'Open',
-                                      style: GoogleFonts.inter(
-                                        fontSize: 10.sp,
-                                        fontWeight: FontWeight.w700,
-                                        color: _isAlreadySubmitted
-                                            ? const Color(0xFF065F46)
-                                            : const Color(0xFF92400E),
-                                      ),
+                                      _isAlreadySubmitted
+                                          ? 'Submitted'
+                                          : 'Open',
+                                      style: AppTypography.caption.copyWith(
+                                          color: _isAlreadySubmitted
+                                              ? const Color(0xFF065F46)
+                                              : const Color(0xFF92400E)),
                                     ),
                                   ],
                                 ),
@@ -2315,10 +2392,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                           SizedBox(height: 4.h),
                           Text(
                             '${_students.length} records',
-                            style: GoogleFonts.inter(
-                              fontSize: 12.sp,
-                              color: const Color(0xFF64748B),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF64748B)),
                           ),
                         ],
                       ),
@@ -2339,8 +2414,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               SizedBox(height: 16.h),
 
               // 2. Stacked vertical statistic cards
-              _buildStatCard('Total students', '$totalCount', const Color(0xFF0F172A)),
-              _buildStatCard('Present', '$presentCount', const Color(0xFF10B981)),
+              _buildStatCard(
+                  'Total students', '$totalCount', const Color(0xFF0F172A)),
+              _buildStatCard(
+                  'Present', '$presentCount', const Color(0xFF10B981)),
               _buildStatCard('Absent', '$absentCount', const Color(0xFFEF4444)),
               SizedBox(height: 20.h),
 
@@ -2361,10 +2438,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                       SizedBox(height: 2.h),
                       Text(
                         '${widget.className.replaceAll('Class', 'Grade')} - ${widget.section} • Mark attendance',
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          color: const Color(0xFF94A3B8),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF94A3B8)),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -2373,9 +2448,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
                   final buttonsRow = Row(
                     children: [
-                      _buildMarkAllButton('Mark All Present', Icons.check_rounded, () => _markAll('P')),
+                      _buildMarkAllButton('Mark All Present',
+                          Icons.check_rounded, () => _markAll('P')),
                       SizedBox(width: 8.w),
-                      _buildMarkAllButton('Mark All Absent', Icons.close_rounded, () => _markAll('A')),
+                      _buildMarkAllButton('Mark All Absent',
+                          Icons.close_rounded, () => _markAll('A')),
                     ],
                   );
 
@@ -2432,14 +2509,12 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                         children: [
                           CircleAvatar(
                             radius: 20.r,
-                            backgroundColor: const Color(0xFFEFF6FF), // Light blue avatar background
+                            backgroundColor: const Color(
+                                0xFFEFF6FF), // Light blue avatar background
                             child: Text(
                               _getInitials(student['name']),
-                              style: GoogleFonts.inter(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF1D4ED8), // Darker blue initials
-                              ),
+                              style: AppTypography.small
+                                  .copyWith(color: const Color(0xFF1D4ED8)),
                             ),
                           ),
                           SizedBox(width: 14.w),
@@ -2449,24 +2524,21 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                               children: [
                                 Text(
                                   student['name'],
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF0F172A),
-                                  ),
+                                  style: AppTypography.small
+                                      .copyWith(color: const Color(0xFF0F172A)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: 4.h),
                                 Text(
-                                  student['admission_no']?.toString().isNotEmpty == true
+                                  student['admission_no']
+                                              ?.toString()
+                                              .isNotEmpty ==
+                                          true
                                       ? student['admission_no']
                                       : 'R${index + 1}',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 11.sp,
-                                    color: const Color(0xFF64748B),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF64748B)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -2543,11 +2615,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF64748B),
-              fontWeight: FontWeight.w600,
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 6.h),
           Text(
@@ -2582,11 +2651,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               SizedBox(width: 6.w),
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF475569),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF475569)),
               ),
             ],
           ),
@@ -2626,11 +2692,8 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               SizedBox(width: 6.w),
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w700,
-                  color: isSelected ? Colors.white : const Color(0xFF475569),
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: isSelected ? Colors.white : const Color(0xFF475569)),
               ),
             ],
           ),
@@ -2665,15 +2728,12 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               ? const SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  child: CircularProgressIndicator(
+                      color: Colors.white, strokeWidth: 2),
                 )
               : Text(
                   'Submit Attendance (${_students.length} entries)',
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                  style: AppTypography.caption.copyWith(color: Colors.white),
                 ),
         ),
       ),

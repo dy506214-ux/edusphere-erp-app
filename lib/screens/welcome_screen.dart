@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/ai_chatbot_overlay.dart';
 import '../services/api_service.dart';
 import 'dart:developer' as dev;
+import 'package:edusphere/theme/typography.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -39,81 +40,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return;
     }
 
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
     try {
-      // 1. Call Node.js Backend Login (bypassed for development using direct Supabase queries)
-      Map<String, dynamic> backendRes;
-      bool supabaseAuthSuccess = false;
-
-      try {
-        final authRes = await Supabase.instance.client.auth.signInWithPassword(
-          email: email,
-          password: pass,
-        );
-        if (authRes.user != null) {
-          supabaseAuthSuccess = true;
-          dev.log('Supabase Auth login succeeded for $email');
-        }
-      } catch (e) {
-        dev.log('⚠️ Supabase login failed/skipped: $e', name: 'WelcomeScreen');
-      }
-
-      final isBypassPassword = pass.trim() == 'edusphere' || pass.trim().startsWith('edusphere');
-
-      if (supabaseAuthSuccess || isBypassPassword) {
-        try {
-          final client = Supabase.instance.client;
-          final userList = await client.from('User').select('*').eq('email', email);
-          if (userList.isEmpty) {
-            setState(() {
-              _error = 'User not found in database';
-              _loading = false;
-            });
-            return;
-          }
-          final userObj = Map<String, dynamic>.from(userList[0]);
-          final userId = userObj['id'];
-          final role = (userObj['role'] as String? ?? '').toLowerCase();
-
-          if (role == 'teacher') {
-            final teacherList = await client.from('Teacher').select('*').eq('userId', userId);
-            if (teacherList.isNotEmpty) {
-              userObj['teacher'] = teacherList[0];
-            }
-          } else if (role == 'student') {
-            final studentList = await client.from('Student').select('*, Class(*), Section(*)').eq('userId', userId);
-            if (studentList.isNotEmpty) {
-              final studentObj = Map<String, dynamic>.from(studentList[0]);
-              studentObj['currentClass'] = studentObj['Class'];
-              studentObj['section'] = studentObj['Section'];
-              userObj['student'] = studentObj;
-            }
-          }
-
-          backendRes = {
-            'success': true,
-            'user': userObj,
-            'token': 'mocked_jwt_token',
-          };
-        } catch (dbErr) {
-          dev.log('Database bypass lookup failed: $dbErr');
-          if (supabaseAuthSuccess) {
-            setState(() {
-              _error = 'Failed to load user profile: $dbErr';
-              _loading = false;
-            });
-            return;
-          }
-          backendRes = await ApiService.instance.login(email, pass);
-        }
-      } else {
-        backendRes = await ApiService.instance.login(email, pass);
-      }
+      // 1. Call Node.js Backend Login to get real JWT token and user profile
+      Map<String, dynamic> backendRes =
+          await ApiService.instance.login(email, pass);
 
       if (backendRes['success'] != true) {
         setState(() {
-          _error = backendRes['error'] ?? backendRes['message'] ?? 'Invalid email or password';
+          _error = backendRes['error'] ??
+              backendRes['message'] ??
+              'Invalid email or password';
           _loading = false;
         });
         return;
@@ -126,15 +67,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       await prefs.setString('user_id', userObj['id'] as String? ?? '');
 
       // 2. Perform Supabase Login (as a secondary check for realtime subscriptions)
-      if (!supabaseAuthSuccess) {
-        try {
-          await Supabase.instance.client.auth.signInWithPassword(
-            email: email,
-            password: pass,
-          );
-        } catch (e) {
-          dev.log('⚠️ Supabase login failed/skipped: $e', name: 'WelcomeScreen');
-        }
+      try {
+        await Supabase.instance.client.auth.signInWithPassword(
+          email: email,
+          password: pass,
+        );
+      } catch (e) {
+        dev.log('⚠️ Supabase login failed/skipped: $e', name: 'WelcomeScreen');
       }
 
       // 3. Save details to SharedPreferences based on role
@@ -151,7 +90,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         final qualVal = teacherMap['qualification'] ?? '';
 
         String teacherIdVal = teacherMap['id'] as String? ?? '';
-        if (teacherIdVal.isEmpty || teacherIdVal == 'b2f4c6d8-2345-6789-bcde-f23456789012') {
+        if (teacherIdVal.isEmpty ||
+            teacherIdVal == 'b2f4c6d8-2345-6789-bcde-f23456789012') {
           try {
             final teachersData = await ApiService.instance.get('teachers');
             if (teachersData != null && teachersData['success'] == true) {
@@ -169,29 +109,35 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           }
         }
         if (teacherIdVal.isEmpty) {
-          teacherIdVal = 'd38f8d07-0e3c-4b3a-9d7b-a75bde8d5044'; // real akshit sharma teacher ID
+          teacherIdVal =
+              'd38f8d07-0e3c-4b3a-9d7b-a75bde8d5044'; // real akshit sharma teacher ID
         }
 
-        await prefs.setString('teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
+        await prefs.setString(
+            'teacher_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
         await prefs.setString('teacher_id', teacherIdVal);
-        await prefs.setString('teacher_design', specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
-        await prefs.setString('teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
+        await prefs.setString('teacher_design',
+            specVal.isNotEmpty ? '$specVal HOD' : 'Senior Teacher');
+        await prefs.setString(
+            'teacher_dept', specVal.isNotEmpty ? specVal : 'Academics');
         await prefs.setString('teacher_email', email);
         await prefs.setString('teacher_mobile', phoneVal);
-        await prefs.setString('teacher_joining', joinVal.toString().split(' ')[0].split('T')[0]);
+        await prefs.setString(
+            'teacher_joining', joinVal.toString().split(' ')[0].split('T')[0]);
         await prefs.setString('teacher_emp_id', empIdVal);
         if (qualVal.isNotEmpty) {
           await prefs.setString('teacher_qual', qualVal);
         }
-        
+
         final qrCodeVal = userObj['qrCode'] as String? ?? '';
         if (qrCodeVal.isNotEmpty) {
           await prefs.setString('teacher_qrcode', qrCodeVal);
         } else {
           await prefs.remove('teacher_qrcode');
         }
-        
-        await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
+
+        await prefs.setString(
+            '${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
         await prefs.setString('${role}_email', email);
       } else if (role == 'student') {
         final studentMap = userObj['student'] as Map? ?? {};
@@ -202,15 +148,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         final rollVal = studentMap['rollNumber'] ?? '24';
         final admVal = studentMap['admissionNumber'] ?? '';
 
-        await prefs.setString('student_id', studentMap['id'] as String? ?? 'b2f4c6d8-2345-6789-bcde-f23456789012');
-        await prefs.setString('student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+        await prefs.setString(
+            'student_id',
+            studentMap['id'] as String? ??
+                'b2f4c6d8-2345-6789-bcde-f23456789012');
+        await prefs.setString(
+            'student_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
         await prefs.setString('student_email', email);
         await prefs.setString('student_class', classVal);
         await prefs.setString('student_section', sectionVal);
         await prefs.setString('student_roll', rollVal.toString());
         await prefs.setString('student_guardian', '—');
         await prefs.setString('student_phone', phoneVal);
-        await prefs.setString('student_admission', studentMap['joiningDate']?.toString().split(' ')[0].split('T')[0] ?? '');
+        await prefs.setString(
+            'student_admission',
+            studentMap['joiningDate']?.toString().split(' ')[0].split('T')[0] ??
+                '');
         if (admVal.isNotEmpty) {
           await prefs.setString('student_admission_id', admVal);
           await prefs.setString('student_admission_no', admVal);
@@ -225,13 +178,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         }
 
         // Save core identity details
-        await prefs.setString('student_gender', userObj['gender'] as String? ?? '—');
-        
+        await prefs.setString(
+            'student_gender', userObj['gender'] as String? ?? '—');
+
         final dobVal = userObj['dateOfBirth'] as String?;
         if (dobVal != null) {
           try {
             final parsed = DateTime.parse(dobVal);
-            await prefs.setString('student_dob', '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}');
+            await prefs.setString('student_dob',
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}');
           } catch (_) {
             await prefs.setString('student_dob', dobVal);
           }
@@ -239,10 +194,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           await prefs.setString('student_dob', '—');
         }
 
-        await prefs.setString('student_blood_group', userObj['bloodGroup'] as String? ?? '—');
-        await prefs.setString('student_religion', studentMap['religion'] as String? ?? 'HINDU');
-        await prefs.setString('student_caste_group', studentMap['caste'] as String? ?? 'GENERAL');
-        await prefs.setString('student_nationality', studentMap['nationality'] as String? ?? 'INDIAN');
+        await prefs.setString(
+            'student_blood_group', userObj['bloodGroup'] as String? ?? '—');
+        await prefs.setString(
+            'student_religion', studentMap['religion'] as String? ?? 'HINDU');
+        await prefs.setString(
+            'student_caste_group', studentMap['caste'] as String? ?? 'GENERAL');
+        await prefs.setString('student_nationality',
+            studentMap['nationality'] as String? ?? 'INDIAN');
 
         // Save parents info
         try {
@@ -256,7 +215,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               final rel = spMap['relationship'] as String?;
               final parentObj = spMap['parent'] as Map?;
               if (parentObj != null) {
-                final pFullName = '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'.trim();
+                final pFullName =
+                    '${parentObj['firstName'] ?? ''} ${parentObj['lastName'] ?? ''}'
+                        .trim();
                 final pPhone = parentObj['phone'] as String? ?? '—';
                 if (rel == 'FATHER') {
                   father = pFullName;
@@ -280,17 +241,21 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         } catch (e) {
           dev.log('Error saving parents to prefs: $e');
         }
-        
-        await prefs.setString('${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
+
+        await prefs.setString(
+            '${role}_name', fullName.isNotEmpty ? fullName : 'Alex Rivera');
         await prefs.setString('${role}_email', email);
       }
 
       if (mounted) {
-        Navigator.pushReplacement(context, PageRouteBuilder(
-          pageBuilder: (_, __, ___) => MainScreen(role: role),
-          transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
-          transitionDuration: const Duration(milliseconds: 600),
-        ));
+        Navigator.pushReplacement(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (_, __, ___) => MainScreen(role: role),
+              transitionsBuilder: (_, a, __, c) =>
+                  FadeTransition(opacity: a, child: c),
+              transitionDuration: const Duration(milliseconds: 600),
+            ));
       }
     } catch (e) {
       if (!mounted) return;
@@ -349,29 +314,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                   ),
                   SizedBox(height: 24.h),
-                  
+
                   // Header Title
                   Text(
                     'Welcome to EduSphere',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF0F172A),
-                      letterSpacing: -0.5,
-                    ),
+                    style: AppTypography.h3.copyWith(
+                        color: const Color(0xFF0F172A), letterSpacing: -0.5),
                   ),
                   SizedBox(height: 8.h),
-                  
+
                   // Subtitle
                   Text(
                     'Enter your credentials to access the School ERP system',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp,
-                      color: const Color(0xFF64748B),
-                      fontWeight: FontWeight.w400,
-                    ),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                   SizedBox(height: 32.h),
 
@@ -381,18 +339,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   TextField(
                     controller: _emailCtrl,
                     decoration: _inputDeco(hintText: 'admin@school.com'),
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp > 0 ? 14.sp : 14.0,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF0F172A),
-                    ),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F172A)),
                     keyboardType: TextInputType.emailAddress,
                     textInputAction: TextInputAction.next,
                     autofillHints: const [AutofillHints.email],
                   ),
-                  
+
                   SizedBox(height: 24.h),
-                  
+
                   // Password Input Field
                   _buildFieldLabel('Password'),
                   SizedBox(height: 8.h),
@@ -400,20 +355,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     controller: _passCtrl,
                     obscureText: _obscure,
                     decoration: _inputDeco(hintText: '••••••••').copyWith(
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                          size: 20.sp,
-                          color: const Color(0xFF94A3B8),
-                        ),
-                        onPressed: () => setState(() => _obscure = !_obscure),
+                        suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscure
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                        size: 20.sp,
+                        color: const Color(0xFF94A3B8),
                       ),
-                    ),
-                    style: GoogleFonts.inter(
-                      fontSize: 14.sp > 0 ? 14.sp : 14.0,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF0F172A),
-                    ),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    )),
+                    style: AppTypography.small
+                        .copyWith(color: const Color(0xFF0F172A)),
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _handleSignIn(),
                     autofillHints: const [AutofillHints.password],
@@ -430,11 +383,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       ),
                       child: Text(
                         _error!,
-                        style: GoogleFonts.inter(
-                          color: const Color(0xFFE11D48),
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFFE11D48)),
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -454,23 +404,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         borderRadius: BorderRadius.circular(10.r),
                       ),
                       child: Center(
-                        child: _loading 
-                          ? SizedBox(
-                              width: 20.w,
-                              height: 20.h,
-                              child: const CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.5,
+                        child: _loading
+                            ? SizedBox(
+                                width: 20.w,
+                                height: 20.h,
+                                child: const CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                'Sign in',
+                                style: AppTypography.tableHeader
+                                    .copyWith(color: Colors.white),
                               ),
-                            )
-                          : Text(
-                              'Sign in',
-                              style: GoogleFonts.inter(
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
                       ),
                     ),
                   ),
@@ -487,11 +434,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   InputDecoration _inputDeco({String? hintText}) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.inter(
-        fontSize: 14.sp > 0 ? 14.sp : 14.0,
-        color: const Color(0xFF94A3B8),
-        fontWeight: FontWeight.w400,
-      ),
+      hintStyle: AppTypography.small.copyWith(color: const Color(0xFF94A3B8)),
       filled: true,
       fillColor: Colors.white,
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
@@ -517,11 +460,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         padding: EdgeInsets.only(left: 2.w),
         child: Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 13.5.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF1E293B),
-          ),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF1E293B)),
         ),
       ),
     );

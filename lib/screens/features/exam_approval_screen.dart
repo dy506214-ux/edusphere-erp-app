@@ -7,6 +7,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ExamApprovalScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -16,14 +17,13 @@ class ExamApprovalScreen extends StatefulWidget {
   State<ExamApprovalScreen> createState() => _ExamApprovalScreenState();
 }
 
-class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTickerProviderStateMixin {
+class _ExamApprovalScreenState extends State<ExamApprovalScreen>
+    with SingleTickerProviderStateMixin {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late TabController _tabController;
   bool _loading = false;
 
   List<Map<String, dynamic>> _examsList = [];
-
-
 
   @override
   void initState() {
@@ -50,7 +50,8 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
           .select('*, Class(*)')
           .order('name', ascending: true);
 
-      final List<Map<String, dynamic>> rawData = List<Map<String, dynamic>>.from(response);
+      final List<Map<String, dynamic>> rawData =
+          List<Map<String, dynamic>>.from(response);
       final List<Map<String, dynamic>> mappedData = [];
       for (var exam in rawData) {
         final name = exam['name'] as String? ?? 'Exam';
@@ -60,10 +61,11 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
         String date = '—';
         if (dateStr != null) {
           try {
-            date = intl.DateFormat('MMM d, yyyy').format(DateTime.parse(dateStr).toLocal());
+            date = intl.DateFormat('MMM d, yyyy')
+                .format(DateTime.parse(dateStr).toLocal());
           } catch (_) {}
         }
-        
+
         mappedData.add({
           ...exam,
           'name': name,
@@ -104,21 +106,20 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
     }).toList();
   }
 
-  Future<void> _updateExamStatus(String examId, String newStatus, String comment) async {
+  Future<void> _updateExamStatus(
+      String examId, String newStatus, String comment) async {
     final currentUser = Supabase.instance.client.auth.currentUser;
-    final currentUserId = currentUser?.id ?? 'b2f4c6d8-2345-6789-bcde-f23456789012';
+    final currentUserId =
+        currentUser?.id ?? 'b2f4c6d8-2345-6789-bcde-f23456789012';
     final nowStr = DateTime.now().toIso8601String();
 
     try {
-      await Supabase.instance.client
-          .from('Exam')
-          .update({
-            'status': newStatus,
-            'comments': comment,
-            'reviewed_by': currentUserId,
-            'reviewed_at': nowStr,
-          })
-          .eq('id', examId);
+      await Supabase.instance.client.from('Exam').update({
+        'status': newStatus,
+        'comments': comment,
+        'reviewed_by': currentUserId,
+        'reviewed_at': nowStr,
+      }).eq('id', examId);
 
       // Local State Update on success
       setState(() {
@@ -132,7 +133,8 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
       });
 
       if (mounted) {
-        showToast(context, 'Exam successfully marked as $newStatus!', isError: false);
+        showToast(context, 'Exam successfully marked as $newStatus!',
+            isError: false);
       }
     } catch (e) {
       if (mounted) {
@@ -142,7 +144,8 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
   }
 
   void _showReviewDialog(Map<String, dynamic> exam) {
-    final TextEditingController commentController = TextEditingController(text: exam['comments'] as String? ?? '');
+    final TextEditingController commentController =
+        TextEditingController(text: exam['comments'] as String? ?? '');
     final String examId = exam['id'] as String;
     final String examName = exam['name'] as String;
     final String clsName = exam['class_name'] as String;
@@ -154,9 +157,11 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
           titlePadding: EdgeInsets.fromLTRB(20.w, 20.h, 20.w, 8.h),
-          contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
           actionsPadding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 16.h),
           backgroundColor: Colors.white,
           title: Row(
@@ -164,10 +169,11 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
             children: [
               Text(
                 'Review Exam Results',
-                style: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 17.sp, color: AppColors.textDark),
+                style: AppTypography.body.copyWith(color: AppColors.textDark),
               ),
               IconButton(
-                icon: Icon(Icons.close_rounded, color: AppColors.textLight, size: 20.sp),
+                icon: Icon(Icons.close_rounded,
+                    color: AppColors.textLight, size: 20.sp),
                 onPressed: () => Navigator.pop(context),
               ),
             ],
@@ -183,20 +189,23 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                 _dialogInfoRow('Subject', subject),
                 _dialogInfoRow('Assessment Date', date),
                 _dialogInfoRow('Current Status', currentStatus),
-                
+
                 SizedBox(height: 16.h),
                 Text(
                   'Review Remarks / Comments',
-                  style: GoogleFonts.inter(fontSize: 11.sp, fontWeight: FontWeight.w800, color: AppColors.textDark, letterSpacing: 0.5),
+                  style: AppTypography.caption
+                      .copyWith(color: AppColors.textDark, letterSpacing: 0.5),
                 ),
                 SizedBox(height: 8.h),
                 TextField(
                   controller: commentController,
                   maxLines: 2,
-                  style: GoogleFonts.inter(fontSize: 13.sp, color: AppColors.textDark, fontWeight: FontWeight.w600),
+                  style:
+                      AppTypography.caption.copyWith(color: AppColors.textDark),
                   decoration: InputDecoration(
                     hintText: 'Enter review remarks...',
-                    hintStyle: GoogleFonts.inter(color: AppColors.textLight, fontSize: 12.sp),
+                    hintStyle: AppTypography.caption
+                        .copyWith(color: AppColors.textLight),
                     filled: true,
                     fillColor: AppColors.background,
                     contentPadding: EdgeInsets.all(12.r),
@@ -220,14 +229,19 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       padding: EdgeInsets.symmetric(vertical: 12.h),
-                      side: const BorderSide(color: AppColors.error, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      side:
+                          const BorderSide(color: AppColors.error, width: 1.5),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r)),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
-                      _updateExamStatus(examId, 'REJECTED', commentController.text.trim());
+                      _updateExamStatus(
+                          examId, 'REJECTED', commentController.text.trim());
                     },
-                    child: Text('❌ Reject', style: GoogleFonts.inter(color: AppColors.error, fontWeight: FontWeight.w800, fontSize: 13.sp)),
+                    child: Text('❌ Reject',
+                        style: AppTypography.caption
+                            .copyWith(color: AppColors.error)),
                   ),
                 ),
                 SizedBox(width: 8.w),
@@ -236,13 +250,17 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.success,
                       padding: EdgeInsets.symmetric(vertical: 12.h),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12.r)),
                     ),
                     onPressed: () {
                       Navigator.pop(context);
-                      _updateExamStatus(examId, 'APPROVED', commentController.text.trim());
+                      _updateExamStatus(
+                          examId, 'APPROVED', commentController.text.trim());
                     },
-                    child: Text('✅ Approve', style: GoogleFonts.inter(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13.sp)),
+                    child: Text('✅ Approve',
+                        style: AppTypography.caption
+                            .copyWith(color: Colors.white)),
                   ),
                 ),
               ],
@@ -261,10 +279,14 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
         children: [
           SizedBox(
             width: 110.w,
-            child: Text('$label:', style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium, fontWeight: FontWeight.w600)),
+            child: Text('$label:',
+                style: AppTypography.caption
+                    .copyWith(color: AppColors.textMedium)),
           ),
           Expanded(
-            child: Text(value, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textDark, fontWeight: FontWeight.w800)),
+            child: Text(value,
+                style:
+                    AppTypography.caption.copyWith(color: AppColors.textDark)),
           ),
         ],
       ),
@@ -278,10 +300,14 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: (isPushed && isTeacher) ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic') : null,
+      drawer: (isPushed && isTeacher)
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic')
+          : null,
       backgroundColor: AppColors.background,
       appBar: isTeacher ? const TeacherAppBar(title: 'Approvals') : null,
-      bottomNavigationBar: (isPushed && isTeacher) ? const TeacherBottomNavBar(activeIndex: 7) : null,
+      bottomNavigationBar: (isPushed && isTeacher)
+          ? const TeacherBottomNavBar(activeIndex: 7)
+          : null,
       body: Column(
         children: [
           PageHeader(
@@ -292,7 +318,8 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                 ? GestureDetector(
                     onTap: () => _scaffoldKey.currentState?.openDrawer(),
                     child: Container(
-                      width: 40.w, height: 40.w,
+                      width: 40.w,
+                      height: 40.w,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12.r),
@@ -302,7 +329,7 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                   )
                 : null,
           ),
-          
+
           // Tab bar selection (Pending Approval / Reviewed)
           Container(
             color: Colors.white,
@@ -312,7 +339,7 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
               unselectedLabelColor: AppColors.textLight,
               indicatorColor: widget.theme.primary,
               indicatorWeight: 3.h,
-              labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w900, fontSize: 13.sp),
+              labelStyle: AppTypography.caption,
               tabs: const [
                 Tab(text: '📋 Pending Approval'),
                 Tab(text: '✅ Reviewed'),
@@ -322,7 +349,9 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
 
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.teacherPrimary))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.teacherPrimary))
                 : TabBarView(
                     controller: _tabController,
                     children: [
@@ -336,17 +365,22 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
     );
   }
 
-  Widget _buildExamsList(List<Map<String, dynamic>> list, {required bool isPendingTab}) {
+  Widget _buildExamsList(List<Map<String, dynamic>> list,
+      {required bool isPendingTab}) {
     if (list.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline_rounded, size: 44.sp, color: AppColors.textLight),
+            Icon(Icons.check_circle_outline_rounded,
+                size: 44.sp, color: AppColors.textLight),
             SizedBox(height: 8.h),
             Text(
-              isPendingTab ? 'No pending approvals found' : 'No reviewed exams found',
-              style: GoogleFonts.inter(color: AppColors.textMedium, fontSize: 13.sp, fontWeight: FontWeight.w600),
+              isPendingTab
+                  ? 'No pending approvals found'
+                  : 'No reviewed exams found',
+              style:
+                  AppTypography.caption.copyWith(color: AppColors.textMedium),
             ),
           ],
         ),
@@ -370,7 +404,7 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
 
           Color badgeColor = AppColors.warning;
           Color bgBadgeColor = const Color(0xFFFFFBEB);
-          
+
           if (status == 'APPROVED') {
             badgeColor = AppColors.success;
             bgBadgeColor = const Color(0xFFECFDF5);
@@ -409,22 +443,28 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 4.h),
                             decoration: BoxDecoration(
                               color: widget.theme.light,
                               borderRadius: BorderRadius.circular(8.r),
                             ),
                             child: Text(
                               cls,
-                              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: widget.theme.primary),
+                              style: AppTypography.caption
+                                  .copyWith(color: widget.theme.primary),
                             ),
                           ),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                            decoration: BoxDecoration(color: bgBadgeColor, borderRadius: BorderRadius.circular(8.r)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                                color: bgBadgeColor,
+                                borderRadius: BorderRadius.circular(8.r)),
                             child: Text(
                               status,
-                              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w900, color: badgeColor),
+                              style: AppTypography.caption
+                                  .copyWith(color: badgeColor),
                             ),
                           ),
                         ],
@@ -432,18 +472,26 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                       SizedBox(height: 12.h),
 
                       // Title details
-                      Text(name, style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: AppColors.textDark)),
+                      Text(name,
+                          style: AppTypography.small
+                              .copyWith(color: AppColors.textDark)),
                       SizedBox(height: 4.h),
-                      
+
                       Row(
                         children: [
-                          Icon(Icons.book_outlined, size: 14.sp, color: AppColors.textLight),
+                          Icon(Icons.book_outlined,
+                              size: 14.sp, color: AppColors.textLight),
                           SizedBox(width: 4.w),
-                          Text(subject, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium, fontWeight: FontWeight.w600)),
+                          Text(subject,
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textMedium)),
                           SizedBox(width: 14.w),
-                          Icon(Icons.calendar_today_rounded, size: 13.sp, color: AppColors.textLight),
+                          Icon(Icons.calendar_today_rounded,
+                              size: 13.sp, color: AppColors.textLight),
                           SizedBox(width: 4.w),
-                          Text(date, style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium, fontWeight: FontWeight.w600)),
+                          Text(date,
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textMedium)),
                         ],
                       ),
 
@@ -451,12 +499,15 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                         Divider(height: 24.h, color: AppColors.border),
                         Text(
                           'REMARKS',
-                          style: GoogleFonts.inter(fontSize: 9.sp, color: AppColors.textLight, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+                          style: AppTypography.caption.copyWith(
+                              color: AppColors.textLight, letterSpacing: 0.5),
                         ),
                         SizedBox(height: 4.h),
                         Text(
                           '"$comment"',
-                          style: GoogleFonts.inter(fontSize: 12.sp, color: AppColors.textMedium, fontWeight: FontWeight.w600, fontStyle: FontStyle.italic),
+                          style: AppTypography.caption.copyWith(
+                              color: AppColors.textMedium,
+                              fontStyle: FontStyle.italic),
                         ),
                       ],
 
@@ -467,10 +518,12 @@ class _ExamApprovalScreenState extends State<ExamApprovalScreen> with SingleTick
                           children: [
                             Text(
                               'Tap / Long Press to Review',
-                              style: GoogleFonts.inter(fontSize: 11.sp, color: widget.theme.primary, fontWeight: FontWeight.w800),
+                              style: AppTypography.caption
+                                  .copyWith(color: widget.theme.primary),
                             ),
                             SizedBox(width: 2.w),
-                            Icon(Icons.arrow_forward_ios_rounded, size: 11.sp, color: widget.theme.primary),
+                            Icon(Icons.arrow_forward_ios_rounded,
+                                size: 11.sp, color: widget.theme.primary),
                           ],
                         ),
                       ],

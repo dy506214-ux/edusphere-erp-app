@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,18 +6,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart' as intl;
 import 'dart:developer' as dev;
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:printing/printing.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:excel/excel.dart' hide Border;
+import 'package:file_saver/file_saver.dart';
 import '../main_screen.dart';
 import 'class_review_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ExamDetailScreen extends StatefulWidget {
   final String examName;
   final String examId;
 
-  const ExamDetailScreen({super.key, required this.examName, required this.examId});
+  const ExamDetailScreen(
+      {super.key, required this.examName, required this.examId});
 
   @override
   State<ExamDetailScreen> createState() => _ExamDetailScreenState();
@@ -24,7 +26,8 @@ class ExamDetailScreen extends StatefulWidget {
 
 class _ExamDetailScreenState extends State<ExamDetailScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _activeTabIndex = 0; // 0=Schedule, 1=Marks Entry, 2=Bulk Upload, 3=Overview
+  int _activeTabIndex =
+      0; // 0=Schedule, 1=Marks Entry, 2=Bulk Upload, 3=Overview
   bool _isChatOpen = false;
   bool _isLoading = true;
 
@@ -88,25 +91,29 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         client.removeChannel(_detailChannel!);
       }
 
-      _detailChannel = client.channel('public:exam_detail_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'ExamMark',
-          callback: (_) {
-            dev.log('⚡ Realtime database change detected on ExamMark table!', name: 'ExamDetailScreen');
-            if (mounted) _loadData();
-          },
-        )
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'ExamResult',
-          callback: (_) {
-            dev.log('⚡ Realtime database change detected on ExamResult table!', name: 'ExamDetailScreen');
-            if (mounted) _loadData();
-          },
-        );
+      _detailChannel = client
+          .channel('public:exam_detail_sync')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'ExamMark',
+            callback: (_) {
+              dev.log('⚡ Realtime database change detected on ExamMark table!',
+                  name: 'ExamDetailScreen');
+              if (mounted) _loadData();
+            },
+          )
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'ExamResult',
+            callback: (_) {
+              dev.log(
+                  '⚡ Realtime database change detected on ExamResult table!',
+                  name: 'ExamDetailScreen');
+              if (mounted) _loadData();
+            },
+          );
       _detailChannel!.subscribe();
     } catch (e) {
       dev.log('Failed to connect to Supabase Realtime in Detail: $e');
@@ -131,11 +138,9 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       final classId = examRes['classId'];
 
       // 2. Fetch Subjects for the class
-      final subjectsRes = await client
-          .from('Subject')
-          .select('*')
-          .eq('classId', classId);
-      
+      final subjectsRes =
+          await client.from('Subject').select('*').eq('classId', classId);
+
       _subjects = List<Map<String, dynamic>>.from(subjectsRes);
 
       // 3. Fetch Students for the class
@@ -150,10 +155,14 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       // Sort alphabetically by Student Name (Matches mockup exactly!)
       _students.sort((a, b) {
         final userA = a['User'] as Map?;
-        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         final userB = b['User'] as Map?;
-        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         return nameA.compareTo(nameB);
       });
@@ -170,16 +179,20 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           .eq('examId', widget.examId);
 
       _examResults = List<Map<String, dynamic>>.from(resultsRes);
-      
+
       // Sort alphabetically by Student Name (Matches mockup exactly!)
       _examResults.sort((a, b) {
         final studentA = a['Student'] as Map?;
         final userA = studentA != null ? studentA['User'] as Map? : null;
-        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         final studentB = b['Student'] as Map?;
         final userB = studentB != null ? studentB['User'] as Map? : null;
-        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'.trim().toLowerCase();
+        final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'
+            .trim()
+            .toLowerCase();
 
         return nameA.compareTo(nameB);
       });
@@ -190,7 +203,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             .from('ExamMark')
             .select('*, ExamResult!inner(id, examId)')
             .eq('ExamResult.examId', widget.examId);
-        
+
         _examMarks = List<Map<String, dynamic>>.from(marksRes);
       } else {
         _examMarks = [];
@@ -230,15 +243,27 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       if (result.isNotEmpty) {
         final resultId = result['id'] as String;
         existingMark = _examMarks.firstWhere(
-          (m) => m['examResultId'] == resultId && m['subjectName'].toString().toLowerCase() == subjectName.toLowerCase(),
+          (m) =>
+              m['examResultId'] == resultId &&
+              m['subjectName'].toString().toLowerCase() ==
+                  subjectName.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
       }
 
-      final String theoryVal = existingMark != null && existingMark.isNotEmpty ? (existingMark['theoryObtained']?.toString() ?? '0') : '0';
-      final String pracVal = existingMark != null && existingMark.isNotEmpty ? (existingMark['practicalObtained']?.toString() ?? '0') : '0';
-      final String intVal = existingMark != null && existingMark.isNotEmpty ? (existingMark['internalObtained']?.toString() ?? '0') : '0';
-      final bool absentVal = existingMark != null && existingMark.isNotEmpty && (existingMark['isAbsent'] == true || existingMark['isAbsent'].toString().toLowerCase() == 'true');
+      final String theoryVal = existingMark != null && existingMark.isNotEmpty
+          ? (existingMark['theoryObtained']?.toString() ?? '0')
+          : '0';
+      final String pracVal = existingMark != null && existingMark.isNotEmpty
+          ? (existingMark['practicalObtained']?.toString() ?? '0')
+          : '0';
+      final String intVal = existingMark != null && existingMark.isNotEmpty
+          ? (existingMark['internalObtained']?.toString() ?? '0')
+          : '0';
+      final bool absentVal = existingMark != null &&
+          existingMark.isNotEmpty &&
+          (existingMark['isAbsent'] == true ||
+              existingMark['isAbsent'].toString().toLowerCase() == 'true');
 
       if (_theoryControllers.containsKey(studentId)) {
         _theoryControllers[studentId]!.text = theoryVal;
@@ -265,15 +290,18 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   }
 
   Future<void> _saveMarks() async {
-    if (_selectedSubjectId == null || _isSavingMarks || _subjects.isEmpty) return;
+    if (_selectedSubjectId == null || _isSavingMarks || _subjects.isEmpty)
+      return;
     setState(() => _isSavingMarks = true);
 
     try {
       final client = Supabase.instance.client;
-      final selectedSubject = _subjects.firstWhere((s) => s['id'] == _selectedSubjectId);
+      final selectedSubject =
+          _subjects.firstWhere((s) => s['id'] == _selectedSubjectId);
       final subjectName = selectedSubject['name'] as String;
       final subjectCode = selectedSubject['code'] as String? ?? '';
-      final subjectTotal = (selectedSubject['totalMarks'] as num? ?? 100).toInt();
+      final subjectTotal =
+          (selectedSubject['totalMarks'] as num? ?? 100).toInt();
 
       final resultsRes = await client
           .from('ExamResult')
@@ -287,9 +315,15 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         final studentId = student['id'] as String;
         final isAbsent = _absentStatus[studentId] ?? false;
 
-        final theory = isAbsent ? 0 : (int.tryParse(_theoryControllers[studentId]?.text ?? '0') ?? 0);
-        final practical = isAbsent ? 0 : (int.tryParse(_pracControllers[studentId]?.text ?? '0') ?? 0);
-        final internal = isAbsent ? 0 : (int.tryParse(_intControllers[studentId]?.text ?? '0') ?? 0);
+        final theory = isAbsent
+            ? 0
+            : (int.tryParse(_theoryControllers[studentId]?.text ?? '0') ?? 0);
+        final practical = isAbsent
+            ? 0
+            : (int.tryParse(_pracControllers[studentId]?.text ?? '0') ?? 0);
+        final internal = isAbsent
+            ? 0
+            : (int.tryParse(_intControllers[studentId]?.text ?? '0') ?? 0);
         final obtained = theory + practical + internal;
 
         var resultRow = currentResults.firstWhere(
@@ -310,8 +344,12 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             'result': obtained >= (_subjects.length * 33) ? 'PASS' : 'FAIL',
             'isPublished': true,
           };
-          
-          final insertRes = await client.from('ExamResult').insert(newResult).select('id').single();
+
+          final insertRes = await client
+              .from('ExamResult')
+              .insert(newResult)
+              .select('id')
+              .single();
           resultId = insertRes['id'] as String;
           currentResults.add({
             'id': resultId,
@@ -323,7 +361,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         }
 
         final existingMark = _examMarks.firstWhere(
-          (m) => m['examResultId'] == resultId && m['subjectName'].toString().toLowerCase() == subjectName.toLowerCase(),
+          (m) =>
+              m['examResultId'] == resultId &&
+              m['subjectName'].toString().toLowerCase() ==
+                  subjectName.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
 
@@ -407,7 +448,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Marks saved successfully!', style: GoogleFonts.inter()),
+          content:
+              Text('Marks saved successfully!', style: GoogleFonts.inter()),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
         ));
@@ -430,31 +472,37 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
   Future<void> _downloadTemplate() async {
     try {
-      final List<String> headerParts = ['Admission Number', 'Student Name', 'Roll Number'];
+      final excel = Excel.createExcel();
+      final sheet = excel['Sheet1'];
+
+      final List<CellValue> headerParts = [
+        TextCellValue('Admission Number'),
+        TextCellValue('Student Name'),
+        TextCellValue('Roll Number')
+      ];
       for (var s in _subjects) {
         final name = s['name'] as String;
-        headerParts.add('$name Theory');
-        headerParts.add('$name Practical');
-        headerParts.add('$name Internal');
-        headerParts.add('$name Absent(Y/N)');
+        headerParts.add(TextCellValue('$name Theory'));
+        headerParts.add(TextCellValue('$name Practical'));
+        headerParts.add(TextCellValue('$name Internal'));
+        headerParts.add(TextCellValue('$name Absent(Y/N)'));
       }
-      final String header = headerParts.join(',');
+      sheet.appendRow(headerParts);
 
-      final List<String> rows = [header];
       for (var student in _students) {
         final userData = student['User'] as Map?;
         final firstName = userData?['firstName'] ?? '';
         final lastName = userData?['lastName'] ?? '';
-        final studentName = '$firstName $lastName'.trim().isNotEmpty 
-            ? '$firstName $lastName' 
+        final studentName = '$firstName $lastName'.trim().isNotEmpty
+            ? '$firstName $lastName'
             : (student['name'] ?? 'Student');
         final admissionNumber = student['admissionNumber'] ?? '';
         final rollNumber = student['rollNumber'] ?? student['roll_no'] ?? '';
 
-        final List<String> rowParts = [
-          admissionNumber,
-          '"$studentName"',
-          rollNumber.toString(),
+        final List<CellValue> rowParts = [
+          TextCellValue(admissionNumber),
+          TextCellValue(studentName),
+          TextCellValue(rollNumber.toString()),
         ];
 
         for (var s in _subjects) {
@@ -466,53 +514,59 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           Map<String, dynamic>? existingMark;
           if (result.isNotEmpty) {
             existingMark = _examMarks.firstWhere(
-              (m) => m['examResultId'] == result['id'] && m['subjectName'].toString().toLowerCase() == name.toLowerCase(),
+              (m) =>
+                  m['examResultId'] == result['id'] &&
+                  m['subjectName'].toString().toLowerCase() ==
+                      name.toLowerCase(),
               orElse: () => <String, dynamic>{},
             );
           }
 
           if (existingMark != null && existingMark.isNotEmpty) {
-            rowParts.add(existingMark['theoryObtained']?.toString() ?? '0');
-            rowParts.add(existingMark['practicalObtained']?.toString() ?? '0');
-            rowParts.add(existingMark['internalObtained']?.toString() ?? '0');
-            rowParts.add(existingMark['isAbsent'] == true ? 'Y' : 'N');
+            rowParts.add(TextCellValue(
+                existingMark['theoryObtained']?.toString() ?? '0'));
+            rowParts.add(TextCellValue(
+                existingMark['practicalObtained']?.toString() ?? '0'));
+            rowParts.add(TextCellValue(
+                existingMark['internalObtained']?.toString() ?? '0'));
+            rowParts.add(
+                TextCellValue(existingMark['isAbsent'] == true ? 'Y' : 'N'));
           } else {
-            rowParts.add('0');
-            rowParts.add('0');
-            rowParts.add('0');
-            rowParts.add('N');
+            rowParts.add(TextCellValue('0'));
+            rowParts.add(TextCellValue('0'));
+            rowParts.add(TextCellValue('0'));
+            rowParts.add(TextCellValue('N'));
           }
         }
-        rows.add(rowParts.join(','));
+        sheet.appendRow(rowParts);
       }
-      final String csvContent = rows.join('\n');
 
-      final directory = await getTemporaryDirectory();
-      final fileName = '${widget.examName.replaceAll(' ', '_')}_template.csv';
-      final file = File('${directory.path}/$fileName');
-      await file.writeAsString(csvContent);
+      final fileBytes = excel.save();
+      if (fileBytes != null) {
+        final fileName = '${widget.examName.replaceAll(' ', '_')}_template';
+        await FileSaver.instance.saveFile(
+          name: fileName,
+          bytes: Uint8List.fromList(fileBytes),
+          fileExtension: 'xlsx',
+          mimeType: MimeType.microsoftExcel,
+        );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Template saved: $fileName', style: GoogleFonts.inter()),
-          backgroundColor: const Color(0xFF2563EB),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 6),
-          action: SnackBarAction(
-            label: 'Share',
-            textColor: Colors.white,
-            onPressed: () {
-              final bytes = Uint8List.fromList(csvContent.codeUnits);
-              Printing.sharePdf(bytes: bytes, filename: fileName);
-            },
-          ),
-        ));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Template saved: $fileName.xlsx',
+                style: GoogleFonts.inter()),
+            backgroundColor: const Color(0xFF2563EB),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 6),
+          ));
+        }
       }
     } catch (e) {
       dev.log('Error downloading template: $e', name: 'ExamDetailScreen');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error saving template: $e', style: GoogleFonts.inter()),
+          content:
+              Text('Error saving template: $e', style: GoogleFonts.inter()),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ));
@@ -525,19 +579,42 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['csv'],
+        withData: true,
+        allowedExtensions: ['csv', 'xlsx'],
       );
 
-      if (result != null && result.files.single.path != null) {
-        final filePath = result.files.single.path!;
-        final file = File(filePath);
-        final content = await file.readAsString();
-        
+      if (result != null && result.files.isNotEmpty) {
+        final platformFile = result.files.single;
+        final extension = platformFile.extension?.toLowerCase() ?? '';
+
         setState(() {
-          _uploadedFileName = result.files.single.name;
+          _uploadedFileName = platformFile.name;
         });
 
-        await _parseAndSaveCSV(content);
+        if (extension == 'xlsx') {
+          final bytes = kIsWeb
+              ? platformFile.bytes!
+              : await File(platformFile.path!).readAsBytes();
+          final excel = Excel.decodeBytes(bytes);
+          final sheetName = excel.tables.keys.first;
+          final table = excel.tables[sheetName];
+          if (table == null) throw 'Empty Excel file';
+
+          final List<String> csvRows = [];
+          for (var row in table.rows) {
+            final rowStrings = row.map((c) {
+              var val = c?.value?.toString() ?? '';
+              return val.replaceAll(',', ' ');
+            }).join(',');
+            csvRows.add(rowStrings);
+          }
+          await _parseAndSaveCSV(csvRows.join('\n'));
+        } else {
+          final content = kIsWeb
+              ? String.fromCharCodes(platformFile.bytes!)
+              : await File(platformFile.path!).readAsString();
+          await _parseAndSaveCSV(content);
+        }
       } else {
         setState(() {
           _isUploading = false;
@@ -559,7 +636,11 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   Future<void> _parseAndSaveCSV(String content) async {
     try {
       final client = Supabase.instance.client;
-      final lines = content.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+      final lines = content
+          .split('\n')
+          .map((l) => l.trim())
+          .where((l) => l.isNotEmpty)
+          .toList();
       if (lines.length < 2) {
         throw 'The CSV file is empty or missing data rows.';
       }
@@ -576,10 +657,14 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
       for (var s in _subjects) {
         final sName = s['name'] as String;
-        subjectTheoryIdx[sName] = headerParts.indexWhere((h) => h.toLowerCase() == '$sName theory'.toLowerCase());
-        subjectPracIdx[sName] = headerParts.indexWhere((h) => h.toLowerCase() == '$sName practical'.toLowerCase());
-        subjectIntIdx[sName] = headerParts.indexWhere((h) => h.toLowerCase() == '$sName internal'.toLowerCase());
-        subjectAbsentIdx[sName] = headerParts.indexWhere((h) => h.toLowerCase() == '$sName absent(y/n)'.toLowerCase());
+        subjectTheoryIdx[sName] = headerParts.indexWhere(
+            (h) => h.toLowerCase() == '$sName theory'.toLowerCase());
+        subjectPracIdx[sName] = headerParts.indexWhere(
+            (h) => h.toLowerCase() == '$sName practical'.toLowerCase());
+        subjectIntIdx[sName] = headerParts.indexWhere(
+            (h) => h.toLowerCase() == '$sName internal'.toLowerCase());
+        subjectAbsentIdx[sName] = headerParts.indexWhere(
+            (h) => h.toLowerCase() == '$sName absent(y/n)'.toLowerCase());
       }
 
       final resultsRes = await client
@@ -596,12 +681,16 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
         final admissionNumber = rowParts[0].trim();
         final student = _students.firstWhere(
-          (s) => s['admissionNumber']?.toString().trim().toLowerCase() == admissionNumber.toLowerCase(),
+          (s) =>
+              s['admissionNumber']?.toString().trim().toLowerCase() ==
+              admissionNumber.toLowerCase(),
           orElse: () => <String, dynamic>{},
         );
 
         if (student.isEmpty) {
-          dev.log('⚠️ Student with Admission ID $admissionNumber not found in class.', name: 'ExamDetailScreen');
+          dev.log(
+              '⚠️ Student with Admission ID $admissionNumber not found in class.',
+              name: 'ExamDetailScreen');
           continue;
         }
 
@@ -625,8 +714,12 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             'result': 'FAIL',
             'isPublished': true,
           };
-          
-          final insertRes = await client.from('ExamResult').insert(newResult).select('id').single();
+
+          final insertRes = await client
+              .from('ExamResult')
+              .insert(newResult)
+              .select('id')
+              .single();
           resultId = insertRes['id'] as String;
           currentResults.add({
             'id': resultId,
@@ -647,15 +740,26 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           final iIdx = subjectIntIdx[sName] ?? -1;
           final abIdx = subjectAbsentIdx[sName] ?? -1;
 
-          final isAbsent = abIdx != -1 && abIdx < rowParts.length && rowParts[abIdx].trim().toUpperCase() == 'Y';
+          final isAbsent = abIdx != -1 &&
+              abIdx < rowParts.length &&
+              rowParts[abIdx].trim().toUpperCase() == 'Y';
 
-          final theory = (!isAbsent && tIdx != -1 && tIdx < rowParts.length) ? (int.tryParse(rowParts[tIdx].trim()) ?? 0) : 0;
-          final practical = (!isAbsent && pIdx != -1 && pIdx < rowParts.length) ? (int.tryParse(rowParts[pIdx].trim()) ?? 0) : 0;
-          final internal = (!isAbsent && iIdx != -1 && iIdx < rowParts.length) ? (int.tryParse(rowParts[iIdx].trim()) ?? 0) : 0;
+          final theory = (!isAbsent && tIdx != -1 && tIdx < rowParts.length)
+              ? (int.tryParse(rowParts[tIdx].trim()) ?? 0)
+              : 0;
+          final practical = (!isAbsent && pIdx != -1 && pIdx < rowParts.length)
+              ? (int.tryParse(rowParts[pIdx].trim()) ?? 0)
+              : 0;
+          final internal = (!isAbsent && iIdx != -1 && iIdx < rowParts.length)
+              ? (int.tryParse(rowParts[iIdx].trim()) ?? 0)
+              : 0;
           final obtained = theory + practical + internal;
 
           final existingMark = _examMarks.firstWhere(
-            (m) => m['examResultId'] == resultId && m['subjectName'].toString().toLowerCase() == sName.toLowerCase(),
+            (m) =>
+                m['examResultId'] == resultId &&
+                m['subjectName'].toString().toLowerCase() ==
+                    sName.toLowerCase(),
             orElse: () => <String, dynamic>{},
           );
 
@@ -738,7 +842,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Marks imported and processed successfully!', style: GoogleFonts.inter()),
+          content: Text('Marks imported and processed successfully!',
+              style: GoogleFonts.inter()),
           backgroundColor: const Color(0xFF10B981),
           behavior: SnackBarBehavior.floating,
         ));
@@ -786,23 +891,28 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   Widget build(BuildContext context) {
     String subtitle = 'Class Schedule';
     if (_examData != null) {
-      final className = (_examData!['Class']?['name']?.toString() ?? 'Class').replaceAll('Class', 'Grade');
-      final ayName = _examData!['AcademicYear']?['name']?.toString() ?? '2024-2025';
+      final className = (_examData!['Class']?['name']?.toString() ?? 'Class')
+          .replaceAll('Class', 'Grade');
+      final ayName =
+          _examData!['AcademicYear']?['name']?.toString() ?? '2024-2025';
       subtitle = '$className • $ayName';
     }
 
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF1F5F9),
-      drawer: const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations'),
+      drawer:
+          const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations'),
       appBar: _buildAppBar(),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF2563EB)))
           : Stack(
               children: [
                 Positioned.fill(
                   child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -814,7 +924,9 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                               onTap: () => Navigator.pop(context),
                               child: Container(
                                 padding: EdgeInsets.all(4.r),
-                                child: Icon(Icons.arrow_back_rounded, size: 24.sp, color: const Color(0xFF0F172A)),
+                                child: Icon(Icons.arrow_back_rounded,
+                                    size: 24.sp,
+                                    color: const Color(0xFF0F172A)),
                               ),
                             ),
                             SizedBox(width: 8.w),
@@ -833,11 +945,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                                   SizedBox(height: 2.h),
                                   Text(
                                     subtitle,
-                                    style: GoogleFonts.inter(
-                                      fontSize: 13.sp,
-                                      color: const Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    style: AppTypography.caption.copyWith(
+                                        color: const Color(0xFF64748B)),
                                   ),
                                 ],
                               ),
@@ -845,22 +954,21 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                           ],
                         ),
                         SizedBox(height: 14.h),
-
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(
                             backgroundColor: const Color(0xFFEFF6FF),
                             side: const BorderSide(color: Color(0xFFDBEAFE)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.r)),
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 10.h),
                           ),
-                          icon: Icon(Icons.assignment_outlined, size: 16.sp, color: const Color(0xFF1E40AF)),
+                          icon: Icon(Icons.assignment_outlined,
+                              size: 16.sp, color: const Color(0xFF1E40AF)),
                           label: Text(
                             'Class Review',
-                            style: GoogleFonts.inter(
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFF1E40AF),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF1E40AF)),
                           ),
                           onPressed: () {
                             Navigator.push(
@@ -875,10 +983,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                           },
                         ),
                         SizedBox(height: 18.h),
-
                         _buildTabs(),
                         SizedBox(height: 18.h),
-
                         if (_activeTabIndex == 0) _buildScheduleTab(),
                         if (_activeTabIndex == 1) _buildMarksEntryTab(),
                         if (_activeTabIndex == 2) _buildBulkUploadTab(),
@@ -888,7 +994,6 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     ),
                   ),
                 ),
-                
                 if (_isChatOpen)
                   Positioned.fill(
                     child: GestureDetector(
@@ -898,7 +1003,6 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                       ),
                     ),
                   ),
-
                 if (_isChatOpen)
                   Positioned(
                     bottom: 80.h,
@@ -925,11 +1029,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                               padding: EdgeInsets.all(16.r),
                               decoration: BoxDecoration(
                                 color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.vertical(top: Radius.circular(16.r)),
+                                borderRadius: BorderRadius.vertical(
+                                    top: Radius.circular(16.r)),
                               ),
                               child: Row(
                                 children: [
-                                  Icon(Icons.assistant, color: Colors.white, size: 20.sp),
+                                  Icon(Icons.assistant,
+                                      color: Colors.white, size: 20.sp),
                                   SizedBox(width: 8.w),
                                   Text(
                                     'EduSphere Assistant',
@@ -942,7 +1048,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                                   const Spacer(),
                                   GestureDetector(
                                     onTap: _toggleChat,
-                                    child: Icon(Icons.close, color: Colors.white, size: 20.sp),
+                                    child: Icon(Icons.close,
+                                        color: Colors.white, size: 20.sp),
                                   ),
                                 ],
                               ),
@@ -962,13 +1069,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                       ),
                     ),
                   ),
-
                 if (!_isChatOpen)
                   Positioned(
                     bottom: 80.h,
                     right: 16.w,
                     child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 12.h),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.only(
@@ -990,21 +1097,15 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                         children: [
                           Text(
                             'HI TEACHER!',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF0F172A),
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF0F172A),
+                                letterSpacing: 0.5),
                           ),
                           Text(
                             'HOW CAN I\nHELP?',
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w900,
-                              color: const Color(0xFF2563EB),
-                              letterSpacing: 0.5,
-                            ),
+                            style: AppTypography.caption.copyWith(
+                                color: const Color(0xFF2563EB),
+                                letterSpacing: 0.5),
                           ),
                         ],
                       ),
@@ -1015,7 +1116,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'exam_detail_chatbot_fab',
         backgroundColor: const Color(0xFF0284C7),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
         onPressed: _toggleChat,
         child: Icon(
           _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
@@ -1087,11 +1189,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                 ),
                 child: Text(
                   label,
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                    color: isActive ? const Color(0xFF0F172A) : const Color(0xFF475569),
-                  ),
+                  style: AppTypography.caption.copyWith(
+                      color: isActive
+                          ? const Color(0xFF0F172A)
+                          : const Color(0xFF475569)),
                 ),
               ),
             );
@@ -1150,13 +1251,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               Expanded(flex: 2, child: Text('Date', style: _headerStyle())),
               Expanded(flex: 2, child: Text('Time', style: _headerStyle())),
               Expanded(flex: 2, child: Text('Theory', style: _headerStyle())),
-              Expanded(flex: 2, child: Text('Practical', style: _headerStyle())),
+              Expanded(
+                  flex: 2, child: Text('Practical', style: _headerStyle())),
               Expanded(flex: 2, child: Text('Internal', style: _headerStyle())),
               Expanded(flex: 2, child: Text('Total', style: _headerStyle())),
             ],
           ),
         ),
-
         if (_subjects.isEmpty)
           Container(
             width: 800.w,
@@ -1164,7 +1265,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             child: Center(
               child: Text(
                 'No subjects configured for this class.',
-                style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B)),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
               ),
             ),
           )
@@ -1175,13 +1277,15 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             final isLast = idx == _subjects.length - 1;
 
             final subjectName = s['name'] as String? ?? 'Subject';
-            
+
             final startDateStr = _examData?['startDate']?.toString();
             String displayDate = '10/09/2024';
             String displayTime = '09:00';
             if (startDateStr != null) {
               try {
-                final parsedDate = DateTime.parse(startDateStr).toLocal().add(Duration(days: idx));
+                final parsedDate = DateTime.parse(startDateStr)
+                    .toLocal()
+                    .add(Duration(days: idx));
                 displayDate = intl.DateFormat('dd/MM/yyyy').format(parsedDate);
                 displayTime = intl.DateFormat('HH:mm').format(parsedDate);
               } catch (_) {}
@@ -1199,7 +1303,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                 color: Colors.white,
                 border: isLast
                     ? null
-                    : const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
+                    : const Border(
+                        bottom: BorderSide(color: Color(0xFFF1F5F9))),
               ),
               child: Row(
                 children: [
@@ -1207,27 +1312,26 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     flex: 3,
                     child: Text(
                       subjectName,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                   ),
-                  Expanded(flex: 2, child: Text(displayDate, style: _cellStyle())),
-                  Expanded(flex: 2, child: Text(displayTime, style: _cellStyle())),
-                  Expanded(flex: 2, child: Text('$theory', style: _cellStyle())),
-                  Expanded(flex: 2, child: Text('$practical', style: _cellStyle())),
-                  Expanded(flex: 2, child: Text('$internal', style: _cellStyle())),
+                  Expanded(
+                      flex: 2, child: Text(displayDate, style: _cellStyle())),
+                  Expanded(
+                      flex: 2, child: Text(displayTime, style: _cellStyle())),
+                  Expanded(
+                      flex: 2, child: Text('$theory', style: _cellStyle())),
+                  Expanded(
+                      flex: 2, child: Text('$practical', style: _cellStyle())),
+                  Expanded(
+                      flex: 2, child: Text('$internal', style: _cellStyle())),
                   Expanded(
                     flex: 2,
                     child: Text(
                       '$totalMarks',
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                   ),
                 ],
@@ -1239,19 +1343,11 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   }
 
   TextStyle _headerStyle() {
-    return GoogleFonts.inter(
-      fontSize: 10.sp,
-      fontWeight: FontWeight.w700,
-      color: const Color(0xFF64748B),
-    );
+    return AppTypography.caption.copyWith(color: const Color(0xFF64748B));
   }
 
   TextStyle _cellStyle() {
-    return GoogleFonts.inter(
-      fontSize: 11.sp,
-      fontWeight: FontWeight.w500,
-      color: const Color(0xFF334155),
-    );
+    return AppTypography.caption.copyWith(color: const Color(0xFF334155));
   }
 
   Widget _buildOverviewTab() {
@@ -1292,7 +1388,9 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       decoration: BoxDecoration(
         border: Border(
-          bottom: hasBottomBorder ? const BorderSide(color: Color(0xFFE2E8F0)) : BorderSide.none,
+          bottom: hasBottomBorder
+              ? const BorderSide(color: Color(0xFFE2E8F0))
+              : BorderSide.none,
         ),
       ),
       child: child,
@@ -1338,7 +1436,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     final double pctWidth = isLandscape ? 140.w : 60.w;
     final double gradeWidth = 50.w;
 
-    final double tableWidth = rankWidth + studentWidth + (activeSubjects.length * subjectWidth) + totalWidth + pctWidth + gradeWidth + 6.0;
+    final double tableWidth = rankWidth +
+        studentWidth +
+        (activeSubjects.length * subjectWidth) +
+        totalWidth +
+        pctWidth +
+        gradeWidth +
+        6.0;
 
     return Container(
       width: tableWidth,
@@ -1356,7 +1460,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               _headerCell('Rank', rankWidth),
               _headerCell('Student', studentWidth),
               ...activeSubjects.map((s) {
-                return _headerCell(abbreviateSubject(s['name'] as String), subjectWidth);
+                return _headerCell(
+                    abbreviateSubject(s['name'] as String), subjectWidth);
               }),
               _headerCell('Total', totalWidth),
               _headerCell('%', pctWidth),
@@ -1372,7 +1477,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               child: Center(
                 child: Text(
                   'No active students in this class.',
-                  style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF64748B)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF64748B)),
                 ),
               ),
             )
@@ -1386,8 +1492,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               final userData = student['User'] as Map?;
               final firstName = userData?['firstName'] ?? '';
               final lastName = userData?['lastName'] ?? '';
-              final studentName = '$firstName $lastName'.trim().isNotEmpty 
-                  ? '$firstName $lastName' 
+              final studentName = '$firstName $lastName'.trim().isNotEmpty
+                  ? '$firstName $lastName'
                   : (student['name'] ?? 'Student');
 
               // Find the student's result
@@ -1396,13 +1502,21 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                 orElse: () => <String, dynamic>{},
               );
 
-              final rank = res.isNotEmpty ? (res['rank']?.toString() ?? '-') : '-';
-              final pctDouble = res.isNotEmpty ? (res['percentage'] as num? ?? 0.0).toDouble() : null;
-              final totalObtained = res.isNotEmpty ? (res['obtainedMarks']?.toString() ?? '-') : '-';
-              final grade = res.isNotEmpty ? (res['grade']?.toString() ?? '-') : '-';
+              final rank =
+                  res.isNotEmpty ? (res['rank']?.toString() ?? '-') : '-';
+              final pctDouble = res.isNotEmpty
+                  ? (res['percentage'] as num? ?? 0.0).toDouble()
+                  : null;
+              final totalObtained = res.isNotEmpty
+                  ? (res['obtainedMarks']?.toString() ?? '-')
+                  : '-';
+              final grade =
+                  res.isNotEmpty ? (res['grade']?.toString() ?? '-') : '-';
 
               final studentMarks = res.isNotEmpty
-                  ? _examMarks.where((m) => m['examResultId'] == res['id']).toList()
+                  ? _examMarks
+                      .where((m) => m['examResultId'] == res['id'])
+                      .toList()
                   : [];
 
               return Row(
@@ -1410,11 +1524,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   _tableCell(
                     Text(
                       rank,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1424,11 +1535,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   _tableCell(
                     Text(
                       studentName,
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF334155),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF334155)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1438,16 +1546,23 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   ...activeSubjects.map((s) {
                     final name = s['name'] as String;
                     final mark = studentMarks.firstWhere(
-                      (m) => m['subjectName'].toString().toLowerCase() == name.toLowerCase(),
+                      (m) =>
+                          m['subjectName'].toString().toLowerCase() ==
+                          name.toLowerCase(),
                       orElse: () => <String, dynamic>{},
                     );
-                    final isMarkAbsent = mark.isNotEmpty && (mark['isAbsent'] == true || mark['isAbsent'].toString().toLowerCase() == 'true');
-                    final displayMark = mark.isNotEmpty 
-                        ? (isMarkAbsent ? 'Ab' : mark['obtainedMarks']?.toString() ?? '-')
+                    final isMarkAbsent = mark.isNotEmpty &&
+                        (mark['isAbsent'] == true ||
+                            mark['isAbsent'].toString().toLowerCase() ==
+                                'true');
+                    final displayMark = mark.isNotEmpty
+                        ? (isMarkAbsent
+                            ? 'Ab'
+                            : mark['obtainedMarks']?.toString() ?? '-')
                         : '-';
                     return _tableCell(
                       Text(
-                        displayMark, 
+                        displayMark,
                         style: _cellStyle(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1459,11 +1574,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   _tableCell(
                     Text(
                       totalObtained,
-                      style: GoogleFonts.inter(
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF0F172A)),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1472,7 +1584,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   ),
                   _tableCell(
                     Text(
-                      pctDouble != null ? formatPct(pctDouble) : '-', 
+                      pctDouble != null ? formatPct(pctDouble) : '-',
                       style: _cellStyle(),
                       maxLines: 1,
                       overflow: TextOverflow.clip,
@@ -1492,11 +1604,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                         child: Center(
                           child: Text(
                             grade,
-                            style: GoogleFonts.inter(
-                              fontSize: 10.sp,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(0xFF334155),
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF334155)),
                           ),
                         ),
                       ),
@@ -1514,7 +1623,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
   Widget _buildMarksEntryTab() {
     if (_subjects.isEmpty) {
-      return const Center(child: Text('No subjects configured for this class.'));
+      return const Center(
+          child: Text('No subjects configured for this class.'));
     }
 
     return Container(
@@ -1537,13 +1647,14 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             ),
           ),
           SizedBox(height: 16.h),
-          
           DropdownButtonFormField<String>(
             initialValue: _selectedSubjectId,
             decoration: InputDecoration(
               labelText: 'Select Subject',
-              contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
             ),
             items: _subjects.map((s) {
               return DropdownMenuItem(
@@ -1559,7 +1670,6 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             },
           ),
           SizedBox(height: 24.h),
-
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -1570,8 +1680,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               final userData = student['User'] as Map?;
               final firstName = userData?['firstName'] ?? '';
               final lastName = userData?['lastName'] ?? '';
-              final studentName = '$firstName $lastName'.trim().isNotEmpty 
-                  ? '$firstName $lastName' 
+              final studentName = '$firstName $lastName'.trim().isNotEmpty
+                  ? '$firstName $lastName'
                   : (student['name'] ?? 'Student');
               final isAbsent = _absentStatus[studentId] ?? false;
 
@@ -1579,7 +1689,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                 margin: EdgeInsets.only(bottom: 16.h),
                 padding: EdgeInsets.all(12.r),
                 decoration: BoxDecoration(
-                  color: isAbsent ? Colors.grey.shade50 : const Color(0xFFF8FAFC),
+                  color:
+                      isAbsent ? Colors.grey.shade50 : const Color(0xFFF8FAFC),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
@@ -1591,20 +1702,15 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                       children: [
                         Text(
                           studentName,
-                          style: GoogleFonts.inter(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF0F172A),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F172A)),
                         ),
                         Row(
                           children: [
                             Text(
                               'Absent',
-                              style: GoogleFonts.inter(
-                                fontSize: 12.sp,
-                                color: const Color(0xFF64748B),
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF64748B)),
                             ),
                             Checkbox(
                               value: isAbsent,
@@ -1625,16 +1731,22 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Theory', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF64748B))),
+                              Text('Theory',
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF64748B))),
                               SizedBox(height: 4.h),
                               TextField(
                                 controller: _theoryControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
                                 decoration: InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.r)),
-                                  fillColor: isAbsent ? Colors.grey.shade200 : Colors.white,
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10.w, vertical: 8.h),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6.r)),
+                                  fillColor: isAbsent
+                                      ? Colors.grey.shade200
+                                      : Colors.white,
                                   filled: true,
                                 ),
                               ),
@@ -1646,16 +1758,22 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Practical', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF64748B))),
+                              Text('Practical',
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF64748B))),
                               SizedBox(height: 4.h),
                               TextField(
                                 controller: _pracControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
                                 decoration: InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.r)),
-                                  fillColor: isAbsent ? Colors.grey.shade200 : Colors.white,
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10.w, vertical: 8.h),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6.r)),
+                                  fillColor: isAbsent
+                                      ? Colors.grey.shade200
+                                      : Colors.white,
                                   filled: true,
                                 ),
                               ),
@@ -1667,16 +1785,22 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Internal', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF64748B))),
+                              Text('Internal',
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF64748B))),
                               SizedBox(height: 4.h),
                               TextField(
                                 controller: _intControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
                                 decoration: InputDecoration(
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(6.r)),
-                                  fillColor: isAbsent ? Colors.grey.shade200 : Colors.white,
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10.w, vertical: 8.h),
+                                  border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(6.r)),
+                                  fillColor: isAbsent
+                                      ? Colors.grey.shade200
+                                      : Colors.white,
                                   filled: true,
                                 ),
                               ),
@@ -1691,29 +1815,26 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             },
           ),
           SizedBox(height: 20.h),
-          
           SizedBox(
             width: double.infinity,
             height: 48.h,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2563EB),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r)),
               ),
               onPressed: _isSavingMarks ? null : _saveMarks,
               child: _isSavingMarks
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
                     )
                   : Text(
                       'Save Marks',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                      style: AppTypography.small.copyWith(color: Colors.white),
                     ),
             ),
           ),
@@ -1752,14 +1873,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           SizedBox(height: 4.h),
           Text(
             'Upload marks using Excel',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF64748B),
-              fontWeight: FontWeight.w500,
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 24.h),
-
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(16.r),
@@ -1773,15 +1890,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.download_rounded, size: 20.sp, color: const Color(0xFF0F172A)),
+                    Icon(Icons.download_rounded,
+                        size: 20.sp, color: const Color(0xFF0F172A)),
                     SizedBox(width: 8.w),
                     Text(
                       '1. Download Template',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                   ],
                 ),
@@ -1791,24 +1906,22 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     backgroundColor: const Color(0xFFEFF6FF), // light blue
                     elevation: 0,
                     side: const BorderSide(color: Color(0xFFDBEAFE)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r)),
-                    padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8.r)),
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
                   ),
                   onPressed: _downloadTemplate,
                   child: Text(
                     'Download XLSX',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1E40AF),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF1E40AF)),
                   ),
                 ),
               ],
             ),
           ),
           SizedBox(height: 18.h),
-
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(16.r),
@@ -1822,24 +1935,25 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.upload_rounded, size: 20.sp, color: const Color(0xFF0F172A)),
+                    Icon(Icons.upload_rounded,
+                        size: 20.sp, color: const Color(0xFF0F172A)),
                     SizedBox(width: 8.w),
                     Text(
                       '2. Upload File',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F172A),
-                      ),
+                      style: AppTypography.small
+                          .copyWith(color: const Color(0xFF0F172A)),
                     ),
                   ],
                 ),
                 SizedBox(height: 16.h),
                 _isUploading
-                    ? const Center(child: CircularProgressIndicator(color: Color(0xFF2563EB)))
+                    ? const Center(
+                        child:
+                            CircularProgressIndicator(color: Color(0xFF2563EB)))
                     : Container(
                         width: double.infinity,
-                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12.w, vertical: 10.h),
                         decoration: BoxDecoration(
                           color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(8.r),
@@ -1851,29 +1965,26 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.white,
                                 elevation: 0,
-                                side: const BorderSide(color: Color(0xFFCBD5E1)),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6.r)),
-                                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                                side:
+                                    const BorderSide(color: Color(0xFFCBD5E1)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6.r)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 12.w, vertical: 8.h),
                               ),
                               onPressed: _pickAndUploadFile,
                               child: Text(
                                 'Choose file',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFF475569),
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF475569)),
                               ),
                             ),
                             SizedBox(width: 12.w),
                             Expanded(
                               child: Text(
                                 _uploadedFileName,
-                                style: GoogleFonts.inter(
-                                  fontSize: 13.sp,
-                                  color: const Color(0xFF475569),
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF475569)),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),

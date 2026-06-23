@@ -3,12 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:screenshot/screenshot.dart';
-import 'package:gal/gal.dart';
+import 'dart:typed_data';
+import 'package:file_saver/file_saver.dart';
 import '../../services/api_service.dart';
 import 'dart:developer' as dev;
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Event model
@@ -18,31 +19,46 @@ enum EventType { holiday, event, exam, emergency, notice }
 extension EventTypeExtension on EventType {
   Color get color {
     switch (this) {
-      case EventType.holiday:   return const Color(0xFFEF4444);
-      case EventType.event:     return const Color(0xFF3B82F6);
-      case EventType.exam:      return const Color(0xFFF59E0B);
-      case EventType.emergency: return const Color(0xFF8B5CF6);
-      case EventType.notice:    return const Color(0xFF94A3B8);
+      case EventType.holiday:
+        return const Color(0xFFEF4444);
+      case EventType.event:
+        return const Color(0xFF3B82F6);
+      case EventType.exam:
+        return const Color(0xFFF59E0B);
+      case EventType.emergency:
+        return const Color(0xFF8B5CF6);
+      case EventType.notice:
+        return const Color(0xFF94A3B8);
     }
   }
 
   Color get bgColor {
     switch (this) {
-      case EventType.holiday:   return const Color(0xFFFEE2E2);
-      case EventType.event:     return const Color(0xFFDBEAFE);
-      case EventType.exam:      return const Color(0xFFFEF3C7);
-      case EventType.emergency: return const Color(0xFFEDE9FE);
-      case EventType.notice:    return const Color(0xFFF1F5F9);
+      case EventType.holiday:
+        return const Color(0xFFFEE2E2);
+      case EventType.event:
+        return const Color(0xFFDBEAFE);
+      case EventType.exam:
+        return const Color(0xFFFEF3C7);
+      case EventType.emergency:
+        return const Color(0xFFEDE9FE);
+      case EventType.notice:
+        return const Color(0xFFF1F5F9);
     }
   }
 
   String get label {
     switch (this) {
-      case EventType.holiday:   return 'Holiday';
-      case EventType.event:     return 'Event';
-      case EventType.exam:      return 'Exam';
-      case EventType.emergency: return 'Emergency';
-      case EventType.notice:    return 'Notice';
+      case EventType.holiday:
+        return 'Holiday';
+      case EventType.event:
+        return 'Event';
+      case EventType.exam:
+        return 'Exam';
+      case EventType.emergency:
+        return 'Emergency';
+      case EventType.notice:
+        return 'Notice';
     }
   }
 }
@@ -74,14 +90,14 @@ class AcademicCalendarScreen extends StatefulWidget {
 class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  late DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  late DateTime _focusedMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime? _selectedDay;
   bool _isMonthView = true;
   // ignore: prefer_final_fields
   bool _isLoading = false;
 
   String _selectedFilter = 'All Categories';
-  final ScreenshotController _screenshotController = ScreenshotController();
 
   // Events keyed by "year-month-day"
   final Map<String, List<CalendarEvent>> _events = {};
@@ -116,7 +132,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         'calendar',
         queryParams: {'startDate': startDate, 'endDate': endDate},
       );
-      
+
       if (res['success'] == true && mounted) {
         final apiEvents = res['events'] as List? ?? [];
         setState(() {
@@ -146,8 +162,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                   eventType = EventType.event;
               }
               final timeStr = item['startTime']?.toString();
-              
-              _addEvent(parsedDate.year, parsedDate.month, parsedDate.day, 
+
+              _addEvent(parsedDate.year, parsedDate.month, parsedDate.day,
                   CalendarEvent(title, eventType, time: timeStr));
             } catch (e) {
               dev.log('Error parsing calendar event date: $e');
@@ -169,16 +185,32 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     setState(() {
       _events.clear();
       // Pre-loaded institutional events
-      _addEvent(y, m, 1,  const CalendarEvent('Start of Academic Year 2025-2026', EventType.event));
-      _addEvent(y, m, 15, const CalendarEvent('Science Fair 2026', EventType.event, time: '10:00 AM'));
-      _addEvent(y, m, 20, const CalendarEvent('National Holiday', EventType.holiday));
-      _addEvent(y, m, 25, const CalendarEvent('Mid-Term Examinations', EventType.exam));
+      _addEvent(
+          y,
+          m,
+          1,
+          const CalendarEvent(
+              'Start of Academic Year 2025-2026', EventType.event));
+      _addEvent(
+          y,
+          m,
+          15,
+          const CalendarEvent('Science Fair 2026', EventType.event,
+              time: '10:00 AM'));
+      _addEvent(
+          y, m, 20, const CalendarEvent('National Holiday', EventType.holiday));
+      _addEvent(y, m, 25,
+          const CalendarEvent('Mid-Term Examinations', EventType.exam));
 
       // Next month events
-      _addEvent(y, m + 1, 5,  const CalendarEvent('Parents Meeting', EventType.event));
-      _addEvent(y, m + 1, 14, const CalendarEvent('Independence Day', EventType.holiday));
-      _addEvent(y, m + 1, 22, const CalendarEvent('Annual Sports Day', EventType.event));
-      _addEvent(y, m + 1, 28, const CalendarEvent('Chemistry Lab Exam', EventType.exam));
+      _addEvent(
+          y, m + 1, 5, const CalendarEvent('Parents Meeting', EventType.event));
+      _addEvent(y, m + 1, 14,
+          const CalendarEvent('Independence Day', EventType.holiday));
+      _addEvent(y, m + 1, 22,
+          const CalendarEvent('Annual Sports Day', EventType.event));
+      _addEvent(y, m + 1, 28,
+          const CalendarEvent('Chemistry Lab Exam', EventType.exam));
     });
   }
 
@@ -188,23 +220,27 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       if (_realtimeChannel != null) {
         client.removeChannel(_realtimeChannel!);
       }
-      
-      _realtimeChannel = client.channel('public:school_calendar_sync')
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'SchoolCalendar',
-          callback: (_) {
-            if (mounted) {
-              _loadEvents();
-            }
-          },
-        );
-      
+
+      _realtimeChannel =
+          client.channel('public:school_calendar_sync').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'SchoolCalendar',
+                callback: (_) {
+                  if (mounted) {
+                    _loadEvents();
+                  }
+                },
+              );
+
       _realtimeChannel!.subscribe((status, [error]) {
-        dev.log('📡 Supabase Realtime Academic Calendar channel status: $status', name: 'AcademicCalendarScreen');
+        dev.log(
+            '📡 Supabase Realtime Academic Calendar channel status: $status',
+            name: 'AcademicCalendarScreen');
         if (error != null) {
-          dev.log('❌ Supabase Realtime Academic Calendar subscription error: $error', name: 'AcademicCalendarScreen');
+          dev.log(
+              '❌ Supabase Realtime Academic Calendar subscription error: $error',
+              name: 'AcademicCalendarScreen');
         }
       });
     } catch (e) {
@@ -228,11 +264,13 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   void _goToPreviousMonth() => setState(() {
-        _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
+        _focusedMonth =
+            DateTime(_focusedMonth.year, _focusedMonth.month - 1, 1);
       });
 
   void _goToNextMonth() => setState(() {
-        _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
+        _focusedMonth =
+            DateTime(_focusedMonth.year, _focusedMonth.month + 1, 1);
       });
 
   void _goToToday() => setState(() {
@@ -251,7 +289,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     for (int d = 1; d <= daysInMonth; d++) {
       final events = _eventsForDay(year, month, d);
       for (var e in events) {
-        if (_selectedFilter == 'All Categories' || e.type.label == _selectedFilter) {
+        if (_selectedFilter == 'All Categories' ||
+            e.type.label == _selectedFilter) {
           result.add(MapEntry(DateTime(year, month, d), e));
         }
       }
@@ -261,49 +300,65 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   Future<void> _exportCalendar() async {
     try {
-      // Request gallery permission via gal
-      bool hasAccess = await Gal.hasAccess();
-      if (!hasAccess) {
-        hasAccess = await Gal.requestAccess();
-        if (!hasAccess) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Gallery permission is required to save the calendar.'), backgroundColor: Colors.red),
-            );
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      dev.log("Permission request error: $e");
-    }
-
-    try {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Capturing calendar...'), duration: Duration(seconds: 1), backgroundColor: Colors.blue),
+          const SnackBar(
+            content: Text('Exporting calendar...'),
+            duration: Duration(seconds: 1),
+            backgroundColor: Color(0xFF0066CC),
+          ),
         );
       }
+
+      // Generate CSV
+      final List<String> csvRows = [];
+      csvRows.add('Title,Date,Type,Location,Description');
+
+      final events = _monthEventHorizons;
+      for (var entry in events) {
+        final date = entry.key;
+        final event = entry.value;
+        final dateStr = DateFormat('M/d/yyyy').format(date);
+        
+        // Escape quotes and commas in title
+        String safeTitle = event.title.replaceAll('"', '""');
+        if (safeTitle.contains(',')) safeTitle = '"$safeTitle"';
+
+        final typeStr = event.type.label.toUpperCase();
+        
+        csvRows.add('$safeTitle,$dateStr,$typeStr,N/A,N/A');
+      }
+
+      final csvString = csvRows.join('\n');
+      final bytes = Uint8List.fromList(csvString.codeUnits);
       
-      final imageBytes = await _screenshotController.capture(delay: const Duration(milliseconds: 100));
-      if (imageBytes != null) {
-        await Gal.putImageBytes(
-          imageBytes,
-          name: "Academic_Calendar_${DateTime.now().millisecondsSinceEpoch}"
+      final fileName = 'EduSphere_Calendar_${_focusedMonth.month}_${_focusedMonth.year}';
+
+      await FileSaver.instance.saveFile(
+        name: fileName,
+        bytes: bytes,
+        fileExtension: 'csv',
+        mimeType: MimeType.csv,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Calendar exported to Excel successfully!'),
+            backgroundColor: Colors.green,
+          ),
         );
-        if (mounted) {
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Calendar exported to Gallery successfully!'), backgroundColor: Colors.green),
-          );
-        }
       }
     } catch (e) {
       dev.log("Export failed: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export error: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Export error: $e'), 
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -318,42 +373,37 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF0F4F8),
       drawer: widget.showAppBar
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic Calendar')
+          ? const EduSphereDrawer(
+              role: 'teacher', activeLabel: 'Academic Calendar')
           : null,
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(title: 'EduSphere')
-          : null,
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Screenshot(
-              controller: _screenshotController,
-              child: Container(
-                color: const Color(0xFFF0F4F8),
-                child: SingleChildScrollView(
-                  physics: const ClampingScrollPhysics(),
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      SizedBox(height: 18.h),
-                      _buildCalendarCard(),
-                      SizedBox(height: 14.h),
-                      _buildEventHorizons(),
-                      SizedBox(height: 14.h),
-                      _buildLegend(),
-                      SizedBox(height: 80.h),
-                    ],
-                  ),
+          : Container(
+              color: const Color(0xFFF0F4F8),
+              child: SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(),
+                    SizedBox(height: 18.h),
+                    _buildCalendarCard(),
+                    SizedBox(height: 14.h),
+                    _buildEventHorizons(),
+                    SizedBox(height: 14.h),
+                    _buildLegend(),
+                    SizedBox(height: 80.h),
+                  ],
                 ),
               ),
             ),
-      bottomNavigationBar: widget.showAppBar
-          ? const TeacherBottomNavBar(activeIndex: 1)
-          : null,
+      bottomNavigationBar:
+          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 1) : null,
     );
   }
-
 
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
@@ -375,34 +425,28 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               SizedBox(height: 4.h),
               Text(
                 'Institutional schedule, public holidays, and event horizons.',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF64748B),
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
               ),
             ],
           ),
         ),
         Row(
           children: [
-            Builder(
-              builder: (context) {
-                final isFilterActive = _selectedFilter != 'All Categories';
-                return _actionBtn(
-                  Icons.filter_alt_outlined, 
+            Builder(builder: (context) {
+              final isFilterActive = _selectedFilter != 'All Categories';
+              return _actionBtn(Icons.filter_alt_outlined,
                   isFilterActive ? _selectedFilter : 'Filters',
                   trailingIcon: Icons.keyboard_arrow_down,
-                  isActive: isFilterActive,
-                  onTap: () {
-                    final RenderBox button = context.findRenderObject() as RenderBox;
-                    _showFiltersMenu(context, button);
-                  }
-                );
-              }
-            ),
+                  isActive: isFilterActive, onTap: () {
+                final RenderBox button =
+                    context.findRenderObject() as RenderBox;
+                _showFiltersMenu(context, button);
+              });
+            }),
             SizedBox(width: 8.w),
             _actionBtn(
-              Icons.file_upload_outlined, 
+              Icons.file_upload_outlined,
               'Export',
               onTap: _exportCalendar,
             ),
@@ -422,7 +466,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     const activeColor = Color(0xFF0066CC);
     const inactiveColor = Color(0xFF475569);
     final bg = isActive ? const Color(0xFFE0F2FE) : Colors.white;
-    final borderCol = isActive ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0);
+    final borderCol =
+        isActive ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0);
 
     return GestureDetector(
       onTap: onTap,
@@ -451,11 +496,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             SizedBox(width: 6.w),
             Text(
               label,
-              style: GoogleFonts.inter(
-                fontSize: 12.sp,
-                fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
-                color: isActive ? activeColor : const Color(0xFF0F172A),
-              ),
+              style: AppTypography.caption.copyWith(
+                  color: isActive ? activeColor : const Color(0xFF0F172A)),
             ),
             if (trailingIcon != null) ...[
               SizedBox(width: 4.w),
@@ -472,11 +514,14 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   }
 
   void _showFiltersMenu(BuildContext context, RenderBox button) {
-    final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+    final RenderBox overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
-        button.localToGlobal(Offset(0, button.size.height + 8), ancestor: overlay),
-        button.localToGlobal(button.size.bottomRight(const Offset(0, 8)), ancestor: overlay),
+        button.localToGlobal(Offset(0, button.size.height + 8),
+            ancestor: overlay),
+        button.localToGlobal(button.size.bottomRight(const Offset(0, 8)),
+            ancestor: overlay),
       ),
       Offset.zero & overlay.size,
     );
@@ -509,11 +554,10 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             ),
             child: Text(
               choice,
-              style: GoogleFonts.inter(
-                fontSize: 13.sp,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                color: isSelected ? const Color(0xFF0066CC) : const Color(0xFF0F172A),
-              ),
+              style: AppTypography.caption.copyWith(
+                  color: isSelected
+                      ? const Color(0xFF0066CC)
+                      : const Color(0xFF0F172A)),
             ),
           ),
         );
@@ -527,18 +571,16 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
     });
   }
 
-
-
   // ── Full Calendar Card ─────────────────────────────────────────────────────
   Widget _buildCalendarCard() {
-    final year  = _focusedMonth.year;
+    final year = _focusedMonth.year;
     final month = _focusedMonth.month;
-    final firstDay     = DateTime(year, month, 1);
-    final daysInMonth  = DateTime(year, month + 1, 0).day;
+    final firstDay = DateTime(year, month, 1);
+    final daysInMonth = DateTime(year, month + 1, 0).day;
     // Sunday = 0  (Dart weekday: Mon=1..Sun=7)
-    final startOffset  = firstDay.weekday % 7;
-    final totalCells   = startOffset + daysInMonth;
-    final rows         = (totalCells / 7).ceil();
+    final startOffset = firstDay.weekday % 7;
+    final totalCells = startOffset + daysInMonth;
+    final rows = (totalCells / 7).ceil();
 
     return Column(
       children: [
@@ -565,7 +607,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 // Calendar rows
                 Column(
                   children: List.generate(rows, (row) {
-                    return _buildCalendarRow(row, startOffset, daysInMonth, year, month, rows);
+                    return _buildCalendarRow(
+                        row, startOffset, daysInMonth, year, month, rows);
                   }),
                 ),
               ],
@@ -579,7 +622,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
   Widget _buildListView() {
     final events = _monthEventHorizons;
-    
+
     if (events.isEmpty) {
       return Container(
         height: 400.h,
@@ -592,21 +635,19 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.calendar_today_outlined, size: 70.sp, color: const Color(0xFFCBD5E1)),
+            Icon(Icons.calendar_today_outlined,
+                size: 70.sp, color: const Color(0xFFCBD5E1)),
             SizedBox(height: 24.h),
             Text(
               'No events found for this month.',
-              style: GoogleFonts.inter(
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w500,
-                color: const Color(0xFF94A3B8),
-              ),
+              style:
+                  AppTypography.small.copyWith(color: const Color(0xFF94A3B8)),
             ),
           ],
         ),
       );
     }
-    
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -640,11 +681,15 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
               children: [
                 Text(
                   DateFormat('MMM').format(date).toUpperCase(),
-                  style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: event.type.color),
+                  style:
+                      AppTypography.caption.copyWith(color: event.type.color),
                 ),
                 Text(
                   '${date.day}',
-                  style: GoogleFonts.outfit(fontSize: 18.sp, fontWeight: FontWeight.w800, color: event.type.color),
+                  style: GoogleFonts.outfit(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w800,
+                      color: event.type.color),
                 ),
               ],
             ),
@@ -657,15 +702,19 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 SizedBox(height: 6.h),
                 Text(
                   event.title,
-                  style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF0F172A)),
                 ),
                 if (event.time != null) ...[
                   SizedBox(height: 4.h),
                   Row(
                     children: [
-                      Icon(Icons.access_time_rounded, size: 12.sp, color: const Color(0xFF64748B)),
+                      Icon(Icons.access_time_rounded,
+                          size: 12.sp, color: const Color(0xFF64748B)),
                       SizedBox(width: 4.w),
-                      Text(event.time!, style: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF64748B))),
+                      Text(event.time!,
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF64748B))),
                     ],
                   ),
                 ],
@@ -707,11 +756,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                 onTap: _goToToday,
                 child: Text(
                   'Today',
-                  style: GoogleFonts.inter(
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0066CC),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF0066CC)),
                 ),
               ),
               SizedBox(width: 8.w),
@@ -762,11 +808,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 12.sp,
-            fontWeight: FontWeight.w700,
-            color: active ? Colors.white : const Color(0xFF475569),
-          ),
+          style: AppTypography.caption
+              .copyWith(color: active ? Colors.white : const Color(0xFF475569)),
         ),
       ),
     );
@@ -782,32 +825,36 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         ),
       ),
       child: Row(
-        children: days.asMap().entries.map((e) => Expanded(
-          child: Container(
-            padding: EdgeInsets.symmetric(vertical: 14.h),
-            decoration: BoxDecoration(
-              border: e.key < 6 ? const Border(right: BorderSide(color: Color(0xFFE2E8F0), width: 1)) : null,
-            ),
-            child: Center(
-              child: Text(
-                e.value,
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF94A3B8),
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
-          ),
-        )).toList(),
+        children: days
+            .asMap()
+            .entries
+            .map((e) => Expanded(
+                  child: Container(
+                    padding: EdgeInsets.symmetric(vertical: 14.h),
+                    decoration: BoxDecoration(
+                      border: e.key < 6
+                          ? const Border(
+                              right: BorderSide(
+                                  color: Color(0xFFE2E8F0), width: 1))
+                          : null,
+                    ),
+                    child: Center(
+                      child: Text(
+                        e.value,
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF94A3B8), letterSpacing: 0.5),
+                      ),
+                    ),
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
 
   // One row of 7 cells
-  Widget _buildCalendarRow(
-      int row, int startOffset, int daysInMonth, int year, int month, int rows) {
+  Widget _buildCalendarRow(int row, int startOffset, int daysInMonth, int year,
+      int month, int rows) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -817,13 +864,18 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
 
           final isLastCol = col == 6;
           final isLastRow = row == rows - 1;
-          
+
           BoxDecoration cellDecoration(bool isSel, bool isT) {
             return BoxDecoration(
-              color: isSel && !isT ? const Color(0xFFEFF6FF) : Colors.transparent,
+              color:
+                  isSel && !isT ? const Color(0xFFEFF6FF) : Colors.transparent,
               border: Border(
-                right: isLastCol ? BorderSide.none : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
-                bottom: isLastRow ? BorderSide.none : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                right: isLastCol
+                    ? BorderSide.none
+                    : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+                bottom: isLastRow
+                    ? BorderSide.none
+                    : const BorderSide(color: Color(0xFFE2E8F0), width: 1),
               ),
             );
           }
@@ -838,8 +890,9 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
             );
           }
 
-          final now       = DateTime.now();
-          final isToday   = day == now.day && month == now.month && year == now.year;
+          final now = DateTime.now();
+          final isToday =
+              day == now.day && month == now.month && year == now.year;
           final isSelected = _selectedDay != null &&
               day == _selectedDay!.day &&
               month == _selectedDay!.month &&
@@ -848,12 +901,15 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
           final rawEvents = _eventsForDay(year, month, day);
           final dayEvents = _selectedFilter == 'All Categories'
               ? rawEvents
-              : rawEvents.where((e) => e.type.label == _selectedFilter).toList();
+              : rawEvents
+                  .where((e) => e.type.label == _selectedFilter)
+                  .toList();
           final hasEvents = dayEvents.isNotEmpty;
 
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _selectedDay = DateTime(year, month, day)),
+              onTap: () =>
+                  setState(() => _selectedDay = DateTime(year, month, day)),
               child: Container(
                 constraints: BoxConstraints(minHeight: 64.h),
                 decoration: cellDecoration(isSelected, isToday),
@@ -874,20 +930,16 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                       child: Center(
                         child: Text(
                           '$day',
-                          style: GoogleFonts.inter(
-                            fontSize: 13.sp,
-                            fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
-                            color: isToday
-                                ? Colors.white
-                                : const Color(0xFF1E293B),
-                          ),
+                          style: AppTypography.caption.copyWith(
+                              color: isToday
+                                  ? Colors.white
+                                  : const Color(0xFF1E293B)),
                         ),
                       ),
                     ),
                     if (hasEvents && _isMonthView) ...[
                       SizedBox(height: 4.h),
-                      for (final ev in dayEvents.take(2))
-                        _buildEventChip(ev),
+                      for (final ev in dayEvents.take(2)) _buildEventChip(ev),
                       SizedBox(height: 4.h),
                     ] else
                       const Spacer(),
@@ -913,11 +965,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         ev.title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.inter(
-          fontSize: 7.5.sp,
-          fontWeight: FontWeight.w600,
-          color: ev.type.color,
-        ),
+        style: AppTypography.caption.copyWith(color: ev.type.color),
       ),
     );
   }
@@ -964,10 +1012,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                   ),
                   Text(
                     'Chronological list of milestones.',
-                    style: GoogleFonts.inter(
-                      fontSize: 10.sp,
-                      color: const Color(0xFF64748B),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                 ],
               ),
@@ -986,10 +1032,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                     SizedBox(height: 12.h),
                     Text(
                       'No events in horizon',
-                      style: GoogleFonts.inter(
-                        fontSize: 13.sp,
-                        color: const Color(0xFF64748B),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -1044,11 +1088,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                     children: [
                       Text(
                         DateFormat('d MMM').format(date),
-                        style: GoogleFonts.inter(
-                          fontSize: 10.sp,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF64748B),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF64748B)),
                       ),
                       const Spacer(),
                       Container(
@@ -1060,11 +1101,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                         ),
                         child: Text(
                           event.type.label,
-                          style: GoogleFonts.inter(
-                            fontSize: 8.5.sp,
-                            fontWeight: FontWeight.w700,
-                            color: event.type.color,
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: event.type.color),
                         ),
                       ),
                     ],
@@ -1087,10 +1125,8 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                         SizedBox(width: 3.w),
                         Text(
                           event.time!,
-                          style: GoogleFonts.inter(
-                            fontSize: 9.5.sp,
-                            color: const Color(0xFF64748B),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF64748B)),
                         ),
                       ],
                     ),
@@ -1176,11 +1212,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
         SizedBox(width: 6.w),
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 11.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFF475569),
-          ),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF475569)),
         ),
       ],
     );

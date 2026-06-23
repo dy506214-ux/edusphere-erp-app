@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../widgets/common_widgets.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class StudentTimetableScreen extends StatefulWidget {
   const StudentTimetableScreen({super.key});
@@ -16,7 +17,13 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _allEntries = [];
 
-  final List<String> _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  final List<String> _days = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday'
+  ];
 
   final List<Map<String, String>> _columns = [
     {'title': 'PERIOD 1', 'time': '08:00 - 08:40', 'start': '08:00'},
@@ -44,7 +51,9 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       String? sectionId = prefs.getString('student_section_id');
       if (sectionId == null || sectionId.isEmpty) {
         final profileRes = await ApiService.instance.get('students/me');
-        if (profileRes != null && profileRes['success'] == true && profileRes['student'] != null) {
+        if (profileRes != null &&
+            profileRes['success'] == true &&
+            profileRes['student'] != null) {
           sectionId = profileRes['student']['sectionId'] as String?;
           if (sectionId != null) {
             await prefs.setString('student_section_id', sectionId);
@@ -55,11 +64,16 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
         throw Exception('Student section ID could not be resolved');
       }
 
-      final response = await ApiService.instance.get('timetable/student/$sectionId');
+      final response =
+          await ApiService.instance.get('timetable/student/$sectionId');
       if (response != null && response['success'] == true) {
         final rawSchedule = response['schedule'] as List<dynamic>? ?? [];
         final Map<int, String> weekdayToName = {
-          1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday',
+          1: 'Monday',
+          2: 'Tuesday',
+          3: 'Wednesday',
+          4: 'Thursday',
+          5: 'Friday',
         };
 
         _allEntries = rawSchedule.map((slot) {
@@ -73,7 +87,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
         }).toList();
       }
     } catch (e) {
-      if (mounted) showToast(context, 'Failed to load timetable', isError: true);
+      if (mounted)
+        showToast(context, 'Failed to load timetable', isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -91,7 +106,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
           String hh = parts[0].padLeft(2, '0');
           String mm = parts[1].padLeft(2, '0');
           String normalizedStartTime = '$hh:$mm';
-          
+
           if (normalizedStartTime == startPrefix) {
             return entry['subject_name'] as String?;
           }
@@ -109,12 +124,14 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
         backgroundColor: const Color(0xFFF4F8FB),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 20.sp),
+          icon: Icon(Icons.arrow_back_ios_new_rounded,
+              color: const Color(0xFF0F2547), size: 20.sp),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF0066CC)))
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFF0066CC)))
           : SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               child: Column(
@@ -154,21 +171,14 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
               children: [
                 Text(
                   'MY SCHEDULE',
-                  style: GoogleFonts.inter(
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF0066CC),
-                    letterSpacing: 0.5,
-                  ),
+                  style: AppTypography.h4.copyWith(
+                      color: const Color(0xFF0066CC), letterSpacing: 0.5),
                 ),
                 SizedBox(height: 4.h),
                 Text(
                   'View your weekly class schedule and subjects.',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF8B9BB4),
-                  ),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF8B9BB4)),
                 ),
               ],
             ),
@@ -181,7 +191,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                 color: Color(0xFFEFF6FF),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.refresh_rounded, color: const Color(0xFF0066CC), size: 20.sp),
+              child: Icon(Icons.refresh_rounded,
+                  color: const Color(0xFF0066CC), size: 20.sp),
             ),
           ),
         ],
@@ -202,7 +213,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
           scrollDirection: Axis.horizontal,
           physics: const BouncingScrollPhysics(),
           child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width),
+            constraints:
+                BoxConstraints(minWidth: MediaQuery.of(context).size.width),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -223,7 +235,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       ),
       child: Row(
         children: [
-          _buildCell('DAY', width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
+          _buildCell('DAY',
+              width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
           ..._columns.map((col) => _buildTimeCell(col['title']!, col['time']!)),
         ],
       ),
@@ -237,13 +250,18 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       ),
       child: Row(
         children: [
-          _buildCell(day, width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
+          _buildCell(day,
+              width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
           ..._columns.map((col) {
             if (col['title'] == 'LUNCH BREAK') {
-              return _buildCell('Lunch Break', width: 110.w, isLunchBreak: true, bgColor: const Color(0xFFFFF9F2));
+              return _buildCell('Lunch Break',
+                  width: 110.w,
+                  isLunchBreak: true,
+                  bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
-            return _buildCell(subject ?? 'Unassigned', width: 110.w, isUnassigned: subject == null);
+            return _buildCell(subject ?? 'Unassigned',
+                width: 110.w, isUnassigned: subject == null);
           }),
         ],
       ),
@@ -261,7 +279,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
         children: [
           Text(
             title,
-            style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: const Color(0xFF4A5568)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF4A5568)),
           ),
           SizedBox(height: 6.h),
           Container(
@@ -274,11 +293,13 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.access_time, size: 10.sp, color: const Color(0xFFA0AEC0)),
+                Icon(Icons.access_time,
+                    size: 10.sp, color: const Color(0xFFA0AEC0)),
                 SizedBox(width: 4.w),
                 Text(
                   time,
-                  style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w600, color: const Color(0xFF718096)),
+                  style: AppTypography.caption
+                      .copyWith(color: const Color(0xFF718096)),
                 ),
               ],
             ),
@@ -304,17 +325,21 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       alignment: alignment,
       decoration: BoxDecoration(
         color: bgColor,
-        border: const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
+        border:
+            const Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),
       ),
       child: Text(
         text,
         style: GoogleFonts.inter(
           fontSize: isHeader || isDayLabel ? 11.sp : 12.sp,
-          fontWeight: isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
-          fontStyle: isUnassigned || isLunchBreak ? FontStyle.italic : FontStyle.normal,
-          color: isLunchBreak 
-              ? const Color(0xFFE87D3E) 
-              : isUnassigned 
+          fontWeight:
+              isHeader || isDayLabel ? FontWeight.w800 : FontWeight.w600,
+          fontStyle: isUnassigned || isLunchBreak
+              ? FontStyle.italic
+              : FontStyle.normal,
+          color: isLunchBreak
+              ? const Color(0xFFE87D3E)
+              : isUnassigned
                   ? const Color(0xFF94A3B8)
                   : const Color(0xFF2D3748),
         ),

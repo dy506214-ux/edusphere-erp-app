@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class StatCardData {
   final String label;
@@ -56,28 +57,17 @@ class StatCard extends StatelessWidget {
           const Spacer(),
           Text(
             data.value,
-            style: GoogleFonts.inter(
-              fontSize: 22.sp,
-              fontWeight: FontWeight.w900,
-              color: AppColors.textDark,
-            ),
+            style: AppTypography.h4.copyWith(color: AppColors.textDark),
           ),
           SizedBox(height: 2.h),
           Text(
             data.label,
-            style: GoogleFonts.inter(
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textLight,
-            ),
+            style: AppTypography.caption.copyWith(color: AppColors.textLight),
           ),
           SizedBox(height: 2.h),
           Text(
             data.trend,
-            style: GoogleFonts.inter(
-              fontSize: 10.sp,
-              color: AppColors.textLight,
-            ),
+            style: AppTypography.caption.copyWith(color: AppColors.textLight),
           ),
         ],
       ),

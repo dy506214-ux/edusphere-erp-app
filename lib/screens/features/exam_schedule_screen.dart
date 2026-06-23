@@ -8,6 +8,7 @@ import 'dart:developer' as dev;
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
 import 'exam_detail_screen.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ExamScheduleScreen extends StatefulWidget {
   final VoidCallback? onOpenDrawer;
@@ -76,17 +77,17 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
   void _setupRealtime() {
     try {
-      _examChannel = Supabase.instance.client
-          .channel('public:Exam')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'Exam',
-            callback: (payload) {
-              dev.log('⚡ Realtime database change detected on Exam table!', name: 'ExamScheduleScreen');
-              _loadExams();
-            },
-          );
+      _examChannel =
+          Supabase.instance.client.channel('public:Exam').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'Exam',
+                callback: (payload) {
+                  dev.log('⚡ Realtime database change detected on Exam table!',
+                      name: 'ExamScheduleScreen');
+                  _loadExams();
+                },
+              );
       _examChannel!.subscribe();
     } catch (e) {
       dev.log('Failed to connect to Supabase Realtime: $e');
@@ -95,18 +96,28 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
   Future<void> _loadFilterData() async {
     try {
-      final yearsRes = await Supabase.instance.client.from('AcademicYear').select('id, name');
-      final classesRes = await Supabase.instance.client.from('Class').select('id, name');
-      final termsRes = await Supabase.instance.client.from('Term').select('id, name');
+      final yearsRes = await Supabase.instance.client
+          .from('AcademicYear')
+          .select('id, name');
+      final classesRes =
+          await Supabase.instance.client.from('Class').select('id, name');
+      final termsRes =
+          await Supabase.instance.client.from('Term').select('id, name');
 
       if (mounted) {
         setState(() {
           _dbClasses = List<Map<String, dynamic>>.from(classesRes);
           _dbTerms = List<Map<String, dynamic>>.from(termsRes);
 
-          _academicYears = ['All Years'] + List<String>.from((yearsRes as List).map((e) => e['name'] as String));
-          _classes = ['All Classes'] + List<String>.from((classesRes as List).map((e) => (e['name'] as String).replaceAll('Class', 'Grade')));
-          _terms = ['All Terms'] + List<String>.from((termsRes as List).map((e) => e['name'] as String));
+          _academicYears = ['All Years'] +
+              List<String>.from(
+                  (yearsRes as List).map((e) => e['name'] as String));
+          _classes = ['All Classes'] +
+              List<String>.from((classesRes as List).map(
+                  (e) => (e['name'] as String).replaceAll('Class', 'Grade')));
+          _terms = ['All Terms'] +
+              List<String>.from(
+                  (termsRes as List).map((e) => e['name'] as String));
         });
       }
     } catch (e) {
@@ -125,16 +136,22 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
       final List<dynamic> rawList = response;
       final List<Map<String, dynamic>> list = rawList.map((e) {
-        final className = e['Class'] != null ? e['Class']['name']?.toString() : 'All Classes';
-        final termName = e['Term'] != null ? e['Term']['name']?.toString() : '-';
-        final ayName = e['AcademicYear'] != null ? e['AcademicYear']['name']?.toString() : 'All Years';
+        final className =
+            e['Class'] != null ? e['Class']['name']?.toString() : 'All Classes';
+        final termName =
+            e['Term'] != null ? e['Term']['name']?.toString() : '-';
+        final ayName = e['AcademicYear'] != null
+            ? e['AcademicYear']['name']?.toString()
+            : 'All Years';
 
         return {
           'id': e['id'],
           'name': e['name'] as String? ?? 'Exam',
           'class': className,
           'term': termName,
-          'start_date': e['startDate'] != null ? e['startDate'].toString().split('T')[0] : '15/09/2024',
+          'start_date': e['startDate'] != null
+              ? e['startDate'].toString().split('T')[0]
+              : '15/09/2024',
           'status': e['status']?.toString() ?? 'Active',
           'examType': e['examType']?.toString() ?? 'MID_TERM',
           'academic_year': ayName,
@@ -167,9 +184,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
       final List<dynamic> list = response;
       if (list.isNotEmpty) {
-        double mathSum = 0; int mathCount = 0;
-        double sciSum = 0; int sciCount = 0;
-        double engSum = 0; int engCount = 0;
+        double mathSum = 0;
+        int mathCount = 0;
+        double sciSum = 0;
+        int sciCount = 0;
+        double engSum = 0;
+        int engCount = 0;
 
         for (var mark in list) {
           final sub = mark['subjectName']?.toString().toLowerCase() ?? '';
@@ -260,7 +280,13 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   }
 
   Future<void> _createExamInSupabase(
-      String name, String examType, String classId, String? termId, DateTime startDate, DateTime endDate, String description) async {
+      String name,
+      String examType,
+      String classId,
+      String? termId,
+      DateTime startDate,
+      DateTime endDate,
+      String description) async {
     try {
       final nowStr = DateTime.now().toIso8601String();
       final examData = {
@@ -268,7 +294,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         'examType': examType,
         'status': 'PUBLISHED',
         'classId': classId,
-        'academicYearId': 'c573054e-43bf-4098-bb57-8b548378fb44', // Active year ID
+        'academicYearId':
+            'c573054e-43bf-4098-bb57-8b548378fb44', // Active year ID
         'termId': termId,
         'startDate': startDate.toIso8601String(),
         'endDate': endDate.toIso8601String(),
@@ -291,14 +318,16 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   List<Map<String, dynamic>> get _filteredExams {
     return _exams.where((e) {
       final name = (e['name'] as String? ?? '').toLowerCase();
-      if (_searchQuery.isNotEmpty && !name.contains(_searchQuery.toLowerCase())) {
+      if (_searchQuery.isNotEmpty &&
+          !name.contains(_searchQuery.toLowerCase())) {
         return false;
       }
       if (_selectedYear != 'All Years' && e['academic_year'] != _selectedYear) {
         return false;
       }
       if (_selectedClass != 'All Classes') {
-        final examClass = (e['class'] as String? ?? '').replaceAll('Class', 'Grade');
+        final examClass =
+            (e['class'] as String? ?? '').replaceAll('Class', 'Grade');
         if (examClass != _selectedClass) {
           return false;
         }
@@ -339,10 +368,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   void _showCreateExamDialog() {
     final nameCtrl = TextEditingController();
     final dateCtrl = TextEditingController(
-        text: intl.DateFormat('dd/MM/yyyy').format(DateTime.now().add(const Duration(days: 14))));
+        text: intl.DateFormat('dd/MM/yyyy')
+            .format(DateTime.now().add(const Duration(days: 14))));
     final descCtrl = TextEditingController();
 
-    String? selectedClassId = _dbClasses.isNotEmpty ? _dbClasses[0]['id'] : null;
+    String? selectedClassId =
+        _dbClasses.isNotEmpty ? _dbClasses[0]['id'] : null;
     String? selectedTermId;
     String selectedExamType = 'MID_TERM';
 
@@ -350,8 +381,10 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setD) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          title: Text('Schedule Exam', style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+          title: Text('Schedule Exam',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.w800)),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -360,7 +393,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 SizedBox(height: 10.h),
                 _dialogField(dateCtrl, 'Start Date', 'dd/MM/yyyy'),
                 SizedBox(height: 10.h),
-                _dialogField(descCtrl, 'Description', 'e.g. Mid term evaluations'),
+                _dialogField(
+                    descCtrl, 'Description', 'e.g. Mid term evaluations'),
                 SizedBox(height: 10.h),
                 DropdownButtonFormField<String>(
                   initialValue: selectedClassId,
@@ -368,7 +402,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   items: _dbClasses
                       .map((e) => DropdownMenuItem(
                             value: e['id'] as String,
-                            child: Text((e['name'] as String).replaceAll('Class', 'Grade')),
+                            child: Text((e['name'] as String)
+                                .replaceAll('Class', 'Grade')),
                           ))
                       .toList(),
                   onChanged: (v) => setD(() => selectedClassId = v),
@@ -378,21 +413,33 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   initialValue: selectedTermId,
                   decoration: _dec('Term'),
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('-'))
-                  ] + _dbTerms
-                      .map((e) => DropdownMenuItem<String?>(
-                            value: e['id'] as String,
-                            child: Text(e['name'] as String),
-                          ))
-                      .toList(),
+                        const DropdownMenuItem<String?>(
+                            value: null, child: Text('-'))
+                      ] +
+                      _dbTerms
+                          .map((e) => DropdownMenuItem<String?>(
+                                value: e['id'] as String,
+                                child: Text(e['name'] as String),
+                              ))
+                          .toList(),
                   onChanged: (v) => setD(() => selectedTermId = v),
                 ),
                 SizedBox(height: 10.h),
                 DropdownButtonFormField<String>(
                   initialValue: selectedExamType,
                   decoration: _dec('Exam Type'),
-                  items: ['UNIT_TEST', 'MONTHLY_TEST', 'QUARTERLY', 'HALF_YEARLY', 'MID_TERM', 'ANNUAL', 'FINAL', 'CLASS_TEST']
-                      .map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('_', ' '))))
+                  items: [
+                    'UNIT_TEST',
+                    'MONTHLY_TEST',
+                    'QUARTERLY',
+                    'HALF_YEARLY',
+                    'MID_TERM',
+                    'ANNUAL',
+                    'FINAL',
+                    'CLASS_TEST'
+                  ]
+                      .map((e) => DropdownMenuItem(
+                          value: e, child: Text(e.replaceAll('_', ' '))))
                       .toList(),
                   onChanged: (v) => setD(() => selectedExamType = v!),
                 ),
@@ -400,15 +447,20 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB)),
               onPressed: () async {
-                if (nameCtrl.text.trim().isEmpty || selectedClassId == null) return;
+                if (nameCtrl.text.trim().isEmpty || selectedClassId == null)
+                  return;
 
                 DateTime startDate;
                 try {
-                  startDate = intl.DateFormat('dd/MM/yyyy').parse(dateCtrl.text.trim());
+                  startDate =
+                      intl.DateFormat('dd/MM/yyyy').parse(dateCtrl.text.trim());
                 } catch (_) {
                   startDate = DateTime.now().add(const Duration(days: 14));
                 }
@@ -432,10 +484,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   content: Text('Exam scheduled!', style: GoogleFonts.inter()),
                   backgroundColor: const Color(0xFF2563EB),
                   behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r)),
                 ));
               },
-              child: const Text('Create', style: TextStyle(color: Colors.white)),
+              child:
+                  const Text('Create', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -443,7 +497,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  TextField _dialogField(TextEditingController ctrl, String label, String hint) {
+  TextField _dialogField(
+      TextEditingController ctrl, String label, String hint) {
     return TextField(
       controller: ctrl,
       decoration: _dec(label, hint: hint),
@@ -454,7 +509,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      labelStyle: GoogleFonts.inter(fontSize: 12.sp),
+      labelStyle: AppTypography.caption,
       contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r)),
     );
@@ -479,11 +534,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
 
     return Scaffold(
       key: _scaffoldKey,
-      drawer: isPushed ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations') : null,
-      backgroundColor: const Color(0xFFF1F5F9),
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(title: 'EduSphere')
+      drawer: isPushed
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations')
           : null,
+      backgroundColor: const Color(0xFFF1F5F9),
+      appBar:
+          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
       body: Stack(
         children: [
           Positioned.fill(
@@ -504,10 +560,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   SizedBox(height: 4.h),
                   Text(
                     'Manage exams, schedules, and results',
-                    style: GoogleFonts.inter(
-                      fontSize: 13.sp,
-                      color: const Color(0xFF64748B),
-                    ),
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
                   ),
                   SizedBox(height: 20.h),
 
@@ -577,10 +631,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           SizedBox(height: 4.h),
           Text(
             'Average marks distribution across subjects',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF64748B),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 32.h),
           SizedBox(
@@ -588,10 +640,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             width: double.infinity,
             child: CustomPaint(
               painter: _SubjectPerformancePainter(
-                labelStyle: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  color: const Color(0xFF64748B),
-                ),
+                labelStyle: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
                 mathAvg: _mathAvg,
                 engAvg: _engAvg,
                 sciAvg: _sciAvg,
@@ -625,10 +675,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           SizedBox(height: 4.h),
           Text(
             'Class average performance over time',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              color: const Color(0xFF64748B),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
           ),
           SizedBox(height: 32.h),
           SizedBox(
@@ -640,10 +688,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 xLabel: 'Recent',
                 dotColor: const Color(0xFF2563EB),
                 gridColor: const Color(0xFFE2E8F0),
-                labelStyle: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  color: const Color(0xFF64748B),
-                ),
+                labelStyle: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B)),
                 trendPoints: _trendPoints,
               ),
             ),
@@ -663,11 +709,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               SizedBox(width: 8.w),
               Text(
                 'average',
-                style: GoogleFonts.inter(
-                  fontSize: 12.sp,
-                  color: const Color(0xFF3B82F6),
-                  fontWeight: FontWeight.w600,
-                ),
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF3B82F6)),
               ),
             ],
           ),
@@ -702,7 +745,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10.r),
                 ),
-                child: Icon(Icons.calendar_month_rounded, size: 20.sp, color: const Color(0xFF2563EB)),
+                child: Icon(Icons.calendar_month_rounded,
+                    size: 20.sp, color: const Color(0xFF2563EB)),
               ),
               SizedBox(width: 12.w),
               Expanded(
@@ -720,10 +764,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     SizedBox(height: 2.h),
                     Text(
                       'View and manage all scheduled examinations (${filtered.length} total)',
-                      style: GoogleFonts.inter(
-                        fontSize: 11.sp,
-                        color: const Color(0xFF64748B),
-                      ),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
@@ -736,31 +778,31 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     color: const Color(0xFF2563EB),
                     borderRadius: BorderRadius.circular(8.r),
                   ),
-                  child: Icon(Icons.add_rounded, color: Colors.white, size: 18.sp),
+                  child:
+                      Icon(Icons.add_rounded, color: Colors.white, size: 18.sp),
                 ),
               ),
             ],
           ),
           SizedBox(height: 20.h),
-
           Text(
             'Search',
-            style: GoogleFonts.inter(
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF334155),
-            ),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF334155)),
           ),
           SizedBox(height: 8.h),
-
           TextField(
             onChanged: (val) => setState(() => _searchQuery = val),
-            style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F172A)),
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
             decoration: InputDecoration(
               hintText: 'Search exams by name...',
-              hintStyle: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF94A3B8)),
-              prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
-              contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+              hintStyle: AppTypography.caption
+                  .copyWith(color: const Color(0xFF94A3B8)),
+              prefixIcon:
+                  const Icon(Icons.search_rounded, color: Color(0xFF94A3B8)),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
               filled: true,
               fillColor: Colors.white,
               enabledBorder: OutlineInputBorder(
@@ -769,12 +811,12 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10.r),
-                borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                borderSide:
+                    const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
               ),
             ),
           ),
           SizedBox(height: 16.h),
-
           Column(
             children: [
               _buildFilterDropdown(
@@ -800,7 +842,6 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ],
           ),
           SizedBox(height: 16.h),
-
           if (_isLoading)
             const Center(
               child: Padding(
@@ -831,11 +872,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            fontSize: 10.sp,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF475569),
-          ),
+          style: AppTypography.caption.copyWith(color: const Color(0xFF475569)),
         ),
         SizedBox(height: 4.h),
         Container(
@@ -849,10 +886,14 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: safeValue,
-              icon: Icon(Icons.keyboard_arrow_down_rounded, color: const Color(0xFF64748B), size: 16.sp),
+              icon: Icon(Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xFF64748B), size: 16.sp),
               isExpanded: true,
-              style: GoogleFonts.inter(fontSize: 13.sp, color: const Color(0xFF0F172A), fontWeight: FontWeight.w400),
-              items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF0F172A)),
+              items: items
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
               onChanged: onChanged,
             ),
           ),
@@ -866,13 +907,18 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
       padding: EdgeInsets.symmetric(vertical: 32.h),
       child: Column(
         children: [
-          Icon(Icons.calendar_today_rounded, size: 48.sp, color: const Color(0xFFCBD5E1)),
+          Icon(Icons.calendar_today_rounded,
+              size: 48.sp, color: const Color(0xFFCBD5E1)),
           SizedBox(height: 16.h),
           Text('No exams found',
-              style: GoogleFonts.outfit(fontSize: 15.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
+              style: GoogleFonts.outfit(
+                  fontSize: 15.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A))),
           SizedBox(height: 6.h),
           Text('Get started by scheduling your first exam',
-              style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF64748B))),
           SizedBox(height: 24.h),
         ],
       ),
@@ -883,7 +929,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: MediaQuery.of(context).size.width - 32.w),
+        constraints:
+            BoxConstraints(minWidth: MediaQuery.of(context).size.width - 32.w),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -900,12 +947,23 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               ),
               child: Row(
                 children: [
-                  SizedBox(width: 110.w, child: Text('Exam Name', style: _headerStyle())),
-                  SizedBox(width: 60.w, child: Text('Class', style: _headerStyle())),
-                  SizedBox(width: 50.w, child: Text('Term', style: _headerStyle())),
-                  SizedBox(width: 80.w, child: Text('Start Date', style: _headerStyle())),
-                  SizedBox(width: 80.w, child: Text('Status', style: _headerStyle())),
-                  SizedBox(width: 50.w, child: Text('Actions', style: _headerStyle(), textAlign: TextAlign.center)),
+                  SizedBox(
+                      width: 110.w,
+                      child: Text('Exam Name', style: _headerStyle())),
+                  SizedBox(
+                      width: 60.w, child: Text('Class', style: _headerStyle())),
+                  SizedBox(
+                      width: 50.w, child: Text('Term', style: _headerStyle())),
+                  SizedBox(
+                      width: 80.w,
+                      child: Text('Start Date', style: _headerStyle())),
+                  SizedBox(
+                      width: 80.w,
+                      child: Text('Status', style: _headerStyle())),
+                  SizedBox(
+                      width: 50.w,
+                      child: Text('Actions',
+                          style: _headerStyle(), textAlign: TextAlign.center)),
                 ],
               ),
             ),
@@ -915,7 +973,9 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               final e = entry.value;
               final isLast = entry.key == list.length - 1;
               final status = e['status'] as String? ?? 'Active';
-              final isPublished = status == 'PUBLISHED' || status == 'Published' || status == 'Active';
+              final isPublished = status == 'PUBLISHED' ||
+                  status == 'Published' ||
+                  status == 'Active';
 
               final statusColor = isPublished
                   ? const Color(0xFF059669)
@@ -928,7 +988,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                       ? const Color(0xFFF1F5F9)
                       : const Color(0xFFE0F2FE);
 
-              final displayClass = (e['class']?.toString() ?? '-').replaceAll('Class', 'Grade');
+              final displayClass =
+                  (e['class']?.toString() ?? '-').replaceAll('Class', 'Grade');
               final displayStatus = formatStatus(status);
 
               return Container(
@@ -939,7 +1000,9 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                     left: const BorderSide(color: Color(0xFFE2E8F0)),
                     right: const BorderSide(color: Color(0xFFE2E8F0)),
                     bottom: BorderSide(
-                      color: isLast ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9),
+                      color: isLast
+                          ? const Color(0xFFE2E8F0)
+                          : const Color(0xFFF1F5F9),
                     ),
                   ),
                   borderRadius: isLast
@@ -956,11 +1019,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                       width: 110.w,
                       child: Text(
                         e['name'] as String? ?? 'Untitled',
-                        style: GoogleFonts.inter(
-                          fontSize: 11.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF0F172A),
-                        ),
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF0F172A)),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -994,18 +1054,16 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
-                          padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
                           decoration: BoxDecoration(
                             color: statusBg,
                             borderRadius: BorderRadius.circular(20.r),
                           ),
                           child: Text(
                             displayStatus,
-                            style: GoogleFonts.inter(
-                              fontSize: 9.sp,
-                              fontWeight: FontWeight.w700,
-                              color: statusColor,
-                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: statusColor),
                             textAlign: TextAlign.center,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1022,7 +1080,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => ExamDetailScreen(examName: examName, examId: examId),
+                              builder: (context) => ExamDetailScreen(
+                                  examName: examName, examId: examId),
                             ),
                           );
                         },
@@ -1043,17 +1102,11 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     );
   }
 
-  TextStyle _headerStyle() => GoogleFonts.inter(
-        fontSize: 10.sp,
-        fontWeight: FontWeight.w700,
-        color: const Color(0xFF475569),
-      );
+  TextStyle _headerStyle() =>
+      AppTypography.caption.copyWith(color: const Color(0xFF475569));
 
-  TextStyle _cellStyle() => GoogleFonts.inter(
-        fontSize: 10.sp,
-        fontWeight: FontWeight.w500,
-        color: const Color(0xFF334155),
-      );
+  TextStyle _cellStyle() =>
+      AppTypography.caption.copyWith(color: const Color(0xFF334155));
 
   // ─────────────────────────────────────────────────────────
   // BOTTOM NAVIGATION
@@ -1237,12 +1290,22 @@ class _SubjectPerformancePainter extends CustomPainter {
 
     canvas.drawShadow(Path()..addRRect(rect), Colors.black, 4.0, false);
     canvas.drawRRect(rect, Paint()..color = Colors.white);
-    canvas.drawRRect(rect, Paint()..color = const Color(0xFFE2E8F0)..style = PaintingStyle.stroke);
+    canvas.drawRRect(
+        rect,
+        Paint()
+          ..color = const Color(0xFFE2E8F0)
+          ..style = PaintingStyle.stroke);
 
     tp.text = TextSpan(
       children: [
-        TextSpan(text: 'Science\n', style: GoogleFonts.inter(fontSize: 12, color: const Color(0xFF0F172A))),
-        TextSpan(text: 'Subject Performance : ${sciAvg.toStringAsFixed(0)}', style: GoogleFonts.inter(fontSize: 11, color: const Color(0xFFF472B6))),
+        TextSpan(
+            text: 'Science\n',
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFF0F172A))),
+        TextSpan(
+            text: 'Subject Performance : ${sciAvg.toStringAsFixed(0)}',
+            style:
+                AppTypography.caption.copyWith(color: const Color(0xFFF472B6))),
       ],
     );
     tp.layout();
@@ -1313,12 +1376,14 @@ class _AverageScoreTrendPainter extends CustomPainter {
     }
 
     final count = trendPoints.length;
-    final xCoords = List.generate(count, (i) => leftPad + (count > 1 ? (chartW / (count - 1)) * i : 0.0));
+    final xCoords = List.generate(
+        count, (i) => leftPad + (count > 1 ? (chartW / (count - 1)) * i : 0.0));
 
     for (int i = 0; i < count; i++) {
       tp.text = TextSpan(text: xLabel, style: labelStyle);
       tp.layout();
-      tp.paint(canvas, Offset(xCoords[i] - tp.width / 2, size.height - tp.height));
+      tp.paint(
+          canvas, Offset(xCoords[i] - tp.width / 2, size.height - tp.height));
     }
 
     final linePaint = Paint()
@@ -1405,11 +1470,8 @@ class _NavItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 maxLines: 2,
-                style: GoogleFonts.inter(
-                  fontSize: 9.sp,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? color : const Color(0xFF94A3B8),
-                ),
+                style: AppTypography.caption.copyWith(
+                    color: selected ? color : const Color(0xFF94A3B8)),
               ),
             ],
           ),

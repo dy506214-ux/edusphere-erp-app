@@ -8,6 +8,7 @@ import 'exam_report_card_screen.dart';
 import 'exam_approval_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class ExamTermsScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -26,8 +27,6 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
 
   // Mapping of term ID to exam count for teachers
   final Map<String, int> _examsCountMap = {};
-
-
 
   @override
   void initState() {
@@ -49,18 +48,19 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
           .select()
           .order('startDate', ascending: true);
 
-      final List<Map<String, dynamic>> termsData = List<Map<String, dynamic>>.from(termsResponse);
+      final List<Map<String, dynamic>> termsData =
+          List<Map<String, dynamic>>.from(termsResponse);
 
       _termsList = termsData;
 
       // 2. Fetch exam counts to build mapping from Exam table
       try {
-        final examsResponse = await Supabase.instance.client
-            .from('Exam')
-            .select('id, termId');
-        
-        final List<Map<String, dynamic>> examsData = List<Map<String, dynamic>>.from(examsResponse);
-        
+        final examsResponse =
+            await Supabase.instance.client.from('Exam').select('id, termId');
+
+        final List<Map<String, dynamic>> examsData =
+            List<Map<String, dynamic>>.from(examsResponse);
+
         _examsCountMap.clear();
         for (var exam in examsData) {
           final termId = exam['termId'] as String?;
@@ -92,7 +92,20 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
     if (dateStr == null || dateStr.isEmpty) return 'TBD';
     try {
       final parsed = DateTime.parse(dateStr);
-      final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ];
       final day = parsed.day.toString().padLeft(2, '0');
       final month = months[parsed.month - 1];
       final year = parsed.year;
@@ -116,7 +129,7 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
       final start = DateTime.parse(startStr);
       final end = DateTime.parse(endStr);
       final now = DateTime.now();
-      
+
       // Normalize dates for clean day-by-day comparison
       final today = DateTime(now.year, now.month, now.day);
       final startDateOnly = DateTime(start.year, start.month, start.day);
@@ -155,21 +168,27 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
     final bool isPushed = Navigator.canPop(context);
     return Scaffold(
       key: _scaffoldKey,
-      drawer: (isPushed && _isTeacher) ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic') : null,
+      drawer: (isPushed && _isTeacher)
+          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic')
+          : null,
       backgroundColor: AppColors.background,
       appBar: _isTeacher ? const TeacherAppBar(title: 'Academic Terms') : null,
-      bottomNavigationBar: _isTeacher ? const TeacherBottomNavBar(activeIndex: 7) : null,
+      bottomNavigationBar:
+          _isTeacher ? const TeacherBottomNavBar(activeIndex: 7) : null,
       body: Column(
         children: [
           PageHeader(
             title: 'Academic Terms',
-            subtitle: _isTeacher ? 'View performance & manage exams' : 'View your term report cards',
+            subtitle: _isTeacher
+                ? 'View performance & manage exams'
+                : 'View your term report cards',
             theme: widget.theme,
             leading: (isPushed && _isTeacher)
                 ? GestureDetector(
                     onTap: () => _scaffoldKey.currentState?.openDrawer(),
                     child: Container(
-                      width: 40.w, height: 40.w,
+                      width: 40.w,
+                      height: 40.w,
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12.r),
@@ -179,10 +198,11 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                   )
                 : null,
           ),
-          
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.studentPrimary))
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: AppColors.studentPrimary))
                 : RefreshIndicator(
                     onRefresh: _loadTermsAndExams,
                     color: widget.theme.primary,
@@ -194,7 +214,7 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                         children: [
                           const SectionTitle(title: 'School Calendar Terms'),
                           SizedBox(height: 12.h),
-                          
+
                           // Term cards list
                           ..._termsList.map((term) {
                             final termId = term['id'] as String;
@@ -204,7 +224,8 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
 
                             // Dynamic calculations
                             final statusInfo = _getTermStatus(start, end);
-                            final computedStatus = statusInfo['label'] as String;
+                            final computedStatus =
+                                statusInfo['label'] as String;
                             final badgeColor = statusInfo['textColor'] as Color;
                             final bgBadgeColor = statusInfo['bgColor'] as Color;
                             final examCount = _examsCountMap[termId] ?? 0;
@@ -241,20 +262,21 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                   child: Padding(
                                     padding: EdgeInsets.all(18.r),
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         // Header Row: Term Name and Badges
                                         Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
                                           children: [
                                             Expanded(
                                               child: Text(
                                                 name,
-                                                style: GoogleFonts.inter(
-                                                  fontWeight: FontWeight.w900,
-                                                  color: AppColors.textDark,
-                                                  fontSize: 16.sp,
-                                                ),
+                                                style: AppTypography.body
+                                                    .copyWith(
+                                                        color:
+                                                            AppColors.textDark),
                                               ),
                                             ),
                                             Row(
@@ -262,36 +284,45 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                                 // Teacher Count Badge
                                                 if (_isTeacher) ...[
                                                   Container(
-                                                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                                                    margin: EdgeInsets.only(right: 8.w),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                            horizontal: 10.w,
+                                                            vertical: 4.h),
+                                                    margin: EdgeInsets.only(
+                                                        right: 8.w),
                                                     decoration: BoxDecoration(
                                                       color: widget.theme.light,
-                                                      borderRadius: BorderRadius.circular(8.r),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8.r),
                                                     ),
                                                     child: Text(
                                                       '$examCount exam${examCount == 1 ? "" : "s"}',
-                                                      style: GoogleFonts.inter(
-                                                        fontSize: 10.sp,
-                                                        fontWeight: FontWeight.w900,
-                                                        color: widget.theme.primary,
-                                                      ),
+                                                      style: AppTypography
+                                                          .caption
+                                                          .copyWith(
+                                                              color: widget
+                                                                  .theme
+                                                                  .primary),
                                                     ),
                                                   ),
                                                 ],
                                                 // Dynamic Status Chip
                                                 Container(
-                                                  padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 10.w,
+                                                      vertical: 4.h),
                                                   decoration: BoxDecoration(
                                                     color: bgBadgeColor,
-                                                    borderRadius: BorderRadius.circular(8.r),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8.r),
                                                   ),
                                                   child: Text(
                                                     computedStatus,
-                                                    style: GoogleFonts.inter(
-                                                      fontSize: 10.sp,
-                                                      fontWeight: FontWeight.w900,
-                                                      color: badgeColor,
-                                                    ),
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: badgeColor),
                                                   ),
                                                 ),
                                               ],
@@ -299,26 +330,29 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                           ],
                                         ),
                                         SizedBox(height: 12.h),
-                                        
+
                                         // Dates formatted as: "Start: DD MMM YYYY → End: DD MMM YYYY"
                                         Row(
                                           children: [
-                                            Icon(Icons.date_range_rounded, size: 14.sp, color: AppColors.textLight),
+                                            Icon(Icons.date_range_rounded,
+                                                size: 14.sp,
+                                                color: AppColors.textLight),
                                             SizedBox(width: 6.w),
                                             Expanded(
                                               child: Text(
                                                 'Start: ${_formatDate(start)} → End: ${_formatDate(end)}',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 12.sp,
-                                                  color: AppColors.textMedium,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                        color: AppColors
+                                                            .textMedium),
                                               ),
                                             ),
                                           ],
                                         ),
 
-                                        Divider(height: 24.h, color: AppColors.border),
+                                        Divider(
+                                            height: 24.h,
+                                            color: AppColors.border),
 
                                         // Role Specific Actions & Quick Links
                                         if (_isTeacher) ...[
@@ -326,26 +360,39 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                             children: [
                                               Expanded(
                                                 child: OutlinedButton(
-                                                  style: OutlinedButton.styleFrom(
-                                                    side: BorderSide(color: widget.theme.primary, width: 1.5.w),
-                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                                                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                                                  style:
+                                                      OutlinedButton.styleFrom(
+                                                    side: BorderSide(
+                                                        color: widget
+                                                            .theme.primary,
+                                                        width: 1.5.w),
+                                                    shape:
+                                                        RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius
+                                                                    .circular(
+                                                                        12.r)),
+                                                    padding:
+                                                        EdgeInsets.symmetric(
+                                                            vertical: 12.h),
                                                   ),
                                                   onPressed: () {
                                                     Navigator.push(
                                                       context,
                                                       MaterialPageRoute(
-                                                        builder: (_) => ExamApprovalScreen(theme: widget.theme),
+                                                        builder: (_) =>
+                                                            ExamApprovalScreen(
+                                                                theme: widget
+                                                                    .theme),
                                                       ),
                                                     );
                                                   },
                                                   child: Text(
                                                     '✅ Approvals',
-                                                    style: GoogleFonts.inter(
-                                                      color: widget.theme.primary,
-                                                      fontWeight: FontWeight.w800,
-                                                      fontSize: 12.sp,
-                                                    ),
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: widget
+                                                                .theme.primary),
                                                   ),
                                                 ),
                                               ),
@@ -353,18 +400,22 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                                           ),
                                         ] else ...[
                                           Row(
-                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.end,
                                             children: [
                                               Text(
                                                 'Tap to View Report Card',
-                                                style: GoogleFonts.inter(
-                                                  fontSize: 11.sp,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: widget.theme.primary,
-                                                ),
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                        color: widget
+                                                            .theme.primary),
                                               ),
                                               SizedBox(width: 2.w),
-                                              Icon(Icons.arrow_forward_ios_rounded, size: 11.sp, color: widget.theme.primary),
+                                              Icon(
+                                                  Icons
+                                                      .arrow_forward_ios_rounded,
+                                                  size: 11.sp,
+                                                  color: widget.theme.primary),
                                             ],
                                           ),
                                         ],
@@ -375,9 +426,9 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                               ),
                             );
                           }),
-                          
+
                           SizedBox(height: 20.h),
-                          
+
                           // Policy informational card
                           Container(
                             padding: EdgeInsets.all(18.r),
@@ -388,27 +439,24 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                             ),
                             child: Row(
                               children: [
-                                Icon(Icons.info_outline_rounded, color: widget.theme.primary, size: 24.sp),
+                                Icon(Icons.info_outline_rounded,
+                                    color: widget.theme.primary, size: 24.sp),
                                 SizedBox(width: 12.w),
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         'Academic Schedule Policy',
-                                        style: GoogleFonts.inter(
-                                          fontWeight: FontWeight.w800,
-                                          color: AppColors.textDark,
-                                          fontSize: 13.sp,
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: AppColors.textDark),
                                       ),
                                       SizedBox(height: 4.h),
                                       Text(
                                         'Term schedules and grading guidelines are administered by the board of trustees. Selecting any term will reveal official signed grade records.',
-                                        style: GoogleFonts.inter(
-                                          fontSize: 11.sp,
-                                          color: AppColors.textMedium,
-                                        ),
+                                        style: AppTypography.caption.copyWith(
+                                            color: AppColors.textMedium),
                                       ),
                                     ],
                                   ),

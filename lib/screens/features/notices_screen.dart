@@ -5,6 +5,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../config/supabase_config.dart';
+import 'package:edusphere/theme/typography.dart';
 
 class NoticesScreen extends StatefulWidget {
   const NoticesScreen({super.key});
@@ -41,7 +42,8 @@ class _NoticesScreenState extends State<NoticesScreen> {
         name: 'NoticesScreen',
       );
     } catch (e) {
-      dev.log('⚠️ Error loading IDs in NoticesScreen: $e', name: 'NoticesScreen');
+      dev.log('⚠️ Error loading IDs in NoticesScreen: $e',
+          name: 'NoticesScreen');
     }
   }
 
@@ -53,10 +55,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
       );
       return _supabase
           .from('Announcement')
-          .stream(primaryKey: ['id'])
-          .order('createdAt', ascending: false);
+          .stream(primaryKey: ['id']).order('createdAt', ascending: false);
     } catch (e) {
-      dev.log('❌ [NOTICES ERROR] Error connecting to Announcement table stream: $e', name: 'NoticesScreen');
+      dev.log(
+          '❌ [NOTICES ERROR] Error connecting to Announcement table stream: $e',
+          name: 'NoticesScreen');
       return Stream.value([]);
     }
   }
@@ -110,7 +113,8 @@ class _NoticesScreenState extends State<NoticesScreen> {
                             )
                           ],
                         ),
-                        child: Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0D233A), size: 16.sp),
+                        child: Icon(Icons.arrow_back_ios_new_rounded,
+                            color: const Color(0xFF0D233A), size: 16.sp),
                       ),
                     ),
                     SizedBox(width: 14.w),
@@ -121,20 +125,14 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       children: [
                         Text(
                           'Notices & Announcements',
-                          style: GoogleFonts.inter(
-                            fontSize: 22.sp,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0076F6),
-                          ),
+                          style: AppTypography.h4
+                              .copyWith(color: const Color(0xFF0076F6)),
                         ),
                         SizedBox(height: 6.h),
                         Text(
                           'Stay updated with the latest school news.',
-                          style: GoogleFonts.inter(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF6B7A90),
-                          ),
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF6B7A90)),
                         ),
                       ],
                     ),
@@ -142,7 +140,6 @@ class _NoticesScreenState extends State<NoticesScreen> {
                 ],
               ),
               SizedBox(height: 24.h),
-              
               Expanded(
                 child: StreamBuilder<List<Map<String, dynamic>>>(
                   stream: _getNoticesStream(),
@@ -155,8 +152,11 @@ class _NoticesScreenState extends State<NoticesScreen> {
 
                     if (snapshot.hasData) {
                       final list = snapshot.data!;
-                      final latestNoticeId = list.isNotEmpty ? list.first['id'] : 'NONE';
-                      final latestNoticeTime = list.isNotEmpty ? list.first['createdAt'] ?? list.first['created_at'] : 'NONE';
+                      final latestNoticeId =
+                          list.isNotEmpty ? list.first['id'] : 'NONE';
+                      final latestNoticeTime = list.isNotEmpty
+                          ? list.first['createdAt'] ?? list.first['created_at']
+                          : 'NONE';
                       dev.log(
                         '📥 [NOTICES RECEIVE] Supabase URL: ${SupabaseConfig.supabaseUrl} | Table: Announcement | Rows: ${list.length} | Latest Notice ID: $latestNoticeId | Latest Notice CreatedAt: $latestNoticeTime | TeacherID: $_teacherId | StudentID: $_studentId | ClassID: $_classId',
                         name: 'NoticesScreen',
@@ -194,20 +194,14 @@ class _NoticesScreenState extends State<NoticesScreen> {
                               SizedBox(height: 16.h),
                               Text(
                                 'No announcements',
-                                style: GoogleFonts.inter(
-                                  fontSize: 15.sp,
-                                  fontWeight: FontWeight.w700,
-                                  color: const Color(0xFF0F2547),
-                                ),
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFF0F2547)),
                               ),
                               SizedBox(height: 8.h),
                               Text(
                                 'Create your first announcement to notify users',
-                                style: GoogleFonts.inter(
-                                  fontSize: 12.sp,
-                                  color: const Color(0xFF6B7A90),
-                                  fontWeight: FontWeight.w500,
-                                ),
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF6B7A90)),
                               ),
                             ],
                           ),
@@ -222,10 +216,13 @@ class _NoticesScreenState extends State<NoticesScreen> {
                       itemBuilder: (context, index) {
                         final notice = notices[index];
                         final title = notice['title']?.toString() ?? 'Untitled';
-                        final desc = notice['content']?.toString() ?? notice['description']?.toString() ?? '';
-                        final priority = notice['priority']?.toString() ?? 'NORMAL';
+                        final desc = notice['content']?.toString() ??
+                            notice['description']?.toString() ??
+                            '';
+                        final priority =
+                            notice['priority']?.toString() ?? 'NORMAL';
                         final type = notice['type']?.toString() ?? 'EVENT';
-                        
+
                         // Parse tags
                         List<String> tags = [];
                         if (notice['targetAudience'] is List) {
@@ -233,30 +230,39 @@ class _NoticesScreenState extends State<NoticesScreen> {
                         } else if (notice['tags'] is List) {
                           tags = List<String>.from(notice['tags']);
                         } else if (notice['targetAudience'] is String) {
-                          tags = (notice['targetAudience'] as String).split(',').map((e) => e.trim()).toList();
+                          tags = (notice['targetAudience'] as String)
+                              .split(',')
+                              .map((e) => e.trim())
+                              .toList();
                         } else if (notice['tags'] is String) {
-                          tags = (notice['tags'] as String).split(',').map((e) => e.trim()).toList();
+                          tags = (notice['tags'] as String)
+                              .split(',')
+                              .map((e) => e.trim())
+                              .toList();
                         } else {
                           tags = ['STUDENT', 'PARENTS'];
                         }
-                        
+
                         // Parse date
                         String dateStr = 'N/A';
                         if (notice['date'] != null) {
                           try {
-                            final dt = DateTime.parse(notice['date'].toString());
+                            final dt =
+                                DateTime.parse(notice['date'].toString());
                             dateStr = '${dt.day}/${dt.month}/${dt.year}';
                           } catch (_) {
                             dateStr = notice['date'].toString();
                           }
                         } else if (notice['createdAt'] != null) {
                           try {
-                            final dt = DateTime.parse(notice['createdAt'].toString());
+                            final dt =
+                                DateTime.parse(notice['createdAt'].toString());
                             dateStr = '${dt.day}/${dt.month}/${dt.year}';
                           } catch (_) {}
                         } else if (notice['created_at'] != null) {
                           try {
-                            final dt = DateTime.parse(notice['created_at'].toString());
+                            final dt =
+                                DateTime.parse(notice['created_at'].toString());
                             dateStr = '${dt.day}/${dt.month}/${dt.year}';
                           } catch (_) {}
                         }
@@ -264,10 +270,14 @@ class _NoticesScreenState extends State<NoticesScreen> {
                         final dotColor = _getDotColor(priority, type);
                         final bgColor = _getBgColor(priority, type);
                         final icon = _getIcon(priority, type);
-                        
+
                         final isHigh = priority.toUpperCase() == 'HIGH';
-                        final priorityBg = isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
-                        final priorityTextColor = isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
+                        final priorityBg = isHigh
+                            ? const Color(0xFFFEE2E2)
+                            : const Color(0xFFFFEDD5);
+                        final priorityTextColor = isHigh
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFFF97316);
 
                         return Container(
                           margin: EdgeInsets.only(bottom: 16.h),
@@ -312,32 +322,30 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Row(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
                                           child: Text(
                                             title,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 15.sp,
-                                              fontWeight: FontWeight.w800,
-                                              color: const Color(0xFF0F2547),
-                                            ),
+                                            style: AppTypography.small.copyWith(
+                                                color: const Color(0xFF0F2547)),
                                           ),
                                         ),
                                         SizedBox(width: 8.w),
                                         Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                                          padding: EdgeInsets.symmetric(
+                                              horizontal: 10.w, vertical: 4.h),
                                           decoration: BoxDecoration(
                                             color: priorityBg,
-                                            borderRadius: BorderRadius.circular(12.r),
+                                            borderRadius:
+                                                BorderRadius.circular(12.r),
                                           ),
                                           child: Text(
                                             priority.toUpperCase(),
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10.sp,
-                                              fontWeight: FontWeight.w800,
-                                              color: priorityTextColor,
-                                            ),
+                                            style: AppTypography.caption
+                                                .copyWith(
+                                                    color: priorityTextColor),
                                           ),
                                         ),
                                       ],
@@ -347,47 +355,51 @@ class _NoticesScreenState extends State<NoticesScreen> {
                                       Wrap(
                                         spacing: 8.w,
                                         runSpacing: 8.h,
-                                        children: tags.map((t) => Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8.r),
-                                            border: Border.all(color: const Color(0xFFE2EAF4)),
-                                          ),
-                                          child: Text(
-                                            t.toUpperCase(),
-                                            style: GoogleFonts.inter(
-                                              fontSize: 10.sp,
-                                              fontWeight: FontWeight.w700,
-                                              color: const Color(0xFF475569),
-                                            ),
-                                          ),
-                                        )).toList(),
+                                        children: tags
+                                            .map((t) => Container(
+                                                  padding: EdgeInsets.symmetric(
+                                                      horizontal: 10.w,
+                                                      vertical: 4.h),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            8.r),
+                                                    border: Border.all(
+                                                        color: const Color(
+                                                            0xFFE2EAF4)),
+                                                  ),
+                                                  child: Text(
+                                                    t.toUpperCase(),
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: const Color(
+                                                                0xFF475569)),
+                                                  ),
+                                                ))
+                                            .toList(),
                                       ),
                                       SizedBox(height: 12.h),
                                     ],
                                     Row(
                                       children: [
-                                        Icon(Icons.calendar_today_outlined, size: 14.sp, color: const Color(0xFF6B7A90)),
+                                        Icon(Icons.calendar_today_outlined,
+                                            size: 14.sp,
+                                            color: const Color(0xFF6B7A90)),
                                         SizedBox(width: 6.w),
                                         Text(
                                           dateStr,
-                                          style: GoogleFonts.inter(
-                                            fontSize: 12.sp,
-                                            color: const Color(0xFF6B7A90),
-                                            fontWeight: FontWeight.w500,
-                                          ),
+                                          style: AppTypography.caption.copyWith(
+                                              color: const Color(0xFF6B7A90)),
                                         ),
                                       ],
                                     ),
                                     SizedBox(height: 12.h),
                                     Text(
                                       desc,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 13.sp,
-                                        color: const Color(0xFF475569),
-                                        height: 1.5,
-                                      ),
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF475569),
+                                          height: 1.5),
                                     ),
                                   ],
                                 ),

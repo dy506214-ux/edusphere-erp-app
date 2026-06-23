@@ -4,7 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../welcome_screen.dart';
-
+import 'package:edusphere/theme/typography.dart';
 
 class TeacherMoreScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -31,7 +31,8 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
 
   Future<void> _loadTeacherName() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedName = prefs.getString('teacher_name') ?? prefs.getString('user_name');
+    final savedName =
+        prefs.getString('teacher_name') ?? prefs.getString('user_name');
     if (savedName != null && savedName.isNotEmpty) {
       setState(() {
         _teacherName = savedName;
@@ -64,16 +65,12 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
               padding: EdgeInsets.fromLTRB(24.w, 16.h, 24.w, 12.h),
               child: Text(
                 'EduSphere',
-                style: GoogleFonts.inter(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w900,
-                  color: const Color(0xFF0F172A),
-                  letterSpacing: 0.5,
-                ),
+                style: AppTypography.h4.copyWith(
+                    color: const Color(0xFF0F172A), letterSpacing: 0.5),
               ),
             ),
             Divider(height: 1.h, color: AppColors.border),
-            
+
             // Scrollable List of Options
             Expanded(
               child: SingleChildScrollView(
@@ -141,26 +138,30 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       label: 'My Profile',
                       onTap: () => widget.onNavigate(13),
                     ),
-                    
+
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                       child: Divider(height: 1.h, color: AppColors.border),
                     ),
-                    
+
                     _buildMenuItem(
                       icon: Icons.logout_rounded,
                       label: 'Logout',
                       onTap: () => Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+                        MaterialPageRoute(
+                            builder: (_) => const WelcomeScreen()),
                         (route) => false,
                       ),
                     ),
-                    
+
                     // Profile Card at the bottom
                     Container(
-                      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                      margin: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 12.h),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 12.h),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF8FAFC),
                         borderRadius: BorderRadius.circular(16.r),
@@ -170,14 +171,12 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                         children: [
                           CircleAvatar(
                             radius: 20.r,
-                            backgroundColor: widget.theme.primary.withValues(alpha: 0.1),
+                            backgroundColor:
+                                widget.theme.primary.withValues(alpha: 0.1),
                             child: Text(
                               _getInitials(_teacherName),
-                              style: GoogleFonts.inter(
-                                fontSize: 13.sp,
-                                fontWeight: FontWeight.w800,
-                                color: widget.theme.primary,
-                              ),
+                              style: AppTypography.caption
+                                  .copyWith(color: widget.theme.primary),
                             ),
                           ),
                           SizedBox(width: 12.w),
@@ -187,23 +186,17 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                               children: [
                                 Text(
                                   _teacherName,
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.textDark,
-                                  ),
+                                  style: AppTypography.small
+                                      .copyWith(color: AppColors.textDark),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: 2.h),
                                 Text(
                                   'TEACHER',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 10.sp,
-                                    fontWeight: FontWeight.w800,
-                                    color: widget.theme.primary,
-                                    letterSpacing: 0.5,
-                                  ),
+                                  style: AppTypography.caption.copyWith(
+                                      color: widget.theme.primary,
+                                      letterSpacing: 0.5),
                                 ),
                               ],
                             ),
@@ -247,11 +240,9 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                 SizedBox(width: 16.w),
                 Text(
                   label,
-                  style: GoogleFonts.inter(
-                    fontSize: 14.sp,
-                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-                    color: isSelected ? Colors.white : const Color(0xFF1E293B),
-                  ),
+                  style: AppTypography.small.copyWith(
+                      color:
+                          isSelected ? Colors.white : const Color(0xFF1E293B)),
                 ),
               ],
             ),
