@@ -343,7 +343,6 @@ class _StudentDashboardState extends State<StudentDashboard>
             }
           }
 
-<<<<<<< HEAD
           if (mounted) {
             setState(() {
               studentName = fullName.isNotEmpty ? fullName : savedName;

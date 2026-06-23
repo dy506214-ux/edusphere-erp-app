@@ -64,7 +64,7 @@ class ApiService {
 
     Future<http.Response> runHttp(
         Uri targetUri, Map<String, String> targetHeaders) async {
-      const timeout = Duration(seconds: 45);
+      const timeout = Duration(seconds: 120);
       if (method == 'GET') {
         return await http
             .get(targetUri, headers: targetHeaders)

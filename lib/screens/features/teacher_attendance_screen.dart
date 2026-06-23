@@ -8,6 +8,7 @@ import '../../widgets/teacher_app_bar.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/api_service.dart';
+import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -172,6 +173,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   }
 
   Future<void> _loadExistingSlotsForDate() async {
+    final localUnsubmittedSlots = _createdSlots.where((s) => s['isSubmitted'] == false).toList();
     if (mounted) {
       setState(() {
         _isLoading = true;
@@ -273,6 +275,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           'attendanceStatus': statusMap,
           'isSubmitted': true,
         });
+      }
+
+      // Restore local unsubmitted slots to prevent real-time updates from wiping them out
+      for (var localSlot in localUnsubmittedSlots) {
+        final exists = _createdSlots.any((s) =>
+            s['class'] == localSlot['class'] &&
+            s['section'] == localSlot['section']);
+        if (!exists) {
+          _createdSlots.add(localSlot);
+        }
       }
     } catch (e) {
       dev.log('Error loading existing slots: $e');
@@ -2106,6 +2118,16 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
     _students = List.from(widget.students);
     _attendanceStatus = Map.from(widget.initialAttendanceStatus);
     _isAlreadySubmitted = widget.isAlreadySubmitted;
+
+    // Auto-mark all unmarked students as Present to save teacher time
+    if (!_isAlreadySubmitted) {
+      for (var student in _students) {
+        final String studentId = student['id']?.toString() ?? '';
+        if (studentId.isNotEmpty && _attendanceStatus[studentId] == null) {
+          _attendanceStatus[studentId] = 'P';
+        }
+      }
+    }
   }
 
   void _markAll(String status) {
@@ -2227,6 +2249,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           _isAlreadySubmitted = true;
           _isSubmitting = false;
         });
+
+        // Emit socket event to ensure students see the update in real-time
+        try {
+          SocketService().emit('ATTENDANCE_UPDATED', payload);
+        } catch (_) {}
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

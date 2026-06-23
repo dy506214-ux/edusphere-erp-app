@@ -836,13 +836,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             classMap['name'] as String? ?? widget.studentClass ?? '—';
         _section = sectionMap['name'] as String? ?? '—';
         _rollNo = studentResMap['rollNumber']?.toString() ?? '—';
-<<<<<<< HEAD
-        
         _batch = batchValue;
-=======
-
-        _batch = '—';
->>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
         _medium = studentResMap['medium'] as String? ?? '—';
 
         final joinDateStr = studentResMap['joiningDate'] as String?;
@@ -1543,7 +1537,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-<<<<<<< HEAD
   void _showEditEmergencyInfoDialog() {
     final ctrl = TextEditingController(text: _emergencyInfo == '—' || _emergencyInfo == 'UNSET' ? '' : _emergencyInfo);
     showDialog(
@@ -1558,14 +1551,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             hintText: 'Enter emergency phone number',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
           ),
-=======
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: const Color(0xFFE03131),
-          content: Text('Document "$name" removed.',
-              style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
->>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
         ),
         actions: [
           TextButton(
@@ -2236,7 +2221,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-<<<<<<< HEAD
                     Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
@@ -2246,15 +2230,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF0F2547),
                       ),
-=======
-                    Icon(Icons.arrow_back,
-                        color: const Color(0xFF0F2547), size: 16.sp),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'Back to Students',
-                      style: AppTypography.small
-                          .copyWith(color: const Color(0xFF0F2547)),
->>>>>>> 0af001d43c28644625eeb6684e45cea226c10f6c
                     ),
                   ],
                 ),
