@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
@@ -91,7 +92,8 @@ class ApiService {
     try {
       response = await runHttp(uri, headers);
     } catch (e) {
-      if (e is SocketException &&
+      if (!kIsWeb &&
+          e is SocketException &&
           uri.host == 'edusphere-erp-frontend.onrender.com') {
         dev.log(
             '⚠️ [API WARNING] DNS resolution failed for edusphere-erp-frontend.onrender.com. Trying fallback IP 216.24.57.9...',

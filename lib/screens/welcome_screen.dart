@@ -25,9 +25,20 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   void initState() {
     super.initState();
+    _warmUpBackend();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AIChatbotOverlay.visible.value = false;
     });
+  }
+
+  void _warmUpBackend() async {
+    try {
+      dev.log('📡 Warming up backend server...', name: 'WelcomeScreen');
+      await ApiService.instance.get('health');
+      dev.log('📡 Backend server warmed up successfully.', name: 'WelcomeScreen');
+    } catch (e) {
+      dev.log('⚠️ Failed to warm up backend: $e', name: 'WelcomeScreen');
+    }
   }
 
   void _handleSignIn() async {
@@ -157,7 +168,35 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             '${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
         await prefs.setString('${role}_email', email);
       } else if (role == 'student') {
-        final studentMap = userObj['student'] as Map? ?? {};
+        Map? studentMap = userObj['student'] as Map?;
+        if (studentMap == null || studentMap.isEmpty) {
+          // Fallback: Fetch student details from students/me
+          try {
+            final studentMeRes = await ApiService.instance.get('students/me');
+            if (studentMeRes != null && studentMeRes['success'] == true) {
+              studentMap = studentMeRes['student'] as Map?;
+            }
+          } catch (e) {
+            dev.log('Error fetching student/me in login fallback: $e', name: 'WelcomeScreen');
+          }
+        }
+
+        studentMap ??= {};
+
+        // Merge nested user fields into userObj for local caching in WelcomeScreen
+        final nestedUser = studentMap['user'] as Map? ?? {};
+        nestedUser.forEach((key, val) {
+          if (userObj[key] == null || userObj[key].toString().isEmpty) {
+            userObj[key] = val;
+          }
+        });
+
+        // Recalculate name and phone values from potentially merged userObj
+        final firstNameMerged = userObj['firstName'] ?? '';
+        final lastNameMerged = userObj['lastName'] ?? '';
+        final studentFullName = '$firstNameMerged $lastNameMerged'.trim();
+        final studentPhoneVal = userObj['phone'] ?? '';
+
         final classMap = studentMap['currentClass'] as Map? ?? {};
         final sectionMap = studentMap['section'] as Map? ?? {};
         final classVal = classMap['name'] ?? 'Class 1';
@@ -168,7 +207,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         final resolvedStudentId = studentMap['id'] as String?;
         if (resolvedStudentId == null || resolvedStudentId.isEmpty) {
           // Student ID missing — prevent login with wrong identity
-          dev.log('ERROR: Student ID missing from login response. studentMap: $studentMap', name: 'WelcomeScreen');
+          dev.log('ERROR: Student ID missing from login response and /students/me. studentMap: $studentMap', name: 'WelcomeScreen');
           setState(() {
             _error = 'Could not load your student profile. Please contact your administrator.';
             _loading = false;
@@ -177,13 +216,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         }
         await prefs.setString('student_id', resolvedStudentId);
         await prefs.setString(
-            'student_name', fullName.isNotEmpty ? fullName : '');
+            'student_name', studentFullName);
         await prefs.setString('student_email', email);
         await prefs.setString('student_class', classVal);
         await prefs.setString('student_section', sectionVal);
         await prefs.setString('student_roll', rollVal.toString());
         await prefs.setString('student_guardian', '—');
-        await prefs.setString('student_phone', phoneVal);
+        await prefs.setString('student_phone', studentPhoneVal);
         await prefs.setString(
             'student_admission',
             studentMap['joiningDate']?.toString().split(' ')[0].split('T')[0] ??
@@ -267,7 +306,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         }
 
         await prefs.setString(
-            '${role}_name', fullName.isNotEmpty ? fullName : '');
+            '${role}_name', studentFullName);
         await prefs.setString('${role}_email', email);
       }
 
@@ -283,8 +322,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      String friendlyError = 'An unexpected error occurred during backend login: $e';
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('failed to fetch') || errStr.contains('clientexception') || errStr.contains('socketexception')) {
+        friendlyError = 'Connection failed. The backend server might be waking up from sleep. Please wait a few seconds and try again.';
+      }
       setState(() {
-        _error = 'An unexpected error occurred during backend login: $e';
+        _error = friendlyError;
         _loading = false;
       });
     }
