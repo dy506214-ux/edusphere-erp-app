@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
+import '../../services/api_service.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:edusphere/theme/typography.dart';
 
@@ -16,46 +18,155 @@ class _FeesScreenState extends State<FeesScreen> {
   // 'overview' | 'qr' | 'verifying' | 'success'
   String _view = 'overview';
 
+  bool _isLoading = true;
+  String? _errorMsg;
+  double _totalOutstanding = 0;
+  List<Map<String, String>> _feeItems = [];
+  List<Map<String, String>> _paymentHistory = [];
+  String _studentId = '';
+  String _feeStructureId = '';
+  String _ledgerId = '';
+  String _academicYearId = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFeeData();
+  }
+
+  Future<void> _loadFeeData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMsg = null;
+      });
+      final res = await ApiService.instance.get('fees/students/me/status');
+
+      if (res['success'] == true) {
+        final summary = res['summary'] as Map? ?? {};
+        final outstanding = (summary['totalOutstanding'] ??
+            summary['totalPending'] ??
+            ((summary['totalFees'] ?? 0) - (summary['totalPaid'] ?? 0))) as num;
+
+        _totalOutstanding = outstanding.toDouble();
+        _studentId = res['studentId'] as String? ?? '';
+        _feeStructureId = (res['feeStructureId'] ?? res['ledger']?['feeStructureId'] ?? '') as String;
+        _ledgerId = (res['ledgerId'] ?? res['ledger']?['id'] ?? '') as String;
+        _academicYearId = (res['academicYearId'] ?? res['ledger']?['academicYearId'] ?? '') as String;
+
+        // Build fee breakdown items
+        final feeComponents = res['feeComponents'] as List? ??
+            res['components'] as List? ??
+            res['breakdown'] as List? ?? [];
+
+        if (feeComponents.isNotEmpty) {
+          _feeItems = feeComponents.map<Map<String, String>>((c) {
+            final name = (c['name'] ?? c['componentName'] ?? c['type'] ?? 'Fee').toString();
+            final amt = (c['amount'] ?? c['originalAmount'] ?? 0) as num;
+            return {'label': name, 'amount': '₹${amt.toInt()}'};
+          }).toList();
+        } else {
+          // Show total only if breakdown not available
+          _feeItems = [{'label': 'Total Fees Due', 'amount': '₹${_totalOutstanding.toInt()}'}];
+        }
+
+        // Build payment history
+        final payments = res['payments'] as List? ??
+            res['transactions'] as List? ?? [];
+        _paymentHistory = payments.map<Map<String, String>>((p) {
+          final desc = (p['description'] ?? p['term'] ?? p['remarks'] ?? 'Payment').toString();
+          final amt = (p['amount'] ?? p['paidAmount'] ?? 0) as num;
+          final dateStr = p['paidAt'] ?? p['createdAt'] ?? p['date'] ?? '';
+          String formattedDate = dateStr.toString().split('T').first;
+          return {
+            'term': desc,
+            'date': formattedDate,
+            'amount': '₹${amt.toInt()}',
+            'status': 'Paid',
+          };
+        }).toList();
+      } else {
+        _errorMsg = res['message'] as String? ?? 'Could not load fee data';
+      }
+    } catch (e) {
+      dev.log('FeesScreen: Error loading fee data: $e', name: 'FeesScreen');
+      _errorMsg = 'Unable to load fee information. Please check your connection.';
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: CircularProgressIndicator(color: Color(0xFF2563EB))),
+      );
+    }
+    if (_errorMsg != null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.wifi_off_rounded, size: 60, color: Color(0xFFCBD5E1)),
+                const SizedBox(height: 16),
+                Text('Unable to load fees', style: AppTypography.h4.copyWith(color: const Color(0xFF0F172A))),
+                const SizedBox(height: 8),
+                Text(_errorMsg!, textAlign: TextAlign.center, style: AppTypography.small.copyWith(color: const Color(0xFF64748B))),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: _loadFeeData,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563EB)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     switch (_view) {
       case 'qr':
         return _QRPaymentPage(onPaid: () => setState(() => _view = 'success'));
       case 'success':
         return _SuccessPage(onBack: () => Navigator.pop(context));
       default:
-        return _OverviewPage(onPayNow: () => setState(() => _view = 'qr'));
+        return _OverviewPage(
+          onPayNow: () => setState(() => _view = 'qr'),
+          feeItems: _feeItems,
+          paymentHistory: _paymentHistory,
+          totalOutstanding: _totalOutstanding,
+        );
     }
   }
 }
 
+
+
 // ─── OVERVIEW PAGE ────────────────────────────────────────────────────────────
 class _OverviewPage extends StatelessWidget {
   final VoidCallback onPayNow;
-  const _OverviewPage({required this.onPayNow});
+  final List<Map<String, String>> feeItems;
+  final List<Map<String, String>> paymentHistory;
+  final double totalOutstanding;
+
+  const _OverviewPage({
+    required this.onPayNow,
+    required this.feeItems,
+    required this.paymentHistory,
+    required this.totalOutstanding,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final items = [
-      {'label': 'Tuition Fee', 'amount': '₹10,000'},
-      {'label': 'Lab Fee', 'amount': '₹1,500'},
-      {'label': 'Library Fee', 'amount': '₹500'},
-      {'label': 'Sports Fee', 'amount': '₹500'},
-    ];
-    final history = [
-      {
-        'term': 'Term 1 Fee',
-        'date': 'Jan 5, 2026',
-        'amount': '₹12,500',
-        'status': 'Paid'
-      },
-      {
-        'term': 'Admission Fee',
-        'date': 'Apr 10, 2025',
-        'amount': '₹5,000',
-        'status': 'Paid'
-      },
-    ];
+    final items = feeItems;
+    final history = paymentHistory;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -139,7 +250,7 @@ class _OverviewPage extends StatelessWidget {
                                 Text('Total Due',
                                     style: AppTypography.body.copyWith(
                                         color: AppColors.studentPrimary)),
-                                Text('₹12,500',
+                                Text('₹${totalOutstanding.toInt()}',
                                     style: AppTypography.h4.copyWith(
                                         color: AppColors.studentPrimary)),
                               ]),

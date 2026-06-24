@@ -51,14 +51,14 @@ class AnnouncementModel {
 
   factory AnnouncementModel.fromJson(Map<String, dynamic> json) =>
       AnnouncementModel(
-        id: json['id'] as String,
-        title: json['title'] as String,
-        content: json['content'] as String,
-        priority: json['priority'] as String,
-        audience: json['audience'] as String,
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? 'Untitled',
+        content: json['content'] as String? ?? '',
+        priority: json['priority'] as String? ?? 'NORMAL',
+        audience: json['audience'] as String? ?? 'ALL',
         dateStr: json['dateStr'] as String? ?? '',
         date: json['date'] != null
-            ? DateTime.parse(json['date'])
+            ? DateTime.tryParse(json['date'].toString()) ?? DateTime.now()
             : DateTime.now(),
         expiresAt: json['expiresAt'] as String?,
         isRead: json['isRead'] as bool? ?? false,

@@ -14,17 +14,3 @@ class AppUser {
   });
 }
 
-const Map<String, Map<String, String>> kCredentials = {
-  'student': {
-    'email': '',
-    'password': '',
-    'name': '',
-    'subtitle': 'Student'
-  },
-  'teacher': {
-    'email': '',
-    'password': '',
-    'name': '',
-    'subtitle': 'Teacher'
-  },
-};

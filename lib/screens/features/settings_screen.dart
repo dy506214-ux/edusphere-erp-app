@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../welcome_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../services/auth_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -511,22 +512,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context); // close dialog
-              try {
-                await Supabase.instance.client.auth.signOut();
-              } catch (_) {}
-
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  PageRouteBuilder(
-                    pageBuilder: (_, __, ___) => const WelcomeScreen(),
-                    transitionsBuilder: (_, a, __, c) =>
-                        FadeTransition(opacity: a, child: c),
-                    transitionDuration: const Duration(milliseconds: 400),
-                  ),
-                  (r) => false,
-                );
-              }
+              await AuthService.logout(context);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,

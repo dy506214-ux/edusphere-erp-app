@@ -35,7 +35,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   double _attendanceRate = 100.0;
 
   RealtimeChannel? _attendanceChannel;
-  Timer? _attendancePollTimer;
   late DateTime _startDate;
   late DateTime _endDate;
   
@@ -55,7 +54,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
 
   @override
   void dispose() {
-    _attendancePollTimer?.cancel();
     if (_attendanceChannel != null) {
       try {
         Supabase.instance.client.removeChannel(_attendanceChannel!);
@@ -107,13 +105,6 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     } catch (e) {
       dev.log('Error registering Socket.IO events: $e', name: 'AttendanceScreen');
     }
-
-    // Polling fallback every 30 seconds
-    _attendancePollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted) {
-        _loadAttendanceData(showLoading: false);
-      }
-    });
   }
 
   Future<void> _loadAttendanceData({bool showLoading = true}) async {

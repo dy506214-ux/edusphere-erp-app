@@ -69,6 +69,7 @@ class _MainScreenState extends State<MainScreen> {
   String _userName = '';
   String? _profilePhotoUrl;
   int _idx = 0;
+  final Set<int> _visitedIndices = {};
   DateTime? _lastSeenAnnouncementTime;
 
   String _getLabelForIndex(int index, bool isDesktop) {
@@ -169,6 +170,7 @@ class _MainScreenState extends State<MainScreen> {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     setState(() {
       _idx = index;
+      _visitedIndices.add(index);
       _drawerActiveLabel = _getLabelForIndex(index, isDesktop);
     });
   }
@@ -176,6 +178,8 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    _idx = widget.initialIndex;
+    _visitedIndices.add(_idx);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AIChatbotOverlay.visible.value = true;
     });
@@ -815,7 +819,9 @@ class _MainScreenState extends State<MainScreen> {
           Expanded(
             child: IndexedStack(
               index: _idx >= screens.length ? 0 : _idx,
-              children: screens,
+              children: List.generate(screens.length, (i) {
+                return _visitedIndices.contains(i) ? screens[i] : const SizedBox.shrink();
+              }),
             ),
           ),
         ],

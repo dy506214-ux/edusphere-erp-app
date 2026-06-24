@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:developer' as dev;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,7 +28,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   final List<Map<String, dynamic>> _assignments = [];
   final String _selectedSubject = 'All';
 
-  Timer? _assignmentsPollTimer;
 
   @override
   void initState() {
@@ -40,7 +38,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
 
   @override
   void dispose() {
-    _assignmentsPollTimer?.cancel();
     try {
       SocketService().off('ASSIGNMENT_CREATED');
       SocketService().off('ASSIGNMENT_UPDATED');
@@ -67,12 +64,6 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     } catch (e) {
       dev.log('⚠️ Error connecting Socket.IO for Assignments: $e', name: 'AssignmentsScreen');
     }
-
-    _assignmentsPollTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (mounted) {
-        _loadAssignmentsData(showLoading: false);
-      }
-    });
   }
 
   Future<void> _loadAssignmentsData({bool showLoading = true}) async {

@@ -39,6 +39,19 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       return;
     }
 
+    // Email format validation
+    final emailRegex = RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() => _error = 'Please enter a valid email address');
+      return;
+    }
+
+    // Minimum password length
+    if (pass.length < 6) {
+      setState(() => _error = 'Password must be at least 6 characters');
+      return;
+    }
+
     setState(() {
       _loading = true;
       _error = null;
@@ -108,8 +121,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           }
         }
         if (teacherIdVal.isEmpty) {
-          teacherIdVal =
-              'd38f8d07-0e3c-4b3a-9d7b-a75bde8d5044'; // real akshit sharma teacher ID
+          // Could not resolve teacher profile ID — prevent login with wrong identity
+          dev.log('ERROR: Could not resolve teacher ID for userId=${userObj["id"]}', name: 'WelcomeScreen');
+          setState(() {
+            _error = 'Could not load your teacher profile. Please contact your administrator.';
+            _loading = false;
+          });
+          return;
         }
 
         await prefs.setString(
@@ -147,10 +165,17 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         final rollVal = studentMap['rollNumber'] ?? '24';
         final admVal = studentMap['admissionNumber'] ?? '';
 
-        await prefs.setString(
-            'student_id',
-            studentMap['id'] as String? ??
-                'b2f4c6d8-2345-6789-bcde-f23456789012');
+        final resolvedStudentId = studentMap['id'] as String?;
+        if (resolvedStudentId == null || resolvedStudentId.isEmpty) {
+          // Student ID missing — prevent login with wrong identity
+          dev.log('ERROR: Student ID missing from login response. studentMap: $studentMap', name: 'WelcomeScreen');
+          setState(() {
+            _error = 'Could not load your student profile. Please contact your administrator.';
+            _loading = false;
+          });
+          return;
+        }
+        await prefs.setString('student_id', resolvedStudentId);
         await prefs.setString(
             'student_name', fullName.isNotEmpty ? fullName : '');
         await prefs.setString('student_email', email);

@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme/colors.dart';
 import 'screens/welcome_screen.dart';
 import 'widgets/ai_chatbot_overlay.dart';
+import 'services/auth_service.dart';
 
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -22,7 +23,7 @@ class EduSphereApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-      designSize: const Size(393, 852), // iPhone 14 Pro size as baseline
+      designSize: const Size(393, 852),
       minTextAdapt: true,
       splitScreenMode: true,
       builder: (context, child) {
@@ -30,6 +31,9 @@ class EduSphereApp extends StatelessWidget {
           title: 'EduSphere',
           debugShowCheckedModeBanner: false,
           scrollBehavior: AppScrollBehavior(),
+          // Global navigator key -- enables navigation from non-widget contexts
+          // (e.g., 401 session expiry redirect from ApiService)
+          navigatorKey: appNavigatorKey,
           theme: ThemeData(
             useMaterial3: true,
             fontFamily: GoogleFonts.inter().fontFamily,

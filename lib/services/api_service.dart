@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
 import '../config/api_config.dart';
+import 'auth_service.dart';
 
 class ApiService {
   ApiService._privateConstructor();
@@ -199,8 +201,8 @@ class ApiService {
     final response = await _requestWrapper('GET', uri, _getHeaders());
 
     if (response.statusCode == 401) {
-      // Token might be expired
-      await clearToken();
+      // Token expired — clear token and redirect user to login screen
+      unawaited(AuthService.handleSessionExpired());
     }
 
     final decoded = jsonDecode(response.body);
@@ -220,7 +222,7 @@ class ApiService {
     );
 
     if (response.statusCode == 401) {
-      await clearToken();
+      unawaited(AuthService.handleSessionExpired());
     }
 
     final decoded = jsonDecode(response.body);
@@ -240,7 +242,7 @@ class ApiService {
     );
 
     if (response.statusCode == 401) {
-      await clearToken();
+      unawaited(AuthService.handleSessionExpired());
     }
 
     final decoded = jsonDecode(response.body);
@@ -255,7 +257,7 @@ class ApiService {
     final response = await _requestWrapper('DELETE', uri, _getHeaders());
 
     if (response.statusCode == 401) {
-      await clearToken();
+      unawaited(AuthService.handleSessionExpired());
     }
 
     final decoded = jsonDecode(response.body);

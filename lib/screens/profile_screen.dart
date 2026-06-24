@@ -14,6 +14,7 @@ import '../widgets/common_widgets.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
+import '../services/auth_service.dart';
 import 'main_screen.dart';
 import '../config/api_config.dart';
 import '../widgets/teacher_app_bar.dart';
@@ -5974,9 +5975,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               color: const Color(0xFF64748B)))),
                   SizedBox(width: 16.w),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
                       setState(() => _showLogout = false);
-                      Navigator.pushReplacementNamed(context, '/login');
+                      await AuthService.logout(context);
                     },
                     style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFEF4444)),

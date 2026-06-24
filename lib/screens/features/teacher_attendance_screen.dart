@@ -65,17 +65,15 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
             if (name.isNotEmpty && !_classes.contains(name)) {
-              if (name == 'Class 8' ||
-                  name == 'Class 9' ||
-                  name == 'Class 10') {
-                _classes.add(name);
-              }
+              _classes.add(name);
             }
           }
+          // Sort classes numerically where possible, then alphabetically
           _classes.sort((a, b) {
-            final numA = int.tryParse(a.replaceAll('Class ', '')) ?? 0;
-            final numB = int.tryParse(b.replaceAll('Class ', '')) ?? 0;
-            return numA.compareTo(numB);
+            final numA = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            final numB = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            if (numA != numB) return numA.compareTo(numB);
+            return a.compareTo(b);
           });
           if (_classes.isNotEmpty) {
             _selectedClass = _classes.first;
