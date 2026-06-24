@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:developer' as dev;
 import 'old_student_profile_screen.dart';
 import '../../theme/colors.dart';
 import '../../services/api_service.dart';
@@ -83,47 +85,127 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
 
   // Supabase client
   final _supabase = Supabase.instance.client;
+  final List<String> _assignedSectionIds = [];
 
   @override
   void initState() {
     super.initState();
-    _loadApiClasses();
-    _fetchStudents();
+    _initData();
     _connectRealtime();
+  }
+
+  Future<void> _initData() async {
+    await _loadApiClasses();
+    await _fetchStudents();
   }
 
   Future<void> _loadApiClasses() async {
     try {
-      final classesRes =
-          await _supabase.from('Class').select('id, name').order('name');
-      final sectionsRes = await _supabase
-          .from('Section')
-          .select('id, name, classId')
-          .order('name');
+      // 1. Get teacherId from SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      String teacherId = prefs.getString('teacher_id') ?? '';
+      
+      if (teacherId.isEmpty) {
+        final currentUser = _supabase.auth.currentUser;
+        if (currentUser != null) {
+          final tRes = await _supabase.from('Teacher').select('id').eq('userId', currentUser.id).maybeSingle();
+          if (tRes != null) {
+            teacherId = tRes['id']?.toString() ?? '';
+            await prefs.setString('teacher_id', teacherId);
+          }
+        }
+      }
+
+      if (teacherId.isEmpty) {
+        dev.log('⚠️ No teacher profile ID resolved for assignments check.', name: 'StudentDirectory');
+        return;
+      }
+
+      // 2. Fetch assigned classes (where teacher is classTeacherId)
+      final classTeacherClasses = await _supabase.from('Class').select('id, name').eq('classTeacherId', teacherId);
+      final List<String> classTeacherClassIds = [];
+      for (var c in classTeacherClasses) {
+        classTeacherClassIds.add(c['id'].toString());
+      }
+
+      // 3. Fetch sections under those classes
+      List<Map<String, dynamic>> classTeacherSections = [];
+      if (classTeacherClassIds.isNotEmpty) {
+        final sectionsForClasses = await _supabase
+            .from('Section')
+            .select('id, name, classId, Class(id, name)')
+            .inFilter('classId', classTeacherClassIds);
+        classTeacherSections = List<Map<String, dynamic>>.from(sectionsForClasses);
+      }
+
+      // 4. Fetch sections taught via TimetableSlot
+      final slotsRes = await _supabase
+          .from('TimetableSlot')
+          .select('sectionId, Section(id, name, classId, Class(id, name))')
+          .eq('teacherId', teacherId);
+
+      final List<Map<String, dynamic>> slotSections = [];
+      for (var slot in slotsRes) {
+        final sec = slot['Section'] as Map?;
+        if (sec != null) {
+          slotSections.add(Map<String, dynamic>.from(sec));
+        }
+      }
+
+      // 5. Merge to unique assigned sections map
+      final Map<String, Map<String, dynamic>> assignedSectionsMap = {};
+      for (var sec in classTeacherSections) {
+        final secId = sec['id']?.toString() ?? '';
+        if (secId.isNotEmpty) {
+          assignedSectionsMap[secId] = sec;
+        }
+      }
+      for (var sec in slotSections) {
+        final secId = sec['id']?.toString() ?? '';
+        if (secId.isNotEmpty) {
+          assignedSectionsMap[secId] = sec;
+        }
+      }
 
       if (mounted) {
         setState(() {
-          _allSections = List<Map<String, dynamic>>.from(sectionsRes);
-          _apiClasses = List<Map<String, dynamic>>.from(classesRes);
-          _classes.clear();
-          _classes.add('All Classes');
-          for (var c in _apiClasses) {
-            final name = c['name']?.toString() ?? '';
-            if (name.isNotEmpty && !_classes.contains(name)) {
-              if (name == 'Class 8' ||
-                  name == 'Class 9' ||
-                  name == 'Class 10') {
-                _classes.add(name);
+          _assignedSectionIds.clear();
+          _assignedSectionIds.addAll(assignedSectionsMap.keys);
+
+          // Store for the dropdown filter updates
+          _allSections = assignedSectionsMap.values.toList();
+          
+          // Rebuild _classes from the classes present in assignedSectionsMap
+          final Set<String> assignedClassNames = {};
+          final List<Map<String, dynamic>> resolvedClasses = [];
+          
+          for (var sec in assignedSectionsMap.values) {
+            final cls = sec['Class'] as Map?;
+            if (cls != null) {
+              final classId = cls['id']?.toString() ?? '';
+              final className = cls['name']?.toString() ?? '';
+              if (className.isNotEmpty && !assignedClassNames.contains(className)) {
+                assignedClassNames.add(className);
+                resolvedClasses.add({'id': classId, 'name': className});
               }
             }
           }
+          
+          _apiClasses = resolvedClasses;
+
+          _classes.clear();
+          _classes.add('All Classes');
+          _classes.addAll(assignedClassNames);
+
           _classes.sort((a, b) {
             if (a == 'All Classes') return -1;
             if (b == 'All Classes') return 1;
-            final numA = int.tryParse(a.replaceAll('Class ', '')) ?? 0;
-            final numB = int.tryParse(b.replaceAll('Class ', '')) ?? 0;
-            return numA.compareTo(numB);
+            final numA = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            final numB = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+            if (numA != numB) return numA.compareTo(numB);
+            return a.compareTo(b);
           });
+
           if (_classes.isNotEmpty) {
             _selectedClass = _classes.first;
             _updateSectionsForSelectedClass();
@@ -131,7 +213,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading classes from Supabase: $e');
+      dev.log('Error loading assigned classes/sections from Supabase: $e', name: 'StudentDirectory');
     }
   }
 
@@ -210,7 +292,20 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       _errorMessage = null;
     });
     try {
-      final response = await _supabase.from('Student').select('*, User(*), Class(*), Section(*)');
+      if (_assignedSectionIds.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _allStudents = [];
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final response = await _supabase
+          .from('Student')
+          .select('*, User(*), Class(*), Section(*)')
+          .inFilter('sectionId', _assignedSectionIds);
 
       final List<StudentRecord> loadedStudents = [];
       for (var item in response) {
