@@ -291,8 +291,11 @@ class AttendanceService {
             const students = await AttendanceRepository.findStudentsForSlot(slot.classId, slot.sectionId);
             entities = students.map(s => ({
                 id: s.id,
+                userId: s.user.id,
                 name: `${s.user.firstName} ${s.user.lastName}`,
                 identifier: s.admissionNumber,
+                rollNumber: s.rollNumber,
+                qrCode: s.user.qrCode,
                 type: 'STUDENT'
             }));
             slot.records.forEach(r => attendanceMap[r.studentId] = r.status);

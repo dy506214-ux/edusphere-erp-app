@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../../services/api_service.dart';
 import '../../services/student_service.dart';
 import '../../services/academic_service.dart';
@@ -64,7 +66,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           _apiClasses = List<Map<String, dynamic>>.from(classesRes)
               .where((c) {
                 final name = c['name']?.toString() ?? '';
-                return name == 'Class 8' || name == 'Class 9' || name == 'Class 10';
+                return name == 'Class 8' || name == 'Class 9' || name == 'Class 10' ||
+                       name == 'Grade 8' || name == 'Grade 9' || name == 'Grade 10';
               })
               .toList();
           _classes.clear();
@@ -106,7 +109,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           .toList();
       for (var s in secList) {
         final sName = s['name']?.toString() ?? '';
-        if (sName.isNotEmpty && (sName == 'A' || sName == 'B')) {
+        if (sName.isNotEmpty) {
           _sections.add(sName);
         }
       }
@@ -198,14 +201,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         _apiClasses = List<Map<String, dynamic>>.from(classesMap['classes'] ?? classesMap['data'] ?? [])
             .where((c) {
               final name = c['name']?.toString() ?? '';
-              return name == 'Class 8' || name == 'Class 9' || name == 'Class 10';
+              return name == 'Class 8' || name == 'Class 9' || name == 'Class 10' ||
+                     name == 'Grade 8' || name == 'Grade 9' || name == 'Grade 10';
             })
             .toList();
       }
 
       // 2. Fetch all attendance slots for this date
       final slotsRes = await AttendanceService.instance.getSlots(date: dateStr);
-      final List<dynamic> slotsList = slotsRes['slots'] ?? [];
+      final List<dynamic> slotsList = slotsRes['slots'] ??
+                                      (slotsRes['data'] is Map ? slotsRes['data']['slots'] : null) ??
+                                      slotsRes['data'] ?? [];
 
       // Get teacher class IDs to filter slots
       final teacherClassIds = _apiClasses.map((c) => c['id']?.toString()).toSet();
@@ -797,107 +803,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         : '$displayClass - ${slot['section']}';
 
                 return GestureDetector(
-                  onTap: () async {
-                    final String slotId = slot['id']?.toString() ?? '';
-                    if (slotId.isEmpty) return;
-
-                    // Show progress indicator while loading students
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) => const Center(
-                        child: CircularProgressIndicator(color: AppColors.teacherPrimary),
-                      ),
-                    );
-
-                    try {
-                      final slotDetail = await AttendanceService.instance.getSlotWithStudents(slotId);
-                      Navigator.pop(context); // Dismiss loading dialog
-
-                      final List<dynamic> entities = slotDetail['entities'] ?? [];
-                      final Map<String, dynamic> attendanceMap = slotDetail['attendance'] ?? {};
-
-                      final List<Map<String, dynamic>> studentList = [];
-                      final Map<String, String> statusMap = {};
-
-                      for (var item in entities) {
-                        final String sId = item['id']?.toString() ?? '';
-                        if (sId.isEmpty) continue;
-                        studentList.add({
-                          'id': sId,
-                          'name': item['name'] ?? 'Unknown',
-                          'admission_no': item['identifier'] ?? '',
-                        });
-
-                        final String? statusVal = attendanceMap[sId]?.toString();
-                        if (statusVal != null) {
-                          String localStatus = 'P';
-                          if (statusVal == 'ABSENT' || statusVal == 'A') localStatus = 'A';
-                          if (statusVal == 'LATE' || statusVal == 'L') localStatus = 'L';
-                          statusMap[sId] = localStatus;
-                        }
-                      }
-
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MarkAttendanceScreen(
-                            className: slot['class'] as String,
-                            classId: slot['classId'] as String?,
-                            section: slot['section'] as String,
-                            sectionId: slot['sectionId'] as String?,
-                            slotId: slotId,
-                            date: slot['date'] as DateTime,
-                            students: studentList,
-                            initialAttendanceStatus: statusMap,
-                            isAlreadySubmitted: isSub,
-                          ),
-                        ),
-                      );
-
-                      if (result != null && result is Map<String, dynamic>) {
-                        if (result['delete'] == true) {
-                          // Call delete slot API
-                          showDialog(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (ctx) => const Center(
-                              child: CircularProgressIndicator(color: AppColors.teacherPrimary),
-                            ),
-                          );
-                          try {
-                            await AttendanceService.instance.deleteSlot(slotId);
-                            Navigator.pop(context); // Dismiss loading dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Attendance slot deleted successfully!'),
-                                backgroundColor: Color(0xFF10B981),
-                              ),
-                            );
-                            _loadExistingSlotsForDate();
-                          } catch (e) {
-                            Navigator.pop(context); // Dismiss loading dialog
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to delete slot: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
-                            );
-                          }
-                        } else {
-                          _loadExistingSlotsForDate();
-                        }
-                      }
-                    } catch (e) {
-                      Navigator.pop(context); // Dismiss loading dialog
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Failed to load slot details: $e'),
-                          backgroundColor: AppColors.error,
-                        ),
-                      );
-                    }
-                  },
+                  onTap: () => _openSlotAttendance(slot['id']?.toString() ?? '', slot),
                   child: Container(
                     margin: EdgeInsets.only(bottom: 12.h),
                     padding: EdgeInsets.all(16.r),
@@ -995,6 +901,126 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     );
   }
 
+  Future<void> _openSlotAttendance(String slotId, Map<String, dynamic> slotData) async {
+    // Show progress indicator while loading students
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: AppColors.teacherPrimary),
+      ),
+    );
+
+    try {
+      final slotDetail = await AttendanceService.instance.getSlotWithStudents(slotId);
+      if (mounted) Navigator.pop(context); // Dismiss loading dialog
+
+      final dataMap = slotDetail['data'] is Map ? slotDetail['data'] : slotDetail;
+      final List<dynamic> entities = dataMap['entities'] ?? slotDetail['entities'] ?? [];
+      final Map<String, dynamic> attendanceMap = Map<String, dynamic>.from(dataMap['attendance'] ?? slotDetail['attendance'] ?? {});
+
+      final List<Map<String, dynamic>> studentList = [];
+      final Map<String, String> statusMap = {};
+
+      for (var item in entities) {
+        final String sId = item['id']?.toString() ?? '';
+        if (sId.isEmpty) continue;
+        studentList.add({
+          'id': sId,
+          'userId': item['userId']?.toString() ?? '',
+          'name': item['name'] ?? 'Unknown',
+          'admission_no': item['identifier'] ?? '',
+          'roll_no': item['rollNumber']?.toString() ?? '',
+          'qr_code': item['qrCode']?.toString() ?? '',
+        });
+
+        final String? statusVal = attendanceMap[sId]?.toString();
+        if (statusVal != null) {
+          String localStatus = 'P';
+          if (statusVal == 'ABSENT' || statusVal == 'A') localStatus = 'A';
+          if (statusVal == 'LATE' || statusVal == 'L') localStatus = 'L';
+          if (statusVal == 'ON_LEAVE' || statusVal == 'LV') localStatus = 'LV';
+          statusMap[sId] = localStatus;
+        }
+      }
+
+      final isSub = slotData['isSubmitted'] as bool? ?? false;
+      final className = slotData['class'] as String? ?? '';
+      final classId = slotData['classId'] as String?;
+      final section = slotData['section'] as String? ?? 'All Sections';
+      final sectionId = slotData['sectionId'] as String?;
+      final date = slotData['date'] as DateTime? ?? _selectedDate;
+
+      if (!mounted) return;
+
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MarkAttendanceScreen(
+            className: className,
+            classId: classId,
+            section: section,
+            sectionId: sectionId,
+            slotId: slotId,
+            date: date,
+            students: studentList,
+            initialAttendanceStatus: statusMap,
+            isAlreadySubmitted: isSub,
+          ),
+        ),
+      );
+
+      if (result != null && result is Map<String, dynamic>) {
+        if (result['delete'] == true) {
+          // Call delete slot API
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => const Center(
+              child: CircularProgressIndicator(color: AppColors.teacherPrimary),
+            ),
+          );
+          try {
+            await AttendanceService.instance.deleteSlot(slotId);
+            if (mounted) Navigator.pop(context); // Dismiss loading dialog
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Attendance slot deleted successfully!'),
+                  backgroundColor: Color(0xFF10B981),
+                ),
+              );
+            }
+            _loadExistingSlotsForDate();
+          } catch (e) {
+            if (mounted) Navigator.pop(context); // Dismiss loading dialog
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Failed to delete slot: $e'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
+        } else {
+          _loadExistingSlotsForDate();
+        }
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context); // Dismiss loading dialog
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load slot details: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _createNewSlotFromSelection() async {
     if (_selectedClass == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1042,6 +1068,23 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         }
       }
 
+      // Check if slot already exists in _createdSlots before sending API request
+      final existingSlot = _createdSlots.firstWhere(
+        (s) => s['classId']?.toString() == classId && s['sectionId']?.toString() == sectionId,
+        orElse: () => {},
+      );
+
+      if (existingSlot.isNotEmpty) {
+        setState(() {
+          _isLoading = false;
+        });
+        final String existingSlotId = existingSlot['id']?.toString() ?? '';
+        if (existingSlotId.isNotEmpty) {
+          await _openSlotAttendance(existingSlotId, existingSlot);
+          return;
+        }
+      }
+
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
       // Call API to create slot in the database
@@ -1052,6 +1095,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       );
 
       if (createRes['success'] == true) {
+        final slotId = createRes['data']?['id']?.toString() ?? '';
+        final displaySection = _selectedSection != 'All Sections' ? 'Section $_selectedSection' : 'All Sections';
+
+        final newSlotData = {
+          'class': _selectedClass,
+          'classId': classId,
+          'section': displaySection,
+          'sectionId': sectionId,
+          'date': _selectedDate,
+          'isSubmitted': false,
+        };
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1073,6 +1128,11 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         }
         // Reload all slots from database
         await _loadExistingSlotsForDate();
+
+        // Automatically open the newly created slot
+        if (slotId.isNotEmpty) {
+          await _openSlotAttendance(slotId, newSlotData);
+        }
       } else {
         throw createRes['message'] ?? 'Failed to create slot';
       }
@@ -2265,6 +2325,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         String statusEnum = 'PRESENT';
         if (statusLocal == 'A') statusEnum = 'ABSENT';
         if (statusLocal == 'L') statusEnum = 'LATE';
+        if (statusLocal == 'LV') statusEnum = 'ON_LEAVE';
 
         attendanceData.add({
           'entityId': studentId,
@@ -2364,7 +2425,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         _attendanceStatus.values.where((status) => status == 'P').length;
     final absentCount =
         _attendanceStatus.values.where((status) => status == 'A').length;
-
     final bool canGoBack = Navigator.canPop(context);
 
     return Scaffold(
@@ -2482,12 +2542,22 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
               ),
               SizedBox(height: 16.h),
 
-              // 2. Stacked vertical statistic cards
-              _buildStatCard(
-                  'Total students', '$totalCount', const Color(0xFF0F172A)),
-              _buildStatCard(
-                  'Present', '$presentCount', const Color(0xFF10B981)),
-              _buildStatCard('Absent', '$absentCount', const Color(0xFFEF4444)),
+              // 2. Statistics Grid
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatCard('Total Students', '$totalCount', const Color(0xFF0F172A)),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: _buildStatCard('Present', '$presentCount', const Color(0xFF10B981)),
+                  ),
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: _buildStatCard('Absent', '$absentCount', const Color(0xFFEF4444)),
+                  ),
+                ],
+              ),
               SizedBox(height: 20.h),
 
               LayoutBuilder(
@@ -2578,12 +2648,10 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                         children: [
                           CircleAvatar(
                             radius: 20.r,
-                            backgroundColor: const Color(
-                                0xFFEFF6FF), // Light blue avatar background
+                            backgroundColor: const Color(0xFFEFF6FF),
                             child: Text(
                               _getInitials(student['name']),
-                              style: AppTypography.small
-                                  .copyWith(color: const Color(0xFF1D4ED8)),
+                              style: AppTypography.small.copyWith(color: const Color(0xFF1D4ED8)),
                             ),
                           ),
                           SizedBox(width: 14.w),
@@ -2593,27 +2661,51 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                               children: [
                                 Text(
                                   student['name'],
-                                  style: AppTypography.small
-                                      .copyWith(color: const Color(0xFF0F172A)),
+                                  style: AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 SizedBox(height: 4.h),
-                                Text(
-                                  student['admission_no']
-                                              ?.toString()
-                                              .isNotEmpty ==
-                                          true
-                                      ? student['admission_no']
-                                      : 'R${index + 1}',
-                                  style: AppTypography.caption
-                                      .copyWith(color: const Color(0xFF64748B)),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Adm: ${student['admission_no']}',
+                                      style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+                                    ),
+                                    if (student['roll_no'] != null && student['roll_no'].toString().isNotEmpty) ...[
+                                      SizedBox(width: 12.w),
+                                      Text(
+                                        'Roll: ${student['roll_no']}',
+                                        style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ],
                             ),
                           ),
+                          if (student['qr_code'] != null && student['qr_code'].toString().isNotEmpty)
+                            Container(
+                              width: 36.w,
+                              height: 36.h,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                                borderRadius: BorderRadius.circular(6.r),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(5.r),
+                                child: student['qr_code'].toString().startsWith('data:image')
+                                    ? Image.memory(
+                                        base64Decode(student['qr_code'].toString().split(',').last),
+                                        fit: BoxFit.cover,
+                                      )
+                                    : QrImageView(
+                                        data: student['qr_code'].toString(),
+                                        version: QrVersions.auto,
+                                        padding: EdgeInsets.all(2.r),
+                                      ),
+                              ),
+                            ),
                         ],
                       ),
                       SizedBox(height: 14.h),
@@ -2645,6 +2737,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                           ),
                         ],
                       ),
+
                     ],
                   ),
                 );

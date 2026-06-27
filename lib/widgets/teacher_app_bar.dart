@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'common_widgets.dart';
 import '../screens/main_screen.dart';
@@ -173,7 +174,16 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
                 Scaffold.of(context).openDrawer();
               },
             ),
-      title: const SizedBox.shrink(),
+      title: Text(
+        'EduSphere',
+        style: GoogleFonts.inter(
+          fontWeight: FontWeight.w700,
+          fontSize: 22.sp,
+          letterSpacing: 0.2,
+          color: const Color(0xFF0F172A),
+        ),
+      ),
+      titleSpacing: 0,
       actions: [
         Stack(
           alignment: Alignment.center,

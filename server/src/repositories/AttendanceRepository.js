@@ -140,7 +140,7 @@ class AttendanceRepository {
         return prisma.studentProfile.findMany({
             where,
             include: {
-                user: { select: { firstName: true, lastName: true } },
+                user: { select: { id: true, firstName: true, lastName: true, qrCode: true } },
                 section: { select: { id: true, name: true } }
             },
             orderBy: { admissionNumber: 'asc' }
