@@ -7,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:file_saver/file_saver.dart';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 
 
 
@@ -202,6 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingTabDetails = false;
   List<Map<String, dynamic>> _attendanceRecords = [];
   Map<String, dynamic>? _feeLedger;
+  List<dynamic> _feeLedgersList = [];
   // ignore: unused_field
   // ignore: unused_field
   List<Map<String, dynamic>> _feePayments = [];
@@ -292,6 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         setState(() {
           _feeLedger =
               ledgers.isNotEmpty ? Map<String, dynamic>.from(ledgers[0]) : null;
+          _feeLedgersList = ledgers;
           _feePayments = List<Map<String, dynamic>>.from(recentPayments);
         });
       }
@@ -415,6 +420,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _uploadedDocuments = [];
     _attendanceRecords = [];
     _feeLedger = null;
+    _feeLedgersList = [];
     _feePayments = [];
     _timetableSlots = {};
     _transportAllocation = null;
@@ -1771,13 +1777,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
                     SizedBox(width: 8.w),
                     Text(
-                      'Back',
+                      'Back to Students',
                       style: GoogleFonts.inter(
                         fontSize: 14.sp,
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF0F2547),
                       ),
-
                     ),
                   ],
                 ),
@@ -1785,67 +1790,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 16.h),
 
             // Header Card
-            _buildNewHeaderCard(isDesktop),
+            _buildTabbedHeaderCard(isDesktop),
             SizedBox(height: 16.h),
 
-            // Summary Info Grid (Batch, Medium, Joined, Emergency Info)
-            _buildSummaryGrid(isDesktop),
+            // Tabbed Navigation
+            _buildTabbedNavigation(isDesktop),
             SizedBox(height: 16.h),
 
-            // Core Identity Card
-            _buildCoreIdentityCard(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Health Protocol Card
-            _buildHealthProtocolCard(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Guardian Details Card
-            _buildGuardianDetailsCard(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Notification Preferences Card
-            _buildStudentNotificationPreferencesCard(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Documents Asset Vault
-            _buildNewDocumentsVault(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Digital Identity & QR Attendance
-            _buildDigitalIdentityCard(isDesktop,
-                customTitle: widget.studentId != null
-                    ? 'Student Digital Identity Card'
-                    : null),
-            SizedBox(height: 24.h),
-
-            // Logout Button
-            if (widget.studentId == null) ...[
-              GestureDetector(
-                onTap: () => setState(() => _showLogout = true),
-                child: Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: 16.h),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: const Color(0xFFFECACA)),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.logout_rounded,
-                          color: AppColors.error, size: 20.sp),
-                      SizedBox(width: 10.w),
-                      Text('Sign Out',
-                          style: AppTypography.small
-                              .copyWith(color: AppColors.error)),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(height: 60.h),
-            ],
+            // Tab Content
+            _buildTabbedTabContent(isDesktop),
           ],
         ),
       );
@@ -2712,6 +2665,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildSummaryCards(bool isDesktop, double totalFee, double discount, double totalPaid, double totalDue) {
+    final cards = [
+      _buildFeeStatCard(
+        'TOTAL FEE',
+        '₹${totalFee.toStringAsFixed(0)}',
+        const Color(0xFFF1F5F9), // Slate background
+        const Color(0xFF0F172A), // Slate text
+      ),
+      _buildFeeStatCard(
+        'DISCOUNT',
+        '₹${discount.toStringAsFixed(0)}',
+        const Color(0xFFFEF3C7), // Amber background
+        const Color(0xFFD97706), // Amber text
+      ),
+      _buildFeeStatCard(
+        'TOTAL PAID',
+        '₹${totalPaid.toStringAsFixed(0)}',
+        const Color(0xFFD1FAE5), // Green background
+        const Color(0xFF059669), // Green text
+      ),
+      _buildFeeStatCard(
+        'TOTAL DUE',
+        '₹${totalDue.toStringAsFixed(0)}',
+        const Color(0xFFFEE2E2), // Red background
+        const Color(0xFFDC2626), // Red text
+      ),
+    ];
+
+    if (isDesktop) {
+      return Row(
+        children: cards.map((c) => Expanded(child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4.w),
+          child: c,
+        ))).toList(),
+      );
+    } else {
+      return GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        mainAxisSpacing: 10.h,
+        crossAxisSpacing: 10.w,
+        childAspectRatio: 1.8,
+        children: cards,
+      );
+    }
+  }
+
+  Widget _buildFeeStatCard(String label, String value, Color bgColor, Color valueColor) {
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2EAF4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF64748B),
+              letterSpacing: 0.5,
+            ),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w900,
+              color: valueColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _downloadFeeStatement(String studentId, String admissionNo) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 12),
+            Text('Downloading statement...', style: GoogleFonts.inter(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1A6FDB),
+        duration: const Duration(seconds: 10),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    try {
+      final response = await ApiService.instance.dio.get<List<int>>(
+        'fees/students/$studentId/statement',
+        options: Options(responseType: ResponseType.bytes),
+      );
+
+      if (response.data == null) {
+        throw Exception('No data returned from server.');
+      }
+
+      final pdfBytes = Uint8List.fromList(response.data!);
+      final fileName = 'FeeStatement_$admissionNo.pdf';
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      final savedPath = await FileSaver.instance.saveFile(
+        name: fileName.replaceAll('.pdf', ''),
+        bytes: pdfBytes,
+        fileExtension: 'pdf',
+        mimeType: MimeType.pdf,
+      );
+
+      debugPrint('✅ File saved to: $savedPath');
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Statement downloaded successfully',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600)),
+          backgroundColor: const Color(0xFF10B981),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ PDF statement download error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download statement: $e',
+              style: GoogleFonts.inter(fontSize: 12, color: Colors.white)),
+          backgroundColor: const Color(0xFFEF4444),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   // ignore: unused_element
   // ignore: unused_element
   Widget _buildTabbedTabContent(bool isDesktop) {
@@ -2958,196 +3064,308 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final int displayAbsent = total > 0 ? absent : 2;
       final int displayTotal = total > 0 ? total : 26;
 
-      return Column(
+      final statsRow = Row(
         children: [
-          Row(
-            children: [
-              _buildAttendanceStatCard(
-                  'Attendance Rate',
-                  '${percentage.toStringAsFixed(1)}%',
-                  const Color(0xFF1A6FDB),
-                  const Color(0xFFE8F1FB)),
-              SizedBox(width: 8.w),
-              _buildAttendanceStatCard(
-                  'Days Present',
-                  '$displayPresent/$displayTotal',
-                  const Color(0xFF10B981),
-                  const Color(0xFFECFDF5)),
-              SizedBox(width: 8.w),
-              _buildAttendanceStatCard('Days Absent', '$displayAbsent',
-                  const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
-            ],
-          ),
+          _buildAttendanceStatCard(
+              'Attendance Rate',
+              '${percentage.toStringAsFixed(1)}%',
+              const Color(0xFF1A6FDB),
+              const Color(0xFFE8F1FB)),
+          SizedBox(width: 8.w),
+          _buildAttendanceStatCard(
+              'Days Present',
+              '$displayPresent/$displayTotal',
+              const Color(0xFF10B981),
+              const Color(0xFFECFDF5)),
+          SizedBox(width: 8.w),
+          _buildAttendanceStatCard('Days Absent', '$displayAbsent',
+              const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
+        ],
+      );
+
+      final qrCard = _buildDigitalIdentityCard(isDesktop,
+          customTitle: 'Attendance Records');
+
+      final logCard = Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Recent Attendance Log',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF0F2547))),
+            SizedBox(height: 16.h),
+            if (_attendanceRecords.isEmpty)
+              _buildMockAttendanceList()
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _attendanceRecords.length > 5
+                    ? 5
+                    : _attendanceRecords.length,
+                itemBuilder: (ctx, idx) {
+                  final r = _attendanceRecords[idx];
+                  final dateStr = r['date']?.toString() ?? '—';
+                  final status = r['status']?.toString() ?? 'PRESENT';
+                  final remarks =
+                      r['remarks']?.toString() ?? 'Scanned via QR Code';
+                  return _buildAttendanceRow(dateStr, status, remarks);
+                },
+              ),
+          ],
+        ),
+      );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          statsRow,
           SizedBox(height: 16.h),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(20.r),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Recent Attendance Log',
-                    style: AppTypography.small
-                        .copyWith(color: const Color(0xFF0F2547))),
-                SizedBox(height: 16.h),
-                if (_attendanceRecords.isEmpty)
-                  _buildMockAttendanceList()
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _attendanceRecords.length > 5
-                        ? 5
-                        : _attendanceRecords.length,
-                    itemBuilder: (ctx, idx) {
-                      final r = _attendanceRecords[idx];
-                      final dateStr = r['date']?.toString() ?? '—';
-                      final status = r['status']?.toString() ?? 'PRESENT';
-                      final remarks =
-                          r['remarks']?.toString() ?? 'Scanned via QR Code';
-                      return _buildAttendanceRow(dateStr, status, remarks);
-                    },
-                  ),
-              ],
-            ),
-          ),
+          qrCard,
+          SizedBox(height: 16.h),
+          logCard,
         ],
       );
     }
 
     if (_selectedTab == 'Fees') {
-      final double payable = _feeLedger != null
-          ? double.tryParse(
-                  _feeLedger!['totalPayable']?.toString() ?? '0') ??
-              0.0
-          : 0.0;
-      final double paid = _feeLedger != null
-          ? double.tryParse(_feeLedger!['totalPaid']?.toString() ?? '0') ??
-              0.0
-          : 0.0;
-      final double pending = _feeLedger != null
-          ? (double.tryParse(_feeLedger!['totalPending']?.toString() ?? '') ??
-              (payable - paid))
-          : 0.0;
-      final String status = _feeLedger != null
-          ? _feeLedger!['status']?.toString() ?? 'PENDING'
-          : 'PENDING';
-      final String structureName =
-          _feeLedger != null && _feeLedger!['feeStructure'] != null
-              ? _feeLedger!['feeStructure']['name'].toString()
-              : (_feeLedger != null ? 'Fee Structure' : 'No Active Fee Structure');
-
-      Color statusColor = const Color(0xFFF59E0B);
-      Color statusBg = const Color(0xFFFFFBEB);
-      if (status.toUpperCase() == 'PAID') {
-        statusColor = const Color(0xFF10B981);
-        statusBg = const Color(0xFFECFDF5);
-      } else if (status.toUpperCase() == 'PENDING') {
-        statusColor = const Color(0xFFEF4444);
-        statusBg = const Color(0xFFFEF2F2);
+      if (_feeLedgersList.isEmpty) {
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(40.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE2EAF4)),
+          ),
+          child: Center(
+            child: Text(
+              'No Fee Record Available',
+              style: AppTypography.small.copyWith(color: const Color(0xFF64748B)),
+            ),
+          ),
+        );
       }
 
-      return Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(20.r),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Column(
+      double totalFee = 0.0;
+      double totalDiscount = 0.0;
+      double totalPaid = 0.0;
+
+      for (var ledger in _feeLedgersList) {
+        totalFee += double.tryParse(ledger['totalPayable']?.toString() ?? '0') ?? 0.0;
+        totalDiscount += double.tryParse(ledger['totalDiscount']?.toString() ?? '0') ?? 0.0;
+        totalPaid += double.tryParse(ledger['totalPaid']?.toString() ?? '0') ?? 0.0;
+      }
+      double totalDue = totalFee - totalPaid;
+      if (totalDue < 0) totalDue = 0;
+
+      final headerCard = Container(
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Text(
+                  'Fee Status',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0F2547),
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'Current academic year fee details',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.sp,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                final studentId = widget.studentId ?? _currentStudentDbId ?? '';
+                _downloadFeeStatement(studentId, _admissionNo);
+              },
+              icon: Icon(Icons.description_outlined, size: 16.sp, color: const Color(0xFF0F2547)),
+              label: Text(
+                'Statement',
+                style: GoogleFonts.inter(
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF0F2547),
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF0F2547),
+                side: const BorderSide(color: Color(0xFFE2EAF4)),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      final tableCard = Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(20.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: const Color(0xFFE2EAF4)),
+        ),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: SizedBox(
+            width: isDesktop ? (MediaQuery.of(context).size.width - (isDesktop ? 120.w : 72.w)) : 750.w,
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(4), // Fee Structure
+                1: FlexColumnWidth(2), // Status
+                2: FlexColumnWidth(2), // Total
+                3: FlexColumnWidth(2), // Discount
+                4: FlexColumnWidth(2), // Paid
+                5: FlexColumnWidth(2), // Due
+              },
+              defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+              children: [
+                // Header Row
+                TableRow(
+                  decoration: const BoxDecoration(
+                    border: Border(bottom: BorderSide(color: Color(0xFFE2EAF4), width: 1.5)),
+                  ),
                   children: [
-                    Expanded(
-                      child: Text(
-                        structureName,
-                        style: AppTypography.small
-                            .copyWith(color: const Color(0xFF0F2547)),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h, left: 8.w),
+                      child: Text('Fee Structure', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B))),
                     ),
-                    Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                          color: statusBg,
-                          borderRadius: BorderRadius.circular(6.r)),
-                      child: Text(
-                        status.replaceAll('_', ' ').toUpperCase(),
-                        style:
-                            AppTypography.caption.copyWith(color: statusColor),
-                      ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Center(child: Text('Status', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)))),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Align(alignment: Alignment.centerRight, child: Text('Total', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)))),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Align(alignment: Alignment.centerRight, child: Text('Discount', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)))),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h),
+                      child: Align(alignment: Alignment.centerRight, child: Text('Paid', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)))),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.only(bottom: 12.h, right: 8.w),
+                      child: Align(alignment: Alignment.centerRight, child: Text('Due', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.bold, color: const Color(0xFF64748B)))),
                     ),
                   ],
                 ),
-                SizedBox(height: 20.h),
-                _buildGridRow(
-                    'Total Fee Payable',
-                    '₹${payable.toStringAsFixed(2)}',
-                    'Total Amount Paid',
-                    '₹${paid.toStringAsFixed(2)}'),
-                SizedBox(height: 16.h),
-                _buildGridRow('Pending Balance',
-                    '₹${pending.toStringAsFixed(2)}', 'Academic Year', _batch),
-              ],
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Container(
-            width: double.infinity,
-            padding: EdgeInsets.all(20.r),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16.r),
-              border: Border.all(color: const Color(0xFFE2EAF4)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Recent Payment Transactions',
-                    style: AppTypography.small
-                        .copyWith(color: const Color(0xFF0F2547))),
-                SizedBox(height: 16.h),
-                if (_feePayments.isEmpty)
-                  Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20.h),
-                    child: Center(
-                      child: Text(
-                        'No payment transactions found.',
-                        style: AppTypography.caption.copyWith(color: AppColors.textLight),
-                      ),
+                // Data Rows
+                ..._feeLedgersList.map((ledger) {
+                  final structure = ledger['feeStructure'] as Map<String, dynamic>? ?? {};
+                  final headName = structure['name']?.toString() ?? 'Fee';
+                  final amount = double.tryParse(ledger['totalPayable']?.toString() ?? '0') ?? 0.0;
+                  final discount = double.tryParse(ledger['totalDiscount']?.toString() ?? '0') ?? 0.0;
+                  final paid = double.tryParse(ledger['totalPaid']?.toString() ?? '0') ?? 0.0;
+                  final due = amount - paid;
+                  final status = ledger['status']?.toString() ?? 'PENDING';
+
+                  Color statusColor = const Color(0xFFF59E0B);
+                  Color statusBg = const Color(0xFFFFFBEB);
+                  if (status.toUpperCase() == 'PAID') {
+                    statusColor = const Color(0xFF10B981);
+                    statusBg = const Color(0xFFECFDF5);
+                  } else if (status.toUpperCase() == 'PARTIALLY_PAID') {
+                    statusColor = const Color(0xFF1A6FDB);
+                    statusBg = const Color(0xFFEFF6FF);
+                  } else if (status.toUpperCase() == 'UNPAID' || status.toUpperCase() == 'PENDING') {
+                    statusColor = const Color(0xFFEF4444);
+                    statusBg = const Color(0xFFFEF2F2);
+                  } else if (status.toUpperCase() == 'OVERDUE') {
+                    statusColor = const Color(0xFFE11D48);
+                    statusBg = const Color(0xFFFFF1F2);
+                  }
+
+                  return TableRow(
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
                     ),
-                  )
-                else
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _feePayments.length,
-                    itemBuilder: (ctx, idx) {
-                      final p = _feePayments[idx];
-                      final receipt = p['receiptNumber']?.toString() ?? '—';
-                      final amount =
-                          double.tryParse(p['amount']?.toString() ?? '0') ??
-                              0.0;
-                      final dateStr = p['paymentDate']?.toString() ?? '—';
-                      final mode = p['paymentMode']?.toString() ?? 'ONLINE';
-                      return _buildFeePaymentRow(
-                          receipt, amount, dateStr, mode);
-                    },
-                  ),
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
+                        child: Text(headName, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F2547))),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Center(
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(6.r),
+                            ),
+                            child: Text(
+                              status.replaceAll('_', ' ').toUpperCase(),
+                              style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w800, color: statusColor),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Align(alignment: Alignment.centerRight, child: Text('₹${amount.toStringAsFixed(0)}', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F2547)))),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Align(alignment: Alignment.centerRight, child: Text('₹${discount.toStringAsFixed(0)}', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFFD97706)))),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h),
+                        child: Align(alignment: Alignment.centerRight, child: Text('₹${paid.toStringAsFixed(0)}', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFF10B981)))),
+                      ),
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 8.w),
+                        child: Align(alignment: Alignment.centerRight, child: Text('₹${due.toStringAsFixed(0)}', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.bold, color: const Color(0xFFEF4444)))),
+                      ),
+                    ],
+                  );
+                }),
               ],
             ),
           ),
+        ),
+      );
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          headerCard,
+          SizedBox(height: 16.h),
+          _buildSummaryCards(isDesktop, totalFee, totalDiscount, totalPaid, totalDue),
+          SizedBox(height: 16.h),
+          tableCard,
         ],
       );
     }
@@ -3642,7 +3860,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         children: [
           _buildCell('DAY',
-              width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
+              width: 125.w, isHeader: true, alignment: Alignment.centerLeft),
           ..._timetableColumns
               .map((col) => _buildTimeCell(col['title']!, col['time']!)),
         ],
@@ -3660,17 +3878,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Row(
         children: [
           _buildCell(day,
-              width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
+              width: 125.w, isDayLabel: true, alignment: Alignment.centerLeft),
           ..._timetableColumns.map((col) {
             if (col['title'] == 'LUNCH BREAK') {
               return _buildCell('Lunch Break',
-                  width: 110.w,
+                  width: 125.w,
                   isLunchBreak: true,
                   bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
             return _buildCell(subject ?? 'Unassigned',
-                width: 110.w, isUnassigned: subject == null);
+                width: 125.w, isUnassigned: subject == null);
           }),
         ],
       ),
@@ -3679,7 +3897,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildTimeCell(String title, String time) {
     return Container(
-      width: 110.w,
+      width: 125.w,
       padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 4.w),
       decoration: const BoxDecoration(
         border: Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),

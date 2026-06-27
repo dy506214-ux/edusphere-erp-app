@@ -11,6 +11,7 @@ import '../../config/api_config.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../main_screen.dart';
 import 'package:edusphere/theme/typography.dart';
+import 'ai_generator_screen.dart';
 
 // ── Student Model ────────────────────────────────────────────────────────────
 class StudentRecord {
@@ -33,7 +34,7 @@ class StudentRecord {
 
   String get formattedAdmissionNo {
     if (admissionNo.startsWith('ADM24') && admissionNo.length == 9) {
-      return 'ADM-2024${admissionNo.substring(5)}';
+      return 'ADM-2024${admissionNo.substring(6)}';
     }
     return admissionNo;
   }
@@ -67,17 +68,25 @@ class StudentDirectoryScreen extends StatefulWidget {
 class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
-  final int _rowsPerPage = 100;
+  final int _rowsPerPage = 50;
   String _searchQuery = '';
   bool _isLoading = false;
   String? _errorMessage;
-    List<StudentRecord> _allStudents = [];
+  List<StudentRecord> _allStudents = [];
   
   // ── Filters ──
   String? _selectedClass;
   String _selectedSection = 'All Sections';
+  String _selectedStatus = 'All Status';
   final List<String> _classes = [];
   final List<String> _sections = ['All Sections'];
+  final List<String> _statuses = [
+    'All Status',
+    'Active',
+    'Inactive',
+    'Graduated',
+    'Transferred'
+  ];
   List<Map<String, dynamic>> _apiClasses = [];
   List<Map<String, dynamic>> _allSections = [];
 
@@ -106,11 +115,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
             if (name.isNotEmpty && !_classes.contains(name)) {
-              if (name == 'Class 8' ||
-                  name == 'Class 9' ||
-                  name == 'Class 10') {
-                _classes.add(name);
-              }
+              _classes.add(name);
             }
           }
           _classes.sort((a, b) {
@@ -135,6 +140,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     if (_selectedClass == null || _selectedClass == 'All Classes') {
       _sections.clear();
       _sections.add('All Sections');
+      final uniqueSecNames = <String>{};
+      for (var s in _allSections) {
+        final sName = s['name']?.toString() ?? '';
+        if (sName.isNotEmpty) {
+          uniqueSecNames.add(sName);
+        }
+      }
+      final sortedSecNames = uniqueSecNames.toList()..sort();
+      for (var name in sortedSecNames) {
+        _sections.add('Section $name');
+      }
       _selectedSection = 'All Sections';
       return;
     }
@@ -269,6 +285,20 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       } else {
         filtered = filtered.where((s) => s.className.startsWith(filterClass)).toList();
       }
+    } else {
+      if (_selectedSection != 'All Sections') {
+        final String filterSection = _selectedSection.replaceAll('Section ', '');
+        filtered = filtered.where((s) {
+          final parts = s.className.split(' - ');
+          return parts.length >= 2 && parts[1] == filterSection;
+        }).toList();
+      }
+    }
+
+    // Filter by Status
+    if (_selectedStatus != 'All Status') {
+      final String filterStatus = _selectedStatus.toUpperCase();
+      filtered = filtered.where((s) => s.status == filterStatus).toList();
     }
 
     if (_searchQuery.isEmpty) return filtered;
@@ -302,6 +332,23 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
       bottomNavigationBar:
           widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 2) : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AIGeneratorScreen(),
+            ),
+          );
+        },
+        backgroundColor: const Color(0xFF0066CC),
+        shape: const CircleBorder(),
+        child: Icon(
+          Icons.assistant_rounded,
+          color: Colors.amber[400],
+          size: 28.sp,
+        ),
+      ),
       body: RefreshIndicator(
         onRefresh: _fetchStudents,
         color: const Color(0xFF0066CC),
@@ -365,139 +412,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Student Directory Header
+          // Student Directory Header & Filters
           Padding(
             padding: EdgeInsets.all(16.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Student Directory',
-                      style: GoogleFonts.outfit(
-                          fontSize: 14.sp,
-                          fontWeight: FontWeight.w800,
-                          color: const Color(0xFF0F172A)),
-                    ),
-                    const Spacer(),
-                    if (_isLoading)
-                      SizedBox(
-                        width: 14.w,
-                        height: 14.h,
-                        child: const CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Color(0xFF0066CC),
-                        ),
-                      ),
-                  ],
-                ),
-                SizedBox(height: 2.h),
-                Text(
-                  _isLoading
-                      ? 'Loading student data...'
-                      : _errorMessage != null
-                          ? _errorMessage!
-                          : 'Browse and manage student records ($totalCount total)',
-                  style: AppTypography.caption.copyWith(
-                      color: _errorMessage != null
-                          ? Colors.orange
-                          : const Color(0xFF94A3B8)),
-                ),
-                SizedBox(height: 12.h),
-                // Filter by Class and Section row
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Grade',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF374151))),
-                          SizedBox(height: 6.h),
-                          Container(
-                            height: 44.h,
-                            padding: EdgeInsets.symmetric(horizontal: 12.w),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(10.r),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedClass,
-                                hint: Text('Select Grade', style: AppTypography.caption),
-                                isExpanded: true,
-                                icon: Icon(Icons.keyboard_arrow_down_rounded,
-                                    size: 18.sp, color: const Color(0xFF94A3B8)),
-                                style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      _selectedClass = val;
-                                      _updateSectionsForSelectedClass();
-                                      _currentPage = 1;
-                                    });
-                                  }
-                                },
-                                items: _classes
-                                    .map((e) => DropdownMenuItem(value: e, child: Text(e.replaceAll('Class', 'Grade'))))
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Section',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF374151))),
-                          SizedBox(height: 6.h),
-                          Container(
-                            height: 44.h,
-                            padding: EdgeInsets.symmetric(horizontal: 12.w),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(10.r),
-                              border: Border.all(color: const Color(0xFFE2E8F0)),
-                            ),
-                            child: DropdownButtonHideUnderline(
-                              child: DropdownButton<String>(
-                                value: _selectedSection,
-                                isExpanded: true,
-                                icon: Icon(Icons.keyboard_arrow_down_rounded,
-                                    size: 18.sp, color: const Color(0xFF94A3B8)),
-                                style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setState(() {
-                                      _selectedSection = val;
-                                      _currentPage = 1;
-                                    });
-                                  }
-                                },
-                                items: _sections
-                                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                                    .toList(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 12.h),
-                // Search Bar
-                Container(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 750;
+                
+                final searchBar = Container(
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(10.r),
                     border: Border.all(color: const Color(0xFFE2E8F0)),
                   ),
@@ -509,20 +433,107 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                         _currentPage = 1;
                       });
                     },
-                    style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF0F172A)),
+                    style: GoogleFonts.outfit(
+                        fontSize: 14.sp, color: const Color(0xFF0F172A)),
                     decoration: InputDecoration(
                       hintText: 'Search by name, admission number, or email...',
-                      hintStyle: AppTypography.caption
-                          .copyWith(color: const Color(0xFF94A3B8)),
+                      hintStyle: GoogleFonts.outfit(
+                          fontSize: 14.sp, color: const Color(0xFF94A3B8)),
                       prefixIcon: Icon(Icons.search_rounded,
-                          size: 18.sp, color: const Color(0xFF94A3B8)),
+                          size: 20.sp, color: const Color(0xFF94A3B8)),
                       border: InputBorder.none,
                       contentPadding: EdgeInsets.symmetric(vertical: 12.h),
                     ),
                   ),
-                ),
-              ],
+                );
+
+                final classDropdown = _buildDropdown<String>(
+                  value: _selectedClass,
+                  items: _classes
+                      .map((e) => DropdownMenuItem(
+                          value: e,
+                          child: Text(e.replaceAll('Class', 'Grade'))))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedClass = val;
+                        _updateSectionsForSelectedClass();
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                  hint: 'All Classes',
+                );
+
+                final sectionDropdown = _buildDropdown<String>(
+                  value: _selectedSection,
+                  items: _sections
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedSection = val;
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                  hint: 'All Sections',
+                );
+
+                final statusDropdown = _buildDropdown<String>(
+                  value: _selectedStatus,
+                  items: _statuses
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedStatus = val;
+                        _currentPage = 1;
+                      });
+                    }
+                  },
+                  hint: 'All Status',
+                );
+
+                if (isWide) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeaderAndStatusTitle(totalCount),
+                      SizedBox(height: 16.h),
+                      Row(
+                        children: [
+                          Expanded(flex: 4, child: searchBar),
+                          SizedBox(width: 12.w),
+                          Expanded(flex: 2, child: classDropdown),
+                          SizedBox(width: 12.w),
+                          Expanded(flex: 2, child: sectionDropdown),
+                          SizedBox(width: 12.w),
+                          Expanded(flex: 2, child: statusDropdown),
+                        ],
+                      ),
+                    ],
+                  );
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeaderAndStatusTitle(totalCount),
+                      SizedBox(height: 16.h),
+                      searchBar,
+                      SizedBox(height: 12.h),
+                      classDropdown,
+                      SizedBox(height: 12.h),
+                      sectionDropdown,
+                      SizedBox(height: 12.h),
+                      statusDropdown,
+                    ],
+                  );
+                }
+              },
             ),
           ),
 
@@ -542,44 +553,56 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                       Container(
                         color: const Color(0xFFF8FAFC),
                         padding: EdgeInsets.symmetric(
-                            horizontal: 16.w, vertical: 10.h),
+                            horizontal: 16.w, vertical: 12.h),
                         child: Row(
                           children: [
                             Expanded(
                               flex: 3,
                               child: Text('Admission No.',
-                                  style: AppTypography.caption.copyWith(
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
                                       color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 5,
                               child: Text('Name',
-                                  style: AppTypography.caption.copyWith(
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
                                       color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 3,
                               child: Text('Class',
-                                  style: AppTypography.caption.copyWith(
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
                                       color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 5,
                               child: Text('Email',
-                                  style: AppTypography.caption.copyWith(
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
                                       color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 3,
                               child: Text('Status',
-                                  style: AppTypography.caption.copyWith(
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
                                       color: const Color(0xFF475569))),
                             ),
                             Expanded(
                               flex: 2,
                               child: Text('Actions',
-                                  style: AppTypography.caption
-                                      .copyWith(color: const Color(0xFF475569)),
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF475569)),
                                   textAlign: TextAlign.center),
                             ),
                           ],
@@ -609,8 +632,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                 Text(
                                   _errorMessage!,
                                   textAlign: TextAlign.center,
-                                  style: AppTypography.caption
-                                      .copyWith(color: const Color(0xFF64748B)),
+                                  style: GoogleFonts.outfit(
+                                      fontSize: 13.sp, color: const Color(0xFF64748B)),
                                 ),
                                 SizedBox(height: 12.h),
                                 ElevatedButton.icon(
@@ -630,7 +653,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                           child: Center(
                             child: Text(
                               'No students found',
-                              style: AppTypography.caption.copyWith(
+                              style: GoogleFonts.outfit(
+                                  fontSize: 13.sp,
                                   color: const Color(0xFF64748B),
                                   fontStyle: FontStyle.italic),
                             ),
@@ -648,8 +672,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        ProfileScreen(
+                                    builder: (context) => ProfileScreen(
                                       role: 'student',
                                       theme: roleThemes['student']!,
                                       studentId: student.id,
@@ -678,8 +701,11 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       flex: 3,
                                       child: Text(
                                         student.formattedAdmissionNo,
-                                        style: AppTypography.caption.copyWith(
-                                            color: const Color(0xFF0F172A)),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 13.sp,
+                                          fontWeight: FontWeight.bold,
+                                          color: const Color(0xFF0F172A),
+                                        ),
                                       ),
                                     ),
                                     // Name + Avatar
@@ -697,38 +723,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                             child: ClipRRect(
                                               borderRadius:
                                                   BorderRadius.circular(14.r),
-                                              child:
-                                                  (student.avatarUrl != null &&
-                                                          student.avatarUrl!
-                                                              .isNotEmpty)
-                                                      ? Image.network(
-                                                          student.avatarUrl!,
-                                                          fit: BoxFit.cover,
-                                                          width: 28.w,
-                                                          height: 28.h,
-                                                          errorBuilder:
-                                                              (_, __, ___) =>
-                                                                  Center(
-                                                            child: Text(
-                                                              student.initials,
-                                                              style: AppTypography
-                                                                  .caption
-                                                                  .copyWith(
-                                                                      color: const Color(
-                                                                          0xFF1E6091)),
-                                                            ),
-                                                          ),
-                                                        )
-                                                      : Center(
-                                                          child: Text(
-                                                            student.initials,
-                                                            style: AppTypography
-                                                                .caption
-                                                                .copyWith(
-                                                                    color: const Color(
-                                                                        0xFF1E6091)),
-                                                          ),
-                                                        ),
+                                              child: (student.avatarUrl != null &&
+                                                      student.avatarUrl!.isNotEmpty)
+                                                  ? Image.network(
+                                                      student.avatarUrl!,
+                                                      fit: BoxFit.cover,
+                                                      width: 28.w,
+                                                      height: 28.h,
+                                                      errorBuilder: (_, __, ___) =>
+                                                          _buildInitials(student),
+                                                    )
+                                                  : _buildInitials(student),
                                             ),
                                           ),
                                           SizedBox(width: 8.w),
@@ -736,10 +741,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                             child: Text(
                                               student.name,
                                               overflow: TextOverflow.ellipsis,
-                                              style: AppTypography.caption
-                                                  .copyWith(
-                                                      color: const Color(
-                                                          0xFF475569)),
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 13.sp,
+                                                color: const Color(0xFF475569),
+                                              ),
                                             ),
                                           ),
                                         ],
@@ -750,8 +755,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       flex: 3,
                                       child: Text(
                                         student.className,
-                                        style: AppTypography.caption.copyWith(
-                                            color: const Color(0xFF64748B)),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 13.sp,
+                                          color: const Color(0xFF475569),
+                                        ),
                                       ),
                                     ),
                                     // Email
@@ -760,31 +767,36 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                       child: Text(
                                         student.email,
                                         overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.caption.copyWith(
-                                            color: const Color(0xFF64748B)),
+                                        style: GoogleFonts.outfit(
+                                          fontSize: 13.sp,
+                                          color: const Color(0xFF475569),
+                                        ),
                                       ),
                                     ),
                                     // Status
                                     Expanded(
                                       flex: 3,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 8.w, vertical: 4.h),
-                                        decoration: BoxDecoration(
-                                          color: student.status == 'ACTIVE'
-                                              ? const Color(0xFFDCFCE7)
-                                              : const Color(0xFFFEE2E2),
-                                          borderRadius:
-                                              BorderRadius.circular(12.r),
-                                        ),
-                                        child: Text(
-                                          student.status,
-                                          textAlign: TextAlign.center,
-                                          style: AppTypography.caption.copyWith(
-                                              color: student.status == 'ACTIVE'
-                                                  ? const Color(0xFF16A34A)
-                                                  : const Color(0xFFDC2626)),
-                                        ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 8.w, vertical: 4.h),
+                                            decoration: BoxDecoration(
+                                              color: _getStatusBackgroundColor(student.status),
+                                              borderRadius:
+                                                  BorderRadius.circular(12.r),
+                                            ),
+                                            child: Text(
+                                              student.status,
+                                              textAlign: TextAlign.center,
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 11.sp,
+                                                fontWeight: FontWeight.bold,
+                                                color: _getStatusTextColor(student.status),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     // Actions
@@ -799,18 +811,14 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      ProfileScreen(
+                                                  builder: (context) => ProfileScreen(
                                                     role: 'student',
-                                                    theme:
-                                                        roleThemes['student']!,
+                                                    theme: roleThemes['student']!,
                                                     studentId: student.id,
                                                     studentName: student.name,
                                                     studentEmail: student.email,
-                                                    studentClass:
-                                                        student.className,
-                                                    admissionNo:
-                                                        student.admissionNo,
+                                                    studentClass: student.className,
+                                                    admissionNo: student.admissionNo,
                                                     showAppBar: true,
                                                     onBack: () =>
                                                         Navigator.pop(context),
@@ -842,54 +850,90 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           // Pagination Footer
           Padding(
             padding: EdgeInsets.all(16.r),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth > 600;
+                
+                final textWidget = Text(
                   'Showing ${totalCount == 0 ? 0 : (_currentPage - 1) * _rowsPerPage + 1} to ${(_currentPage * _rowsPerPage) > totalCount ? totalCount : (_currentPage * _rowsPerPage)} of $totalCount students',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B)),
-                ),
-                SizedBox(height: 12.h),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  style: GoogleFonts.outfit(
+                      fontSize: 13.sp, color: const Color(0xFF64748B)),
+                );
+
+                final buttonsRow = Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     GestureDetector(
                       onTap: _currentPage > 1
                           ? () => setState(() => _currentPage--)
                           : null,
                       child: Container(
-                        padding: EdgeInsets.all(6.r),
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(color: const Color(0xFFE2E8F0)),
-                          borderRadius: BorderRadius.circular(6.r),
+                          borderRadius: BorderRadius.circular(8.r),
                         ),
-                        child: Icon(Icons.chevron_left_rounded,
-                            size: 14.sp, color: const Color(0xFF64748B)),
+                        child: Text(
+                          'Previous',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                            color: _currentPage > 1
+                                ? const Color(0xFF475569)
+                                : const Color(0xFFCBD5E1),
+                          ),
+                        ),
                       ),
                     ),
-                    SizedBox(width: 6.w),
+                    SizedBox(width: 8.w),
                     ..._buildPageNumbers(),
-                    SizedBox(width: 6.w),
+                    SizedBox(width: 8.w),
                     GestureDetector(
                       onTap: _currentPage < _totalPages
                           ? () => setState(() => _currentPage++)
                           : null,
                       child: Container(
-                        padding: EdgeInsets.all(6.r),
+                        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           border: Border.all(color: const Color(0xFFE2E8F0)),
-                          borderRadius: BorderRadius.circular(6.r),
+                          borderRadius: BorderRadius.circular(8.r),
                         ),
-                        child: Icon(Icons.chevron_right_rounded,
-                            size: 14.sp, color: const Color(0xFF64748B)),
+                        child: Text(
+                          'Next',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                            color: _currentPage < _totalPages
+                                ? const Color(0xFF475569)
+                                : const Color(0xFFCBD5E1),
+                          ),
+                        ),
                       ),
                     ),
                   ],
-                ),
-              ],
+                );
+
+                if (isWide) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      textWidget,
+                      buttonsRow,
+                    ],
+                  );
+                } else {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      textWidget,
+                      SizedBox(height: 12.h),
+                      buttonsRow,
+                    ],
+                  );
+                }
+              },
             ),
           ),
         ],
@@ -937,16 +981,22 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     return GestureDetector(
       onTap: () => setState(() => _currentPage = p),
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 2.w),
-        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+        margin: EdgeInsets.symmetric(horizontal: 4.w),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF0066CC) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6.r),
+          color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8.r),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF0066CC) : const Color(0xFFE2E8F0),
+          ),
         ),
         child: Text(
           '$p',
-          style: AppTypography.caption.copyWith(
-              color: isSelected ? Colors.white : const Color(0xFF64748B)),
+          style: GoogleFonts.outfit(
+            fontSize: 12.sp,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? Colors.white : const Color(0xFF475569),
+          ),
         ),
       ),
     );
@@ -957,8 +1007,127 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       child: Text(
         '...',
-        style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+        style: GoogleFonts.outfit(
+            fontSize: 12.sp, color: const Color(0xFF64748B)),
       ),
     );
+  }
+
+  Widget _buildInitials(StudentRecord student) {
+    return Center(
+      child: Text(
+        student.initials,
+        style: GoogleFonts.outfit(
+          fontSize: 11.sp,
+          fontWeight: FontWeight.bold,
+          color: const Color(0xFF1E6091),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required T? value,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+    required String hint,
+  }) {
+    return Container(
+      height: 48.h,
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<T>(
+          value: value,
+          hint: Text(hint,
+              style: GoogleFonts.outfit(
+                  fontSize: 14.sp, color: const Color(0xFF94A3B8))),
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              size: 20.sp, color: const Color(0xFF94A3B8)),
+          style: GoogleFonts.outfit(
+              fontSize: 14.sp, color: const Color(0xFF0F172A)),
+          onChanged: onChanged,
+          items: items,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderAndStatusTitle(int totalCount) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Student Directory',
+              style: GoogleFonts.outfit(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A)),
+            ),
+            const Spacer(),
+            if (_isLoading)
+              SizedBox(
+                width: 14.w,
+                height: 14.h,
+                child: const CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Color(0xFF0066CC),
+                ),
+              ),
+          ],
+        ),
+        SizedBox(height: 2.h),
+        Text(
+          _isLoading
+              ? 'Loading student data...'
+              : _errorMessage != null
+                  ? _errorMessage!
+                  : 'Browse and manage student records ($totalCount total)',
+          style: GoogleFonts.outfit(
+              fontSize: 13.sp,
+              fontWeight: FontWeight.w500,
+              color: _errorMessage != null
+                  ? Colors.orange
+                  : const Color(0xFF94A3B8)),
+        ),
+      ],
+    );
+  }
+
+  Color _getStatusBackgroundColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return const Color(0xFFDCFCE7);
+      case 'INACTIVE':
+        return const Color(0xFFFEE2E2);
+      case 'GRADUATED':
+        return const Color(0xFFDBEAFE);
+      case 'TRANSFERRED':
+        return const Color(0xFFFFEDD5);
+      default:
+        return const Color(0xFFF1F5F9);
+    }
+  }
+
+  Color _getStatusTextColor(String status) {
+    switch (status.toUpperCase()) {
+      case 'ACTIVE':
+        return const Color(0xFF16A34A);
+      case 'INACTIVE':
+        return const Color(0xFFDC2626);
+      case 'GRADUATED':
+        return const Color(0xFF1D4ED8);
+      case 'TRANSFERRED':
+        return const Color(0xFFC2410C);
+      default:
+        return const Color(0xFF475569);
+    }
   }
 }

@@ -238,7 +238,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       child: Row(
         children: [
           _buildCell('DAY',
-              width: 110.w, isHeader: true, alignment: Alignment.centerLeft),
+              width: 125.w, isHeader: true, alignment: Alignment.centerLeft),
           ..._columns.map((col) => _buildTimeCell(col['title']!, col['time']!)),
         ],
       ),
@@ -253,17 +253,17 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
       child: Row(
         children: [
           _buildCell(day,
-              width: 110.w, isDayLabel: true, alignment: Alignment.centerLeft),
+              width: 125.w, isDayLabel: true, alignment: Alignment.centerLeft),
           ..._columns.map((col) {
             if (col['title'] == 'LUNCH BREAK') {
               return _buildCell('Lunch Break',
-                  width: 110.w,
+                  width: 125.w,
                   isLunchBreak: true,
                   bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
             return _buildCell(subject ?? 'Unassigned',
-                width: 110.w, isUnassigned: subject == null);
+                width: 125.w, isUnassigned: subject == null);
           }),
         ],
       ),
@@ -272,7 +272,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
 
   Widget _buildTimeCell(String title, String time) {
     return Container(
-      width: 110.w,
+      width: 125.w,
       padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 4.w),
       decoration: const BoxDecoration(
         border: Border(right: BorderSide(color: Color(0xFFE9F0F8), width: 1)),

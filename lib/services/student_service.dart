@@ -13,7 +13,7 @@ class StudentService {
     final queryParams = {
       if (classId != null) 'classId': classId,
       if (sectionId != null) 'sectionId': sectionId,
-      'limit': '100',
+      'limit': '500',
     };
     final response = await ApiService.instance.get('students', queryParams: queryParams);
     return response as Map<String, dynamic>;
