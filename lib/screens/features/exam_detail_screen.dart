@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_saver/file_saver.dart';
+import '../../utils/download_helper.dart';
 import '../main_screen.dart';
 import 'class_review_screen.dart';
 import 'package:edusphere/theme/typography.dart';
@@ -398,11 +399,10 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       final fileBytes = excel.save();
       if (fileBytes != null) {
         final fileName = '${widget.examName.replaceAll(' ', '_')}_template';
-        await FileSaver.instance.saveFile(
-          name: fileName,
-          bytes: Uint8List.fromList(fileBytes),
-          fileExtension: 'xlsx',
-          mimeType: MimeType.microsoftExcel,
+        await downloadFile(
+          Uint8List.fromList(fileBytes),
+          fileName,
+          'xlsx',
         );
 
         if (mounted) {

@@ -6,8 +6,9 @@ import 'package:intl/intl.dart';
 import 'common_widgets.dart';
 import '../screens/main_screen.dart';
 import 'package:edusphere/theme/typography.dart';
-import '../../services/api_service.dart';
-import '../../services/socket_service.dart';
+import '../services/api_service.dart';
+import '../services/socket_service.dart';
+import '../services/app_state_notifier.dart';
 
 class TeacherAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
@@ -32,6 +33,35 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
     _loadMuteAndSeenState();
     _loadAnnouncements();
     _connectRealtime();
+
+    // Bind reactive value listeners for global synchronization
+    AppStateNotifier.isMuted.addListener(_onMuteStateChanged);
+    AppStateNotifier.lastSeenAnnouncementTime.addListener(_onLastSeenTimeChanged);
+    AppStateNotifier.announcements.addListener(_onAnnouncementsChanged);
+  }
+
+  void _onMuteStateChanged() {
+    if (mounted) {
+      setState(() {
+        _isMuted = AppStateNotifier.isMuted.value;
+      });
+    }
+  }
+
+  void _onLastSeenTimeChanged() {
+    if (mounted) {
+      setState(() {
+        _lastSeenAnnouncementTime = AppStateNotifier.lastSeenAnnouncementTime.value;
+      });
+    }
+  }
+
+  void _onAnnouncementsChanged() {
+    if (mounted) {
+      setState(() {
+        _announcements = AppStateNotifier.announcements.value;
+      });
+    }
   }
 
   void _onAnnouncementEvent(dynamic data) {
@@ -53,6 +83,9 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
 
   @override
   void dispose() {
+    AppStateNotifier.isMuted.removeListener(_onMuteStateChanged);
+    AppStateNotifier.lastSeenAnnouncementTime.removeListener(_onLastSeenTimeChanged);
+    AppStateNotifier.announcements.removeListener(_onAnnouncementsChanged);
     try {
       SocketService().off('ANNOUNCEMENT_CREATED', _onAnnouncementEvent);
       SocketService().off('ANNOUNCEMENT_UPDATED', _onAnnouncementEvent);
@@ -73,6 +106,9 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
         loaded.sort((a, b) =>
             (b['createdAt'] ?? '').toString().compareTo(a['createdAt'] ?? ''));
             
+        // Update the global reactive state
+        AppStateNotifier.announcements.value = loaded;
+
         if (mounted) {
           setState(() {
             _announcements = loaded;
@@ -93,12 +129,22 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
       final prefs = await SharedPreferences.getInstance();
       final muted = prefs.getBool('notifications_muted') ?? false;
       final timeStr = prefs.getString('last_seen_announcement_time');
+
+      // Sync to global notifiers
+      if (AppStateNotifier.isMuted.value != muted) {
+        AppStateNotifier.isMuted.value = muted;
+      }
+      if (timeStr != null) {
+        final parsedTime = DateTime.tryParse(timeStr);
+        if (parsedTime != null && AppStateNotifier.lastSeenAnnouncementTime.value != parsedTime) {
+          AppStateNotifier.lastSeenAnnouncementTime.value = parsedTime;
+        }
+      }
+
       if (mounted) {
         setState(() {
-          _isMuted = muted;
-          if (timeStr != null) {
-            _lastSeenAnnouncementTime = DateTime.tryParse(timeStr);
-          }
+          _isMuted = AppStateNotifier.isMuted.value;
+          _lastSeenAnnouncementTime = AppStateNotifier.lastSeenAnnouncementTime.value;
         });
       }
     } catch (_) {}
@@ -109,10 +155,11 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
       final prefs = await SharedPreferences.getInstance();
       final newMuted = !_isMuted;
       await prefs.setBool('notifications_muted', newMuted);
+      
+      // Update global notifier to propagate changes to all active top bar widgets
+      AppStateNotifier.isMuted.value = newMuted;
+
       if (mounted) {
-        setState(() {
-          _isMuted = newMuted;
-        });
         showToast(context,
             newMuted ? 'Notifications muted' : 'Notifications unmuted');
       }
@@ -257,11 +304,8 @@ class _TeacherAppBarState extends State<TeacherAppBar> {
                       final now = DateTime.now();
                       await prefs.setString('last_seen_announcement_time',
                           now.toIso8601String());
-                      if (mounted) {
-                        setState(() {
-                          _lastSeenAnnouncementTime = now;
-                        });
-                      }
+                      // Update global reactive notifier to trigger changes on other pages
+                      AppStateNotifier.lastSeenAnnouncementTime.value = now;
                     } catch (_) {}
 
                     if (button == null || overlay == null) return;

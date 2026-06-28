@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>EduSphere requires camera access to scan student QR codes and attendance cards.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>EduSphere requires photo library access to upload profile pictures and homework attachments.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>EduSphere requires photo library write access to save documents and student report cards.</string>
 </dict>
 </plist>

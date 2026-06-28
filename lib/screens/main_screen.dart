@@ -34,6 +34,7 @@ import 'features/inventory_requests_screen.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../services/cache_service.dart';
+import '../services/app_state_notifier.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../widgets/ai_chatbot_overlay.dart';
@@ -484,8 +485,10 @@ class _MainScreenState extends State<MainScreen> {
                   onBack: () => _navigateTo(0),
                   showAppBar: false,
                   onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-                  onAvatarUpdated: (url) =>
-                      setState(() => _profilePhotoUrl = url),
+                  onAvatarUpdated: (url) {
+                    AppStateNotifier.userProfilePhotoUrl.value = url;
+                    setState(() => _profilePhotoUrl = url);
+                  },
                 ), // Index 12: My Profile
                 DigitalLibraryScreen(theme: _theme, showAppBar: false), // Index 13: Library
                 InventoryRequestsScreen(theme: _theme, showAppBar: false), // Index 14: Inventory Requests
@@ -542,8 +545,10 @@ class _MainScreenState extends State<MainScreen> {
                   onBack: () => _navigateTo(4),
                   showAppBar: false,
                   onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-                  onAvatarUpdated: (url) =>
-                      setState(() => _profilePhotoUrl = url),
+                  onAvatarUpdated: (url) {
+                    AppStateNotifier.userProfilePhotoUrl.value = url;
+                    setState(() => _profilePhotoUrl = url);
+                  },
                 ), // Index 13: My Profile
                 DigitalLibraryScreen(theme: _theme, showAppBar: false), // Index 14: Library
                 InventoryRequestsScreen(theme: _theme, showAppBar: false), // Index 15: Inventory Requests
@@ -586,7 +591,10 @@ class _MainScreenState extends State<MainScreen> {
               onBack: () => setState(() => _idx = 0),
               showAppBar: isDesktop,
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-              onAvatarUpdated: (url) => setState(() => _profilePhotoUrl = url),
+              onAvatarUpdated: (url) {
+                AppStateNotifier.userProfilePhotoUrl.value = url;
+                setState(() => _profilePhotoUrl = url);
+              },
             ),
           ];
 
@@ -1581,19 +1589,43 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> {
   void initState() {
     super.initState();
     _loadPhoto();
+    AppStateNotifier.userProfilePhotoUrl.addListener(_onPhotoUrlChanged);
+  }
+
+  @override
+  void dispose() {
+    AppStateNotifier.userProfilePhotoUrl.removeListener(_onPhotoUrlChanged);
+    super.dispose();
+  }
+
+  void _onPhotoUrlChanged() {
+    if (mounted) {
+      setState(() {
+        _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value;
+      });
+    }
   }
 
   Future<void> _loadPhoto() async {
     final prefs = CacheService.instance.prefs;
     final url = prefs.getString('teacher_photo_url');
-    if (mounted) setState(() => _localPhotoUrl = url);
+    if (url != null && AppStateNotifier.userProfilePhotoUrl.value != url) {
+      AppStateNotifier.userProfilePhotoUrl.value = url;
+    }
+    if (mounted) {
+      setState(() => _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value);
+    }
   }
 
   @override
   void didUpdateWidget(TeacherBottomNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.photoUrl != oldWidget.photoUrl) {
-      _loadPhoto();
+      if (widget.photoUrl != null) {
+        AppStateNotifier.userProfilePhotoUrl.value = widget.photoUrl;
+      } else {
+        _loadPhoto();
+      }
     }
   }
 

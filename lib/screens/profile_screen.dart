@@ -8,6 +8,9 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:file_saver/file_saver.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import '../utils/download_helper.dart';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
@@ -2748,6 +2751,168 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _downloadQRCodePDF() async {
+    try {
+      final pdf = pw.Document();
+      
+      final qrData = widget.role == 'teacher'
+          ? (_employeeId.isNotEmpty && _employeeId != 'ID_PENDING' ? _employeeId : 'TEACHER')
+          : _admissionNo;
+      final userName = widget.role == 'teacher' ? _userName : _studentName;
+      final userRole = widget.role;
+      final userId = widget.role == 'teacher' ? _employeeId : _admissionNo;
+
+      pw.MemoryImage? qrImageProvider;
+      if (_dbQrCode != null && _dbQrCode!.startsWith('data:image')) {
+        try {
+          final base64Str = _dbQrCode!.split(',').last;
+          final bytes = base64Decode(base64Str);
+          qrImageProvider = pw.MemoryImage(bytes);
+        } catch (_) {}
+      }
+
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.a4,
+          build: (pw.Context context) {
+            return pw.Center(
+              child: pw.Container(
+                width: 320,
+                padding: const pw.EdgeInsets.all(24),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.blue900, width: 2),
+                  borderRadius: const pw.BorderRadius.all(pw.Radius.circular(16)),
+                  color: PdfColors.white,
+                ),
+                child: pw.Column(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text(
+                      'EDUSPHERE ERP',
+                      style: pw.TextStyle(
+                        fontSize: 22,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue900,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'DIGITAL ATTENDANCE PASS',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColors.grey700,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    pw.SizedBox(height: 16),
+                    pw.Container(
+                      height: 1,
+                      color: PdfColors.grey300,
+                    ),
+                    pw.SizedBox(height: 24),
+                    pw.Container(
+                      width: 180,
+                      height: 180,
+                      padding: const pw.EdgeInsets.all(12),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey300),
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(12)),
+                      ),
+                      child: qrImageProvider != null
+                          ? pw.Image(qrImageProvider, fit: pw.BoxFit.contain)
+                          : pw.BarcodeWidget(
+                              barcode: pw.Barcode.qrCode(),
+                              data: qrData,
+                              drawText: false,
+                            ),
+                    ),
+                    pw.SizedBox(height: 24),
+                    pw.Text(
+                      userName,
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blue900,
+                      ),
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.blue100,
+                        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                      ),
+                      child: pw.Text(
+                        userRole.toUpperCase(),
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.blue700,
+                        ),
+                      ),
+                    ),
+                    pw.SizedBox(height: 12),
+                    pw.Text(
+                      'ID: $userId',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColors.grey600,
+                      ),
+                    ),
+                    pw.SizedBox(height: 16),
+                    pw.Container(
+                      height: 1,
+                      color: PdfColors.grey300,
+                    ),
+                    pw.SizedBox(height: 16),
+                    pw.Text(
+                      'ISSUED BY EDUSPHERE SCHOOL SYSTEM',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColors.grey500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      );
+
+      final pdfBytes = await pdf.save();
+      final fileName = '${userName.replaceAll(' ', '_')}_Attendance_QR';
+      
+      await downloadFile(
+        pdfBytes,
+        fileName,
+        'pdf',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF10B981),
+            content: Text('Attendance QR Code PDF downloaded successfully!',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error generating QR PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Failed to download PDF: $e',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _downloadFeeStatement(String studentId, String admissionNo) async {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -4297,15 +4462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           SizedBox(height: 16.h),
           GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: const Color(0xFF10B981),
-                  content: Text('Attendance QR Code downloaded to gallery!',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                ),
-              );
-            },
+            onTap: _downloadQRCodePDF,
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
               decoration: BoxDecoration(
@@ -5479,15 +5636,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           SizedBox(height: 20.h),
           ElevatedButton.icon(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: const Color(0xFF10B981),
-                  content: Text('Attendance QR Code downloaded to gallery!',
-                      style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-                ),
-              );
-            },
+            onPressed: _downloadQRCodePDF,
             icon: const Icon(Icons.file_download_outlined,
                 size: 18, color: Colors.white),
             label: Text('Download', style: AppTypography.caption),
