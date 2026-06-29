@@ -32,11 +32,13 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
   String _arrivalTime = '—';
 
   bool _loadingResponse = false;
+  Offset? _fabPosition;
 
   @override
   void initState() {
     super.initState();
     _loadStudentDataAndPrefetch();
+    _loadFabPosition();
     AIChatbotOverlay.visible.addListener(_onVisibilityChanged);
   }
 
@@ -52,6 +54,34 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     _chatScrollCtrl.dispose();
     AIChatbotOverlay.visible.removeListener(_onVisibilityChanged);
     super.dispose();
+  }
+
+  Future<void> _loadFabPosition() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final dx = prefs.getDouble('chatbot_fab_x');
+      final dy = prefs.getDouble('chatbot_fab_y');
+      if (dx != null && dy != null) {
+        setState(() {
+          _fabPosition = Offset(dx, dy);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Offset _clampPosition(Offset position, Size screenSize) {
+    final fabSize = 52.w;
+    
+    final double minX = 16.w;
+    final double maxX = screenSize.width - fabSize - 16.w;
+    
+    final double minY = MediaQuery.of(context).padding.top + 16.h;
+    final double maxY = screenSize.height - fabSize - MediaQuery.of(context).padding.bottom - 16.h;
+    
+    final clampedX = position.dx.clamp(minX, maxX);
+    final clampedY = position.dy.clamp(minY, maxY);
+    
+    return Offset(clampedX, clampedY);
   }
 
   Future<void> _loadStudentDataAndPrefetch() async {
@@ -249,6 +279,15 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     final isDesktop = size.width > 900;
     final showChat = _shouldShowChatbot;
 
+    Offset activePosition;
+    if (_fabPosition != null) {
+      activePosition = _clampPosition(_fabPosition!, size);
+    } else {
+      final defaultX = size.width - 52.w - 24.w;
+      final defaultY = size.height - 52.w - (isDesktop ? 24.h : 90.h);
+      activePosition = _clampPosition(Offset(defaultX, defaultY), size);
+    }
+
     return Stack(
       children: [
         // Screen Content
@@ -257,9 +296,9 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
         // Floating Action Button (FAB) only (no speech bubble)
         if (showChat && !_isChatOpen)
           Positioned(
-            right: 24.w,
-            bottom: isDesktop ? 24.h : 90.h,
-            child: _buildAssistantFAB(),
+            left: activePosition.dx,
+            top: activePosition.dy,
+            child: _buildAssistantFAB(activePosition, size),
           ),
 
         // Chatbot Overlay Window
@@ -276,8 +315,25 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     );
   }
 
-  Widget _buildAssistantFAB() {
+  Widget _buildAssistantFAB(Offset currentPosition, Size screenSize) {
     return GestureDetector(
+      onPanUpdate: (details) {
+        setState(() {
+          _fabPosition = _clampPosition(
+            currentPosition + details.delta,
+            screenSize,
+          );
+        });
+      },
+      onPanEnd: (details) async {
+        if (_fabPosition != null) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setDouble('chatbot_fab_x', _fabPosition!.dx);
+            await prefs.setDouble('chatbot_fab_y', _fabPosition!.dy);
+          } catch (_) {}
+        }
+      },
       onTap: _toggleChat,
       child: Container(
         width: 52.w,

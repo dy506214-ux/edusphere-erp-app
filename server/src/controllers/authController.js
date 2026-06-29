@@ -114,19 +114,19 @@ const login = asyncHandler(async (req, res) => {
   });
 
   if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ success: false, error: 'Email not found', errorCode: 'EmailNotFound' });
   }
 
   // Check if user is active
   if (!user.isActive) {
-    return res.status(403).json({ error: 'Account is disabled' });
+    return res.status(403).json({ success: false, error: 'Account is disabled' });
   }
 
   // Verify password
   const validPassword = await bcrypt.compare(password, user.password);
 
   if (!validPassword) {
-    return res.status(401).json({ error: 'Invalid email or password' });
+    return res.status(401).json({ success: false, error: 'Incorrect Password', errorCode: 'IncorrectPassword' });
   }
 
   // SINGLE IDENTITY: Student + Parent share same credentials

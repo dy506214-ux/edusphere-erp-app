@@ -5,33 +5,33 @@ void main() async {
   final baseUrl = 'https://edusphere-erp-frontend.onrender.com/api/v1';
   final loginUrl = Uri.parse('$baseUrl/auth/login');
   try {
-    print('Sending login request to: $loginUrl');
+    print('Sending login request...');
     final res = await http.post(
       loginUrl,
+      headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
+      body: jsonEncode({'email': 'student17@edusphere.com', 'password': 'Password@123'}),
+    );
+
+    final data = jsonDecode(res.body);
+    final token = data['token'];
+
+    // Get student ID first
+    final profileRes = await http.get(
+      Uri.parse('$baseUrl/students/me'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
       },
-      body: jsonEncode({
-        'email': 'student2@edusphere.com',
-        'password': 'Password@123',
-      }),
     );
+    final profileData = jsonDecode(profileRes.body);
+    final studentId = profileData['student']['id'];
+    print('Student ID: $studentId');
 
-    print('Response status: ${res.statusCode}');
-    final data = jsonDecode(res.body);
-    if (data['success'] != true) {
-      print('Login failed: $data');
-      return;
-    }
-
-    final token = data['token'];
-    print('Login successful. Token: $token');
-
-    final profileUrl = Uri.parse('$baseUrl/students/me');
-    print('Fetching student profile from: $profileUrl');
-    final profileRes = await http.get(
-      profileUrl,
+    final docsUrl = Uri.parse('$baseUrl/students/$studentId/documents');
+    print('Fetching documents from: $docsUrl');
+    final docsRes = await http.get(
+      docsUrl,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -39,8 +39,8 @@ void main() async {
       },
     );
 
-    print('Profile response status: ${profileRes.statusCode}');
-    print('Profile response body: ${profileRes.body}');
+    print('Docs response status: ${docsRes.statusCode}');
+    print('Docs response body: ${docsRes.body}');
   } catch (e) {
     print('Error: $e');
   }

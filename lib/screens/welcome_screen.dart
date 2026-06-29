@@ -8,6 +8,7 @@ import 'dart:developer' as dev;
 import 'package:edusphere/theme/typography.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:dio/dio.dart';
 
 class WelcomeScreen extends StatefulWidget {
   final bool fromLogout;
@@ -22,6 +23,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   final _passCtrl = TextEditingController();
   bool _obscure = true;
   String? _error;
+  String? _emailError;
+  String? _passError;
   bool _loading = false;
 
   @override
@@ -96,27 +99,38 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     final email = _emailCtrl.text.trim();
     final pass = _passCtrl.text;
 
-    if (email.isEmpty || pass.isEmpty) {
-      setState(() => _error = 'Please enter both email and password');
-      return;
+    setState(() {
+      _emailError = null;
+      _passError = null;
+      _error = null;
+    });
+
+    bool hasError = false;
+
+    if (email.isEmpty) {
+      _emailError = 'Email is required';
+      hasError = true;
+    } else {
+      // Email format validation
+      final emailRegex = RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$');
+      if (!emailRegex.hasMatch(email)) {
+        _emailError = 'Enter a valid email address';
+        hasError = true;
+      }
+    }
+    
+    if (pass.isEmpty) {
+      _passError = 'Password is required';
+      hasError = true;
     }
 
-    // Email format validation
-    final emailRegex = RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,4}$');
-    if (!emailRegex.hasMatch(email)) {
-      setState(() => _error = 'Please enter a valid email address');
-      return;
-    }
-
-    // Minimum password length
-    if (pass.length < 6) {
-      setState(() => _error = 'Password must be at least 6 characters');
+    if (hasError) {
+      setState(() {});
       return;
     }
 
     setState(() {
       _loading = true;
-      _error = null;
     });
 
     try {
@@ -369,14 +383,61 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       }
     } catch (e) {
       if (!mounted) return;
+      setState(() {
+        _loading = false;
+      });
+
+      if (e is DioException) {
+        final res = e.response;
+        if (res != null) {
+          final statusCode = res.statusCode;
+          final data = res.data is Map ? res.data as Map<String, dynamic> : {};
+          
+          if (statusCode == 401) {
+            final errorCode = data['errorCode']?.toString();
+            final message = data['message']?.toString() ?? data['error']?.toString() ?? 'Invalid email or password';
+            
+            setState(() {
+              if (errorCode == 'EmailNotFound') {
+                _emailError = 'Invalid Email Address';
+              } else if (errorCode == 'IncorrectPassword') {
+                _passError = 'Incorrect Password';
+              } else {
+                _error = message;
+              }
+            });
+            return;
+          } else if (statusCode == 500 || statusCode == 503) {
+            setState(() {
+              _error = 'Server is temporarily unavailable.';
+            });
+            return;
+          }
+        }
+
+        // Check for connection/network error
+        final isNetworkError = e.error is SocketException ||
+            e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.sendTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError;
+            
+        if (isNetworkError) {
+          setState(() {
+            _error = 'Unable to connect to server. Please try again.';
+          });
+          return;
+        }
+      }
+
+      // Default fallback
       String friendlyError = 'An unexpected error occurred during backend login: $e';
       final errStr = e.toString().toLowerCase();
       if (errStr.contains('failed to fetch') || errStr.contains('clientexception') || errStr.contains('socketexception')) {
-        friendlyError = 'Connection failed. The backend server might be waking up from sleep. Please wait a few seconds and try again.';
+        friendlyError = 'Unable to connect to server. Please try again.';
       }
       setState(() {
         _error = friendlyError;
-        _loading = false;
       });
     }
   }
@@ -453,7 +514,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   SizedBox(height: 8.h),
                   TextField(
                     controller: _emailCtrl,
-                    decoration: _inputDeco(hintText: 'admin@school.com'),
+                    onChanged: (val) {
+                      if (_emailError != null) {
+                        setState(() => _emailError = null);
+                      }
+                    },
+                    decoration: _inputDeco(hintText: 'admin@school.com', errorText: _emailError),
                     style: AppTypography.small
                         .copyWith(color: const Color(0xFF0F172A)),
                     keyboardType: TextInputType.emailAddress,
@@ -469,7 +535,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   TextField(
                     controller: _passCtrl,
                     obscureText: _obscure,
-                    decoration: _inputDeco(hintText: '••••••••').copyWith(
+                    onChanged: (val) {
+                      if (_passError != null) {
+                        setState(() => _passError = null);
+                      }
+                    },
+                    decoration: _inputDeco(hintText: '••••••••', errorText: _passError).copyWith(
                         suffixIcon: IconButton(
                       icon: Icon(
                         _obscure
@@ -546,13 +617,15 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
     );
   }
 
-  InputDecoration _inputDeco({String? hintText}) {
+  InputDecoration _inputDeco({String? hintText, String? errorText}) {
     return InputDecoration(
       hintText: hintText,
       hintStyle: AppTypography.small.copyWith(color: const Color(0xFF94A3B8)),
       filled: true,
       fillColor: Colors.white,
       contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      errorText: errorText,
+      errorStyle: AppTypography.caption.copyWith(color: const Color(0xFFE11D48)),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10.r),
         borderSide: const BorderSide(color: Color(0xFFCBD5E1), width: 1.0),
@@ -564,6 +637,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10.r),
         borderSide: const BorderSide(color: Color(0xFF007BFF), width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.r),
+        borderSide: const BorderSide(color: Color(0xFFE11D48), width: 1.0),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10.r),
+        borderSide: const BorderSide(color: Color(0xFFE11D48), width: 1.5),
       ),
     );
   }

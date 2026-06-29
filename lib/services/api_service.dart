@@ -57,7 +57,9 @@ class ApiService {
     // Token Injector & Logging Interceptor
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
-        options.headers['Content-Type'] = 'application/json';
+        if (options.data is! FormData) {
+          options.headers['Content-Type'] = 'application/json';
+        }
         options.headers['Accept'] = 'application/json';
         if (_token != null && _token!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_token';
@@ -77,7 +79,7 @@ class ApiService {
         dev.log('❌ [API ERROR] URL: ${e.requestOptions.uri} | Status: ${e.response?.statusCode} | Message: ${e.message}', name: 'ApiService');
 
         // Check for 401 Session Expiry
-        if (e.response?.statusCode == 401) {
+        if (e.response?.statusCode == 401 && !e.requestOptions.path.contains('auth/login')) {
           dev.log('⚠️ Session expired (401). Triggering logout.', name: 'ApiService');
           unawaited(AuthService.handleSessionExpired());
           return handler.next(e);

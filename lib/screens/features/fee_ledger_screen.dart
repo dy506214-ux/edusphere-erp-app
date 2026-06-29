@@ -163,7 +163,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
       // 2. Fetch Fee Status & Ledgers from production API
       final response = await ApiService.instance.get(ApiEndpoints.studentFeeStatus(_studentId));
 
-      if (response != null && response['success'] == true) {
+      if (response != null && (response['success'] == true || response['summary'] != null || response['ledgers'] != null)) {
         await prefs.setString('student_fee_cache_$_studentId', jsonEncode(response));
         _parseAndSetFeeData(response);
         if (mounted) setState(() => _isOffline = false);
@@ -253,6 +253,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
           totalScholarshipAcc += adjAmt;
         } else if (adjType == 'FINE') {
           totalFinesAcc += adjAmt;
+        } else if (adjType == 'DISCOUNT') {
+          totalDiscountAcc += adjAmt;
         }
         adjustmentsList.add({
           'id': adj['id']?.toString() ?? '',
@@ -788,7 +790,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (_isOffline) _buildOfflineBanner(),
                             _buildHeroSummaryCard(isDesktop),
                             SizedBox(height: 20.h),
                             _buildEnterpriseTabBar(),
@@ -1325,14 +1326,17 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(_formatCurrency(pmt['amount'] as double), style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-                            SizedBox(height: 4.h),
-                            Text('${_formatDate(pmt['date'] as String?)} • ${pmt['method']} • Receipt: ${pmt['receipt']}', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-                          ],
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(_formatCurrency(pmt['amount'] as double), style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
+                              SizedBox(height: 4.h),
+                              Text('${_formatDate(pmt['date'] as String?)} • ${pmt['method']} • Receipt: ${pmt['receipt']}', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B)), maxLines: 2, overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
                         ),
+                        SizedBox(width: 12.w),
                         OutlinedButton.icon(
                           onPressed: () => _downloadPaymentReceipt(pmt),
                           icon: Icon(Icons.download_rounded, size: 14.sp, color: const Color(0xFF1A6FDB)),

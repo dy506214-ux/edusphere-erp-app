@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -493,16 +494,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _studentUserId =
           studentResMap['userId']?.toString() ?? userMap['id']?.toString();
 
+      // Fetch academic years to resolve the batch name if relation is missing
+      Map<String, String> academicYearsMap = {};
+      try {
+        final yearsRes = await ApiService.instance.get('academic/years');
+        if (yearsRes != null && yearsRes['success'] == true && yearsRes['academicYears'] != null) {
+          final List<dynamic> yearsList = yearsRes['academicYears'];
+          for (var yr in yearsList) {
+            final id = yr['id']?.toString() ?? '';
+            final name = yr['name']?.toString() ?? '';
+            if (id.isNotEmpty && name.isNotEmpty) {
+              academicYearsMap[id] = name;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching academic years: $e');
+      }
+
       final classAcademicYear = classMap['academicYear'] as Map? ??
           classMap['AcademicYear'] as Map? ?? {};
       final studentAcademicYear = studentResMap['academicYear'] as Map? ??
           studentResMap['AcademicYear'] as Map? ?? {};
       final prefs = CacheService.instance.prefs;
       final batchFromPrefs = prefs.getString('student_batch');
-      final batchValue = classAcademicYear['name'] as String? ??
+      
+      final studentAcademicYearId = studentResMap['academicYearId']?.toString() ?? classMap['academicYearId']?.toString() ?? '';
+      String batchValue = classAcademicYear['name'] as String? ??
           studentAcademicYear['name'] as String? ??
+          (studentAcademicYearId.isNotEmpty ? academicYearsMap[studentAcademicYearId] : null) ??
           batchFromPrefs ??
           '—';
+      if (batchValue.length == 9 && batchValue.contains('-')) {
+        final parts = batchValue.split('-');
+        if (parts.length == 2 && parts[1].length == 4) {
+          batchValue = '${parts[0]}-${parts[1].substring(2)}';
+        }
+      }
 
       setState(() {
         _studentName = '$firstName $lastName'.trim();
@@ -700,31 +728,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
         debugPrint('Error parsing parents: $e');
       }
 
-      try {
-        final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
-        setState(() {
-          _uploadedDocuments = docsList.map((d) {
-            final dMap = d as Map<String, dynamic>;
-            final String docName =
-                dMap['documentName'] as String? ?? 'Document.pdf';
-            final String? uploadDateStr = dMap['uploadedAt'] as String?;
-            String dateStr = '—';
-            if (uploadDateStr != null) {
-              try {
-                final parsed = DateTime.parse(uploadDateStr);
-                dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
-              } catch (_) {}
-            }
-            return {
-              'name': docName,
-              'date': dateStr,
-              'id': dMap['id']?.toString() ?? '',
-            };
-          }).toList();
-        });
-      } catch (e) {
-        debugPrint('Error parsing documents: $e');
+      // Fetch documents list from API
+      List<Map<String, String>> fetchedDocs = [];
+      final targetStudentId = studentId;
+      if (targetStudentId.isNotEmpty) {
+        try {
+          final docsRes = await ApiService.instance.get('students/$studentId/documents');
+          if (docsRes != null && docsRes['success'] == true && docsRes['documents'] != null) {
+            final docsList = docsRes['documents'] as List<dynamic>;
+            fetchedDocs = docsList.map((d) {
+              final m = d as Map<String, dynamic>;
+              final int? size = m['fileSize'] as int?;
+              final String sizeStr = size != null ? '${(size / 1024).toStringAsFixed(1)} KB' : '—';
+              final String mime = m['mimeType']?.toString().split('/').last.toUpperCase() ?? 'FILE';
+              
+              String rawUrl = m['fileUrl']?.toString() ?? '';
+              if (rawUrl.isNotEmpty && !rawUrl.startsWith('http') && !rawUrl.startsWith('data:')) {
+                rawUrl = '${ApiConfig.serverBaseUrl}${rawUrl.startsWith('/') ? '' : '/'}$rawUrl';
+              }
+              
+              return {
+                'name': m['documentName'] as String? ?? 'Document.pdf',
+                'date': m['uploadedAt'] != null 
+                    ? (() {
+                        try {
+                          final parsed = DateTime.parse(m['uploadedAt'].toString());
+                          return '${parsed.month}/${parsed.day}/${parsed.year}';
+                        } catch (_) {
+                          return '—';
+                        }
+                      })()
+                    : '—',
+                'id': m['id']?.toString() ?? '',
+                'url': rawUrl,
+                'size': sizeStr,
+                'type': mime,
+              };
+            }).toList();
+          }
+        } catch (e) {
+          debugPrint('Error fetching documents: $e');
+        }
       }
+
+      setState(() {
+        _uploadedDocuments = fetchedDocs;
+      });
 
       // Merge local documents that might have failed to sync to the server
       try {
@@ -1119,17 +1168,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           );
 
           if (response['success'] == true) {
-            final document = response['document'] ?? response['data'] ?? {};
+            await _loadStudentDataFromSupabase();
             if (mounted) {
-              setState(() {
-                final dateStr = '${DateTime.now().month}/${DateTime.now().day}/${DateTime.now().year}';
-                _uploadedDocuments.insert(0, {
-                  'name': docName,
-                  'date': dateStr,
-                  'url': document['fileUrl']?.toString() ?? '',
-                  'id': document['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
-                });
-              });
               
               _saveStudentData();
 
@@ -1183,10 +1223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final response = await StudentService.instance.deleteStudentDocument(docId);
       
       if (response['success'] == true) {
-        setState(() {
-          _uploadedDocuments.removeAt(index);
-        });
-        _saveStudentData();
+        await _loadStudentDataFromSupabase();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2400,6 +2437,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _downloadDocumentFile(String url, String fileName) async {
+    if (url.isEmpty) return;
+    
+    if (kIsWeb) {
+      try {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document opened in a new tab.')));
+        }
+        return;
+      } catch (e) {
+        debugPrint('Web launch error: $e');
+      }
+    }
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading document...')));
+      }
+      
+      final response = await Dio().get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      
+      if (response.data == null) throw Exception('No data received');
+      
+      final bytes = Uint8List.fromList(List<int>.from(response.data as List));
+      final extension = fileName.split('.').last.toLowerCase();
+      await downloadFile(bytes, fileName, extension);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download complete!')));
+      }
+    } catch (e) {
+      debugPrint('Download error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: $e')));
+      }
+    }
+  }
+
   Widget _buildNewDocumentsVault(bool isDesktop) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2499,15 +2578,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                                 SizedBox(height: 2.h),
                                 Text(
-                                  'Uploaded on: $date', 
+                                  'Uploaded on: $date • ${doc['size'] ?? '—'} • ${doc['type'] ?? 'FILE'}',
                                   style: GoogleFonts.inter(fontSize: 10.sp, color: AppColors.textLight),
                                 ),
                               ],
                             ),
                           ),
-                          IconButton(
-                            icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18.sp),
-                            onPressed: () => _removeDocument(idx),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 18.sp),
+                                onPressed: () => _downloadDocumentFile(url, name),
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18.sp),
+                                onPressed: () => _removeDocument(idx),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -2583,7 +2671,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   ),
                                 )
                               : Image.network(
-                                  _avatarUrl!,
+                                  _avatarUrl!.contains('?') 
+                                      ? _avatarUrl! 
+                                      : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Center(

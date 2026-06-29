@@ -110,6 +110,8 @@ class _MainScreenState extends State<MainScreen> {
             return 'My Profile';
           case 13:
             return 'Library';
+          case 14:
+            return 'Inventory Requests';
           default:
             return 'Dashboard';
         }
@@ -143,6 +145,8 @@ class _MainScreenState extends State<MainScreen> {
             return 'My Profile';
           case 14:
             return 'Library';
+          case 15:
+            return 'Inventory Requests';
           default:
             return 'Dashboard';
         }
@@ -178,6 +182,15 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
+  void _onNavigationIndexChanged() {
+    if (mounted) {
+      final index = AppStateNotifier.currentNavigationIndex.value;
+      if (_idx != index) {
+        _navigateTo(index);
+      }
+    }
+  }
+
   void _navigateTo(int index) {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     setState(() {
@@ -185,6 +198,9 @@ class _MainScreenState extends State<MainScreen> {
       _visitedIndices.add(index);
       _drawerActiveLabel = _getLabelForIndex(index, isDesktop);
     });
+    if (AppStateNotifier.currentNavigationIndex.value != index) {
+      AppStateNotifier.currentNavigationIndex.value = index;
+    }
   }
 
   @override
@@ -192,17 +208,19 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _idx = widget.initialIndex;
     _visitedIndices.add(_idx);
+    AppStateNotifier.currentNavigationIndex.value = _idx;
+    AppStateNotifier.currentNavigationIndex.addListener(_onNavigationIndexChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AIChatbotOverlay.visible.value = true;
     });
     MainScreen._activeState = this;
-    _idx = widget.initialIndex;
     _loadUserName();
     _initSocketConnection();
   }
 
   @override
   void dispose() {
+    AppStateNotifier.currentNavigationIndex.removeListener(_onNavigationIndexChanged);
     if (MainScreen._activeState == this) {
       MainScreen._activeState = null;
     }
@@ -965,13 +983,16 @@ class _MainScreenState extends State<MainScreen> {
                             label: config.label,
                             selected: _idx == 1 ||
                                 _idx == 2 ||
+                                _idx == 4 ||
                                 _idx == 6 ||
                                 _idx == 7 ||
                                 _idx == 8 ||
                                 _idx == 9 ||
                                 _idx == 10 ||
                                 _idx == 11 ||
-                                _idx == 12,
+                                _idx == 12 ||
+                                _idx == 14 ||
+                                _idx == 15,
                             color: _theme.primary,
                             badgeCount: config.badgeCount,
                             onTap: () => _navigateTo(7),
@@ -1022,51 +1043,119 @@ class _MainScreenState extends State<MainScreen> {
                           color: _theme.primary,
                           onTap: () => _navigateTo(0),
                         ),
-                        if (widget.role == 'student')
-                          _NavItem(
-                            icon: Icons.school_rounded,
-                            label: 'Academic',
-                            selected: _idx == 3,
+                        (() {
+                          IconData tab1Icon = Icons.school_rounded;
+                          String tab1Label = 'Academic';
+                          bool tab1Selected = false;
+                          int tab1TargetIdx = 3;
+
+                          if (_idx == 1) {
+                            tab1Icon = Icons.calendar_month_outlined;
+                            tab1Label = 'Calendar';
+                            tab1Selected = true;
+                            tab1TargetIdx = 1;
+                          } else if (_idx == 2) {
+                            tab1Icon = Icons.checklist_rounded;
+                            tab1Label = 'Assignments';
+                            tab1Selected = true;
+                            tab1TargetIdx = 2;
+                          } else if (_idx == 3) {
+                            tab1Icon = Icons.school_rounded;
+                            tab1Label = 'Academic';
+                            tab1Selected = true;
+                            tab1TargetIdx = 3;
+                          } else if (_idx == 4) {
+                            tab1Icon = Icons.attach_money_rounded;
+                            tab1Label = 'Fees';
+                            tab1Selected = true;
+                            tab1TargetIdx = 4;
+                          } else if (_idx == 5) {
+                            tab1Icon = Icons.directions_bus_rounded;
+                            tab1Label = 'Transport';
+                            tab1Selected = true;
+                            tab1TargetIdx = 5;
+                          }
+
+                          return _NavItem(
+                            icon: tab1Icon,
+                            label: tab1Label,
+                            selected: tab1Selected,
                             color: _theme.primary,
-                            onTap: () => _navigateTo(3),
-                          ),
-                        _NavItem(
-                          icon: widget.role == 'student'
-                              ? Icons.group_outlined
-                              : Icons.chat_bubble_rounded,
-                          label: widget.role == 'student'
-                              ? 'Community'
-                              : 'Messages',
-                          selected: _idx == (widget.role == 'student' ? 8 : 2),
-                          color: _theme.primary,
-                          onTap: () =>
-                              _navigateTo(widget.role == 'student' ? 8 : 2),
-                        ),
-                        _NavItem(
-                          customIcon: Container(
-                            width: 26.w,
-                            height: 26.h,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color:
-                                    _idx == (widget.role == 'student' ? 10 : 3)
-                                        ? _theme.primary
-                                        : Colors.transparent,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(13.r),
-                              child: _renderProfileAvatar(_profilePhotoUrl, width: 24, height: 24),
-                            ),
-                          ),
-                          label: 'My Profile',
-                          selected: _idx == (widget.role == 'student' ? 10 : 3),
-                          color: _theme.primary,
-                          onTap: () =>
-                              _navigateTo(widget.role == 'student' ? 10 : 3),
-                        ),
+                            onTap: () => _navigateTo(tab1TargetIdx),
+                          );
+                        })(),
+                        (() {
+                          IconData tab2Icon = Icons.group_outlined;
+                          String tab2Label = 'Community';
+                          bool tab2Selected = false;
+                          int tab2TargetIdx = 8;
+
+                          if (_idx == 6) {
+                            tab2Icon = Icons.notifications_none_rounded;
+                            tab2Label = 'Announcements';
+                            tab2Selected = true;
+                            tab2TargetIdx = 6;
+                          } else if (_idx == 7) {
+                            tab2Icon = Icons.chat_bubble_rounded;
+                            tab2Label = 'Messages';
+                            tab2Selected = true;
+                            tab2TargetIdx = 7;
+                          } else if (_idx == 8) {
+                            tab2Icon = Icons.group_outlined;
+                            tab2Label = 'Community';
+                            tab2Selected = true;
+                            tab2TargetIdx = 8;
+                          }
+
+                          return _NavItem(
+                            icon: tab2Icon,
+                            label: tab2Label,
+                            selected: tab2Selected,
+                            color: _theme.primary,
+                            onTap: () => _navigateTo(tab2TargetIdx),
+                          );
+                        })(),
+                        (() {
+                          bool tab3Selected = false;
+                          IconData tab3Icon = Icons.person_rounded;
+                          String tab3Label = 'My Profile';
+                          int tab3TargetIdx = 10;
+                          bool isServices = false;
+
+                          if (_idx == 9) {
+                            tab3Icon = Icons.room_service_outlined;
+                            tab3Label = 'Services';
+                            tab3Selected = true;
+                            tab3TargetIdx = 9;
+                            isServices = true;
+                          } else if (_idx == 10) {
+                            tab3Selected = true;
+                          }
+
+                          return _NavItem(
+                            customIcon: isServices 
+                              ? Icon(tab3Icon, size: 20.sp, color: tab3Selected ? _theme.primary : const Color(0xFF64748B))
+                              : Container(
+                                  width: 26.w,
+                                  height: 26.h,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: tab3Selected ? _theme.primary : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(13.r),
+                                    child: _renderProfileAvatar(_profilePhotoUrl, width: 24, height: 24),
+                                  ),
+                                ),
+                            label: tab3Label,
+                            selected: tab3Selected,
+                            color: _theme.primary,
+                            onTap: () => _navigateTo(tab3TargetIdx),
+                          );
+                        })(),
                       ],
                     ],
                   ),
@@ -1769,6 +1858,16 @@ AcademicTabConfig getAcademicTabConfig(int index) {
         icon: Icons.group_outlined,
         label: 'Community',
       );
+    case 14:
+      return AcademicTabConfig(
+        icon: Icons.local_library_rounded,
+        label: 'Library',
+      );
+    case 15:
+      return AcademicTabConfig(
+        icon: Icons.inventory_2_rounded,
+        label: 'Inventory',
+      );
     case 7:
     default:
       return AcademicTabConfig(
@@ -2138,8 +2237,9 @@ Widget _renderProfileAvatar(String? url, {double width = 24, double height = 24}
   }
   
   if (url.startsWith('http') || url.startsWith('blob:')) {
+    final cleanUrl = url.contains('?') ? url : '$url?t=${DateTime.now().millisecondsSinceEpoch}';
     return Image.network(
-      url,
+      cleanUrl,
       fit: BoxFit.cover,
       width: width.w,
       height: height.h,

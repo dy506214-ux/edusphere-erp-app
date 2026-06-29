@@ -1,4 +1,5 @@
 import 'dart:developer' as dev;
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:google_fonts/google_fonts.dart';
@@ -560,6 +561,7 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
   bool isSubmitting = false;
   double uploadProgress = 0.0;
   bool isSuccess = false;
+  bool _isRequestInFlight = false;
   late AnimationController _animController;
   late Animation<double> _scaleAnimation;
 
@@ -583,24 +585,61 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
   }
 
   Future<void> _handleUpload() async {
-    if (selectedFile == null || isSubmitting) return;
+    final bool alreadySubmitted = widget.assignment['isSubmitted'] as bool? ?? false;
+    if (selectedFile == null || isSubmitting || isSuccess || alreadySubmitted || _isRequestInFlight) {
+      return;
+    }
 
     setState(() {
+      _isRequestInFlight = true;
       isSubmitting = true;
       uploadProgress = 0.0;
     });
 
-    // Simulate real-time progress for UX
-    for (int i = 1; i <= 100; i += 2) {
-      await Future.delayed(const Duration(milliseconds: 20));
-      if (mounted) {
-        setState(() {
-          uploadProgress = i / 100.0;
-        });
-      }
-    }
-
     try {
+      // Validate live production database before starting submission process
+      if (widget.assignment['id'] != 'mock-chapter-1-assignment-id') {
+        try {
+          final verifyRes = await ApiService.instance.get('assignments/student');
+          if (verifyRes != null && verifyRes['assignments'] is List) {
+            final List<dynamic> liveAssignments = verifyRes['assignments'];
+            final match = liveAssignments.firstWhere(
+              (element) => element['id']?.toString() == widget.assignment['id']?.toString(),
+              orElse: () => null,
+            );
+            if (match != null) {
+              final subs = match['submissions'] as List? ?? [];
+              if (subs.isNotEmpty) {
+                widget.assignment['isSubmitted'] = true;
+                if (mounted) {
+                  setState(() {
+                    isSubmitting = false;
+                    _isRequestInFlight = false;
+                    uploadProgress = 0.0;
+                    isSuccess = true;
+                  });
+                  showToast(context, 'This assignment has already been submitted.');
+                }
+                widget.onSubmitted();
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          dev.log('Live assignment verification error: $err', name: 'AdvancedAssignmentModal');
+        }
+      }
+
+      // Simulate real-time progress for UX
+      for (int i = 1; i <= 100; i += 2) {
+        await Future.delayed(const Duration(milliseconds: 20));
+        if (mounted) {
+          setState(() {
+            uploadProgress = i / 100.0;
+          });
+        }
+      }
+
       if (widget.assignment['id'] == 'mock-chapter-1-assignment-id') {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool('mock_sub_chapter_1', true);
@@ -608,11 +647,23 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
         await prefs.setString('mock_date_chapter_1',
             intl.DateFormat('MMM d, yyyy').format(DateTime.now()));
       } else {
-        final res = await ApiService.instance.post(
-          'assignments/${widget.assignment['id']}/submit',
-          body: {
-            'studentId': widget.studentIdStr,
-            'fileName': selectedFile!.name,
+        List<int> fileBytes = [];
+        if (selectedFile!.bytes != null) {
+          fileBytes = selectedFile!.bytes!;
+        } else if (selectedFile!.path != null) {
+          try {
+            fileBytes = await File(selectedFile!.path!).readAsBytes();
+          } catch (_) {}
+        }
+
+        final res = await ApiService.instance.multipartRequest(
+          'POST',
+          'assignments/submit',
+          fileKey: 'file',
+          fileBytes: fileBytes,
+          fileName: selectedFile!.name,
+          fields: {
+            'assignmentId': widget.assignment['id'].toString(),
           },
         );
         if (res['success'] != true) {
@@ -620,6 +671,7 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
         }
       }
 
+      widget.assignment['isSubmitted'] = true;
 
       if (mounted) {
         setState(() {
@@ -644,6 +696,8 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
         });
         showToast(context, 'Error submitting: $e');
       }
+    } finally {
+      _isRequestInFlight = false;
     }
   }
 
@@ -1077,7 +1131,7 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
 
               // Animated Submit Button
               GestureDetector(
-                onTap: _handleUpload,
+                onTap: (selectedFile == null || isSubmitting || isSuccess || _isRequestInFlight || (widget.assignment['isSubmitted'] as bool? ?? false)) ? null : _handleUpload,
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   width: double.infinity,

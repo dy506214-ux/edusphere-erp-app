@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
+import '../../services/api_service.dart';
+import '../../utils/download_helper.dart';
 import '../../theme/colors.dart';
 
 class ProfileDocuments extends StatelessWidget {
@@ -120,15 +124,24 @@ class ProfileDocuments extends StatelessWidget {
                                   ),
                                   SizedBox(height: 2.h),
                                   Text(
-                                    'Uploaded on: $date', 
+                                    'Uploaded on: $date${doc['size'] != null ? ' • ${doc['size']}' : ''}${doc['type'] != null ? ' • ${doc['type']}' : ''}', 
                                     style: GoogleFonts.inter(fontSize: 10.sp, color: AppColors.textLight),
                                   ),
                                 ],
                               ),
                             ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18.sp),
-                              onPressed: () => onRemoveDocument(idx),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 18.sp),
+                                  onPressed: () => _downloadDocumentFile(context, url, name),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18.sp),
+                                  onPressed: () => onRemoveDocument(idx),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -141,5 +154,27 @@ class ProfileDocuments extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _downloadDocumentFile(BuildContext context, String url, String fileName) async {
+    if (url.isEmpty) return;
+    try {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading document...')));
+      
+      final response = await ApiService.instance.dio.get<List<int>>(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      
+      if (response.data == null) throw Exception('No data received');
+      
+      final bytes = Uint8List.fromList(response.data!);
+      final extension = fileName.split('.').last.toLowerCase();
+      await downloadFile(bytes, fileName, extension);
+      
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download complete!')));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: Network error or access denied.')));
+    }
   }
 }

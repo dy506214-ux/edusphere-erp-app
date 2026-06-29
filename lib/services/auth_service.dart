@@ -20,6 +20,38 @@ class AuthService {
   /// 4. Clears all SharedPreferences
   /// 5. Navigates to WelcomeScreen
   static Future<void> logout([BuildContext? context]) async {
+    if (context != null && context.mounted) {
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (BuildContext ctx) {
+          return AlertDialog(
+            title: const Text('Confirm Logout', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text('Are you sure you want to logout from your account?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Logout'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (confirm != true) {
+        dev.log('Auth: Logout cancelled by user.', name: 'AuthService');
+        return;
+      }
+    }
+
     dev.log('Auth: Performing logout...', name: 'AuthService');
 
     // 1. Clear API token

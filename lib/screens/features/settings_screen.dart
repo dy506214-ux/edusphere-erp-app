@@ -686,7 +686,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton.icon(
-                            onPressed: _showLogoutDialog,
+                            onPressed: () => AuthService.logout(context),
                             icon: Icon(Icons.logout_rounded,
                                 color: Colors.white, size: 18.sp),
                             label: Text(

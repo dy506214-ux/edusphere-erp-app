@@ -17,4 +17,7 @@ class AppStateNotifier {
 
   /// Cached list of announcements for unread badges and drop-down drawer.
   static final ValueNotifier<List<Map<String, dynamic>>> announcements = ValueNotifier<List<Map<String, dynamic>>>([]);
+
+  /// Global active index of MainScreen navigation
+  static final ValueNotifier<int> currentNavigationIndex = ValueNotifier<int>(0);
 }

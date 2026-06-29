@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,6 +14,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../config/api_config.dart';
 import '../../theme/colors.dart';
 import '../../theme/typography.dart';
 import '../../services/api_service.dart';
@@ -155,6 +159,55 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       final String lastName = userMap['lastName'] as String? ?? '';
       _studentUserId = studentResMap['userId']?.toString() ?? userMap['id']?.toString() ?? '';
 
+      // Fetch documents list from API
+      List<Map<String, String>> fetchedDocs = [];
+      try {
+        final docsRes = await ApiService.instance.get('students/$_studentProfileId/documents');
+        if (docsRes != null && docsRes['success'] == true && docsRes['documents'] != null) {
+          final docsList = docsRes['documents'] as List<dynamic>;
+          fetchedDocs = docsList.map((d) {
+            final m = d as Map<String, dynamic>;
+            final int? size = m['fileSize'] as int?;
+            final String sizeStr = size != null ? '${(size / 1024).toStringAsFixed(1)} KB' : '—';
+            final String mime = m['mimeType']?.toString().split('/').last.toUpperCase() ?? 'FILE';
+            
+            String rawUrl = m['fileUrl']?.toString() ?? '';
+            if (rawUrl.isNotEmpty && !rawUrl.startsWith('http') && !rawUrl.startsWith('data:')) {
+              rawUrl = '${ApiConfig.serverBaseUrl}${rawUrl.startsWith('/') ? '' : '/'}$rawUrl';
+            }
+            
+            return {
+              'id': m['id']?.toString() ?? '',
+              'name': m['documentName']?.toString() ?? m['name']?.toString() ?? 'Document',
+              'url': rawUrl,
+              'date': m['uploadedAt'] != null ? m['uploadedAt'].toString().split('T')[0] : '—',
+              'size': sizeStr,
+              'type': mime,
+            };
+          }).toList();
+        }
+      } catch (e) {
+        debugPrint('Error fetching documents: $e');
+      }
+
+      // Fetch academic years to resolve the batch name if relation is missing
+      Map<String, String> academicYearsMap = {};
+      try {
+        final yearsRes = await ApiService.instance.get('academic/years');
+        if (yearsRes != null && yearsRes['success'] == true && yearsRes['academicYears'] != null) {
+          final List<dynamic> yearsList = yearsRes['academicYears'];
+          for (var yr in yearsList) {
+            final id = yr['id']?.toString() ?? '';
+            final name = yr['name']?.toString() ?? '';
+            if (id.isNotEmpty && name.isNotEmpty) {
+              academicYearsMap[id] = name;
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching academic years: $e');
+      }
+
       final classAcademicYear = classMap['academicYear'] as Map? ?? classMap['AcademicYear'] as Map? ?? {};
       final studentAcademicYear = studentResMap['academicYear'] as Map? ?? studentResMap['AcademicYear'] as Map? ?? {};
       
@@ -162,7 +215,18 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       if (_studentProfileId.isNotEmpty) {
         await prefs.setString('student_id', _studentProfileId);
       }
-      final batchValue = classAcademicYear['name'] as String? ?? studentAcademicYear['name'] as String? ?? '—';
+      
+      final studentAcademicYearId = studentResMap['academicYearId']?.toString() ?? classMap['academicYearId']?.toString() ?? '';
+      String batchValue = classAcademicYear['name'] as String? ?? 
+                          studentAcademicYear['name'] as String? ?? 
+                          (studentAcademicYearId.isNotEmpty ? academicYearsMap[studentAcademicYearId] : null) ?? 
+                          '—';
+      if (batchValue.length == 9 && batchValue.contains('-')) {
+        final parts = batchValue.split('-');
+        if (parts.length == 2 && parts[1].length == 4) {
+          batchValue = '${parts[0]}-${parts[1].substring(2)}';
+        }
+      }
 
       setState(() {
         _studentName = '$firstName $lastName'.trim();
@@ -223,22 +287,13 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         if (rawAvatar.isNotEmpty) {
           _avatarUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
               ? rawAvatar
-              : '${ApiService.instance.dio.options.baseUrl.replaceAll('/api/', '')}$rawAvatar';
+              : '${ApiConfig.serverBaseUrl}${rawAvatar.startsWith('/') ? '' : '/'}$rawAvatar';
         } else {
           _avatarUrl = null;
         }
 
         // Parse documents
-        final docsList = studentResMap['documents'] as List<dynamic>? ?? [];
-        _uploadedDocuments = docsList.map((d) {
-          final m = d as Map<String, dynamic>;
-          return {
-            'id': m['id']?.toString() ?? '',
-            'name': m['documentName']?.toString() ?? m['name']?.toString() ?? 'Document',
-            'url': m['fileUrl']?.toString() ?? '',
-            'date': m['createdAt'] != null ? m['createdAt'].toString().split('T')[0] : '—',
-          };
-        }).toList();
+        _uploadedDocuments = fetchedDocs;
 
         _isProfileLoading = false;
       });
@@ -389,7 +444,10 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       if (pickedFile == null) return;
 
       final bytes = await pickedFile.readAsBytes();
-      final extension = pickedFile.path.split('.').last.toLowerCase();
+      String extension = pickedFile.path.split('.').last.toLowerCase();
+      if (extension != 'png' && extension != 'jpg' && extension != 'jpeg' && extension != 'gif') {
+        extension = 'jpg';
+      }
 
       if (!mounted) return;
       showDialog(
@@ -452,9 +510,17 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             widget.onAvatarUpdated!(publicUrl);
           }
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
+        } else {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to parse profile photo URL.')));
         }
+      } else {
+        final msg = res != null && res['message'] != null ? res['message'].toString() : 'Server error uploading photo.';
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Upload avatar failed: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+    }
   }
 
   Future<void> _deleteAvatar(String userId) async {
@@ -546,17 +612,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       await Future.delayed(const Duration(milliseconds: 200));
 
       if (res != null && res['success'] == true) {
-        final docObj = res['document'];
-        if (docObj != null) {
-          setState(() {
-            _uploadedDocuments.insert(0, {
-              'id': docObj['id']?.toString() ?? '',
-              'name': docObj['documentName']?.toString() ?? docObj['name']?.toString() ?? name,
-              'url': docObj['fileUrl']?.toString() ?? '',
-              'date': DateTime.now().toString().split(' ')[0],
-            });
-          });
-        }
+        await _loadStudentDataFromSupabase();
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"$name" uploaded successfully!')));
       } else {
         final errMsg = res != null && res['message'] != null ? res['message'].toString() : 'Upload failed on server.';
@@ -588,15 +644,55 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
     try {
       final res = await ApiService.instance.delete('students/documents/$docId');
       if (res != null && res['success'] == true) {
-        setState(() {
-          _uploadedDocuments.removeAt(index);
-        });
+        await _loadStudentDataFromSupabase();
         if (!silent && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document deleted successfully.')));
         }
       }
     } catch (e) {
       debugPrint('Delete doc failed: $e');
+    }
+  }
+
+  Future<void> _downloadDocumentFile(String url, String fileName) async {
+    if (url.isEmpty) return;
+    
+    if (kIsWeb) {
+      try {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Document opened in a new tab.')));
+        }
+        return;
+      } catch (e) {
+        debugPrint('Web launch error: $e');
+      }
+    }
+
+    try {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Downloading document...')));
+      }
+      
+      final response = await Dio().get(
+        url,
+        options: Options(responseType: ResponseType.bytes),
+      );
+      
+      if (response.data == null) throw Exception('No data received');
+      
+      final bytes = Uint8List.fromList(List<int>.from(response.data as List));
+      final extension = fileName.split('.').last.toLowerCase();
+      await downloadFile(bytes, fileName, extension);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Download complete!')));
+      }
+    } catch (e) {
+      debugPrint('Download error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Download failed: $e')));
+      }
     }
   }
 
@@ -850,12 +946,6 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text('Student Profile', style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -893,9 +983,15 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(24),
                               child: _avatarUrl != null
-                                  ? Image.network(_avatarUrl!, fit: BoxFit.cover, errorBuilder: (ctx, err, trace) => Center(
-                                      child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
-                                    ))
+                                  ? Image.network(
+                                      _avatarUrl!.contains('?') 
+                                          ? _avatarUrl! 
+                                          : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (ctx, err, trace) => Center(
+                                        child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
+                                      ),
+                                    )
                                   : Center(
                                       child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
                                     ),
@@ -1251,13 +1347,25 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 2),
-                                      Text('Uploaded on: $date', style: GoogleFonts.inter(fontSize: 10, color: AppColors.textLight)),
+                                      Text(
+                                        'Uploaded on: $date • ${doc['size'] ?? '—'} • ${doc['type'] ?? 'FILE'}',
+                                        style: GoogleFonts.inter(fontSize: 10, color: AppColors.textLight),
+                                      ),
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
-                                  onPressed: () => _removeDocument(idx),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.download_rounded, color: AppColors.studentPrimary, size: 18),
+                                      onPressed: () => _downloadDocumentFile(url, name),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 18),
+                                      onPressed: () => _removeDocument(idx),
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),

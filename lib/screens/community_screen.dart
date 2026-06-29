@@ -10,6 +10,7 @@ import '../theme/colors.dart';
 import '../widgets/dashed_border_painter.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../services/api_service.dart';
+import '../services/socket_service.dart';
 
 class CommunityScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -52,11 +53,40 @@ class _CommunityScreenState extends State<CommunityScreen> {
     super.initState();
     _loadUserName();
     _loadPosts();
+    _connectSocket();
   }
 
   @override
   void dispose() {
+    _disconnectSocket();
     super.dispose();
+  }
+
+  void _connectSocket() {
+    try {
+      SocketService().on('ANNOUNCEMENT_CREATED', _onSocketAnnouncementEvent);
+      SocketService().on('ANNOUNCEMENT_UPDATED', _onSocketAnnouncementEvent);
+      SocketService().on('ANNOUNCEMENT_DELETED', _onSocketAnnouncementEvent);
+    } catch (e) {
+      debugPrint('Error connecting socket in CommunityScreen: $e');
+    }
+  }
+
+  void _disconnectSocket() {
+    try {
+      SocketService().off('ANNOUNCEMENT_CREATED', _onSocketAnnouncementEvent);
+      SocketService().off('ANNOUNCEMENT_UPDATED', _onSocketAnnouncementEvent);
+      SocketService().off('ANNOUNCEMENT_DELETED', _onSocketAnnouncementEvent);
+    } catch (e) {
+      debugPrint('Error disconnecting socket in CommunityScreen: $e');
+    }
+  }
+
+  void _onSocketAnnouncementEvent(dynamic data) {
+    debugPrint('⚡ Community socket event received: refreshing posts');
+    if (mounted) {
+      _loadPosts();
+    }
   }
 
   Future<void> _loadUserName() async {
@@ -154,16 +184,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
     });
   }
 
-  int get _topPostsCount {
-    return _posts.where((p) => (p['likesCount'] as int) >= 5).length;
-  }
-
-  int get _recentBlogsCount {
-    final aDayAgo = DateTime.now().subtract(const Duration(days: 1));
+  int get _postedTodayCount {
+    final now = DateTime.now();
     return _posts.where((p) {
       try {
-        final date = DateTime.parse(p['createdAt'] as String);
-        return date.isAfter(aDayAgo);
+        final date = DateTime.parse(p['createdAt'] as String).toLocal();
+        return date.year == now.year &&
+            date.month == now.month &&
+            date.day == now.day;
       } catch (_) {
         return false;
       }
@@ -323,14 +351,14 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildStatCard(
-                        'Top Posts',
-                        _topPostsCount,
+                        'Total Posts',
+                        _posts.length,
                         Icons.trending_up_rounded,
                         const Color(0xFF3B82F6),
                       ),
                       _buildStatCard(
-                        'Recent Blogs',
-                        _recentBlogsCount,
+                        'Posted Today',
+                        _postedTodayCount,
                         Icons.history_rounded,
                         const Color(0xFF10B981),
                       ),

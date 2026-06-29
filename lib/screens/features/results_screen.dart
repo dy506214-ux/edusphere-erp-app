@@ -559,6 +559,9 @@ class _ResultsScreenState extends State<ResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isMobile = screenWidth < 600;
+
     return Scaffold(
       backgroundColor:
           const Color(0xFFF0F6FF), // very light blue background matching mockup
@@ -653,34 +656,33 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             padding: EdgeInsets.symmetric(
                                 vertical: 12.h, horizontal: 8.w),
                             decoration: const BoxDecoration(
-                              border: Border(
-                                  bottom: BorderSide(color: Color(0xFFE2E8F0))),
-                            ),
+                                border: Border(
+                                    bottom: BorderSide(color: Color(0xFFE2E8F0)))),
                             child: Row(
                               children: [
                                 Expanded(
-                                    flex: 3,
+                                    flex: isMobile ? 4 : 3,
                                     child: Text('Examination',
                                         style: GoogleFonts.inter(
                                             fontSize: 11.sp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF475569)))),
                                 Expanded(
-                                    flex: 2,
+                                    flex: isMobile ? 2 : 2,
                                     child: Text('Term',
                                         style: GoogleFonts.inter(
                                             fontSize: 11.sp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF475569)))),
                                 Expanded(
-                                    flex: 3,
+                                    flex: isMobile ? 3 : 3,
                                     child: Text('Academic Year',
                                         style: GoogleFonts.inter(
                                             fontSize: 11.sp,
                                             fontWeight: FontWeight.w700,
                                             color: const Color(0xFF475569)))),
                                 Expanded(
-                                    flex: 2,
+                                    flex: isMobile ? 3 : 2,
                                     child: Center(
                                         child: Text('Status',
                                             style: GoogleFonts.inter(
@@ -689,7 +691,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                 color:
                                                     const Color(0xFF475569))))),
                                 Expanded(
-                                    flex: 2,
+                                    flex: isMobile ? 2 : 2,
                                     child: Align(
                                         alignment: Alignment.centerRight,
                                         child: Text('Action',
@@ -707,14 +709,13 @@ class _ResultsScreenState extends State<ResultsScreen> {
                             Padding(
                               padding: EdgeInsets.symmetric(vertical: 30.h),
                               child: Center(
-                                child: Text(
-                                  'No examination results found.',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 13.sp,
-                                      color: const Color(0xFF94A3B8),
-                                      fontStyle: FontStyle.italic),
-                                ),
-                              ),
+                                  child: Text(
+                                    'No examination results found.',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13.sp,
+                                        color: const Color(0xFF94A3B8),
+                                        fontStyle: FontStyle.italic),
+                                  )),
                             )
                           else
                             ..._exams.map((exam) {
@@ -730,7 +731,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Expanded(
-                                        flex: 3,
+                                        flex: isMobile ? 4 : 3,
                                         child: FittedBox(
                                             alignment: Alignment.centerLeft,
                                             fit: BoxFit.scaleDown,
@@ -744,7 +745,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                     color: const Color(
                                                         0xFF1E293B))))),
                                     Expanded(
-                                        flex: 2,
+                                        flex: isMobile ? 2 : 2,
                                         child: FittedBox(
                                             alignment: Alignment.centerLeft,
                                             fit: BoxFit.scaleDown,
@@ -754,7 +755,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                     color: const Color(
                                                         0xFF475569))))),
                                     Expanded(
-                                        flex: 3,
+                                        flex: isMobile ? 3 : 3,
                                         child: FittedBox(
                                             alignment: Alignment.centerLeft,
                                             fit: BoxFit.scaleDown,
@@ -764,11 +765,11 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                     color: const Color(
                                                         0xFF475569))))),
                                     Expanded(
-                                        flex: 2,
+                                        flex: isMobile ? 3 : 2,
                                         child: Center(
                                           child: Container(
                                             padding: EdgeInsets.symmetric(
-                                                horizontal: 10.w,
+                                                horizontal: isMobile ? 6.w : 10.w,
                                                 vertical: 4.h),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFDCFCE7),
@@ -784,7 +785,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                           ),
                                         )),
                                     Expanded(
-                                        flex: 2,
+                                        flex: isMobile ? 2 : 2,
                                         child: Align(
                                           alignment: Alignment.centerRight,
                                           child: GestureDetector(
@@ -792,7 +793,7 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                 _downloadReportCard(exam),
                                             child: Container(
                                               padding: EdgeInsets.symmetric(
-                                                  horizontal: 10.w,
+                                                  horizontal: isMobile ? 8.w : 10.w,
                                                   vertical: 8.h),
                                               decoration: BoxDecoration(
                                                 color: const Color(0xFFF1F5F9),
@@ -811,14 +812,16 @@ class _ResultsScreenState extends State<ResultsScreen> {
                                                       size: 14.sp,
                                                       color: const Color(
                                                           0xFF475569)),
-                                                  SizedBox(width: 4.w),
-                                                  Text('Download PDF',
-                                                      style: GoogleFonts.inter(
-                                                          fontSize: 10.sp,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: const Color(
-                                                              0xFF475569))),
+                                                  if (!isMobile) ...[
+                                                    SizedBox(width: 4.w),
+                                                    Text('Download PDF',
+                                                        style: GoogleFonts.inter(
+                                                            fontSize: 10.sp,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            color: const Color(
+                                                                0xFF475569))),
+                                                  ],
                                                 ],
                                               ),
                                             ),
