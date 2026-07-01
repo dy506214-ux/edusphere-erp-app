@@ -136,45 +136,73 @@ class AttendanceService {
           // Self-healing fallback: fetch slot info, filter out students with existing records not matching this slotId, and retry submit
           final slotData = await getSlotWithStudents(slotId);
           
-          Map<String, dynamic> existing = {};
-          final rawAttendance = slotData['attendance'] ?? slotData['attendanceMap'];
-          if (rawAttendance is Map) {
-            existing = Map<String, dynamic>.from(rawAttendance);
-          } else {
-            final data = slotData['data'];
-            if (data is Map) {
-              final nestedAttendance = data['attendance'] ?? data['attendanceMap'];
-              if (nestedAttendance is Map) {
-                existing = Map<String, dynamic>.from(nestedAttendance);
-              }
-            }
-          }
+          final slot = (slotData['slot'] ?? slotData['data']) as Map<String, dynamic>?;
+          if (slot != null) {
+            final String? classId = slot['classId']?.toString();
+            final String? sectionId = slot['sectionId']?.toString();
+            final String? date = slot['date']?.toString();
+            
+            if (classId != null && date != null) {
+              // Format date string to yyyy-MM-dd
+              String formattedDate = date;
+              try {
+                final parsedDate = DateTime.parse(date);
+                formattedDate = "${parsedDate.year}-${parsedDate.month.toString().padLeft(2, '0')}-${parsedDate.day.toString().padLeft(2, '0')}";
+              } catch (_) {}
 
-          final filteredData = attendanceData.where((item) {
-            final String? entityId = item['entityId']?.toString();
-            if (entityId != null && existing.containsKey(entityId)) {
-              final record = existing[entityId];
-              if (record is Map) {
-                final String? recordSlotId = record['slotId']?.toString();
-                if (recordSlotId != slotId) {
-                  return false; // Filter out to avoid unique constraint crash
+              // Query /attendance/date which is 100% reliable for date-matching on the live server
+              final attendanceDataList = await ApiService.instance.get(
+                'attendance/date',
+                queryParams: {
+                  'date': formattedDate,
+                  'classId': classId,
+                  if (sectionId != null) 'sectionId': sectionId,
+                },
+              );
+
+              final rawList = (attendanceDataList is Map ? (attendanceDataList['attendance'] ?? attendanceDataList['data']?['attendance']) : null) as List<dynamic>? ?? [];
+              
+              Map<String, dynamic> existing = {};
+              for (final item in rawList) {
+                if (item is Map) {
+                  final String? studentId = item['studentId']?.toString();
+                  if (studentId != null) {
+                    existing[studentId] = {
+                      'id': item['id'],
+                      'status': item['status'],
+                      'slotId': item['slotId'],
+                    };
+                  }
                 }
               }
-            }
-            return true;
-          }).toList();
 
-          if (filteredData.isNotEmpty) {
-            final response = await ApiService.instance.post('attendance/slots/$slotId/submit', body: {
-              'attendanceData': filteredData,
-            });
-            return response as Map<String, dynamic>;
-          } else {
-            return {
-              'success': true,
-              'message': 'All students already marked',
-              'count': 0
-            };
+              final filteredData = attendanceData.where((item) {
+                final String? entityId = item['entityId']?.toString();
+                if (entityId != null && existing.containsKey(entityId)) {
+                  final record = existing[entityId];
+                  if (record is Map) {
+                    final String? recordSlotId = record['slotId']?.toString();
+                    if (recordSlotId != slotId) {
+                      return false; // Filter out to avoid unique constraint crash
+                    }
+                  }
+                }
+                return true;
+              }).toList();
+
+              if (filteredData.isNotEmpty) {
+                final response = await ApiService.instance.post('attendance/slots/$slotId/submit', body: {
+                  'attendanceData': filteredData,
+                });
+                return response as Map<String, dynamic>;
+              } else {
+                return {
+                  'success': true,
+                  'message': 'All students already marked',
+                  'count': 0
+                };
+              }
+            }
           }
         } catch (fallbackErr) {
           rethrow;
