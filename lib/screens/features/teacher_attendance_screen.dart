@@ -15,6 +15,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
+import 'package:dio/dio.dart';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // Teacher Attendance Screen — matches the EduSphere attendance design
@@ -2662,6 +2663,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
   }
 
   Future<void> _submitAttendance() async {
+    if (_isSubmitting) return;
     if (_students.isEmpty) return;
 
     // Check if any student is still unmarked
@@ -2799,6 +2801,18 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           _isSubmitting = false;
         });
 
+        String errorMsg = e.toString();
+        if (e is DioException) {
+          final res = e.response;
+          if (res != null && res.data is Map) {
+            final data = res.data as Map;
+            errorMsg = data['error']?.toString() ??
+                data['message']?.toString() ??
+                data['errors']?.toString() ??
+                errorMsg;
+          }
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -2808,7 +2822,7 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Failed to submit: $e',
+                    'Failed to submit: $errorMsg',
                     style: GoogleFonts.inter(fontWeight: FontWeight.w600),
                     maxLines: 2,
                   ),

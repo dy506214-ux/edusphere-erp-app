@@ -12,7 +12,8 @@ const validate = (schema) => (req, res, next) => {
     } catch (error) {
         // If validation fails, transform Zod errors into our custom structure
         if (error instanceof z.ZodError) {
-            const messages = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+            const issues = error.issues || error.errors || [];
+            const messages = issues.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
 
             return res.status(400).json({
                 status: 'fail',

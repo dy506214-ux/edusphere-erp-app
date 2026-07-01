@@ -83,3 +83,9 @@ configurations.all {
 dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.4'
 }
+
+// Disable ART profile compilation tasks to avoid build failures due to missing desugaring baseline profiles
+tasks.matching { it.name.startsWith("compile") && it.name.endsWith("ArtProfile") }.configureEach {
+    enabled = false
+}
+

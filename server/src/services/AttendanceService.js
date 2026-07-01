@@ -336,7 +336,17 @@ class AttendanceService {
         if (!slot) throw new AppError('Slot not found', 404);
 
         await AttendanceRepository.executeTransaction(async (tx) => {
-            await tx.attendanceRecord.deleteMany({ where: { slotId: id } });
+            // Delete all existing records for these specific entities on the slot's target date
+            await tx.attendanceRecord.deleteMany({
+                where: {
+                    date: slot.date,
+                    attendeeType: slot.attendeeType,
+                    ...(slot.attendeeType === ROLES.STUDENT ? { studentId: { in: attendanceData.map(a => a.entityId) } } : {}),
+                    ...(slot.attendeeType === ROLES.TEACHER ? { teacherId: { in: attendanceData.map(a => a.entityId) } } : {}),
+                    ...(slot.attendeeType === ROLES.STAFF ? { staffId: { in: attendanceData.map(a => a.entityId) } } : {}),
+                }
+            });
+
             await tx.attendanceRecord.createMany({
                 data: attendanceData.map(({ entityId, status }) => ({
                     attendeeType: slot.attendeeType,
