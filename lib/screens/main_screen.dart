@@ -40,6 +40,8 @@ import 'dart:io';
 import 'dart:convert';
 import '../widgets/ai_chatbot_overlay.dart';
 import '../widgets/teacher_app_bar.dart';
+import '../widgets/student_app_bar.dart';
+import 'features/attendance_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class MainScreen extends StatefulWidget {
@@ -610,6 +612,7 @@ class _MainScreenState extends State<MainScreen> {
                 setState(() => _profilePhotoUrl = url);
               },
             ),
+            const AttendanceScreen(showAppBar: false, showBackButton: false),
           ];
 
     return Scaffold(
@@ -621,324 +624,8 @@ class _MainScreenState extends State<MainScreen> {
       appBar: (!isDesktop
           ? (widget.role == 'teacher'
               ? const TeacherAppBar(title: 'EduSphere')
-              : (widget.role == 'student' && _idx != 7)
-                  ? AppBar(
-                      backgroundColor: Colors.white,
-                      elevation: 0,
-                      iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-                      leading: IconButton(
-                          icon: Icon(Icons.menu, size: 28.sp),
-                          onPressed: () =>
-                              _scaffoldKey.currentState?.openDrawer()),
-                      title: Text('EduSphere',
-                          style: GoogleFonts.outfit(
-                              fontSize: 22.sp,
-                              fontWeight: FontWeight.w800,
-                              color: const Color(0xFF0F172A))),
-                      actions: [
-                        IconButton(
-                          icon: Icon(
-                            _isMuted
-                                ? Icons.notifications_off_outlined
-                                : Icons.notifications_active_outlined,
-                            color: _isMuted ? const Color(0xFFEF4444) : const Color(0xFF0F172A),
-                            size: 28.sp,
-                          ),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(
-                                    _isMuted ? 'Unmute Notifications' : 'Mute Notifications',
-                                    style: GoogleFonts.inter(
-                                        fontWeight: FontWeight.bold)),
-                                content: Text(
-                                    _isMuted
-                                        ? 'Are you sure you want to unmute notifications?'
-                                        : 'Are you sure you want to mute notifications?',
-                                    style: GoogleFonts.inter()),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16.r)),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: Text('Cancel',
-                                        style: GoogleFonts.inter(
-                                            color: Colors.grey,
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: _isMuted ? const Color(0xFF10B981) : const Color(0xFFEF4444),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8.r)),
-                                      elevation: 0,
-                                    ),
-                                    onPressed: () async {
-                                      Navigator.pop(context);
-                                      final prefs = CacheService.instance.prefs;
-                                      final newMuted = !_isMuted;
-                                      await prefs.setBool('notifications_muted', newMuted);
-                                      setState(() {
-                                        _isMuted = newMuted;
-                                      });
-                                      showToast(
-                                        context,
-                                        newMuted ? 'Notifications muted' : 'Notifications unmuted',
-                                      );
-                                    },
-                                    child: Text(_isMuted ? 'Unmute' : 'Mute',
-                                        style: GoogleFonts.inter(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600)),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                        Builder(
-                          builder: (context) {
-                            bool hasNew = false;
-                            List<Map<String, dynamic>> latestAnnouncements = [];
-                            if (_latestAnnouncements.isNotEmpty) {
-                              latestAnnouncements = _latestAnnouncements.take(3).toList();
-                              final newestStr =
-                                  _latestAnnouncements.first['createdAt'] as String?;
-                              if (newestStr != null) {
-                                final newestTime = DateTime.tryParse(newestStr);
-                                if (newestTime != null) {
-                                  if (_lastSeenAnnouncementTime == null ||
-                                      newestTime.isAfter(
-                                          _lastSeenAnnouncementTime!)) {
-                                    hasNew = true;
-                                  }
-                                }
-                              }
-                            }
-                            return Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Builder(builder: (context) {
-                                  return IconButton(
-                                    icon: Icon(Icons.notifications_none_rounded,
-                                        size: 28.sp),
-                                    onPressed: () async {
-                                      final navigator = Navigator.of(context);
-                                      final RenderBox? button = context
-                                          .findRenderObject() as RenderBox?;
-                                      final RenderBox? overlay = navigator
-                                          .overlay?.context
-                                          .findRenderObject() as RenderBox?;
-
-                                      final prefs = CacheService.instance.prefs;
-                                      final now = DateTime.now();
-                                      await prefs.setString(
-                                          'last_seen_announcement_time',
-                                          now.toIso8601String());
-                                      if (!context.mounted) return;
-                                      setState(() {
-                                        _lastSeenAnnouncementTime = now;
-                                      });
-
-                                      if (button == null || overlay == null) {
-                                        return;
-                                      }
-                                      final RelativeRect position =
-                                          RelativeRect.fromRect(
-                                        Rect.fromPoints(
-                                          button.localToGlobal(
-                                              Offset(0, button.size.height + 8),
-                                              ancestor: overlay),
-                                          button.localToGlobal(
-                                              button.size.bottomRight(
-                                                  const Offset(0, 8)),
-                                              ancestor: overlay),
-                                        ),
-                                        Offset.zero & overlay.size,
-                                      );
-
-                                      showMenu(
-                                        context: context,
-                                        position: position,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(16.r)),
-                                        color: Colors.white,
-                                        elevation: 6,
-                                        items: [
-                                          PopupMenuItem(
-                                            enabled: false,
-                                            padding: EdgeInsets.zero,
-                                            child: Container(
-                                              width: 320.w,
-                                              constraints: BoxConstraints(maxHeight: 450.h),
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Padding(
-                                                    padding:
-                                                        EdgeInsets.all(16.r),
-                                                    child: Text('Notifications',
-                                                        style: AppTypography
-                                                            .tableHeader
-                                                            .copyWith(
-                                                                color: const Color(
-                                                                    0xFF0F172A))),
-                                                  ),
-                                                  const Divider(
-                                                      height: 1,
-                                                      color: Color(0xFFE2E8F0)),
-                                                  if (latestAnnouncements.isEmpty)
-                                                    Padding(
-                                                      padding: EdgeInsets.symmetric(
-                                                          vertical: 40.h, horizontal: 16.w),
-                                                      child: Center(
-                                                        child: Column(
-                                                          children: [
-                                                            Container(
-                                                              padding: EdgeInsets.all(16.r),
-                                                              decoration: const BoxDecoration(
-                                                                color: Color(0xFFF1F5F9),
-                                                                shape: BoxShape.circle,
-                                                              ),
-                                                              child: Icon(
-                                                                  Icons.notifications_off_outlined,
-                                                                  color: const Color(0xFF94A3B8),
-                                                                  size: 32.sp),
-                                                            ),
-                                                            SizedBox(height: 16.h),
-                                                            Text('All caught up!',
-                                                                style: AppTypography.small.copyWith(
-                                                                    color: const Color(0xFF334155))),
-                                                            SizedBox(height: 8.h),
-                                                            Text('No new notifications to show.',
-                                                                style: AppTypography.caption.copyWith(
-                                                                    color: const Color(0xFF94A3B8))),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    )
-                                                  else
-                                                    Flexible(
-                                                      child: ListView.separated(
-                                                        shrinkWrap: true,
-                                                        physics: const NeverScrollableScrollPhysics(),
-                                                        itemCount: latestAnnouncements.length,
-                                                        separatorBuilder: (_, __) =>
-                                                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                                        itemBuilder: (context, index) {
-                                                          final ann = latestAnnouncements[index];
-                                                          final title = ann['title'] as String? ?? 'Notification';
-                                                          final content = ann['content'] as String? ?? '';
-                                                          final priority = ann['priority'] as String? ?? 'NORMAL';
-                                                          final relativeTime = _getRelativeTime(ann['createdAt'] as String?);
-
-                                                          return InkWell(
-                                                            onTap: () {
-                                                              Navigator.pop(context); // Close popup menu
-                                                              _navigateTo(6); // Navigate to Announcements Screen (index 6 for Student)
-                                                            },
-                                                            child: Padding(
-                                                              padding: EdgeInsets.all(12.r),
-                                                              child: Column(
-                                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                                children: [
-                                                                  Row(
-                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                    children: [
-                                                                      Container(
-                                                                        padding: EdgeInsets.symmetric(
-                                                                            horizontal: 8.w, vertical: 2.h),
-                                                                        decoration: BoxDecoration(
-                                                                          color: _getPriorityColor(priority).withValues(alpha: 0.1),
-                                                                          borderRadius: BorderRadius.circular(6.r),
-                                                                        ),
-                                                                        child: Text(
-                                                                          priority.toUpperCase(),
-                                                                          style: AppTypography.caption.copyWith(
-                                                                              color: _getPriorityColor(priority)),
-                                                                        ),
-                                                                      ),
-                                                                      Text(
-                                                                        relativeTime,
-                                                                        style: AppTypography.caption.copyWith(
-                                                                            color: const Color(0xFF64748B)),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                  SizedBox(height: 6.h),
-                                                                  Text(
-                                                                    title,
-                                                                    maxLines: 1,
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                    style: AppTypography.caption.copyWith(
-                                                                        color: const Color(0xFF1E293B)),
-                                                                  ),
-                                                                  SizedBox(height: 4.h),
-                                                                  Text(
-                                                                    content,
-                                                                    maxLines: 2,
-                                                                    overflow: TextOverflow.ellipsis,
-                                                                    style: AppTypography.caption.copyWith(
-                                                                        color: const Color(0xFF64748B)),
-                                                                  ),
-                                                                ],
-                                                              ),
-                                                            ),
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
-                                                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                                                  InkWell(
-                                                    onTap: () {
-                                                      Navigator.pop(context); // Close popup menu
-                                                      _navigateTo(6); // Navigate to Announcements tab
-                                                    },
-                                                    child: Container(
-                                                      width: double.infinity,
-                                                      padding: EdgeInsets.symmetric(vertical: 12.h),
-                                                      alignment: Alignment.center,
-                                                      child: Text(
-                                                        'View All Announcements',
-                                                        style: AppTypography.caption.copyWith(
-                                                            color: const Color(0xFF0D7DDC)),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                }),
-                                if (hasNew)
-                                  Positioned(
-                                    right: 12.w,
-                                    top: 12.h,
-                                    child: Container(
-                                      width: 10.w,
-                                      height: 10.h,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFEF4444),
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-                        SizedBox(width: 8.w),
-                      ],
-                    )
+              : widget.role == 'student'
+                  ? const StudentAppBar(title: 'EduSphere')
                   : null)
           : null) as PreferredSizeWidget?,
       body: Row(
@@ -958,143 +645,9 @@ class _MainScreenState extends State<MainScreen> {
           ? null
           : (widget.role == 'teacher'
               ? TeacherBottomNavBar(activeIndex: _idx, photoUrl: _profilePhotoUrl)
-              : SafeArea(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: Padding(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _NavItem(
-                            icon: Icons.home_rounded,
-                            label: 'Home',
-                            selected: _idx == 0,
-                            color: _theme.primary,
-                            onTap: () => _navigateTo(0),
-                          ),
-                          (() {
-                            IconData tab1Icon = Icons. school_rounded;
-                            String tab1Label = 'Academic';
-                            bool tab1Selected = false;
-                            int tab1TargetIdx = 3;
-
-                            if (_idx == 1) {
-                              tab1Icon = Icons.calendar_month_outlined;
-                              tab1Label = 'Calendar';
-                              tab1Selected = true;
-                              tab1TargetIdx = 1;
-                            } else if (_idx == 2) {
-                              tab1Icon = Icons.checklist_rounded;
-                              tab1Label = 'Assignments';
-                              tab1Selected = true;
-                              tab1TargetIdx = 2;
-                            } else if (_idx == 3) {
-                              tab1Icon = Icons.school_rounded;
-                              tab1Label = 'Academic';
-                              tab1Selected = true;
-                              tab1TargetIdx = 3;
-                            } else if (_idx == 4) {
-                              tab1Icon = Icons.attach_money_rounded;
-                              tab1Label = 'Fees';
-                              tab1Selected = true;
-                              tab1TargetIdx = 4;
-                            } else if (_idx == 5) {
-                              tab1Icon = Icons.directions_bus_rounded;
-                              tab1Label = 'Transport';
-                              tab1Selected = true;
-                              tab1TargetIdx = 5;
-                            }
-
-                            return _NavItem(
-                              icon: tab1Icon,
-                              label: tab1Label,
-                              selected: tab1Selected,
-                              color: _theme.primary,
-                              onTap: () => _navigateTo(tab1TargetIdx),
-                            );
-                          })(),
-                          (() {
-                            IconData tab2Icon = Icons.group_outlined;
-                            String tab2Label = 'Community';
-                            bool tab2Selected = false;
-                            int tab2TargetIdx = 8;
-
-                            if (_idx == 6) {
-                              tab2Icon = Icons.notifications_none_rounded;
-                              tab2Label = 'Announcements';
-                              tab2Selected = true;
-                              tab2TargetIdx = 6;
-                            } else if (_idx == 7) {
-                              tab2Icon = Icons.chat_bubble_rounded;
-                              tab2Label = 'Messages';
-                              tab2Selected = true;
-                              tab2TargetIdx = 7;
-                            } else if (_idx == 8) {
-                              tab2Icon = Icons.group_outlined;
-                              tab2Label = 'Community';
-                              tab2Selected = true;
-                              tab2TargetIdx = 8;
-                            }
-
-                            return _NavItem(
-                              icon: tab2Icon,
-                              label: tab2Label,
-                              selected: tab2Selected,
-                              color: _theme.primary,
-                              onTap: () => _navigateTo(tab2TargetIdx),
-                            );
-                          })(),
-                          (() {
-                            bool tab3Selected = false;
-                            IconData tab3Icon = Icons.person_rounded;
-                            String tab3Label = 'My Profile';
-                            int tab3TargetIdx = 10;
-                            bool isServices = false;
-
-                            if (_idx == 9) {
-                              tab3Icon = Icons.room_service_outlined;
-                              tab3Label = 'Services';
-                              tab3Selected = true;
-                              tab3TargetIdx = 9;
-                              isServices = true;
-                            } else if (_idx == 10) {
-                              tab3Selected = true;
-                            }
-
-                            return _NavItem(
-                              customIcon: isServices 
-                                ? Icon(tab3Icon, size: 20.sp, color: tab3Selected ? _theme.primary : const Color(0xFF64748B))
-                                : Container(
-                                    width: 26.w,
-                                    height: 26.h,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: tab3Selected ? _theme.primary : Colors.transparent,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(13.r),
-                                      child: _renderProfileAvatar(_profilePhotoUrl, width: 24, height: 24),
-                                    ),
-                                  ),
-                              label: tab3Label,
-                              selected: tab3Selected,
-                              color: _theme.primary,
-                              onTap: () => _navigateTo(tab3TargetIdx),
-                            );
-                          })(),
-                        ],
-                      ),
-                    ),
-                  ),
-                )),
+              : widget.role == 'student'
+                  ? StudentBottomNavBar(activeIndex: _idx, photoUrl: _profilePhotoUrl)
+                  : null),
     );
   }
 
@@ -1488,99 +1041,6 @@ class _SidebarItem extends StatelessWidget {
                 style: AppTypography.small
                     .copyWith(color: selected ? color : AppColors.textMedium)),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavItem extends StatelessWidget {
-  final IconData? icon;
-  final Widget? customIcon;
-  final String label;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-  final int? badgeCount;
-
-  const _NavItem({
-    this.icon,
-    this.customIcon,
-    required this.label,
-    required this.selected,
-    required this.color,
-    required this.onTap,
-    // ignore: unused_element_parameter
-    this.badgeCount,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Widget iconWidget = customIcon ??
-        Icon(
-          icon,
-          color: selected ? color : const Color(0xFF94A3B8),
-          size: 24.sp,
-        );
-
-    if (badgeCount != null && badgeCount! > 0) {
-      iconWidget = Stack(
-        clipBehavior: Clip.none,
-        children: [
-          iconWidget,
-          Positioned(
-            top: -4,
-            right: -6,
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 5.w, vertical: 2.h),
-              decoration: const BoxDecoration(
-                color: Color(0xFFEF4444), // Red badge
-                shape: BoxShape.circle,
-              ),
-              child: Text(
-                '$badgeCount',
-                style: AppTypography.caption.copyWith(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(vertical: 6.h),
-          decoration: BoxDecoration(
-            color:
-                selected ? color.withValues(alpha: 0.08) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16.r),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Horizontal indicator dash
-              Container(
-                width: 16.w,
-                height: 3.h,
-                decoration: BoxDecoration(
-                  color: selected ? color : Colors.transparent,
-                  borderRadius: BorderRadius.circular(1.5.r),
-                ),
-              ),
-              SizedBox(height: 4.h),
-              iconWidget,
-              SizedBox(height: 2.h),
-              Text(
-                label,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.caption.copyWith(
-                    color: selected ? color : const Color(0xFF94A3B8)),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -2433,5 +1893,349 @@ const List<IconData> _preservedIconsToPreventTreeShaking = [
   Icons.notifications_none_rounded,
   Icons.menu_book_outlined,
 ];
+
+class StudentAcademicConfig {
+  final IconData icon;
+  final String label;
+  StudentAcademicConfig({required this.icon, required this.label});
+}
+
+StudentAcademicConfig getStudentAcademicTabConfig(int activeIndex) {
+  switch (activeIndex) {
+    case 1:
+      return StudentAcademicConfig(icon: Icons.calendar_month_outlined, label: 'Calendar');
+    case 2:
+      return StudentAcademicConfig(icon: Icons.checklist_rounded, label: 'Assignments');
+    case 4:
+      return StudentAcademicConfig(icon: Icons.attach_money_rounded, label: 'Fees');
+    case 5:
+      return StudentAcademicConfig(icon: Icons.directions_bus_rounded, label: 'Transport');
+    case 6:
+      return StudentAcademicConfig(icon: Icons.notifications_none_rounded, label: 'Announcements');
+    case 9:
+      return StudentAcademicConfig(icon: Icons.room_service_outlined, label: 'Services');
+    case 3:
+    default:
+      return StudentAcademicConfig(icon: Icons.school_rounded, label: 'Academic');
+  }
+}
+
+class StudentCommunityConfig {
+  final IconData icon;
+  final String label;
+  StudentCommunityConfig({required this.icon, required this.label});
+}
+
+StudentCommunityConfig getStudentCommunityTabConfig(int activeIndex) {
+  if (activeIndex == 7) {
+    return StudentCommunityConfig(icon: Icons.chat_bubble_rounded, label: 'Messages');
+  }
+  return StudentCommunityConfig(icon: Icons.group_outlined, label: 'Community');
+}
+
+class StudentBottomNavBar extends StatefulWidget {
+  final int activeIndex;
+  final String? photoUrl;
+  const StudentBottomNavBar({
+    super.key,
+    required this.activeIndex,
+    this.photoUrl,
+  });
+
+  @override
+  State<StudentBottomNavBar> createState() => _StudentBottomNavBarState();
+}
+
+class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTickerProviderStateMixin {
+  String? _localPhotoUrl;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+  int _lastActiveModule = -1;
+
+  final List<TabItem> _allTabs = [
+    TabItem(index: 0, label: 'Home', icon: Icons.home_rounded, targetScreenIndex: 0),
+    TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_outlined, targetScreenIndex: 3),
+    TabItem(index: 2, label: 'Community', icon: Icons.group_outlined, targetScreenIndex: 8),
+    TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 11),
+    TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 10),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPhoto();
+    AppStateNotifier.userProfilePhotoUrl.addListener(_onPhotoUrlChanged);
+
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack),
+    );
+    _scaleController.forward();
+  }
+
+  @override
+  void dispose() {
+    AppStateNotifier.userProfilePhotoUrl.removeListener(_onPhotoUrlChanged);
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  void _onPhotoUrlChanged() {
+    if (mounted) {
+      setState(() {
+        _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value;
+      });
+    }
+  }
+
+  Future<void> _loadPhoto() async {
+    final prefs = CacheService.instance.prefs;
+    final url = prefs.getString('student_photo_url');
+    if (url != null && AppStateNotifier.userProfilePhotoUrl.value != url) {
+      AppStateNotifier.userProfilePhotoUrl.value = url;
+    }
+    if (mounted) {
+      setState(() => _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value);
+    }
+  }
+
+  @override
+  void didUpdateWidget(StudentBottomNavBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.photoUrl != oldWidget.photoUrl) {
+      if (widget.photoUrl != null) {
+        AppStateNotifier.userProfilePhotoUrl.value = widget.photoUrl;
+      } else {
+        _loadPhoto();
+      }
+    }
+  }
+
+  int _getActiveModuleIndex(int currentIdx) {
+    if (currentIdx == 0) return 0;
+    if (currentIdx == 10) return 4;
+    if (currentIdx == 11) return 3;
+    if (currentIdx == 7 || currentIdx == 8) return 2;
+    
+    // Academic tabs check
+    if (currentIdx == 1 ||
+        currentIdx == 2 ||
+        currentIdx == 3 ||
+        currentIdx == 4 ||
+        currentIdx == 5 ||
+        currentIdx == 6 ||
+        currentIdx == 9) {
+      return 1;
+    }
+    return 0;
+  }
+
+  List<TabItem> _getLayoutTabs(int activeModuleIndex) {
+    final List<TabItem> tabs = List.from(_allTabs);
+    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex);
+    tabs.remove(activeTab);
+    tabs.insert(2, activeTab);
+    return tabs;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.of(context).size.width > 900) {
+      return const SizedBox.shrink();
+    }
+
+    final int activeModuleIndex = _getActiveModuleIndex(widget.activeIndex);
+
+    if (_lastActiveModule != activeModuleIndex) {
+      _lastActiveModule = activeModuleIndex;
+      _scaleController.forward(from: 0.0);
+    }
+
+    final List<TabItem> layoutTabs = _getLayoutTabs(activeModuleIndex);
+    final String? displayPhotoUrl = widget.photoUrl ?? _localPhotoUrl;
+
+    return SafeArea(
+      child: Container(
+        height: 78.h,
+        margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            Container(
+              height: 60.h,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(30.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildInactiveItem(layoutTabs[0], displayPhotoUrl),
+                          _buildInactiveItem(layoutTabs[1], displayPhotoUrl),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: 72.w),
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          _buildInactiveItem(layoutTabs[3], displayPhotoUrl),
+                          _buildInactiveItem(layoutTabs[4], displayPhotoUrl),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 12.h,
+              child: ScaleTransition(
+                scale: _scaleAnimation,
+                child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInactiveItem(TabItem item, String? photoUrl) {
+    final bool isProfile = item.index == 4;
+
+    return Semantics(
+      label: 'Navigate to ${item.label}',
+      button: true,
+      child: InkWell(
+        onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
+        borderRadius: BorderRadius.circular(20.r),
+        child: Padding(
+          padding: EdgeInsets.all(4.r),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isProfile)
+                Container(
+                  width: 22.w,
+                  height: 22.h,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11.r),
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0,      0,      0,      1, 0,
+                      ]),
+                      child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+                    ),
+                  ),
+                )
+              else
+                Icon(
+                  item.icon,
+                  size: 22.sp,
+                  color: const Color(0xFF94A3B8),
+                ),
+              SizedBox(height: 3.h),
+              Text(
+                item.index == 1 
+                    ? getStudentAcademicTabConfig(widget.activeIndex).label 
+                    : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).label : item.label),
+                style: GoogleFonts.inter(
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterActiveButton(TabItem item, String? photoUrl) {
+    final bool isProfile = item.index == 4;
+
+    return Semantics(
+      label: '${item.label} screen active',
+      selected: true,
+      child: Container(
+        width: 58.w,
+        height: 58.h,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: const LinearGradient(
+            colors: [Color(0xFF0D7DDC), Color(0xFF1E40AF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: Colors.white,
+            width: 3.5.w,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0D7DDC).withOpacity(0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
+            child: Center(
+              child: isProfile
+                  ? Container(
+                      width: 36.w,
+                      height: 36.h,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18.r),
+                        child: _renderProfileAvatar(photoUrl, width: 36, height: 36),
+                      ),
+                    )
+                  : Icon(
+                      item.index == 1 
+                          ? getStudentAcademicTabConfig(widget.activeIndex).icon 
+                          : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).icon : item.icon),
+                      size: 26.sp,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 

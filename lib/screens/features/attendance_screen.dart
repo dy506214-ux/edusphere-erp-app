@@ -16,7 +16,13 @@ import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class AttendanceScreen extends StatefulWidget {
-  const AttendanceScreen({super.key});
+  final bool showAppBar;
+  final bool showBackButton;
+  const AttendanceScreen({
+    super.key,
+    this.showAppBar = true,
+    this.showBackButton = true,
+  });
 
   @override
   State<AttendanceScreen> createState() => _AttendanceScreenState();
@@ -401,16 +407,22 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F6FF), // very light blue background matching mockup
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: const Color(0xFF0052CC), size: 24.sp),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text('Back', style: AppTypography.small.copyWith(color: const Color(0xFF0052CC))),
-        titleSpacing: -8, // pull "Back" closer to the arrow
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              leading: widget.showBackButton
+                  ? IconButton(
+                      icon: Icon(Icons.arrow_back, color: const Color(0xFF0052CC), size: 24.sp),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : null,
+              title: widget.showBackButton
+                  ? Text('Back', style: AppTypography.small.copyWith(color: const Color(0xFF0052CC)))
+                  : null,
+              titleSpacing: -8, // pull "Back" closer to the arrow
+            )
+          : null,
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator(color: Color(0xFF0052CC)))
         : RefreshIndicator(
