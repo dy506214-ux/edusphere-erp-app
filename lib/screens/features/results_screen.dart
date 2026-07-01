@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../config/api_endpoints.dart';
+import '../../widgets/navigation_widgets.dart';
 
 class GroupedExam {
   final String id;
@@ -562,19 +563,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final double screenWidth = MediaQuery.of(context).size.width;
     final bool isMobile = screenWidth < 600;
 
-    return Scaffold(
-      backgroundColor:
-          const Color(0xFFF0F6FF), // very light blue background matching mockup
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: const Color(0xFF0052CC), size: 24.sp),
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
-      ),
+    return StudentNavigationScaffold(
+      title: 'Examination Results',
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF0052CC)))

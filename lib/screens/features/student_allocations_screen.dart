@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../services/student_service.dart';
 import '../../theme/colors.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../../widgets/navigation_widgets.dart';
 
 class StudentAllocationsScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -492,35 +493,8 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
           stopName.contains(query);
     }).toList();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF3F8FC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: Text(
-          'Student Allocations',
-          style: GoogleFonts.outfit(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w900,
-              color: const Color(0xFF0F2547)),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF0F2547)),
-          onPressed: widget.onBack ?? () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none_outlined,
-                color: Color(0xFF64748B)),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.volume_mute_outlined,
-                color: Color(0xFF64748B)),
-            onPressed: () {},
-          ),
-        ],
-      ),
+    return StudentNavigationScaffold(
+      title: 'Student Allocations',
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

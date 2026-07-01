@@ -10,7 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'announcement_details_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../../widgets/navigation_widgets.dart';
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
 
@@ -826,19 +828,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
     final bool isPushed = Navigator.canPop(context);
     final bool isTeacher = widget.role == 'teacher';
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: (isPushed && isTeacher)
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Announcements')
-          : null,
-      backgroundColor: const Color(0xFFF1F5F9),
-      bottomNavigationBar: (widget.showAppBar && isTeacher)
-          ? const TeacherBottomNavBar(activeIndex: 11)
-          : null,
-      appBar: (widget.showAppBar && isTeacher)
-          ? const TeacherAppBar(title: 'Announcements')
-          : null,
-      body: Stack(
+    final bodyContent = Stack(
         children: [
           Positioned.fill(
             child: Column(
@@ -1040,18 +1030,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
               ),
             ),
         ],
+      );
+
+    final fab = FloatingActionButton(
+      heroTag: 'announcements_chatbot_fab',
+      backgroundColor: const Color(0xFF0284C7),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+      onPressed: _toggleChat,
+      child: Icon(
+        _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
+        color: Colors.white,
       ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'announcements_chatbot_fab',
-        backgroundColor: const Color(0xFF0284C7),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
-        onPressed: _toggleChat,
-        child: Icon(
-          _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
-          color: Colors.white,
-        ),
-      ),
+    );
+
+    if (widget.showAppBar && isTeacher) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'Announcements',
+        activeIndex: 11,
+        floatingActionButton: fab,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF1F5F9),
+      floatingActionButton: fab,
+      body: bodyContent,
     );
   }
 
@@ -1061,20 +1068,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: widget.showAppBar && Navigator.canPop(context)
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: const BackButton(color: Color(0xFF0F172A)),
-              title: Text(
-                'EduSphere',
-                style: GoogleFonts.outfit(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-            )
+          ? const StudentTopNavbar(title: 'Notice Board')
           : null,
       body: Container(
         decoration: const BoxDecoration(

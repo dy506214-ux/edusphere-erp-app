@@ -14,6 +14,7 @@ import 'package:intl/intl.dart' as intl;
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../../widgets/navigation_widgets.dart';
 
 class AttendanceScreen extends StatefulWidget {
   final bool showAppBar;
@@ -408,20 +409,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F6FF), // very light blue background matching mockup
       appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              leading: widget.showBackButton
-                  ? IconButton(
-                      icon: Icon(Icons.arrow_back, color: const Color(0xFF0052CC), size: 24.sp),
-                      onPressed: () => Navigator.pop(context),
-                    )
-                  : null,
-              title: widget.showBackButton
-                  ? Text('Back', style: AppTypography.small.copyWith(color: const Color(0xFF0052CC)))
-                  : null,
-              titleSpacing: -8, // pull "Back" closer to the arrow
-            )
+          ? const StudentTopNavbar(title: 'Attendance')
           : null,
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator(color: Color(0xFF0052CC)))

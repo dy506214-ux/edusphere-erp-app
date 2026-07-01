@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../widgets/common_widgets.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../config/api_endpoints.dart';
+import '../../widgets/navigation_widgets.dart';
 
 class StudentTimetableScreen extends StatefulWidget {
   const StudentTimetableScreen({super.key});
@@ -120,17 +121,8 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F8FB),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF4F8FB),
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded,
-              color: const Color(0xFF0F2547), size: 20.sp),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+    return StudentNavigationScaffold(
+      title: 'Timetable',
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF0066CC)))

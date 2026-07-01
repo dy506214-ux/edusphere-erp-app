@@ -39,8 +39,7 @@ import '../services/app_state_notifier.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../widgets/ai_chatbot_overlay.dart';
-import '../widgets/teacher_app_bar.dart';
-import '../widgets/student_app_bar.dart';
+import '../widgets/navigation_widgets.dart';
 import 'features/attendance_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 
@@ -623,9 +622,9 @@ class _MainScreenState extends State<MainScreen> {
           : null,
       appBar: (!isDesktop
           ? (widget.role == 'teacher'
-              ? const TeacherAppBar(title: 'EduSphere')
+              ? const TeacherTopNavbar(title: 'EduSphere')
               : widget.role == 'student'
-                  ? const StudentAppBar(title: 'EduSphere')
+                  ? const StudentTopNavbar(title: 'EduSphere')
                   : null)
           : null) as PreferredSizeWidget?,
       body: Row(
@@ -644,7 +643,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: isDesktop
           ? null
           : (widget.role == 'teacher'
-              ? TeacherBottomNavBar(activeIndex: _idx, photoUrl: _profilePhotoUrl)
+              ? TeacherBottomNavigation(activeIndex: _idx)
               : widget.role == 'student'
                   ? StudentBottomNavBar(activeIndex: _idx, photoUrl: _profilePhotoUrl)
                   : null),
@@ -1215,26 +1214,32 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildInactiveItem(layoutTabs[0], displayPhotoUrl),
-                          _buildInactiveItem(layoutTabs[1], displayPhotoUrl),
-                        ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[0], displayPhotoUrl, key: ValueKey(layoutTabs[0].index)),
+                      ),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[1], displayPhotoUrl, key: ValueKey(layoutTabs[1].index)),
                       ),
                     ),
                     SizedBox(width: 72.w),
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildInactiveItem(layoutTabs[3], displayPhotoUrl),
-                          _buildInactiveItem(layoutTabs[4], displayPhotoUrl),
-                        ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[3], displayPhotoUrl, key: ValueKey(layoutTabs[3].index)),
+                      ),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[4], displayPhotoUrl, key: ValueKey(layoutTabs[4].index)),
                       ),
                     ),
                   ],
@@ -1253,58 +1258,64 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
       ),
     );
   }
-
-  Widget _buildInactiveItem(TabItem item, String? photoUrl) {
+ 
+  Widget _buildInactiveItem(TabItem item, String? photoUrl, {Key? key}) {
     final bool isProfile = item.index == 4;
-
+ 
     return Semantics(
+      key: key,
       label: 'Navigate to ${item.label}',
       button: true,
       child: InkWell(
         onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
         borderRadius: BorderRadius.circular(20.r),
-        child: Padding(
-          padding: EdgeInsets.all(4.r),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isProfile)
-                Container(
-                  width: 22.w,
-                  height: 22.h,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11.r),
-                    child: ColorFiltered(
-                      colorFilter: const ColorFilter.matrix([
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0,      0,      0,      1, 0,
-                      ]),
-                      child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 48.h,
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isProfile)
+                  Container(
+                    width: 22.w,
+                    height: 22.h,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
                     ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11.r),
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0,      0,      0,      1, 0,
+                        ]),
+                        child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+                      ),
+                    ),
+                  )
+                else
+                  Icon(
+                    item.icon,
+                    size: 22.sp,
+                    color: const Color(0xFF94A3B8),
                   ),
-                )
-              else
-                Icon(
-                  item.icon,
-                  size: 22.sp,
-                  color: const Color(0xFF94A3B8),
+                SizedBox(height: 3.h),
+                Text(
+                  item.index == 1 ? getAcademicTabConfig(widget.activeIndex).label : item.label,
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
-              SizedBox(height: 3.h),
-              Text(
-                item.index == 1 ? getAcademicTabConfig(widget.activeIndex).label : item.label,
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2079,26 +2090,32 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Row(
                   children: [
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildInactiveItem(layoutTabs[0], displayPhotoUrl),
-                          _buildInactiveItem(layoutTabs[1], displayPhotoUrl),
-                        ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[0], displayPhotoUrl, key: ValueKey(layoutTabs[0].index)),
+                      ),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[1], displayPhotoUrl, key: ValueKey(layoutTabs[1].index)),
                       ),
                     ),
                     SizedBox(width: 72.w),
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _buildInactiveItem(layoutTabs[3], displayPhotoUrl),
-                          _buildInactiveItem(layoutTabs[4], displayPhotoUrl),
-                        ],
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[3], displayPhotoUrl, key: ValueKey(layoutTabs[3].index)),
+                      ),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: _buildInactiveItem(layoutTabs[4], displayPhotoUrl, key: ValueKey(layoutTabs[4].index)),
                       ),
                     ),
                   ],
@@ -2118,59 +2135,65 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
     );
   }
 
-  Widget _buildInactiveItem(TabItem item, String? photoUrl) {
+  Widget _buildInactiveItem(TabItem item, String? photoUrl, {Key? key}) {
     final bool isProfile = item.index == 4;
 
     return Semantics(
+      key: key,
       label: 'Navigate to ${item.label}',
       button: true,
       child: InkWell(
         onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
         borderRadius: BorderRadius.circular(20.r),
-        child: Padding(
-          padding: EdgeInsets.all(4.r),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isProfile)
-                Container(
-                  width: 22.w,
-                  height: 22.h,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11.r),
-                    child: ColorFiltered(
-                      colorFilter: const ColorFilter.matrix([
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0.2126, 0.7152, 0.0722, 0, 0,
-                        0,      0,      0,      1, 0,
-                      ]),
-                      child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: 48.h,
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isProfile)
+                  Container(
+                    width: 22.w,
+                    height: 22.h,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
                     ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11.r),
+                      child: ColorFiltered(
+                        colorFilter: const ColorFilter.matrix([
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0,      0,      0,      1, 0,
+                        ]),
+                        child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+                      ),
+                    ),
+                  )
+                else
+                  Icon(
+                    item.icon,
+                    size: 22.sp,
+                    color: const Color(0xFF94A3B8),
                   ),
-                )
-              else
-                Icon(
-                  item.icon,
-                  size: 22.sp,
-                  color: const Color(0xFF94A3B8),
+                SizedBox(height: 3.h),
+                Text(
+                  item.index == 1 
+                      ? getStudentAcademicTabConfig(widget.activeIndex).label 
+                      : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).label : item.label),
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
                 ),
-              SizedBox(height: 3.h),
-              Text(
-                item.index == 1 
-                    ? getStudentAcademicTabConfig(widget.activeIndex).label 
-                    : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).label : item.label),
-                style: GoogleFonts.inter(
-                  fontSize: 10.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF64748B),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

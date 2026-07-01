@@ -13,6 +13,8 @@ import '../theme/colors.dart';
 import '../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../services/cache_service.dart';
+import '../widgets/navigation_widgets.dart';
 
 class CommunityCommentModel {
   final String id;
@@ -896,82 +898,13 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F6),
       appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: _isSearching
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: Color(0xFF0F172A)),
-                      onPressed: () {
-                        setState(() {
-                          _isSearching = false;
-                          _searchQuery = '';
-                        });
-                      },
-                    )
-                  : (Navigator.canPop(context)
-                      ? const BackButton(color: Color(0xFF0F172A))
-                      : (widget.onBack != null
-                          ? IconButton(
-                              icon: const Icon(Icons.arrow_back,
-                                  color: Color(0xFF0F172A)),
-                              onPressed: widget.onBack,
-                            )
-                          : IconButton(
-                              icon: Icon(Icons.menu, size: 28.sp),
-                              onPressed: widget.onOpenDrawer ??
-                                  () => Scaffold.of(context).openDrawer(),
-                            ))),
-              title: _isSearching
-                  ? TextField(
-                      style: AppTypography.body
-                          .copyWith(color: const Color(0xFF0F172A)),
-                      autofocus: true,
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        hintStyle: AppTypography.body
-                            .copyWith(color: const Color(0xFF94A3B8)),
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val;
-                        });
-                      },
-                    )
-                  : Text(
-                      'EduSphere',
-                      style: GoogleFonts.outfit(
-                        fontSize: 22.sp,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0F172A),
-                      ),
-                    ),
-              actions: _isSearching
-                  ? []
-                  : [
-                      IconButton(
-                        icon: Icon(Icons.search_rounded, size: 28.sp),
-                        onPressed: () {
-                          setState(() {
-                            _isSearching = true;
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon:
-                            Icon(Icons.notifications_none_rounded, size: 28.sp),
-                        onPressed: () {},
-                      ),
-                      SizedBox(width: 8.w),
-                    ],
-            )
+          ? (CacheService.instance.prefs.getString('user_role') == 'teacher'
+              ? const TeacherTopNavbar(title: 'Messages')
+              : const StudentTopNavbar(title: 'Messages')) as PreferredSizeWidget?
           : null,
       body: Column(
         children: [
-          if (!widget.showAppBar) _buildInlineSearchBar(),
+          _buildInlineSearchBar(),
           Expanded(
             child: filteredChats.isEmpty
                 ? Center(
@@ -1169,68 +1102,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: Navigator.canPop(context)
-                  ? const BackButton(color: Color(0xFF0F172A))
-                  : IconButton(
-                      icon: Icon(Icons.menu, size: 28.sp),
-                      onPressed: widget.onOpenDrawer ??
-                          () => Scaffold.of(context).openDrawer(),
-                    ),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.school,
-                      color: const Color(0xFF1A6FDB), size: 24.sp),
-                  SizedBox(width: 8.w),
-                  Text(
-                    'EduSphere',
-                    style: GoogleFonts.outfit(
-                      fontSize: 22.sp,
-                      fontWeight: FontWeight.w800,
-                      color: const Color(0xFF0F172A),
-                    ),
-                  ),
-                ],
-              ),
-              centerTitle: true,
-              actions: [
-                IconButton(
-                  icon: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(Icons.notifications_none_rounded, size: 28.sp),
-                      Positioned(
-                        right: -2,
-                        top: -2,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
-                          child: Text(
-                            '2',
-                            style: AppTypography.caption
-                                .copyWith(color: Colors.white),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  onPressed: () {},
-                ),
-                SizedBox(width: 8.w),
-              ],
-            )
+          ? const StudentTopNavbar(title: 'Messages')
           : null,
       body: SafeArea(
         child: Stack(

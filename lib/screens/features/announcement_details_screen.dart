@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../../services/cache_service.dart';
+import '../../widgets/navigation_widgets.dart';
 import 'announcements_screen.dart'; // To access AnnouncementModel
 
 class AnnouncementDetailsScreen extends StatelessWidget {
@@ -33,19 +35,9 @@ class AnnouncementDetailsScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF3F8FC),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-        title: Text(
-          'Notice Details',
-          style: GoogleFonts.outfit(
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w800,
-            color: const Color(0xFF0F172A),
-          ),
-        ),
-      ),
+      appBar: (CacheService.instance.prefs.getString('user_role') == 'teacher'
+          ? const TeacherTopNavbar(title: 'Notice Details')
+          : const StudentTopNavbar(title: 'Notice Details')) as PreferredSizeWidget?,
       body: SingleChildScrollView(
         padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
         child: Container(

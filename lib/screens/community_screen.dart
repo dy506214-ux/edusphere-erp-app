@@ -11,6 +11,8 @@ import '../widgets/dashed_border_painter.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
+import '../services/cache_service.dart';
+import '../widgets/navigation_widgets.dart';
 
 class CommunityScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -250,36 +252,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: widget.onBack != null
-                  ? IconButton(
-                      icon: const Icon(Icons.arrow_back),
-                      onPressed: widget.onBack,
-                    )
-                  : IconButton(
-                      icon: const Icon(Icons.menu),
-                      onPressed: widget.onOpenDrawer ??
-                          () => Scaffold.of(context).openDrawer(),
-                    ),
-              title: Text(
-                'EduSphere',
-                style: GoogleFonts.outfit(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_none_rounded),
-                  onPressed: () {},
-                ),
-                SizedBox(width: 8.w),
-              ],
-            )
+          ? (CacheService.instance.prefs.getString('user_role') == 'teacher'
+              ? const TeacherTopNavbar(title: 'Community')
+              : const StudentTopNavbar(title: 'Community')) as PreferredSizeWidget?
           : null,
       body: Stack(
         children: [

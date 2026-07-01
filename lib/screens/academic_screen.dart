@@ -22,6 +22,8 @@ import 'features/schedule_screen.dart';
 import 'features/student_timetable_screen.dart';
 import 'features/announcements_screen.dart';
 import '../services/api_service.dart';
+import '../services/cache_service.dart';
+import '../widgets/navigation_widgets.dart';
 import '../widgets/common_widgets.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../config/api_endpoints.dart';
@@ -83,181 +85,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
   // ── Selected day for timetable ──
   final int _selectedTimetableDay = DateTime.now().weekday;
-
-  final Map<int, List<Map<String, dynamic>>> _mockTimetable = {
-    1: [
-      // Monday
-      {
-        'subject': 'Mathematics',
-        'code': 'MAT-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Room 201',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'English',
-        'code': 'ENG-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Room 105',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Science',
-        'code': 'SCI-3',
-        'time': '11:00 AM - 12:00 PM',
-        'room': 'Lab 402',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Hindi',
-        'code': 'HIN-3',
-        'time': '01:00 PM - 02:00 PM',
-        'room': 'Room 102',
-        'type': 'CORE'
-      },
-    ],
-    2: [
-      // Tuesday
-      {
-        'subject': 'Science',
-        'code': 'SCI-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Lab 402',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Mathematics',
-        'code': 'MAT-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Room 201',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Social Science',
-        'code': 'SOC-3',
-        'time': '11:00 AM - 12:00 PM',
-        'room': 'Room 108',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Computer',
-        'code': 'COM-3',
-        'time': '01:00 PM - 02:00 PM',
-        'room': 'Lab 501',
-        'type': 'ELECTIVE'
-      },
-    ],
-    3: [
-      // Wednesday
-      {
-        'subject': 'English',
-        'code': 'ENG-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Room 105',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Hindi',
-        'code': 'HIN-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Room 102',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Mathematics',
-        'code': 'MAT-3',
-        'time': '11:00 AM - 12:00 PM',
-        'room': 'Room 201',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Science',
-        'code': 'SCI-3',
-        'time': '01:00 PM - 02:00 PM',
-        'room': 'Lab 402',
-        'type': 'CORE'
-      },
-    ],
-    4: [
-      // Thursday
-      {
-        'subject': 'Social Science',
-        'code': 'SOC-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Room 108',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Science',
-        'code': 'SCI-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Lab 402',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'English',
-        'code': 'ENG-3',
-        'time': '11:00 AM - 12:00 PM',
-        'room': 'Room 105',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Computer',
-        'code': 'COM-3',
-        'time': '01:00 PM - 02:00 PM',
-        'room': 'Lab 501',
-        'type': 'ELECTIVE'
-      },
-    ],
-    5: [
-      // Friday
-      {
-        'subject': 'Mathematics',
-        'code': 'MAT-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Room 201',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Hindi',
-        'code': 'HIN-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Room 102',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'Social Science',
-        'code': 'SOC-3',
-        'time': '11:00 AM - 12:00 PM',
-        'room': 'Room 108',
-        'type': 'CORE'
-      },
-      {
-        'subject': 'English',
-        'code': 'ENG-3',
-        'time': '01:00 PM - 02:00 PM',
-        'room': 'Room 105',
-        'type': 'CORE'
-      },
-    ],
-    6: [
-      // Saturday
-      {
-        'subject': 'Computer',
-        'code': 'COM-3',
-        'time': '08:30 AM - 09:30 AM',
-        'room': 'Lab 501',
-        'type': 'ELECTIVE'
-      },
-      {
-        'subject': 'Mathematics',
-        'code': 'MAT-3',
-        'time': '09:45 AM - 10:45 AM',
-        'room': 'Room 201',
-        'type': 'CORE'
-      },
-    ],
-  };
 
   Timer? _realtimePollTimer;
 
@@ -614,17 +441,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
       }
     }
 
-    // Fallback to mock data for the selected day
-    final mockList = _mockTimetable[_selectedTimetableDay] ?? [];
-    return mockList
-        .map((slot) => {
-              'title': '${_className.split(' ')[0]} • ${slot['subject']}',
-              'time': slot['time'],
-              'subject': slot['subject'],
-              'code': slot['code'],
-              'room': slot['room'],
-            })
-        .toList();
+    // Fallback to mock data removed for production database lock
+    return const [];
   }
 
   void _showAllTimetablesSheet() {
@@ -1496,42 +1314,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       drawer: widget.showBackButton ? _buildDrawer() : null,
       appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: IconButton(
-                icon: Icon(Icons.menu, size: 28.sp),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
-              title: Text(
-                'EduSphere',
-                style: GoogleFonts.outfit(
-                  fontSize: 22.sp,
-                  fontWeight: FontWeight.w800,
-                  color: const Color(0xFF0F172A),
-                ),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.notifications_none_rounded, size: 26.sp),
-                  onPressed: () {},
-                ),
-                Container(
-                  margin: EdgeInsets.only(right: 16.w, top: 8.h, bottom: 8.h),
-                  padding: EdgeInsets.all(8.r),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE0F2FE),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text('AS',
-                        style: AppTypography.caption
-                            .copyWith(color: const Color(0xFF0284C7))),
-                  ),
-                ),
-              ],
-            )
+          ? const TeacherTopNavbar(title: 'Academic')
           : null,
       body: SafeArea(
         child: Column(
