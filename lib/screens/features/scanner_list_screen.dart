@@ -6,6 +6,7 @@ import '../../widgets/common_widgets.dart';
 import 'prepare_scan_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class ScannerListScreen extends StatefulWidget {
@@ -81,13 +82,7 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      backgroundColor: AppColors.background,
-      body: Column(
+    final bodyContent = Column(
         children: [
           PageHeader(
             title: 'Attendance Scanners',
@@ -118,7 +113,19 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                       ),
           ),
         ],
-      ),
+      );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'EduSphere',
+        activeIndex: 5,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 

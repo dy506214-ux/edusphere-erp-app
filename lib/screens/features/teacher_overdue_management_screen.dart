@@ -5,6 +5,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
@@ -206,10 +207,9 @@ class _TeacherOverdueManagementScreenState
     final int criticalCount = _overdueIssues.length;
     final double totalFines = _totalPendingFines;
 
-    return Scaffold(
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
-      appBar: const TeacherAppBar(title: 'Overdue Management'),
-      backgroundColor: const Color(0xFFF0F4F8),
+    return TeacherScaffold(
+      title: 'Overdue Management',
+      activeIndex: 0,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class AIGeneratorScreen extends StatefulWidget {
@@ -64,11 +65,7 @@ Homework:
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
-      appBar: const TeacherAppBar(title: 'EduSphere'),
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: Column(
+    final bodyContent = Column(
         children: [
           _buildHeader(),
           Expanded(
@@ -111,7 +108,12 @@ Homework:
             ),
           ),
         ],
-      ),
+      );
+
+    return TeacherScaffold(
+      title: 'EduSphere',
+      activeIndex: 0,
+      body: bodyContent,
     );
   }
 

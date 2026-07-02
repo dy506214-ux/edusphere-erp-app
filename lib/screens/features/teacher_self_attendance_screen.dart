@@ -10,6 +10,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class TeacherPersonalAttendanceScreen extends StatefulWidget {
@@ -258,10 +259,9 @@ class _TeacherPersonalAttendanceScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: const TeacherAppBar(title: 'My Attendance'),
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 3),
+    return TeacherScaffold(
+      title: 'My Attendance',
+      activeIndex: 3,
       body: Column(
         children: [
           PageHeader(

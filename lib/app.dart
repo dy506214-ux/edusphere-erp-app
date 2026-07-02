@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme/colors.dart';
 import 'screens/welcome_screen.dart';
 import 'widgets/ai_chatbot_overlay.dart';
+import 'widgets/global_back_button.dart';
 import 'services/auth_service.dart';
 
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -34,6 +35,7 @@ class EduSphereApp extends StatelessWidget {
           // Global navigator key -- enables navigation from non-widget contexts
           // (e.g., 401 session expiry redirect from ApiService)
           navigatorKey: appNavigatorKey,
+          navigatorObservers: [BackButtonObserver()],
           theme: ThemeData(
             useMaterial3: true,
             fontFamily: GoogleFonts.inter().fontFamily,

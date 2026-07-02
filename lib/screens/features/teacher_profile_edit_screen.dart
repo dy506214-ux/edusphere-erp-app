@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:edusphere/theme/typography.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 
 class TeacherProfileEditScreen extends StatefulWidget {
@@ -277,31 +278,53 @@ class _TeacherProfileEditScreenState extends State<TeacherProfileEditScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 13),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            margin: EdgeInsets.all(8.r),
-            decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12.r)),
-            child: Icon(Icons.arrow_back_ios_new_rounded,
-                size: 18.sp, color: AppColors.textDark),
+    return TeacherScaffold(
+      title: 'Edit Profile',
+      activeIndex: 13,
+      bottom: TabBar(
+        controller: _tabController,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white.withOpacity(0.7),
+        indicatorColor: Colors.white,
+        indicatorWeight: 2.5,
+        labelStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.bold),
+        tabs: [
+          Tab(
+              icon: Icon(Icons.person_outline_rounded, size: 20.sp),
+              text: 'Personal'),
+          Tab(
+              icon: Icon(Icons.work_outline_rounded, size: 20.sp),
+              text: 'Professional'),
+          Tab(
+              icon: Icon(Icons.school_outlined, size: 20.sp),
+              text: 'Teaching'),
+          Tab(
+              icon: Icon(Icons.folder_outlined, size: 20.sp),
+              text: 'Documents'),
+        ],
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPersonalTab(),
+                _buildProfessionalTab(),
+                _buildTeachingTab(),
+                _buildDocumentsTab(),
+              ],
+            ),
           ),
-        ),
-        title: Text('Edit Profile',
-            style: AppTypography.bodyLarge.copyWith(color: AppColors.textDark)),
-        centerTitle: true,
-        actions: [
           Padding(
-            padding: EdgeInsets.only(right: 16.w),
-            child: TextButton(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0D7DDC),
+                minimumSize: Size(double.infinity, 46.h),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                elevation: 2,
+              ),
               onPressed: () async {
                 await _saveData();
                 if (context.mounted) {
@@ -309,42 +332,15 @@ class _TeacherProfileEditScreenState extends State<TeacherProfileEditScreen>
                   Navigator.pop(context, true);
                 }
               },
-              child: Text('Save',
-                  style: AppTypography.small
-                      .copyWith(color: widget.theme.primary)),
+              child: Text(
+                'Save Changes',
+                style: AppTypography.small.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: widget.theme.primary,
-          unselectedLabelColor: AppColors.textLight,
-          indicatorColor: widget.theme.primary,
-          indicatorWeight: 2.5,
-          labelStyle: AppTypography.caption,
-          tabs: [
-            Tab(
-                icon: Icon(Icons.person_outline_rounded, size: 20.sp),
-                text: 'Personal'),
-            Tab(
-                icon: Icon(Icons.work_outline_rounded, size: 20.sp),
-                text: 'Professional'),
-            Tab(
-                icon: Icon(Icons.school_outlined, size: 20.sp),
-                text: 'Teaching'),
-            Tab(
-                icon: Icon(Icons.folder_outlined, size: 20.sp),
-                text: 'Documents'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildPersonalTab(),
-          _buildProfessionalTab(),
-          _buildTeachingTab(),
-          _buildDocumentsTab(),
         ],
       ),
     );

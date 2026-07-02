@@ -6,6 +6,7 @@ import 'exam_report_card_screen.dart';
 import 'exam_approval_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../services/api_service.dart';
 
@@ -160,16 +161,7 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isPushed = Navigator.canPop(context);
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: (isPushed && _isTeacher)
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic')
-          : null,
-      backgroundColor: AppColors.background,
-      appBar: _isTeacher ? const TeacherAppBar(title: 'Academic Terms') : null,
-      bottomNavigationBar:
-          _isTeacher ? const TeacherBottomNavBar(activeIndex: 7) : null,
-      body: Column(
+    final bodyContent = Column(
         children: [
           PageHeader(
             title: 'Academic Terms',
@@ -464,7 +456,21 @@ class _ExamTermsScreenState extends State<ExamTermsScreen> {
                   ),
           ),
         ],
-      ),
+      );
+
+    if (_isTeacher) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'Academic Terms',
+        activeIndex: 7,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 }

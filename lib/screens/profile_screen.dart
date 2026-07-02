@@ -33,7 +33,9 @@ import '../config/api_endpoints.dart';
 import 'main_screen.dart';
 import '../config/api_config.dart';
 import '../widgets/teacher_app_bar.dart';
+import '../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
+import '../widgets/navigation_widgets.dart';
 
 // ── CUSTOM QR SIMULATOR PAINTER ──
 class QRSimulatorPainter extends CustomPainter {
@@ -1958,6 +1960,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
             // Tab Content
             _buildTabbedTabContent(isDesktop),
+          ],
+        ),
+      );
+    }
+
+    final String? loggedInRole = CacheService.instance.prefs.getString('user_role');
+
+    if (widget.studentId != null && loggedInRole == 'teacher') {
+      return TeacherNavigationScaffold(
+        title: 'EduSphere',
+        activeIndex: 2,
+        body: Stack(
+          children: [
+            // Basic background gradient
+            Container(
+              height: 250.h,
+              width: double.infinity,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFFE2EAF4), Color(0xFFF4F7FB)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+            SafeArea(
+              child: bodyContent,
+            ),
+            if (_showLogout) _buildLogoutDialog(),
           ],
         ),
       );
@@ -5045,17 +5076,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final double width = MediaQuery.of(context).size.width;
     final bool isDesktop = width > 900;
 
-    return Scaffold(
-      key: _teacherScaffoldKey,
-      drawer: isPushed
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'My Profile')
-          : null,
-      bottomNavigationBar:
-          isPushed ? const TeacherBottomNavBar(activeIndex: 13) : null,
-      backgroundColor: const Color(0xFFEFF6FF), // From image background color
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      body: SingleChildScrollView(
+    final bodyContent = SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
             isDesktop ? 32.r : 16.r, 20.r, isDesktop ? 32.r : 16.r, 120.r),
@@ -5196,19 +5217,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildTeacherDigitalIdentityCard(isDesktop),
           ],
         ),
-      ),
-      floatingActionButton: (widget.role == 'teacher' &&
-              widget.teacherId != null &&
-              widget.teacherId != _currentUserId)
-          ? null
-          : FloatingActionButton(
-              onPressed: _showEditProfileSheet,
-              backgroundColor: const Color(0xFF0284C7),
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16.r)),
-              child: const Icon(Icons.edit_note, color: Colors.white, size: 28),
-            ),
+      );
+
+    final fab = (widget.role == 'teacher' &&
+            widget.teacherId != null &&
+            widget.teacherId != _currentUserId)
+        ? null
+        : FloatingActionButton(
+            onPressed: _showEditProfileSheet,
+            backgroundColor: const Color(0xFF0284C7),
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16.r)),
+            child: const Icon(Icons.edit_note, color: Colors.white, size: 28),
+          );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        scaffoldKey: _teacherScaffoldKey,
+        title: 'EduSphere',
+        activeIndex: 13,
+        floatingActionButton: fab,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFEFF6FF),
+      floatingActionButton: fab,
+      body: bodyContent,
     );
   }
 

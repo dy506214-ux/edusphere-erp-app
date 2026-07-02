@@ -11,6 +11,7 @@ import 'dart:developer' as dev;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
+import '../../services/app_state_notifier.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class StudentDashboard extends StatefulWidget {
@@ -135,6 +136,7 @@ class _StudentDashboardState extends State<StudentDashboard>
   }
 
   Future<void> _loadStudentData({bool showLoading = false}) async {
+    AppStateNotifier.refreshNotificationsTrigger.value++;
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
 

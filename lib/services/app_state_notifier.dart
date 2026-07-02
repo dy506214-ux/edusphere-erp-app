@@ -20,4 +20,7 @@ class AppStateNotifier {
 
   /// Global active index of MainScreen navigation
   static final ValueNotifier<int> currentNavigationIndex = ValueNotifier<int>(0);
+
+  /// Trigger to force app bars to reload notifications.
+  static final ValueNotifier<int> refreshNotificationsTrigger = ValueNotifier<int>(0);
 }

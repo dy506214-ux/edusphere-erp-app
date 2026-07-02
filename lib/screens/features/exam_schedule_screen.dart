@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' as intl;
 import 'dart:developer' as dev;
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'exam_detail_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../services/api_service.dart';
@@ -480,15 +481,7 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   Widget build(BuildContext context) {
     final bool isPushed = Navigator.canPop(context);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: isPushed
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations')
-          : null,
-      backgroundColor: const Color(0xFFF1F5F9),
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      body: Stack(
+    final bodyContent = Stack(
         children: [
           Positioned.fill(
             child: SingleChildScrollView(
@@ -524,10 +517,21 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
             ),
           ),
         ],
-      ),
-      bottomNavigationBar: isPushed
-          ? const TeacherBottomNavBar(activeIndex: 8)
-          : (widget.showAppBar ? _buildBottomNav() : null),
+      );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'EduSphere',
+        activeIndex: 8,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF1F5F9),
+      body: bodyContent,
     );
   }
 

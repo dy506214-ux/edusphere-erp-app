@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart' as intl;
 import '../../services/api_service.dart';
 import '../main_screen.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class CreateAssignmentScreen extends StatefulWidget {
@@ -445,85 +446,62 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: widget.showAppBar
-          ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Assignments')
-          : null,
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 6) : null,
-      backgroundColor: const Color(0xFFF3F8FC),
-      appBar: widget.showAppBar
-          ? AppBar(
-              backgroundColor: Colors.white,
-              elevation: 0,
-              iconTheme: const IconThemeData(color: Color(0xFF0F172A)),
-              leading: IconButton(
-                icon: Icon(Icons.menu, size: 26.sp),
-                onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(Icons.notifications_none_rounded,
-                      size: 26.sp, color: const Color(0xFF0F172A)),
-                  onPressed: () {},
-                ),
-                Padding(
-                  padding: EdgeInsets.only(right: 16.w),
-                  child: CircleAvatar(
-                    radius: 16.r,
-                    backgroundColor: const Color(0xFFDCF0FF),
-                    child: Text(_getInitials(_teacherName),
-                        style: AppTypography.caption
-                            .copyWith(color: const Color(0xFF0284C7))),
-                  ),
-                ),
-              ],
-            )
-          : null,
-      body: RefreshIndicator(
-        onRefresh: () => _loadAllData(showLoading: true),
-        color: const Color(0xFF1976D2),
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 120.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Page header
-              Text('Assignment Management',
-                  style: AppTypography.h4.copyWith(
-                      color: const Color(0xFF0F172A), letterSpacing: -0.5)),
-              SizedBox(height: 3.h),
-              Text('Create and grade student assignments',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B))),
-              SizedBox(height: 16.h),
+    final bodyContent = RefreshIndicator(
+      onRefresh: () => _loadAllData(showLoading: true),
+      color: const Color(0xFF1976D2),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 120.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Page header
+            Text('Assignment Management',
+                style: AppTypography.h4.copyWith(
+                    color: const Color(0xFF0F172A), letterSpacing: -0.5)),
+            SizedBox(height: 3.h),
+            Text('Create and grade student assignments',
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFF64748B))),
+            SizedBox(height: 16.h),
 
-              // New Assignment button
-              ElevatedButton.icon(
-                onPressed: () => _showCreateAssignmentDialog(context),
-                icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
-                label: Text('New Assignment',
-                    style: AppTypography.caption.copyWith(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1976D2),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.r)),
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-                ),
+            // New Assignment button
+            ElevatedButton.icon(
+              onPressed: () => _showCreateAssignmentDialog(context),
+              icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
+              label: Text('New Assignment',
+                  style: AppTypography.caption.copyWith(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1976D2),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.r)),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
               ),
-              SizedBox(height: 20.h),
+            ),
+            SizedBox(height: 20.h),
 
-              _buildMyAssignmentsCard(),
-              SizedBox(height: 20.h),
-              _buildSubmissionTrackerCard(),
-            ],
-          ),
+            _buildMyAssignmentsCard(),
+            SizedBox(height: 20.h),
+            _buildSubmissionTrackerCard(),
+          ],
         ),
       ),
+    );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'Assignments',
+        activeIndex: 6,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F8FC),
+      body: bodyContent,
     );
   }
 

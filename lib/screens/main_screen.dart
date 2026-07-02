@@ -2069,28 +2069,32 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
     final String? displayPhotoUrl = widget.photoUrl ?? _localPhotoUrl;
 
     return SafeArea(
+      top: false,
       child: Container(
-        height: 78.h,
-        margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+        height: 60,
+        margin: EdgeInsets.zero,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
             Container(
-              height: 60.h,
-              decoration: BoxDecoration(
+              height: 60,
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30.r),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Color(0x0F000000),
                     blurRadius: 18,
-                    offset: const Offset(0, 4),
+                    offset: Offset(0, -4),
                   ),
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
                     Expanded(
@@ -2105,7 +2109,7 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
                         child: _buildInactiveItem(layoutTabs[1], displayPhotoUrl, key: ValueKey(layoutTabs[1].index)),
                       ),
                     ),
-                    SizedBox(width: 72.w),
+                    const SizedBox(width: 72),
                     Expanded(
                       child: AnimatedSwitcher(
                         duration: const Duration(milliseconds: 250),
@@ -2123,7 +2127,7 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
               ),
             ),
             Positioned(
-              bottom: 12.h,
+              bottom: 12,
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
@@ -2144,56 +2148,61 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
       button: true,
       child: InkWell(
         onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
-        borderRadius: BorderRadius.circular(20.r),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            minHeight: 48.h,
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isProfile)
-                  Container(
-                    width: 22.w,
-                    height: 22.h,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11.r),
-                      child: ColorFiltered(
-                        colorFilter: const ColorFilter.matrix([
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0.2126, 0.7152, 0.0722, 0, 0,
-                          0,      0,      0,      1, 0,
-                        ]),
-                        child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
-                      ),
-                    ),
-                  )
-                else
-                  Icon(
-                    item.icon,
-                    size: 22.sp,
-                    color: const Color(0xFF94A3B8),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isProfile && photoUrl != null && photoUrl.isNotEmpty)
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
                   ),
-                SizedBox(height: 3.h),
-                Text(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0,      0,      0,      1, 0,
+                      ]),
+                      child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+                    ),
+                  ),
+                )
+              else if (isProfile)
+                const Icon(
+                  Icons.person_rounded,
+                  size: 22,
+                  color: Color(0xFF1E293B),
+                )
+              else
+                Icon(
                   item.index == 1 
-                      ? getStudentAcademicTabConfig(widget.activeIndex).label 
-                      : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).label : item.label),
-                  style: GoogleFonts.inter(
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
-                  ),
+                      ? getStudentAcademicTabConfig(widget.activeIndex).icon 
+                      : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).icon : item.icon),
+                  size: 22,
+                  color: const Color(0xFF1E293B),
                 ),
-              ],
-            ),
+              const SizedBox(height: 2),
+              Text(
+                item.index == 1 
+                    ? getStudentAcademicTabConfig(widget.activeIndex).label 
+                    : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).label : item.label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1E293B),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -2207,8 +2216,8 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
       label: '${item.label} screen active',
       selected: true,
       child: Container(
-        width: 58.w,
-        height: 58.h,
+        width: 58,
+        height: 58,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
@@ -2218,7 +2227,7 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
           ),
           border: Border.all(
             color: Colors.white,
-            width: 3.5.w,
+            width: 3.5,
           ),
           boxShadow: [
             BoxShadow(
@@ -2236,13 +2245,13 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
             child: Center(
               child: isProfile
                   ? Container(
-                      width: 36.w,
-                      height: 36.h,
+                      width: 36,
+                      height: 36,
                       decoration: const BoxDecoration(
                         shape: BoxShape.circle,
                       ),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(18.r),
+                        borderRadius: BorderRadius.circular(18),
                         child: _renderProfileAvatar(photoUrl, width: 36, height: 36),
                       ),
                     )
@@ -2250,7 +2259,7 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
                       item.index == 1 
                           ? getStudentAcademicTabConfig(widget.activeIndex).icon 
                           : (item.index == 2 ? getStudentCommunityTabConfig(widget.activeIndex).icon : item.icon),
-                      size: 26.sp,
+                      size: 26,
                       color: Colors.white,
                     ),
             ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import '../../services/attendance_service.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'dart:developer' as dev;
 import '../../services/socket_service.dart';
@@ -426,39 +428,45 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 3) : null,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Mark daily attendance and view date-wise analytics',
-                style: AppTypography.small
-                    .copyWith(color: const Color(0xFF475569)),
-              ),
-              SizedBox(height: 16.h),
+    final bodyContent = SafeArea(
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Mark daily attendance and view date-wise analytics',
+              style: AppTypography.small
+                  .copyWith(color: const Color(0xFF475569)),
+            ),
+            SizedBox(height: 16.h),
 
-              // ── Tab Toggle ──
-              _buildTabToggle(),
-              SizedBox(height: 16.h),
+            // ── Tab Toggle ──
+            _buildTabToggle(),
+            SizedBox(height: 16.h),
 
-              // ── Content ──
-              if (_activeTab == 0) _buildMarkAttendanceContent(),
-              if (_activeTab == 1) _buildAnalyticsContent(),
+            // ── Content ──
+            if (_activeTab == 0) _buildMarkAttendanceContent(),
+            if (_activeTab == 1) _buildAnalyticsContent(),
 
-              SizedBox(height: 80.h),
-            ],
-          ),
+            SizedBox(height: 80.h),
+          ],
         ),
       ),
+    );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'Attendance',
+        activeIndex: 3,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: bodyContent,
     );
   }
 
@@ -1067,6 +1075,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           }
         } else {
           _loadExistingSlotsForDate();
+          _loadAnalytics();
         }
       }
     } catch (e) {
@@ -2723,6 +2732,16 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
 
     setState(() => _isSubmitting = true);
 
+    if (kDebugMode) {
+      print('--- TEACHER ATTENDANCE SUBMIT ---');
+      print('Selected Slot ID: ${widget.slotId}');
+      print('Selected Class: ${widget.className} (${widget.classId})');
+      print('Selected Section: ${widget.section} (${widget.sectionId})');
+      print('Student Count: ${_students.length}');
+      print('Student IDs: ${_students.map((s) => s['id']?.toString() ?? "").toList()}');
+      print('---------------------------------');
+    }
+
     final dbDateStr = DateFormat('yyyy-MM-dd').format(widget.date);
 
     try {
@@ -2744,6 +2763,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
       }
 
       await AttendanceService.instance.submitSlotAttendance(widget.slotId, attendanceData);
+
+      if (kDebugMode) {
+        print('Database Save Result: SUCCESS');
+        print('Final UI State: Submitted');
+      }
 
       if (mounted) {
         try {
@@ -2849,14 +2873,11 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
         _attendanceStatus.values.where((status) => status == 'A').length;
     final bool canGoBack = Navigator.canPop(context);
 
-    return Scaffold(
-      key: _scaffoldKey,
-      // Only show drawer when NOT pushed on top of another route
-      drawer: canGoBack
-          ? null
-          : const EduSphereDrawer(role: 'teacher', activeLabel: 'Attendance'),
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: const TeacherAppBar(title: 'Mark Attendance'),
+    return TeacherScaffold(
+      scaffoldKey: _scaffoldKey,
+      title: 'Mark Attendance',
+      activeIndex: 3,
+      floatingActionButton: _buildSubmitButton(),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.all(16.r),
@@ -3170,10 +3191,6 @@ class _MarkAttendanceScreenState extends State<MarkAttendanceScreen> {
           ),
         ),
       ),
-      floatingActionButton: _buildSubmitButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      // Only show bottom nav when NOT stacked on top of another route
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 3),
     );
   }
 

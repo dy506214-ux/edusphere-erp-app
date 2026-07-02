@@ -38,6 +38,7 @@ class ApiService {
 
   Future<void> setToken(String token) async {
     _token = token;
+    AuthService.resetSessionExpiredFlag();
     await CacheService.instance.saveToken(token);
   }
 

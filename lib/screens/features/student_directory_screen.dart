@@ -9,6 +9,7 @@ import '../../services/student_service.dart';
 import '../../services/academic_service.dart';
 import '../../config/api_config.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 import 'ai_generator_screen.dart';
@@ -325,49 +326,59 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 2) : null,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AIGeneratorScreen(),
-            ),
-          );
-        },
-        backgroundColor: const Color(0xFF0066CC),
-        shape: const CircleBorder(),
-        child: Icon(
-          Icons.assistant_rounded,
-          color: Colors.amber[400],
-          size: 28.sp,
-        ),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _fetchStudents,
-        color: const Color(0xFF0066CC),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildHeaderRow(),
-                SizedBox(height: 16.h),
-                _buildDirectoryCard(),
-                SizedBox(height: 80.h),
-              ],
-            ),
+    final bodyContent = RefreshIndicator(
+      onRefresh: _fetchStudents,
+      color: const Color(0xFF0066CC),
+      child: SafeArea(
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeaderRow(),
+              SizedBox(height: 16.h),
+              _buildDirectoryCard(),
+              SizedBox(height: 80.h),
+            ],
           ),
         ),
       ),
+    );
+
+    final fab = FloatingActionButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const AIGeneratorScreen(),
+          ),
+        );
+      },
+      backgroundColor: const Color(0xFF0066CC),
+      shape: const CircleBorder(),
+      child: Icon(
+        Icons.assistant_rounded,
+        color: Colors.amber[400],
+        size: 28.sp,
+      ),
+    );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'Students',
+        activeIndex: 2,
+        floatingActionButton: fab,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      floatingActionButton: fab,
+      body: bodyContent,
     );
   }
 

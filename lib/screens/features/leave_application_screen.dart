@@ -5,6 +5,7 @@ import '../../widgets/common_widgets.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class LeaveApplicationScreen extends StatefulWidget {
@@ -72,11 +73,7 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
-      appBar: const TeacherAppBar(title: 'EduSphere'),
-      backgroundColor: AppColors.background,
-      body: Column(
+    final bodyContent = Column(
         children: [
           PageHeader(
               title: 'Leave Application',
@@ -386,7 +383,12 @@ class _LeaveApplicationScreenState extends State<LeaveApplicationScreen>
             ),
           ),
         ],
-      ),
+      );
+
+    return TeacherScaffold(
+      title: 'EduSphere',
+      activeIndex: 0,
+      body: bodyContent,
     );
   }
 

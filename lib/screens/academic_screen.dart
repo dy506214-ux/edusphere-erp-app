@@ -2578,6 +2578,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
     return Drawer(
       backgroundColor: Colors.white,
       elevation: 0,
+      width: MediaQuery.of(context).size.width * 0.8,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       child: SafeArea(
         child: Column(

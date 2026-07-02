@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/colors.dart';
 import '../profile_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 import '../../services/socket_service.dart';
 import '../../services/api_service.dart';
@@ -212,33 +213,38 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
+    final bodyContent = SafeArea(
+      child: Column(
+        children: [
+          // ── Header ──
+          _buildHeader(),
+
+          // ── Scanner area ──
+          Expanded(
+            child: _useManual || _isDesktopOrWeb
+                ? _buildManualEntry()
+                : _buildCameraScanner(size),
+          ),
+
+          // ── Recent scans ──
+          if (_recentScans.isNotEmpty) _buildRecentScans(),
+
+          SizedBox(height: 12.h),
+        ],
+      ),
+    );
+
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'QR Attendance Scanner',
+        activeIndex: 5,
+        body: bodyContent,
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4FF),
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(title: 'QR Attendance Scanner')
-          : null,
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 5) : null,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──
-            _buildHeader(),
-
-            // ── Scanner area ──
-            Expanded(
-              child: _useManual || _isDesktopOrWeb
-                  ? _buildManualEntry()
-                  : _buildCameraScanner(size),
-            ),
-
-            // ── Recent scans ──
-            if (_recentScans.isNotEmpty) _buildRecentScans(),
-
-            SizedBox(height: 12.h),
-          ],
-        ),
-      ),
+      body: bodyContent,
     );
   }
 

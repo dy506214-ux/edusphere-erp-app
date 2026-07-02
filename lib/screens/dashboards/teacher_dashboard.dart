@@ -9,6 +9,7 @@ import '../features/academic_calendar_screen.dart';
 import '../../theme/colors.dart';
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
+import '../../services/app_state_notifier.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main_screen.dart';
 import '../features/teacher_overdue_management_screen.dart';
@@ -90,6 +91,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   Future<void> _refreshDashboard() async {
     if (_isRefreshing) return;
     setState(() => _isRefreshing = true);
+    AppStateNotifier.refreshNotificationsTrigger.value++;
     try {
       await Future.wait([
         _loadUpcomingEvents(),
@@ -115,6 +117,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
 
   void _onRealtimeEvent(dynamic data) {
     dev.log('⚡ Socket.IO event received on Teacher Dashboard', name: 'TeacherDashboard');
+    AppStateNotifier.refreshNotificationsTrigger.value++;
     if (mounted) {
       _loadUpcomingEvents();
       _fetchDashboardData('realtime_event', eventName: 'SocketIO:Event');

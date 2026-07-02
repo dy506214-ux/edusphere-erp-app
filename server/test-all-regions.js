@@ -19,7 +19,7 @@ const regions = [
 ];
 
 const password = 'akshitsha84';
-const projectRef = 'xernedkpgdrvjokokdoa';
+const projectRef = 'uodmjwjnhinbbvexbyvd';
 
 async function testRegions() {
   console.log('--- Testing Direct Connection (Port 5432) ---');

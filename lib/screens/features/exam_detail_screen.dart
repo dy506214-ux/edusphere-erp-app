@@ -10,6 +10,7 @@ import 'package:excel/excel.dart' hide Border;
 import 'package:file_saver/file_saver.dart';
 import '../../utils/download_helper.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 import 'class_review_screen.dart';
 import 'package:edusphere/theme/typography.dart';
@@ -641,14 +642,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       subtitle = '$className • $ayName';
     }
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF1F5F9),
-      drawer:
-          const EduSphereDrawer(role: 'teacher', activeLabel: 'Examinations'),
-      appBar: const TeacherAppBar(title: 'EduSphere'),
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 8),
-      body: _isLoading
+    final bodyContent = _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
           : Stack(
@@ -856,18 +850,27 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     ),
                   ),
               ],
-            ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'exam_detail_chatbot_fab',
-        backgroundColor: const Color(0xFF0284C7),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
-        onPressed: _toggleChat,
-        child: Icon(
-          _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
-          color: Colors.white,
-        ),
+            )
+    ;
+
+    final fab = FloatingActionButton(
+      heroTag: 'exam_detail_chatbot_fab',
+      backgroundColor: const Color(0xFF0284C7),
+      shape:
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
+      onPressed: _toggleChat,
+      child: Icon(
+        _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
+        color: Colors.white,
       ),
+    );
+
+    return TeacherScaffold(
+      scaffoldKey: _scaffoldKey,
+      title: 'EduSphere',
+      activeIndex: 8,
+      floatingActionButton: fab,
+      body: bodyContent,
     );
   }
 

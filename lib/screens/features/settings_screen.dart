@@ -8,6 +8,7 @@ import '../../widgets/common_widgets.dart';
 import '../welcome_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../../services/auth_service.dart';
 import 'package:edusphere/theme/typography.dart';
 
@@ -562,15 +563,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final roleName = widget.theme.label;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: (widget.role == 'teacher' && widget.showAppBar)
-          ? const TeacherAppBar(title: 'EduSphere')
-          : null,
-      bottomNavigationBar: widget.role == 'teacher'
-          ? const TeacherBottomNavBar(activeIndex: 13)
-          : null,
-      body: Column(
+    final bodyContent = Column(
         children: [
           PageHeader(
             title: 'Settings & Security',
@@ -712,7 +705,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
           ),
         ],
-      ),
+      );
+
+    if (widget.role == 'teacher' && widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'Settings',
+        activeIndex: 13,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 

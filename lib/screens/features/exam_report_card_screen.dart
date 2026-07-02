@@ -12,6 +12,7 @@ import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 
 class ExamReportCardScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -398,13 +399,7 @@ class _ExamReportCardScreenState extends State<ExamReportCardScreen> {
     final bool isPushed = Navigator.canPop(context);
     final bool isTeacher = widget.theme.label.toLowerCase() == 'teacher';
 
-    return Scaffold(
-      key: _scaffoldKey,
-      drawer: (isPushed && isTeacher) ? const EduSphereDrawer(role: 'teacher', activeLabel: 'Academic') : null,
-      backgroundColor: AppColors.background,
-      appBar: isTeacher ? const TeacherAppBar(title: 'Report Card') : null,
-      bottomNavigationBar: (isPushed && isTeacher) ? const TeacherBottomNavBar(activeIndex: 7) : null,
-      body: Column(
+    final bodyContent = Column(
         children: [
           PageHeader(
             title: 'Report Card',
@@ -629,7 +624,21 @@ class _ExamReportCardScreenState extends State<ExamReportCardScreen> {
                   ),
           ),
         ],
-      ),
+      );
+
+    if (isTeacher) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'Report Card',
+        activeIndex: 7,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 

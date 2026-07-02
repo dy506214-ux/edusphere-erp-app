@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'ai_generator_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class AddLessonScreen extends StatefulWidget {
@@ -18,11 +19,7 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 0),
-      appBar: const TeacherAppBar(title: 'EduSphere'),
-      backgroundColor: const Color(0xFFF1F5F9),
-      body: Column(
+    final bodyContent = Column(
         children: [
           Container(
             color: darkNavy,
@@ -149,7 +146,12 @@ class _AddLessonScreenState extends State<AddLessonScreen> {
             ),
           ),
         ],
-      ),
+      );
+
+    return TeacherScaffold(
+      title: 'EduSphere',
+      activeIndex: 0,
+      body: bodyContent,
     );
   }
 

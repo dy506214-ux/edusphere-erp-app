@@ -14,6 +14,7 @@ import '../services/app_state_notifier.dart';
 import '../services/notification_service.dart';
 import '../models/notification_model.dart';
 import '../services/cache_service.dart';
+import 'premium_dialog.dart';
 
 // ==========================================
 // 1. TEACHER TOP NAVBAR
@@ -27,10 +28,10 @@ class TeacherTopNavbar extends StatefulWidget implements PreferredSizeWidget {
   State<TeacherTopNavbar> createState() => _TeacherTopNavbarState();
 
   @override
-  Size get preferredSize => Size.fromHeight(80.h + (bottom?.preferredSize.height ?? 0));
+  Size get preferredSize => Size.fromHeight(82 + (bottom?.preferredSize.height ?? 0));
 }
 
-class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProviderStateMixin {
+class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isMuted = false;
   DateTime? _lastSeenAnnouncementTime;
   List<Map<String, dynamic>> _announcements = [];
@@ -46,6 +47,8 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AppStateNotifier.refreshNotificationsTrigger.addListener(_onRefreshTriggered);
     _loadMuteAndSeenState();
     _loadAnnouncements();
     _loadNotifications();
@@ -68,6 +71,21 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
     AppStateNotifier.isMuted.addListener(_onMuteStateChanged);
     AppStateNotifier.lastSeenAnnouncementTime.addListener(_onLastSeenTimeChanged);
     AppStateNotifier.announcements.addListener(_onAnnouncementsChanged);
+  }
+
+  void _onRefreshTriggered() {
+    if (mounted) {
+      _loadNotifications();
+      _loadAnnouncements();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadNotifications();
+      _loadAnnouncements();
+    }
   }
 
   void _onMuteStateChanged() {
@@ -107,6 +125,8 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AppStateNotifier.refreshNotificationsTrigger.removeListener(_onRefreshTriggered);
     AppStateNotifier.isMuted.removeListener(_onMuteStateChanged);
     AppStateNotifier.lastSeenAnnouncementTime.removeListener(_onLastSeenTimeChanged);
     AppStateNotifier.announcements.removeListener(_onAnnouncementsChanged);
@@ -207,6 +227,29 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
     }
   }
 
+  void _showMuteDialog(BuildContext context) async {
+    final confirmed = await showPremiumConfirmationDialog(
+      context: context,
+      title: _isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+      description: _isMuted 
+          ? 'Are you sure you want to unmute notifications? Notification alerts will resume immediately.' 
+          : 'Are you sure you want to mute notifications? You won\'t receive notification alerts until you enable them again.',
+      actionLabel: _isMuted ? 'Unmute' : 'Mute',
+      actionIcon: _isMuted ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+      actionColor: _isMuted ? const Color(0xFF2563EB) : const Color(0xFFF59E0B),
+      headerIcon: _isMuted ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+      headerBgColor: _isMuted ? const Color(0xFFEFF6FF) : const Color(0xFFFFF7ED),
+      headerIconColor: _isMuted ? const Color(0xFF2563EB) : const Color(0xFFF59E0B),
+    );
+
+    if (confirmed == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final newMuted = !_isMuted;
+      await prefs.setBool('notifications_muted', newMuted);
+      AppStateNotifier.isMuted.value = newMuted;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final int unreadNotificationsCount = _notifications.where((n) => !n.isRead).length;
@@ -225,84 +268,58 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
       }
     }
 
+    final isPushed = Navigator.canPop(context) && widget.title != 'EduSphere';
+
     return SafeArea(
       bottom: false,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            margin: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-            height: 72.h,
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            height: 72,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20.r),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Left Blue Circular Back Button
+                // Left dynamic Back/Menu Button (NO circle background, NO text!)
                 GestureDetector(
                   onTap: () {
-                    if (Navigator.canPop(context)) {
+                    if (isPushed) {
                       Navigator.pop(context);
+                    } else {
+                      Scaffold.of(context).openDrawer();
                     }
                   },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 34.r,
-                        height: 34.r,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF2F80ED), Color(0xFF0056C6)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0x330056C6),
-                              blurRadius: 6,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        'Back',
-                        style: GoogleFonts.inter(
-                          fontSize: 8.5.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  child: Icon(
+                    isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
+                    color: const Color(0xFF0056C6),
+                    size: 28,
                   ),
                 ),
 
-                // Center 3D Logo and Title
+                const SizedBox(width: 16),
+
+                // Center/Left-Center Logo and Title
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const GraduationCap3D(size: 28),
-                    SizedBox(width: 8.w),
+                    const SizedBox(width: 8),
                     Text(
                       widget.title,
                       style: GoogleFonts.outfit(
-                        fontSize: 18.sp,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0056C6),
                       ),
@@ -310,12 +327,15 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                   ],
                 ),
 
-                // Right Actions: Bells & Hamburger
+                const Spacer(),
+
+                // Right Actions: Bells
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Notification Bell
+                    // Notification Bell (1st bell: shows real notifications count badge)
                     Stack(
+                      alignment: Alignment.center,
                       clipBehavior: Clip.none,
                       children: [
                         RotationTransition(
@@ -329,16 +349,16 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                         ),
                         if (unreadNotificationsCount > 0)
                           Positioned(
-                            right: -4.w,
-                            top: -4.h,
+                            right: -4,
+                            top: -4,
                             child: Container(
-                              padding: EdgeInsets.all(3.r),
+                              padding: const EdgeInsets.all(3),
                               decoration: const BoxDecoration(color: Color(0xFF0056C6), shape: BoxShape.circle),
-                              constraints: BoxConstraints(minWidth: 16.w, minHeight: 16.h),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
-                                  unreadNotificationsCount.toString(),
-                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5.sp, fontWeight: FontWeight.bold),
+                                  unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount.toString(),
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -347,49 +367,50 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                       ],
                     ),
 
-                    SizedBox(width: 14.w),
+                    // Vertical Divider
+                    Container(
+                      width: 1,
+                      height: 18,
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      color: const Color(0xFFE2E8F0),
+                    ),
 
-                    // Announcement Bell
+                    // Announcement Bell (2nd bell: Mute/Unmute Notifications Popup)
                     Stack(
+                      alignment: Alignment.center,
                       clipBehavior: Clip.none,
                       children: [
                         RotationTransition(
                           turns: _shake2Animation,
                           child: IconButton(
-                            icon: const Icon(Icons.notifications_active_rounded, size: 28, color: Color(0xFF0056C6)),
-                            onPressed: () => _showAnnouncementsDropdown(context),
+                            icon: Icon(
+                              _isMuted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
+                              size: 28,
+                              color: const Color(0xFF0056C6),
+                            ),
+                            onPressed: () => _showMuteDialog(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
                         ),
                         if (unreadAnnouncementsCount > 0)
                           Positioned(
-                            right: -4.w,
-                            top: -4.h,
+                            right: -4,
+                            top: -4,
                             child: Container(
-                              padding: EdgeInsets.all(3.r),
+                              padding: const EdgeInsets.all(3),
                               decoration: const BoxDecoration(color: Color(0xFF0056C6), shape: BoxShape.circle),
-                              constraints: BoxConstraints(minWidth: 16.w, minHeight: 16.h),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
-                                  unreadAnnouncementsCount.toString(),
-                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5.sp, fontWeight: FontWeight.bold),
+                                  unreadAnnouncementsCount > 99 ? '99+' : unreadAnnouncementsCount.toString(),
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
                             ),
                           ),
                       ],
-                    ),
-
-                    SizedBox(width: 14.w),
-
-                    // Hamburger Menu Button
-                    IconButton(
-                      icon: const Icon(Icons.menu_rounded, size: 30, color: Color(0xFF0056C6)),
-                      onPressed: () => Scaffold.of(context).openDrawer(),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
@@ -651,10 +672,10 @@ class StudentTopNavbar extends StatefulWidget implements PreferredSizeWidget {
   State<StudentTopNavbar> createState() => _StudentTopNavbarState();
 
   @override
-  Size get preferredSize => Size.fromHeight(80.h + (bottom?.preferredSize.height ?? 0));
+  Size get preferredSize => Size.fromHeight(82 + (bottom?.preferredSize.height ?? 0));
 }
 
-class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProviderStateMixin {
+class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProviderStateMixin, WidgetsBindingObserver {
   bool _isMuted = false;
   DateTime? _lastSeenAnnouncementTime;
   List<Map<String, dynamic>> _announcements = [];
@@ -670,6 +691,8 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    AppStateNotifier.refreshNotificationsTrigger.addListener(_onRefreshTriggered);
     _loadMuteAndSeenState();
     _loadAnnouncements();
     _loadNotifications();
@@ -692,6 +715,21 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
     AppStateNotifier.isMuted.addListener(_onMuteStateChanged);
     AppStateNotifier.lastSeenAnnouncementTime.addListener(_onLastSeenTimeChanged);
     AppStateNotifier.announcements.addListener(_onAnnouncementsChanged);
+  }
+
+  void _onRefreshTriggered() {
+    if (mounted) {
+      _loadNotifications();
+      _loadAnnouncements();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadNotifications();
+      _loadAnnouncements();
+    }
   }
 
   void _onMuteStateChanged() {
@@ -731,6 +769,8 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    AppStateNotifier.refreshNotificationsTrigger.removeListener(_onRefreshTriggered);
     AppStateNotifier.isMuted.removeListener(_onMuteStateChanged);
     AppStateNotifier.lastSeenAnnouncementTime.removeListener(_onLastSeenTimeChanged);
     AppStateNotifier.announcements.removeListener(_onAnnouncementsChanged);
@@ -831,6 +871,29 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
     }
   }
 
+  void _showMuteDialog(BuildContext context) async {
+    final confirmed = await showPremiumConfirmationDialog(
+      context: context,
+      title: _isMuted ? 'Unmute Notifications' : 'Mute Notifications',
+      description: _isMuted 
+          ? 'Are you sure you want to unmute notifications? Notification alerts will resume immediately.' 
+          : 'Are you sure you want to mute notifications? You won\'t receive notification alerts until you enable them again.',
+      actionLabel: _isMuted ? 'Unmute' : 'Mute',
+      actionIcon: _isMuted ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+      actionColor: _isMuted ? const Color(0xFF2563EB) : const Color(0xFFF59E0B),
+      headerIcon: _isMuted ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+      headerBgColor: _isMuted ? const Color(0xFFEFF6FF) : const Color(0xFFFFF7ED),
+      headerIconColor: _isMuted ? const Color(0xFF2563EB) : const Color(0xFFF59E0B),
+    );
+
+    if (confirmed == true && mounted) {
+      final prefs = await SharedPreferences.getInstance();
+      final newMuted = !_isMuted;
+      await prefs.setBool('notifications_muted', newMuted);
+      AppStateNotifier.isMuted.value = newMuted;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final int unreadNotificationsCount = _notifications.where((n) => !n.isRead).length;
@@ -849,7 +912,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
       }
     }
 
-    final isPushed = Navigator.canPop(context);
+    final isPushed = Navigator.canPop(context) && widget.title != 'EduSphere';
 
     return SafeArea(
       bottom: false,
@@ -857,25 +920,23 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            margin: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 0),
-            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-            height: 64.h,
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            height: 72,
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(20.r),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.06),
-                  blurRadius: 16,
-                  offset: const Offset(0, 4),
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Left Back or Hamburger Menu Button
+                // Left dynamic Back/Menu Button (NO circle background, NO text!)
                 GestureDetector(
                   onTap: () {
                     if (isPushed) {
@@ -884,57 +945,25 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                       Scaffold.of(context).openDrawer();
                     }
                   },
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 32.r,
-                        height: 32.r,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF0D7DDC), Color(0xFF1E40AF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0x330D7DDC),
-                              blurRadius: 6,
-                              offset: Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
-                          color: Colors.white,
-                          size: 16.sp,
-                        ),
-                      ),
-                      SizedBox(height: 2.h),
-                      Text(
-                        isPushed ? 'Back' : 'Menu',
-                        style: GoogleFonts.inter(
-                          fontSize: 9.sp,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF64748B),
-                        ),
-                      ),
-                    ],
+                  child: Icon(
+                    isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
+                    color: const Color(0xFF0D7DDC),
+                    size: 28,
                   ),
                 ),
 
-                // Center Logo and Title
+                const SizedBox(width: 16),
+
+                // Center/Left-Center Logo and Title
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/images/logo.png', height: 26.h, fit: BoxFit.contain),
-                    SizedBox(width: 8.w),
+                    Image.asset('assets/images/logo.png', height: 28, fit: BoxFit.contain),
+                    const SizedBox(width: 8),
                     Text(
                       'EduSphere',
                       style: GoogleFonts.outfit(
-                        fontSize: 18.sp,
+                        fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: const Color(0xFF0D7DDC),
                       ),
@@ -942,18 +971,21 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                   ],
                 ),
 
+                const Spacer(),
+
                 // Right Actions: Bells
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Notification Bell
+                    // Notification Bell (1st bell: shows real notifications count badge)
                     Stack(
                       alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
                         RotationTransition(
                           turns: _shake1Animation,
                           child: IconButton(
-                            icon: Icon(Icons.notifications_rounded, size: 24.sp, color: const Color(0xFF0D7DDC)),
+                            icon: const Icon(Icons.notifications_rounded, size: 28, color: Color(0xFF0D7DDC)),
                             onPressed: () => _showNotificationsDropdown(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -961,16 +993,18 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                         ),
                         if (unreadNotificationsCount > 0)
                           Positioned(
-                            right: -2.w,
-                            top: -2.h,
+                            right: -4,
+                            top: -4,
                             child: Container(
-                              padding: EdgeInsets.all(2.r),
-                              decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
-                              constraints: BoxConstraints(minWidth: 14.w, minHeight: 14.h),
-                              child: Text(
-                                unreadNotificationsCount.toString(),
-                                style: GoogleFonts.inter(color: Colors.white, fontSize: 8.sp, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(color: Color(0xFF0D7DDC), shape: BoxShape.circle),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Center(
+                                child: Text(
+                                  unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount.toString(),
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                           ),
@@ -979,37 +1013,44 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
 
                     // Vertical Divider
                     Container(
-                      width: 1.w,
-                      height: 18.h,
-                      margin: EdgeInsets.symmetric(horizontal: 10.w),
+                      width: 1,
+                      height: 18,
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
                       color: const Color(0xFFE2E8F0),
                     ),
 
-                    // Announcement Bell
+                    // Announcement Bell (2nd bell: Mute/Unmute Notifications Popup)
                     Stack(
                       alignment: Alignment.center,
+                      clipBehavior: Clip.none,
                       children: [
                         RotationTransition(
                           turns: _shake2Animation,
                           child: IconButton(
-                            icon: Icon(Icons.notifications_active_rounded, size: 24.sp, color: const Color(0xFF0D7DDC)),
-                            onPressed: () => _showAnnouncementsDropdown(context),
+                            icon: Icon(
+                              _isMuted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
+                              size: 28,
+                              color: const Color(0xFF0D7DDC),
+                            ),
+                            onPressed: () => _showMuteDialog(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
                         ),
                         if (unreadAnnouncementsCount > 0)
                           Positioned(
-                            right: -2.w,
-                            top: -2.h,
+                            right: -4,
+                            top: -4,
                             child: Container(
-                              padding: EdgeInsets.all(2.r),
-                              decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
-                              constraints: BoxConstraints(minWidth: 14.w, minHeight: 14.h),
-                              child: Text(
-                                unreadAnnouncementsCount.toString(),
-                                style: GoogleFonts.inter(color: Colors.white, fontSize: 8.sp, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
+                              padding: const EdgeInsets.all(3),
+                              decoration: const BoxDecoration(color: Color(0xFF0D7DDC), shape: BoxShape.circle),
+                              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                              child: Center(
+                                child: Text(
+                                  unreadAnnouncementsCount > 99 ? '99+' : unreadAnnouncementsCount.toString(),
+                                  style: GoogleFonts.inter(color: Colors.white, fontSize: 8.5, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
                               ),
                             ),
                           ),
@@ -1281,9 +1322,9 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
   int _lastActiveModule = -1;
 
   final List<TabItem> _allTabs = [
-    TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
-    TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_outlined, targetScreenIndex: 7),
+    TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_rounded, targetScreenIndex: 7),
     TabItem(index: 2, label: 'QR Scanner', icon: Icons.qr_code_scanner_rounded, targetScreenIndex: 5),
+    TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
     TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 3),
     TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 13),
   ];
@@ -1320,9 +1361,9 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
   }
 
   int _getActiveModuleIndex(int currentIdx) {
-    if (currentIdx == 0) return 2; // Dashboard is center (index 2)
+    if (currentIdx == 0) return 0; // Dashboard is index 0
     if (currentIdx == 3) return 3; // Attendance is index 3
-    if (currentIdx == 5) return 1; // QR Scanner is index 1
+    if (currentIdx == 5) return 2; // QR Scanner is index 2
     if (currentIdx == 13) return 4; // My Profile is index 4
     
     // Academic tabs check
@@ -1337,9 +1378,17 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
         currentIdx == 12 ||
         currentIdx == 14 ||
         currentIdx == 15) {
-      return 0; // Academic is index 0
+      return 1; // Academic is index 1
     }
-    return 2;
+    return 0; // default to Dashboard
+  }
+
+  List<TabItem> _getLayoutTabs(int activeModuleIndex) {
+    final List<TabItem> tabs = List.from(_allTabs);
+    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex, orElse: () => _allTabs.firstWhere((t) => t.index == 0));
+    tabs.remove(activeTab);
+    tabs.insert(2, activeTab);
+    return tabs;
   }
 
   Widget _renderProfileAvatar(String? photoUrl, {required double width, required double height}) {
@@ -1375,48 +1424,52 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
       _scaleController.forward(from: 0.0);
     }
 
+    final List<TabItem> layoutTabs = _getLayoutTabs(activeModuleIndex);
     final String? displayPhotoUrl = _localPhotoUrl;
 
     return SafeArea(
       top: false,
       child: Container(
-        height: 78.h,
-        margin: EdgeInsets.fromLTRB(16.w, 0, 16.w, 8.h),
+        height: 60,
+        margin: EdgeInsets.zero,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
             Container(
-              height: 60.h,
-              decoration: BoxDecoration(
+              height: 60,
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(30.r),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: Color(0x0F000000),
                     blurRadius: 18,
-                    offset: const Offset(0, 4),
+                    offset: Offset(0, -4),
                   ),
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8.w),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    Expanded(child: _buildBottomTab(0, Icons.menu_book_rounded, 'Academic', activeModuleIndex == 0, displayPhotoUrl, 7)),
-                    Expanded(child: _buildBottomTab(1, Icons.qr_code_scanner_rounded, 'QR Scanner', activeModuleIndex == 1, displayPhotoUrl, 5)),
-                    SizedBox(width: 72.w), // Space for center floating button
-                    Expanded(child: _buildBottomTab(3, Icons.event_available_rounded, 'Attendance', activeModuleIndex == 3, displayPhotoUrl, 3)),
-                    Expanded(child: _buildBottomTab(4, Icons.person_rounded, 'My Profile', activeModuleIndex == 4, displayPhotoUrl, 13)),
+                    Expanded(child: _buildBottomTab(layoutTabs[0], displayPhotoUrl)),
+                    Expanded(child: _buildBottomTab(layoutTabs[1], displayPhotoUrl)),
+                    const SizedBox(width: 72), // Space for center floating button
+                    Expanded(child: _buildBottomTab(layoutTabs[3], displayPhotoUrl)),
+                    Expanded(child: _buildBottomTab(layoutTabs[4], displayPhotoUrl)),
                   ],
                 ),
               ),
             ),
             Positioned(
-              bottom: 12.h,
+              bottom: 12,
               child: ScaleTransition(
                 scale: _scaleAnimation,
-                child: _buildCenterActiveButton(activeModuleIndex == 2),
+                child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
               ),
             ),
           ],
@@ -1425,72 +1478,75 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
     );
   }
 
-  Widget _buildBottomTab(int index, IconData icon, String label, bool isActive, String? photoUrl, int targetIndex) {
-    final bool isProfile = index == 4;
-    final Color color = isActive ? const Color(0xFF0056C6) : const Color(0xFF94A3B8);
+  Widget _buildBottomTab(TabItem item, String? photoUrl) {
+    final bool isProfile = item.index == 4;
+    // Inactive bottom tabs are styled with premium dark slate/black
+    final Color color = const Color(0xFF1E293B);
 
     return Semantics(
-      label: 'Navigate to $label',
+      label: 'Navigate to ${item.label}',
       button: true,
       child: InkWell(
-        onTap: () => MainScreen.navigateTo(context, targetIndex),
-        borderRadius: BorderRadius.circular(20.r),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(minHeight: 48.h),
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 2.w),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (isProfile)
-                  Container(
-                    width: 22.w,
-                    height: 22.h,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: isActive ? Border.all(color: const Color(0xFF0056C6), width: 1.5.w) : null,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(11.r),
-                      child: ColorFiltered(
-                        colorFilter: isActive
-                            ? const ColorFilter.mode(Colors.transparent, BlendMode.dst)
-                            : const ColorFilter.matrix([
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0.2126, 0.7152, 0.0722, 0, 0,
-                                0,      0,      0,      1, 0,
-                              ]),
-                        child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
-                      ),
-                    ),
-                  )
-                else
-                  Icon(icon, size: 22.sp, color: color),
-                SizedBox(height: 3.h),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w700,
-                    color: color,
+        onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (isProfile && photoUrl != null && photoUrl.isNotEmpty)
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
                   ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: ColorFiltered(
+                      colorFilter: const ColorFilter.matrix([
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0.2126, 0.7152, 0.0722, 0, 0,
+                        0,      0,      0,      1, 0,
+                      ]),
+                      child: _renderProfileAvatar(photoUrl, width: 20, height: 20),
+                    ),
+                  ),
+                )
+              else if (isProfile)
+                const Icon(
+                  Icons.person_rounded,
+                  size: 22,
+                  color: Color(0xFF1E293B),
+                )
+              else
+                Icon(item.icon, size: 22, color: color),
+              const SizedBox(height: 2),
+              Text(
+                item.label,
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: color,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCenterActiveButton(bool isActive) {
+  Widget _buildCenterActiveButton(TabItem activeItem, String? photoUrl) {
+    final bool isProfile = activeItem.index == 4;
+
     return GestureDetector(
-      onTap: () => MainScreen.navigateTo(context, 0),
+      onTap: () => MainScreen.navigateTo(context, activeItem.targetScreenIndex),
       child: Container(
-        width: 58.w,
-        height: 58.h,
+        width: 58,
+        height: 58,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
@@ -1498,21 +1554,33 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          border: Border.all(color: Colors.white, width: 3.5.w),
+          border: Border.all(color: Colors.white, width: 3.5),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0056C6).withOpacity(isActive ? 0.45 : 0.25),
+              color: const Color(0xFF0056C6).withOpacity(0.45),
               blurRadius: 16,
               offset: const Offset(0, 6),
             ),
           ],
         ),
         child: Center(
-          child: Icon(
-            Icons.grid_view_rounded,
-            size: 26.sp,
-            color: Colors.white,
-          ),
+          child: isProfile
+              ? Container(
+                  width: 26,
+                  height: 26,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: _renderProfileAvatar(photoUrl, width: 26, height: 26),
+                  ),
+                )
+              : Icon(
+                  activeItem.icon,
+                  size: 26,
+                  color: Colors.white,
+                ),
         ),
       ),
     );
@@ -1560,6 +1628,7 @@ class TeacherNavigationScaffold extends StatelessWidget {
 class StudentNavigationScaffold extends StatelessWidget {
   final Widget body;
   final String title;
+  final int activeIndex;
   final Widget? floatingActionButton;
   final GlobalKey<ScaffoldState>? scaffoldKey;
   final PreferredSizeWidget? bottom;
@@ -1571,6 +1640,7 @@ class StudentNavigationScaffold extends StatelessWidget {
     this.floatingActionButton,
     this.scaffoldKey,
     this.bottom,
+    this.activeIndex = 0,
   });
 
   @override
@@ -1581,6 +1651,7 @@ class StudentNavigationScaffold extends StatelessWidget {
       drawer: EduSphereDrawer(role: 'student', activeLabel: title),
       appBar: StudentTopNavbar(title: title, bottom: bottom),
       body: body,
+      bottomNavigationBar: StudentBottomNavBar(activeIndex: activeIndex),
       floatingActionButton: floatingActionButton,
     );
   }

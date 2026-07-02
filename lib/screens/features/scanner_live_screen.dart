@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../profile_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -379,68 +380,69 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 800;
 
-    return Scaffold(
-      appBar: const TeacherAppBar(title: 'EduSphere'),
-      backgroundColor: const Color(0xFFF8FAFC),
-      bottomNavigationBar: const TeacherBottomNavBar(activeIndex: 5),
-      body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: widget.theme.primary,
-                strokeWidth: 3.w,
-              ),
-            )
-          : Stack(
-              children: [
-                Column(
-                  children: [
-                    // Top Bar Header
-                    _buildTopBar(scannerName, type, scannerCode),
+    final bodyContent = _isLoading
+        ? Center(
+            child: CircularProgressIndicator(
+              color: widget.theme.primary,
+              strokeWidth: 3.w,
+            ),
+          )
+        : Stack(
+            children: [
+              Column(
+                children: [
+                  // Top Bar Header
+                  _buildTopBar(scannerName, type, scannerCode),
 
-                    // Body Area
-                    Expanded(
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 24.w, vertical: 16.h),
-                        child: Center(
-                          child: Container(
-                            constraints: const BoxConstraints(maxWidth: 1200),
-                            child: Column(
-                              children: [
-                                _buildGreenBanner(dateStr, isCheckIn),
-                                SizedBox(height: 20.h),
-                                _buildMainLayout(isDesktop),
-                              ],
-                            ),
+                  // Body Area
+                  Expanded(
+                    child: SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 24.w, vertical: 16.h),
+                      child: Center(
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 1200),
+                          child: Column(
+                            children: [
+                              _buildGreenBanner(dateStr, isCheckIn),
+                              SizedBox(height: 20.h),
+                              _buildMainLayout(isDesktop),
+                            ],
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-
-                // Speech Bubble for bot greeting
-                if (_showBotBubble)
-                  Positioned(
-                    bottom: 96.h,
-                    right: 24.w,
-                    child: _buildBotBubble(),
                   ),
+                ],
+              ),
 
-                // AI Helper chatbot floating action button
+              // Speech Bubble for bot greeting
+              if (_showBotBubble)
                 Positioned(
-                  bottom: 30.h,
-                  right: 20.w,
-                  child: FloatingActionButton(
-                    heroTag: 'scanner_chatbot_fab',
-                    onPressed: _showChatbotDialog,
-                    backgroundColor: const Color(0xFF0284C7),
-                    child: const Icon(Icons.auto_awesome, color: Colors.white),
-                  ),
+                  bottom: 96.h,
+                  right: 24.w,
+                  child: _buildBotBubble(),
                 ),
-              ],
-            ),
+
+              // AI Helper chatbot floating action button
+              Positioned(
+                bottom: 30.h,
+                right: 20.w,
+                child: FloatingActionButton(
+                  heroTag: 'scanner_chatbot_fab',
+                  onPressed: _showChatbotDialog,
+                  backgroundColor: const Color(0xFF0284C7),
+                  child: const Icon(Icons.auto_awesome, color: Colors.white),
+                ),
+              ),
+            ],
+          );
+
+    return TeacherScaffold(
+      title: 'EduSphere',
+      activeIndex: 5,
+      body: bodyContent,
     );
   }
 

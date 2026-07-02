@@ -8,6 +8,7 @@ import '../../services/socket_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/typography.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 
 class InventoryRequestsScreen extends StatefulWidget {
@@ -587,14 +588,7 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(
-              title: 'Inventory Requisitions',
-            )
-          : null,
-      body: _isLoading
+    final bodyContent = _isLoading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: () => _loadAllData(),
@@ -762,10 +756,18 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
                   ),
                 ),
               ),
-            ),
-      bottomNavigationBar: widget.showAppBar && !isDesktop
-          ? const TeacherBottomNavBar(activeIndex: 14)
-          : null,
+            );
+    if (widget.showAppBar && !isDesktop) {
+      return TeacherScaffold(
+        title: 'Inventory Requisitions',
+        activeIndex: 14,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 

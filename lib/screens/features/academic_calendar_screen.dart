@@ -8,6 +8,7 @@ import '../../services/api_service.dart';
 import 'dart:developer' as dev;
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../utils/download_helper.dart';
 
@@ -296,16 +297,7 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
   // ═══════════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF0F4F8),
-      drawer: widget.showAppBar
-          ? const EduSphereDrawer(
-              role: 'teacher', activeLabel: 'Academic Calendar')
-          : null,
-      appBar:
-          widget.showAppBar ? const TeacherAppBar(title: 'EduSphere') : null,
-      body: _isLoading
+    final bodyContent = _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Container(
               color: const Color(0xFFF0F4F8),
@@ -326,9 +318,20 @@ class _AcademicCalendarScreenState extends State<AcademicCalendarScreen> {
                   ],
                 ),
               ),
-            ),
-      bottomNavigationBar:
-          widget.showAppBar ? const TeacherBottomNavBar(activeIndex: 1) : null,
+            );
+    if (widget.showAppBar) {
+      return TeacherScaffold(
+        scaffoldKey: _scaffoldKey,
+        title: 'EduSphere',
+        activeIndex: 1,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: bodyContent,
     );
   }
 

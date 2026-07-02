@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../../services/api_service.dart';
 import '../../services/socket_service.dart';
@@ -245,14 +246,7 @@ class _DigitalLibraryScreenState extends State<DigitalLibraryScreen> {
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: widget.showAppBar
-          ? const TeacherAppBar(
-              title: 'Digital Library',
-            )
-          : null,
-      body: _isLoading && _books.isEmpty && _issues.isEmpty && _reservations.isEmpty
+    final bodyContent = _isLoading && _books.isEmpty && _issues.isEmpty && _reservations.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: () => _loadAllData(),
@@ -291,10 +285,18 @@ class _DigitalLibraryScreenState extends State<DigitalLibraryScreen> {
                   ),
                 ),
               ),
-            ),
-      bottomNavigationBar: widget.showAppBar && !isDesktop
-          ? const TeacherBottomNavBar(activeIndex: 14)
-          : null,
+            );
+    if (widget.showAppBar && !isDesktop) {
+      return TeacherScaffold(
+        title: 'Digital Library',
+        activeIndex: 14,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: bodyContent,
     );
   }
 

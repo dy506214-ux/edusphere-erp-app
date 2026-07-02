@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../theme/colors.dart';
 import 'scanner_live_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
+import '../../widgets/teacher_scaffold.dart';
 import '../main_screen.dart';
 import 'package:edusphere/theme/typography.dart';
 
@@ -82,15 +83,7 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 900;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: (isDesktop || !widget.showAppBar)
-          ? null
-          : const TeacherAppBar(title: 'Prepare Scanning'),
-      bottomNavigationBar: (isDesktop || !widget.showAppBar)
-          ? null
-          : const TeacherBottomNavBar(activeIndex: 5),
-      body: SafeArea(
+    final bodyContent = SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
           child: Center(
@@ -423,7 +416,19 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
             ),
           ),
         ),
-      ),
+    );
+
+    if (!isDesktop && widget.showAppBar) {
+      return TeacherScaffold(
+        title: 'Prepare Scanning',
+        activeIndex: 5,
+        body: bodyContent,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8FAFC),
+      body: bodyContent,
     );
   }
 
