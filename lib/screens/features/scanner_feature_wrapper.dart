@@ -36,8 +36,8 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
       debugPrint('[Scanner Startup] Checking QRScanner records via REST API...');
       final response = await ApiService.instance.get('scanners');
 
-      if (response != null && response['success'] == true && response['scanners'] != null) {
-        final list = List<Map<String, dynamic>>.from(response['scanners']);
+      if (response != null && response['success'] == true && (response['data'] != null || response['scanners'] != null)) {
+        final list = List<Map<String, dynamic>>.from(response['data'] ?? response['scanners']);
         debugPrint('[Scanner Startup] Total scanners found: ${list.length}');
         if (list.isNotEmpty) {
           final mainScanner = list.firstWhere(

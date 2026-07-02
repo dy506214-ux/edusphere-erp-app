@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:dio/dio.dart';
+import '../../widgets/common_widgets.dart';
 import '../../theme/colors.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
@@ -153,13 +155,11 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
         final attendeeName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
         final action = response['action'] as String?;
         final isCheckout = action == 'checkout';
-        final message = response['message'] as String? ?? 'Attendance marked';
 
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(isCheckout ? 'Successfully checked out: $attendeeName' : 'Successfully scanned: $attendeeName'),
-                backgroundColor: AppColors.success),
+          showToast(
+            context,
+            isCheckout ? 'Successfully checked out: $attendeeName' : 'Successfully scanned: $attendeeName',
           );
           final String role = user['role']?.toString().toLowerCase() ?? '';
           if (role == 'teacher' && user['id'] != null) {
@@ -176,27 +176,40 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
             );
           }
         }
-        await _loadLiveFeed();
+        await _refreshDashboardData();
       } else {
         final errorMsg = response != null ? (response['error'] ?? response['message']) : 'Failed to mark attendance';
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Error: $errorMsg'),
-                backgroundColor: AppColors.error),
-          );
+          showToast(context, 'Error: $errorMsg', isError: true);
         }
       }
     } catch (e) {
       debugPrint('❌ [QR SCAN EXCEPTION] Error processing QR: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(e.toString().contains('400') || e.toString().contains('403') || e.toString().contains('404')
-                  ? e.toString()
-                  : 'Error marking attendance: $e'),
-              backgroundColor: AppColors.error),
-        );
+        String errorMsg = 'Error marking attendance. Please try again.';
+        if (e is DioException) {
+          final res = e.response;
+          if (res != null) {
+            if (res.data is Map) {
+              errorMsg = res.data['message'] ?? res.data['error'] ?? errorMsg;
+            } else if (res.statusCode == 404) {
+              errorMsg = 'Scanner or student profile not found on the server.';
+            } else if (res.statusCode == 403) {
+              errorMsg = 'Access denied. Check scanner geofence or role configuration.';
+            } else if (res.statusCode == 400) {
+              errorMsg = 'Invalid QR Code or already marked.';
+            }
+          } else {
+            errorMsg = 'Unable to connect to the server. Please check your internet connection.';
+          }
+        } else if (e.toString().contains('404')) {
+          errorMsg = 'Scanner or student profile not found on the server.';
+        } else if (e.toString().contains('403')) {
+          errorMsg = 'Access denied. Check scanner geofence or role configuration.';
+        } else if (e.toString().contains('400')) {
+          errorMsg = 'Invalid QR Code or already marked.';
+        }
+        showToast(context, errorMsg, isError: true);
       }
     } finally {
       debugPrint(
@@ -262,16 +275,25 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     }
   }
 
-  Future<void> _loadLiveFeed() async {
+  Future<void> _refreshDashboardData() async {
     try {
       final response = await ApiService.instance.get('scanners/${widget.scannerId}');
       if (response != null && response['success'] == true && response['scanner'] != null) {
-        final records = List<Map<String, dynamic>>.from(response['scanner']['attendanceRecords'] ?? []);
-        _processLiveFeedRecords(records);
+        if (mounted) {
+          setState(() {
+            _scannerDetails = Map<String, dynamic>.from(response['scanner']);
+            final records = List<Map<String, dynamic>>.from(_scannerDetails?['attendanceRecords'] ?? []);
+            _processLiveFeedRecords(records);
+          });
+        }
       }
     } catch (e) {
-      debugPrint('Error loading scan feeds: $e');
+      debugPrint('Error silent refreshing dashboard: $e');
     }
+  }
+
+  Future<void> _loadLiveFeed() async {
+    await _refreshDashboardData();
   }
 
   void _processLiveFeedRecords(List<Map<String, dynamic>> records) {
@@ -417,25 +439,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
                 ],
               ),
 
-              // Speech Bubble for bot greeting
-              if (_showBotBubble)
-                Positioned(
-                  bottom: 96.h,
-                  right: 24.w,
-                  child: _buildBotBubble(),
-                ),
 
-              // AI Helper chatbot floating action button
-              Positioned(
-                bottom: 30.h,
-                right: 20.w,
-                child: FloatingActionButton(
-                  heroTag: 'scanner_chatbot_fab',
-                  onPressed: _showChatbotDialog,
-                  backgroundColor: const Color(0xFF0284C7),
-                  child: const Icon(Icons.auto_awesome, color: Colors.white),
-                ),
-              ),
             ],
           );
 

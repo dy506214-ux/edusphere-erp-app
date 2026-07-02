@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:dio/dio.dart';
 import '../../theme/colors.dart';
 import '../profile_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
@@ -171,11 +172,32 @@ class _TeacherScanScreenState extends State<TeacherScanScreen>
       }
     } catch (e) {
       debugPrint('❌ [QR SCAN EXCEPTION] Error: $e');
+      String errorMsg = 'Error marking attendance. Please try again.';
+      if (e is DioException) {
+        final res = e.response;
+        if (res != null) {
+          if (res.data is Map) {
+            errorMsg = res.data['message'] ?? res.data['error'] ?? errorMsg;
+          } else if (res.statusCode == 404) {
+            errorMsg = 'Scanner or student profile not found on the server.';
+          } else if (res.statusCode == 403) {
+            errorMsg = 'Access denied. Check scanner geofence or role configuration.';
+          } else if (res.statusCode == 400) {
+            errorMsg = 'Invalid QR Code or already marked.';
+          }
+        } else {
+          errorMsg = 'Unable to connect to the server. Please check your internet connection.';
+        }
+      } else if (e.toString().contains('404')) {
+        errorMsg = 'Scanner or student profile not found on the server.';
+      } else if (e.toString().contains('403')) {
+        errorMsg = 'Access denied. Check scanner geofence or role configuration.';
+      } else if (e.toString().contains('400')) {
+        errorMsg = 'Invalid QR Code or already marked.';
+      }
       _showResult(_ScanResult(
         success: false,
-        message: e.toString().contains('400') || e.toString().contains('403') || e.toString().contains('404')
-            ? e.toString()
-            : 'Error: ${e.toString()}',
+        message: errorMsg,
         icon: Icons.warning_amber_rounded,
         color: Colors.red,
       ));

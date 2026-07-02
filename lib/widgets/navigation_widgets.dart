@@ -310,24 +310,27 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
 
                 const SizedBox(width: 16),
 
-                // Center/Left-Center Logo and Title
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const GraduationCap3D(size: 28),
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.title,
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0056C6),
+                // Center/Left-Center Logo and Title (wrapped in Expanded to prevent overflow)
+                Expanded(
+                  child: Row(
+                    children: [
+                      const GraduationCap3D(size: 28),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF0056C6),
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-
-                const Spacer(),
 
                 // Right Actions: Bells
                 Row(
@@ -1430,14 +1433,14 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
     return SafeArea(
       top: false,
       child: Container(
-        height: 60,
+        height: 64.h,
         margin: EdgeInsets.zero,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
             Container(
-              height: 60,
+              height: 64.h,
               decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.only(
@@ -1453,12 +1456,12 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                 ],
               ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
+                padding: EdgeInsets.symmetric(horizontal: 12.w),
                 child: Row(
                   children: [
                     Expanded(child: _buildBottomTab(layoutTabs[0], displayPhotoUrl)),
                     Expanded(child: _buildBottomTab(layoutTabs[1], displayPhotoUrl)),
-                    const SizedBox(width: 72), // Space for center floating button
+                    SizedBox(width: 64.w), // Space for center floating button
                     Expanded(child: _buildBottomTab(layoutTabs[3], displayPhotoUrl)),
                     Expanded(child: _buildBottomTab(layoutTabs[4], displayPhotoUrl)),
                   ],
@@ -1466,7 +1469,7 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
               ),
             ),
             Positioned(
-              bottom: 12,
+              bottom: 14.h,
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
@@ -1488,22 +1491,22 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
       button: true,
       child: InkWell(
         onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(20.r),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 1.w),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isProfile && photoUrl != null && photoUrl.isNotEmpty)
                 Container(
-                  width: 22,
-                  height: 22,
+                  width: 22.w,
+                  height: 22.w,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(11.r),
                     child: ColorFiltered(
                       colorFilter: const ColorFilter.matrix([
                         0.2126, 0.7152, 0.0722, 0, 0,
@@ -1516,20 +1519,24 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                   ),
                 )
               else if (isProfile)
-                const Icon(
+                Icon(
                   Icons.person_rounded,
-                  size: 22,
-                  color: Color(0xFF1E293B),
+                  size: 22.sp,
+                  color: const Color(0xFF1E293B),
                 )
               else
-                Icon(item.icon, size: 22, color: color),
-              const SizedBox(height: 2),
-              Text(
-                item.label,
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: color,
+                Icon(item.icon, size: 22.sp, color: color),
+              SizedBox(height: 2.h),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  item.label,
+                  maxLines: 1,
+                  style: GoogleFonts.inter(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
                 ),
               ),
             ],
@@ -1545,8 +1552,8 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
     return GestureDetector(
       onTap: () => MainScreen.navigateTo(context, activeItem.targetScreenIndex),
       child: Container(
-        width: 58,
-        height: 58,
+        width: 58.w,
+        height: 58.w,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           gradient: const LinearGradient(
@@ -1566,19 +1573,19 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
         child: Center(
           child: isProfile
               ? Container(
-                  width: 26,
-                  height: 26,
+                  width: 26.w,
+                  height: 26.w,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(13),
+                    borderRadius: BorderRadius.circular(13.r),
                     child: _renderProfileAvatar(photoUrl, width: 26, height: 26),
                   ),
                 )
               : Icon(
                   activeItem.icon,
-                  size: 26,
+                  size: 26.sp,
                   color: Colors.white,
                 ),
         ),

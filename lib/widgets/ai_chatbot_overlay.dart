@@ -339,36 +339,21 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
         width: 52.w,
         height: 52.w,
         decoration: BoxDecoration(
-          color: const Color(0xFF0076F6),
+          color: const Color(0xFF0284C7),
           borderRadius: BorderRadius.circular(16.r),
           boxShadow: [
             BoxShadow(
-              color: const Color(0xFF0076F6).withValues(alpha: 0.35),
+              color: const Color(0xFF0284C7).withValues(alpha: 0.35),
               blurRadius: 12.r,
               offset: Offset(0, 4.h),
             ),
           ],
         ),
         child: Center(
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Icon(
-                Icons.chat_bubble_rounded,
-                color: Colors.white,
-                size: 24.sp,
-              ),
-              Positioned(
-                right: -4.w,
-                top: -4.h,
-                child: Icon(
-                  Icons.add_rounded,
-                  color: Colors.yellow,
-                  size: 16.sp,
-                ),
-              ),
-            ],
+          child: Icon(
+            Icons.auto_awesome,
+            color: Colors.white,
+            size: 24.sp,
           ),
         ),
       ),

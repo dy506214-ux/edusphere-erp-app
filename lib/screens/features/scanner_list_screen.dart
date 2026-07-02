@@ -40,9 +40,9 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
     setState(() => _isLoading = true);
     try {
       final response = await ApiService.instance.get('scanners');
-      if (response != null && response['success'] == true && response['scanners'] != null) {
+      if (response != null && response['success'] == true && (response['data'] != null || response['scanners'] != null)) {
         setState(() {
-          _scanners = List<Map<String, dynamic>>.from(response['scanners']);
+          _scanners = List<Map<String, dynamic>>.from(response['data'] ?? response['scanners']);
           _todayScanCounts = {};
           for (var scanner in _scanners) {
             final id = scanner['id'] as String;
