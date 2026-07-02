@@ -671,8 +671,8 @@ class _MainScreenState extends State<MainScreen> {
             child: Row(
               children: [
                 Container(
-                  width: 40.w,
-                  height: 40.h,
+                  width: 46.w,
+                  height: 46.h,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(10.r),
@@ -682,10 +682,22 @@ class _MainScreenState extends State<MainScreen> {
                           blurRadius: 10)
                     ],
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8.r),
-                    child: Image.asset('assets/images/logo.png',
-                        fit: BoxFit.contain),
+                  child: Center(
+                    child: Container(
+                      width: 34.w,
+                      height: 34.h,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF0D47A1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Icon(
+                          Icons.school_rounded,
+                          color: Colors.white,
+                          size: 20.sp,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
                 SizedBox(width: 12.w),
@@ -693,7 +705,7 @@ class _MainScreenState extends State<MainScreen> {
                     style: GoogleFonts.outfit(
                         fontSize: 20.sp,
                         fontWeight: FontWeight.w900,
-                        color: AppColors.textDark,
+                        color: const Color(0xFF0D47A1),
                         letterSpacing: 1)),
               ],
             ),
@@ -1046,11 +1058,11 @@ class _SidebarItem extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon,
-                color: selected ? color : AppColors.textLight, size: 22.sp),
+                color: selected ? color : const Color(0xFF1E293B), size: 22.sp),
             SizedBox(width: 16.w),
             Text(label,
                 style: AppTypography.small
-                    .copyWith(color: selected ? color : AppColors.textMedium)),
+                    .copyWith(color: selected ? color : const Color(0xFF1E293B))),
           ],
         ),
       ),
@@ -1525,10 +1537,11 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = roleThemes[widget.role]!;
+    final activeBlue = theme.primary;
     final isDesktop = MediaQuery.of(context).size.width > 900;
-    const activeBlue = Color(0xFF0D7DDC);
-    const inactiveIcon = Color(0xFF4A6FA5);
-    const inactiveText = Color(0xFF35526B);
+    const inactiveIcon = Color(0xFF1E293B);
+    const inactiveText = Color(0xFF1E293B);
 
     return Drawer(
       backgroundColor: Colors.white,
@@ -1540,10 +1553,58 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
           children: [
             Padding(
               padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
-              child: Text(
-                'EduSphere',
-                style: AppTypography.h4.copyWith(
-                    color: const Color(0xFF0F172A), letterSpacing: 0.3),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42.w,
+                    height: 42.h,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10.r),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 8)
+                      ],
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 30.w,
+                        height: 30.h,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF0D47A1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            Icons.school_rounded,
+                            color: Colors.white,
+                            size: 18.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    'EDUSPHERE',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFF0D47A1),
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: const Color(0xFF64748B),
+                      size: 20.sp,
+                    ),
+                  ),
+                ],
               ),
             ),
             Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
@@ -1761,33 +1822,22 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
               ),
             ),
             Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
-            _drawerItem(
-              icon: Icons.logout_rounded,
-              label: 'Logout',
-              activeBlue: activeBlue,
-              inactiveIcon: const Color(0xFF4A6FA5),
-              inactiveText: const Color(0xFF35526B),
-              forceInactive: true,
-              onTap: () async {
-                await AuthService.logout(context);
-              },
-            ),
             Container(
-              margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 12.h),
+              margin: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 4.h),
               padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F7FB),
+                color: activeBlue.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14.r),
-                border: Border.all(color: const Color(0xFFE2EBF5), width: 1),
+                border: Border.all(color: activeBlue.withValues(alpha: 0.15), width: 1),
               ),
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 19.r,
-                    backgroundColor: activeBlue.withValues(alpha: 0.15),
+                    backgroundColor: activeBlue,
                     child: Text(
                       _initials,
-                      style: AppTypography.caption.copyWith(color: activeBlue),
+                      style: AppTypography.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                   SizedBox(width: 10.w),
@@ -1797,21 +1847,61 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                       children: [
                         Text(
                           _userName,
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF0F172A)),
+                          style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF0F172A),
+                            fontWeight: FontWeight.bold,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        SizedBox(height: 1.h),
+                        SizedBox(height: 2.h),
                         Text(
                           widget.role.toUpperCase(),
-                          style: AppTypography.caption
-                              .copyWith(color: activeBlue, letterSpacing: 0.8),
+                          style: AppTypography.caption.copyWith(
+                            color: activeBlue,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.8,
+                          ),
                         ),
                       ],
                     ),
                   ),
                 ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () async {
+                await AuthService.logout(context);
+              },
+              child: Container(
+                margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 12.h),
+                padding: EdgeInsets.symmetric(vertical: 14.h),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDC2626),
+                  borderRadius: BorderRadius.circular(14.r),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFDC2626).withValues(alpha: 0.25),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout_rounded, color: Colors.white, size: 20.sp),
+                    SizedBox(width: 10.w),
+                    Text(
+                      'Logout',
+                      style: GoogleFonts.inter(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
