@@ -49,9 +49,12 @@ dev_dependencies:
   analyzer: ^13.0.0
 
 flutter_launcher_icons:
-  android: true
+  android: "launcher_icon"
   ios: true
   image_path: "assets/images/logo.png"
+  adaptive_icon_background: "assets/images/logo_background.png"
+  adaptive_icon_foreground: "assets/images/logo_foreground.png"
+  monochrome_image_path: "assets/images/logo_foreground.png"
   min_sdk_android: 21
 
 flutter:
