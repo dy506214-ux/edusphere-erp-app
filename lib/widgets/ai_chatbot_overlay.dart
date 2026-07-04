@@ -100,11 +100,23 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
       _firstName = savedName.trim().split(RegExp(r'\s+'))[0];
 
       if (_chatMessages.isEmpty) {
-        _initChat();
-      } else if (_chatMessages.length == 1 &&
-          _chatMessages[0]['sender'] == 'bot') {
-        _chatMessages[0]['text'] =
-            'Hi $_firstName! I am Priya, your EduSphere Assistant. How can I help you today?';
+        try {
+          final initRes = await ApiService.instance.post('ai/init');
+          if (initRes != null && initRes['success'] == true && initRes['greeting'] != null) {
+            final liveGreeting = initRes['greeting'].toString();
+            setState(() {
+              _chatMessages.clear();
+              _chatMessages.add({
+                'sender': 'bot',
+                'text': liveGreeting,
+              });
+            });
+          } else {
+            _initChat();
+          }
+        } catch (_) {
+          _initChat();
+        }
       }
 
       if (savedEmail == null) return;
@@ -205,68 +217,57 @@ class _AIChatbotOverlayState extends State<AIChatbotOverlay> {
     });
   }
 
-  void _handleSendChatMessage() {
+  void _handleSendChatMessage() async {
     final text = _chatInputCtrl.text.trim();
     if (text.isEmpty) return;
 
     _chatInputCtrl.clear();
     setState(() {
       _chatMessages.add({'sender': 'user', 'text': text});
+      _loadingResponse = true;
     });
     _scrollToBottom();
 
-    setState(() => _loadingResponse = true);
+    try {
+      final historyJson = _chatMessages.sublist(0, _chatMessages.length - 1).map((msg) {
+        return {
+          'role': msg['sender'] == 'user' ? 'user' : 'model',
+          'content': msg['text'] ?? '',
+        };
+      }).toList();
 
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      String reply = '';
-      final query = text.toLowerCase();
-
-      if (query.contains('attendance') ||
-          query.contains('present') ||
-          query.contains('absent') ||
-          query.contains('classes')) {
-        reply =
-            'Hi $_firstName! Your overall attendance rate is ${_attendanceRate.toStringAsFixed(1)}% this month.';
-      } else if (query.contains('fee') ||
-          query.contains('payment') ||
-          query.contains('due') ||
-          query.contains('balance')) {
-        reply = _pendingFee > 0
-            ? 'Hi $_firstName! You have a pending fee balance of ₹$_pendingFee due. You can pay it from the Fees screen.'
-            : 'Hi $_firstName! Great news! You have no pending fees.';
-      } else if (query.contains('transport') ||
-          query.contains('bus') ||
-          query.contains('route') ||
-          query.contains('stop') ||
-          query.contains('timing')) {
-        reply = _routeName != 'None Assigned'
-            ? 'Hi $_firstName! Your transport details are:\n\n• Route: $_routeName\n• Stop: $_stopName\n• Scheduled Time: $_arrivalTime'
-            : 'Hi $_firstName! You are not currently allocated to any transport route.';
-      } else if (query.contains('book') ||
-          query.contains('library') ||
-          query.contains('overdue')) {
-        reply = _booksDue > 0
-            ? 'Hi $_firstName! You have $_booksDue book(s) currently overdue in the library. Please return them as soon as possible.'
-            : 'Hi $_firstName! You have no overdue library books at the moment.';
-      } else if (query.contains('assignment') ||
-          query.contains('homework') ||
-          query.contains('pending') ||
-          query.contains('task')) {
-        reply = _pendingAssignments > 0
-            ? 'Hi $_firstName! You have $_pendingAssignments pending assignment(s) to submit. Check the Assignments section to view them.'
-            : 'Hi $_firstName! You have completed all assignments! Keep it up!';
-      } else {
-        reply =
-            "Hi $_firstName! I can help you check attendance, pending fees, library books, transport route, and assignments. Try typing: 'Check my fees' or 'Show my transport details'.";
-      }
-
-      setState(() {
-        _loadingResponse = false;
-        _chatMessages.add({'sender': 'bot', 'text': reply});
+      final chatRes = await ApiService.instance.post('ai/chat', body: {
+        'message': text,
+        'history': historyJson,
       });
+
+      if (chatRes != null && chatRes['success'] == true && chatRes['response'] != null) {
+        String botReply = chatRes['response'].toString();
+        // Clean out action block if present to avoid showing raw JSON to user
+        if (botReply.startsWith('[ACTION:')) {
+          final closeBracketIdx = botReply.indexOf(']');
+          if (closeBracketIdx != -1) {
+            botReply = botReply.substring(closeBracketIdx + 1).trim();
+          }
+        }
+        setState(() {
+          _chatMessages.add({'sender': 'bot', 'text': botReply});
+        });
+      } else {
+        throw Exception('API returned unsuccessful response');
+      }
+    } catch (e) {
+      debugPrint('AI Chat Error: $e');
+      setState(() {
+        _chatMessages.add({
+          'sender': 'bot',
+          'text': "I apologize. I'm having trouble connecting to the school data right now. Please try again in a moment."
+        });
+      });
+    } finally {
+      setState(() => _loadingResponse = false);
       _scrollToBottom();
-    });
+    }
   }
 
   bool get _shouldShowChatbot {

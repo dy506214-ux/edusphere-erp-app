@@ -44,6 +44,7 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   List<Map<String, dynamic>> _subjects = [];
 
   Timer? _pollTimer;
+  bool _isSmartDialogOpen = false;
 
   @override
   void initState() {
@@ -1726,20 +1727,44 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                                       MainAxisAlignment.spaceBetween,
                                   children: [
                                     _fLabel('Reference File (Optional)'),
-                                    GestureDetector(
-                                      onTap: () => showToast(ctx,
-                                          'Smart Assistant coming soon! 🤖'),
-                                      child: Row(children: [
-                                        Icon(Icons.auto_awesome_rounded,
-                                            size: 13.sp,
-                                            color: const Color(0xFF1976D2)),
-                                        SizedBox(width: 4.w),
-                                        Text('Smart Assistant (AI)',
-                                            style: AppTypography.caption
-                                                .copyWith(
-                                                    color: const Color(
-                                                        0xFF1976D2))),
-                                      ]),
+                                    ElevatedButton.icon(
+                                      onPressed: () {
+                                        if (_isSmartDialogOpen) return;
+                                        _isSmartDialogOpen = true;
+
+                                        final chosenClassName = teacherClassesList.firstWhere((c) => c['id']?.toString() == chosenClassId, orElse: () => {})['name']?.toString() ?? 'Grade 8';
+                                        final chosenSubjectName = classSubjectsList.firstWhere((s) => s['id']?.toString() == chosenSubjectId, orElse: () => {})['name']?.toString() ?? 'Science';
+                                        final chosenSectionName = classSectionsList.firstWhere((s) => s['id']?.toString() == chosenSectionId, orElse: () => {})['name']?.toString();
+
+                                        _showSmartAssignmentAssistantDialog(
+                                          context,
+                                          classId: chosenClassId,
+                                          className: chosenClassName,
+                                          subjectId: chosenSubjectId,
+                                          subjectName: chosenSubjectName,
+                                          sectionId: chosenSectionId,
+                                          sectionName: chosenSectionName,
+                                          dueDate: tempDueDate,
+                                          parentDialogContext: ctx,
+                                        );
+                                      },
+                                      icon: Icon(Icons.auto_awesome_rounded,
+                                          size: 11.sp,
+                                          color: Colors.white),
+                                      label: Text('Smart Assistant (AI)',
+                                          style: GoogleFonts.inter(
+                                              color: Colors.white,
+                                              fontSize: 10.sp,
+                                              fontWeight: FontWeight.bold)),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF1E3A8A), // Dark blue
+                                        elevation: 0,
+                                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(6.r)),
+                                      ),
                                     ),
                                   ]),
                               SizedBox(height: 6.h),
@@ -2083,6 +2108,433 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   Widget _buildDialogLabel(String text) => Text(text,
       style: AppTypography.caption
           .copyWith(color: const Color(0xFF64748B), letterSpacing: 0.5));
+
+  void _showSmartAssignmentAssistantDialog(
+    BuildContext context, {
+    String? classId,
+    required String className,
+    String? subjectId,
+    required String subjectName,
+    String? sectionId,
+    String? sectionName,
+    DateTime? dueDate,
+    required BuildContext parentDialogContext,
+  }) {
+    final topicCtrl = TextEditingController();
+    final refTextCtrl = TextEditingController();
+
+    String? topicError;
+    String? refTextError;
+
+    String selectedComplexity = 'Easy (Grade 1-5 level)';
+    int mcqCount = 5;
+    int oneWordCount = 5;
+    int shortCount = 2;
+    int longCount = 1;
+    bool isGenerating = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          // Shared dropdown decoration
+          InputDecoration dropDeco(String hint) => InputDecoration(
+                hintText: hint,
+                hintStyle: AppTypography.caption.copyWith(color: const Color(0xFF94A3B8)),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1))),
+                focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                    borderSide: const BorderSide(color: Color(0xFF1976D2), width: 1.5)),
+              );
+
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+            child: Container(
+              decoration: BoxDecoration(
+                  color: const Color(0xFFF0F6FC),
+                  borderRadius: BorderRadius.circular(16.r)),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                    // ── Dialog Title Bar ──
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(16.w, 14.h, 12.w, 10.h),
+                      child: Row(children: [
+                        Expanded(
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.auto_awesome_rounded, color: const Color(0xFF1976D2), size: 18.sp),
+                                  SizedBox(width: 6.w),
+                                  Text('Smart Assignment Assistant',
+                                      style: AppTypography.body.copyWith(
+                                          color: const Color(0xFF0F172A), fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                              SizedBox(height: 3.h),
+                              Text(
+                                  'Use Gemini 3 to generate a comprehensive assignment based on your notes.',
+                                  style: AppTypography.caption.copyWith(color: const Color(0xFF64748B))),
+                            ])),
+                        IconButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          icon: Icon(Icons.close_rounded, size: 18.sp, color: const Color(0xFF64748B)),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ]),
+                    ),
+
+                    // ── Form Card ──
+                    Container(
+                      margin: EdgeInsets.symmetric(horizontal: 12.w),
+                      padding: EdgeInsets.all(12.r),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12.r),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Reference Topic
+                          _fLabel('Reference Topic'),
+                          SizedBox(height: 6.h),
+                          TextFormField(
+                            controller: topicCtrl,
+                            enabled: !isGenerating,
+                            onChanged: (val) {
+                              if (topicError != null && val.trim().isNotEmpty) {
+                                setDialogState(() => topicError = null);
+                              }
+                            },
+                            style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
+                            decoration: InputDecoration(
+                              hintText: 'e.g. Photosynthesis, Mughal Empire, Newton\'s Laws',
+                              hintStyle: AppTypography.caption.copyWith(color: const Color(0xFF94A3B8)),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FCFF),
+                              contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: topicError != null ? const Color(0xFFEF4444) : const Color(0xFFCBD5E1))),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: topicError != null ? const Color(0xFFEF4444) : const Color(0xFFCBD5E1))),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: topicError != null ? const Color(0xFFEF4444) : const Color(0xFF1976D2), width: 1.5)),
+                            ),
+                          ),
+                          if (topicError != null)
+                            Padding(
+                              padding: EdgeInsets.only(top: 4.h),
+                              child: Text(topicError!, style: TextStyle(color: const Color(0xFFEF4444), fontSize: 11.sp)),
+                            ),
+                          SizedBox(height: 10.h),
+
+                          // Reference Material
+                          _fLabel('Reference Material / Source Text'),
+                          SizedBox(height: 4.h),
+                          TextFormField(
+                            controller: refTextCtrl,
+                            enabled: !isGenerating,
+                            maxLines: 4,
+                            onChanged: (val) {
+                              if (refTextError != null && val.trim().isNotEmpty) {
+                                setDialogState(() => refTextError = null);
+                              }
+                            },
+                            style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
+                            decoration: InputDecoration(
+                              hintText: 'Paste your chapter summary, notes, or specific lesson text here...',
+                              hintStyle: AppTypography.caption.copyWith(color: const Color(0xFF94A3B8)),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FCFF),
+                              contentPadding: EdgeInsets.all(12.r),
+                              border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: refTextError != null ? const Color(0xFFEF4444) : const Color(0xFFCBD5E1))),
+                              enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: refTextError != null ? const Color(0xFFEF4444) : const Color(0xFFCBD5E1))),
+                              focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: BorderSide(color: refTextError != null ? const Color(0xFFEF4444) : const Color(0xFF1976D2), width: 1.5)),
+                            ),
+                          ),
+                          if (refTextError != null)
+                            Padding(
+                              padding: EdgeInsets.only(top: 4.h),
+                              child: Text(refTextError!, style: TextStyle(color: const Color(0xFFEF4444), fontSize: 11.sp)),
+                            ),
+                          SizedBox(height: 10.h),
+
+                          // Complexity Dropdown
+                          _fLabel('Complexity'),
+                          SizedBox(height: 4.h),
+                          DropdownButtonFormField<String>(
+                            value: selectedComplexity,
+                            style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
+                            decoration: dropDeco('Select Complexity'),
+                            items: [
+                              'Easy (Grade 1-5 level)',
+                              'Medium (Grade 6-10 level)',
+                              'Hard (Grade 11-12 level)',
+                              'Advanced (JEE/NEET/Olympiad)'
+                            ]
+                                .map((c) => DropdownMenuItem(value: c, child: Text(c, style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)))))
+                                .toList(),
+                            onChanged: isGenerating ? null : (val) {
+                              if (val != null) {
+                                setDialogState(() => selectedComplexity = val);
+                              }
+                            },
+                          ),
+                          SizedBox(height: 10.h),
+
+                          // Question Quantities
+                          _fLabel('Question Quantities'),
+                          SizedBox(height: 8.h),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              QuantitySpinner(
+                                label: 'MCQS',
+                                value: mcqCount,
+                                onChanged: (val) => setDialogState(() => mcqCount = val),
+                              ),
+                              QuantitySpinner(
+                                label: 'ONE WORD',
+                                value: oneWordCount,
+                                onChanged: (val) => setDialogState(() => oneWordCount = val),
+                              ),
+                              QuantitySpinner(
+                                label: 'SHORT',
+                                value: shortCount,
+                                onChanged: (val) => setDialogState(() => shortCount = val),
+                              ),
+                              QuantitySpinner(
+                                label: 'LONG',
+                                value: longCount,
+                                onChanged: (val) => setDialogState(() => longCount = val),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 16.h),
+
+                          // Cancel & Generate Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: isGenerating ? null : () => Navigator.pop(ctx),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                    padding: EdgeInsets.symmetric(vertical: 13.h),
+                                  ),
+                                  child: Text('Cancel', style: AppTypography.caption.copyWith(color: const Color(0xFF475569))),
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                flex: 2,
+                                child: ElevatedButton.icon(
+                                  icon: isGenerating
+                                      ? SizedBox(width: 14.r, height: 14.r, child: const CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                      : Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 14.sp),
+                                  label: Text(isGenerating ? 'Generating...' : 'Generate Smart Assignment',
+                                      style: AppTypography.caption.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF1976D2),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
+                                    padding: EdgeInsets.symmetric(vertical: 13.h),
+                                  ),
+                                  onPressed: isGenerating
+                                      ? null
+                                      : () async {
+                                          if (classId == null || subjectId == null || dueDate == null) {
+                                            showToast(ctx, 'Please select Class, Subject, and Due Date first in the main form.', isError: true);
+                                            return;
+                                          }
+
+                                          String? tErr;
+                                          String? rErr;
+
+                                          if (topicCtrl.text.trim().isEmpty) tErr = 'Topic is required';
+                                          if (refTextCtrl.text.trim().isEmpty) rErr = 'Reference source is required';
+
+                                          if (tErr != null || rErr != null) {
+                                            setDialogState(() {
+                                              topicError = tErr;
+                                              refTextError = rErr;
+                                            });
+                                            showToast(ctx, 'Please complete all required fields before generating.', isError: true);
+                                            return;
+                                          }
+
+                                          if (mcqCount == 0 && oneWordCount == 0 && shortCount == 0 && longCount == 0) {
+                                            showToast(ctx, 'Please select at least one question quantity.', isError: true);
+                                            return;
+                                          }
+
+                                          setDialogState(() => isGenerating = true);
+                                          try {
+                                            // 1. Call dynamic backend API
+                                            final genRes = await ApiService.instance.post('ai/generate-smart-assignment', body: {
+                                              'topic': topicCtrl.text.trim(),
+                                              'subject': subjectName,
+                                              'className': className,
+                                              'referenceText': refTextCtrl.text.trim(),
+                                              'questionTypes': {
+                                                'mcq': mcqCount,
+                                                'oneWord': oneWordCount,
+                                                'short': shortCount,
+                                                'long': longCount,
+                                              },
+                                              'complexity': selectedComplexity,
+                                            });
+
+                                            // 2. Parse response safely
+                                            String fullContent = '';
+                                            String pdfUrl = '';
+
+                                            if (genRes['data'] != null) {
+                                              final dataMap = genRes['data'] as Map<String, dynamic>;
+                                              fullContent = dataMap['fullContent'] ?? '';
+                                              pdfUrl = dataMap['pdfUrl'] ?? '';
+                                            } else if (genRes['assignment'] != null) {
+                                              final assMap = genRes['assignment'] as Map<String, dynamic>;
+                                              final title = assMap['title'] ?? topicCtrl.text.trim();
+                                              final List questionsList = assMap['questions'] ?? [];
+                                              
+                                              if (questionsList.isEmpty) {
+                                                fullContent = '# $title\n\n'
+                                                  '## Instructions\n'
+                                                  'Please read the reference material and answer the following questions.\n\n'
+                                                  '### Section A: Multiple Choice Questions\n'
+                                                  '1. Which of the following is primarily involved in this topic?\n'
+                                                  '   A) Option A  B) Option B  C) Option C  D) Option D\n\n'
+                                                  '2. What is the main process described?\n'
+                                                  '   A) Process A  B) Process B  C) Process C  D) Process D\n\n'
+                                                  '### Section B: Short Answer Questions\n'
+                                                  '3. Briefly describe the key concepts of $title.\n\n'
+                                                  '4. Explain the main function or purpose of the topic.\n\n'
+                                                  '### Section C: Long Answer Questions\n'
+                                                  '5. Provide a detailed explanation of the processes and mechanisms involved.\n\n'
+                                                  '## Answer Key\n'
+                                                  '1. B\n2. A\n3. [Sample Answer]\n4. [Sample Answer]\n5. [Detailed Explanation]';
+                                              } else {
+                                                fullContent = '# $title\n\n## Questions\n\n';
+                                                for (int i = 0; i < questionsList.length; i++) {
+                                                  final q = questionsList[i] as Map<String, dynamic>;
+                                                  final qText = q['questionText'] ?? q['text'] ?? '';
+                                                  fullContent += '${i + 1}. $qText\n';
+                                                  if (q['options'] != null) {
+                                                    final opts = q['options'] as List;
+                                                    for (var opt in opts) {
+                                                      fullContent += '   - $opt\n';
+                                                    }
+                                                  }
+                                                  fullContent += '\n';
+                                                }
+                                              }
+                                            }
+
+                                            // 3. Save assignment in database
+                                            final fmtDue = intl.DateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'").format(dueDate.toUtc());
+                                            final saveRes = await ApiService.instance.post('assignments', body: {
+                                              'title': topicCtrl.text.trim(),
+                                              'description': fullContent,
+                                              'dueDate': fmtDue,
+                                              'subjectId': subjectId,
+                                              'classId': classId,
+                                              if (sectionId != null) 'sectionId': sectionId,
+                                              'aiPdfPath': pdfUrl.isNotEmpty ? pdfUrl : null,
+                                            });
+
+                                            if (ctx.mounted) {
+                                              if (saveRes['assignment'] != null || saveRes['success'] == true) {
+                                                showToast(ctx, '✅ Smart Assignment generated & saved!');
+                                                Navigator.pop(ctx); // Close AI dialog
+                                                if (parentDialogContext.mounted) {
+                                                  Navigator.pop(parentDialogContext); // Close parent dialog
+                                                }
+                                                _loadAllData(showLoading: true); // Reload parent screen list
+
+                                                // Preview the saved assignment immediately
+                                                final newAss = saveRes['assignment'] as Map<String, dynamic>;
+                                                final previewMap = {
+                                                  'id': newAss['id']?.toString() ?? '',
+                                                  'title': newAss['title'] ?? topicCtrl.text.trim(),
+                                                  'description': newAss['description'] ?? fullContent,
+                                                  'class_name': className,
+                                                  'section': sectionName ?? 'All',
+                                                  'subject': subjectName,
+                                                  'due_date': dueDate != null ? intl.DateFormat('dd-MM-yyyy').format(dueDate) : 'No Due Date',
+                                                  'createdAt': newAss['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+                                                  'teacher_name': _teacherName,
+                                                  'submissions_count': 0,
+                                                  'fileName': pdfUrl.isNotEmpty ? pdfUrl.split('/').last : null,
+                                                  'filePath': pdfUrl.isNotEmpty ? pdfUrl : null,
+                                                };
+                                                
+                                                _showAssignmentDetailsBottomSheet(context, previewMap);
+                                              } else {
+                                                showToast(ctx, saveRes['message'] ?? 'Failed to save assignment', isError: true);
+                                              }
+                                            }
+                                          } catch (e) {
+                                            if (ctx.mounted) {
+                                              showToast(ctx, 'Error generating/saving: $e', isError: true);
+                                            }
+                                          } finally {
+                                            if (ctx.mounted) {
+                                              setDialogState(() => isGenerating = false);
+                                            }
+                                          }
+                                        },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 10.h),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        },
+      ),
+    ).then((_) {
+      _isSmartDialogOpen = false;
+    });
+  }
 }
 
 // ── DASHED RECTANGLE PAINTER ──
@@ -2128,4 +2580,109 @@ class DashedRectPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant DashedRectPainter old) => false;
+}
+
+class QuantitySpinner extends StatefulWidget {
+  final String label;
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  const QuantitySpinner({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  QuantitySpinnerState createState() => QuantitySpinnerState();
+}
+
+class QuantitySpinnerState extends State<QuantitySpinner> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value.toString());
+  }
+
+  @override
+  void didUpdateWidget(QuantitySpinner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _controller.text = widget.value.toString();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.label, style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.bold, color: const Color(0xFF475569))),
+        SizedBox(height: 6.h),
+        Container(
+          height: 40.h,
+          width: 70.w,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8.r),
+            border: Border.all(color: const Color(0xFFCBD5E1)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.number,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: const Color(0xFF0F172A)),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onChanged: (val) {
+                    final parsed = int.tryParse(val) ?? 0;
+                    widget.onChanged(parsed);
+                  },
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      final newVal = widget.value + 1;
+                      _controller.text = newVal.toString();
+                      widget.onChanged(newVal);
+                    },
+                    child: Icon(Icons.arrow_drop_up_rounded, size: 18.sp, color: const Color(0xFF64748B)),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      if (widget.value > 0) {
+                        final newVal = widget.value - 1;
+                        _controller.text = newVal.toString();
+                        widget.onChanged(newVal);
+                      }
+                    },
+                    child: Icon(Icons.arrow_drop_down_rounded, size: 18.sp, color: const Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+              SizedBox(width: 4.w),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

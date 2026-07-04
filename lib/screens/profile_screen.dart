@@ -386,10 +386,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 dateStr = '${parsed.month}/${parsed.day}/${parsed.year}';
               } catch (_) {}
             }
+            final int? size = dMap['fileSize'] as int?;
+            final String sizeStr = size != null ? '${(size / 1024).toStringAsFixed(1)} KB' : '—';
+            final String mime = dMap['mimeType']?.toString().split('/').last.toUpperCase() ?? 'FILE';
+            
+            String rawUrl = dMap['fileUrl']?.toString() ?? '';
+            if (rawUrl.isNotEmpty && !rawUrl.startsWith('http') && !rawUrl.startsWith('data:')) {
+              rawUrl = '${ApiConfig.serverBaseUrl}${rawUrl.startsWith('/') ? '' : '/'}$rawUrl';
+            }
             return {
               'name': docName,
               'date': dateStr,
               'id': dMap['id']?.toString() ?? '',
+              'url': rawUrl,
+              'size': sizeStr,
+              'type': mime,
+              'docType': dMap['documentType']?.toString() ?? 'Document',
             };
           }).toList();
         });
@@ -765,6 +777,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'url': rawUrl,
                 'size': sizeStr,
                 'type': mime,
+                'docType': m['documentType']?.toString() ?? 'Document',
               };
             }).toList();
           }
@@ -778,27 +791,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
 
       // Merge local documents that might have failed to sync to the server
-      try {
-        final prefs = CacheService.instance.prefs;
-        final localDocsJson = prefs.getString('student_uploaded_documents');
-        if (localDocsJson != null) {
-          final List<dynamic> localDocsList = json.decode(localDocsJson);
-          final currentIds = _uploadedDocuments.map((e) => e['id']).toSet();
-          
-          bool modified = false;
-          for (var ld in localDocsList) {
-            final Map<String, String> localDocMap = Map<String, String>.from(ld);
-            if (localDocMap['id'] != null && !currentIds.contains(localDocMap['id'])) {
-              _uploadedDocuments.add(localDocMap);
-              modified = true;
+      if (widget.studentId == null) {
+        try {
+          final prefs = CacheService.instance.prefs;
+          final localDocsJson = prefs.getString('student_uploaded_documents');
+          if (localDocsJson != null) {
+            final List<dynamic> localDocsList = json.decode(localDocsJson);
+            final currentIds = _uploadedDocuments.map((e) => e['id']).toSet();
+            
+            bool modified = false;
+            for (var ld in localDocsList) {
+              final Map<String, String> localDocMap = Map<String, String>.from(ld);
+              if (localDocMap['id'] != null && !currentIds.contains(localDocMap['id'])) {
+                _uploadedDocuments.add(localDocMap);
+                modified = true;
+              }
+            }
+            if (modified && mounted) {
+              setState(() {});
             }
           }
-          if (modified && mounted) {
-            setState(() {});
-          }
+        } catch (e) {
+          debugPrint('Error merging local docs: $e');
         }
-      } catch (e) {
-        debugPrint('Error merging local docs: $e');
       }
 
     } catch (e) {
@@ -3908,27 +3923,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     if (_selectedTab == 'Transport') {
-      final String routeName =
-          _transportAllocation != null && _transportAllocation!['route'] != null
-              ? _transportAllocation!['route']['name'].toString()
-              : 'Route 102 - North Delhi Bypass';
-      final String stopName =
-          _transportAllocation != null && _transportAllocation!['stop'] != null
-              ? _transportAllocation!['stop']['name'].toString()
-              : 'Rohini Sector 15 Crossing';
-      final String startLoc =
-          _transportAllocation != null && _transportAllocation!['route'] != null
-              ? _transportAllocation!['route']['startLocation']?.toString() ??
-                  'School Campus'
-              : 'School Campus';
-      final String endLoc =
-          _transportAllocation != null && _transportAllocation!['route'] != null
-              ? _transportAllocation!['route']['endLocation']?.toString() ??
-                  'Rohini Bus Depot'
-              : 'Rohini Bus Depot';
-      final String transStatus = _transportAllocation != null
-          ? _transportAllocation!['status'].toString()
-          : 'ACTIVE';
+      if (_transportAllocation == null || _transportAllocation!['route'] == null) {
+        return CustomPaint(
+          painter: DashedRectPainter(
+            color: const Color(0xFFCBD5E1),
+            borderRadius: 16.r,
+            dashLength: 6.w,
+            gap: 4.w,
+            strokeWidth: 1.5,
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 48.h, horizontal: 24.w),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16.r),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFF1F5F9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.directions_bus_outlined,
+                    color: const Color(0xFF94A3B8),
+                    size: 36.sp,
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Text(
+                  'No Transport Allocated',
+                  style: GoogleFonts.outfit(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0F2547),
+                  ),
+                ),
+                SizedBox(height: 8.h),
+                Text(
+                  'This student is not currently enrolled in the school transport service.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final String routeName = _transportAllocation!['route']?['name']?.toString() ?? '—';
+      final String stopName = _transportAllocation!['stop']?['name']?.toString() ?? '—';
+      final String startLoc = _transportAllocation!['route']?['startLocation']?.toString() ?? '—';
+      final String endLoc = _transportAllocation!['route']?['endLocation']?.toString() ?? '—';
+      final String vehicleNumber = _transportAllocation!['route']?['vehicleNumber']?.toString() ?? '—';
+      final String driverName = _transportAllocation!['route']?['driverName']?.toString() ?? '—';
+      final String driverPhone = _transportAllocation!['route']?['driverPhone']?.toString() ?? '—';
+      final String pickupTime = _transportAllocation!['stop']?['pickupTime']?.toString() ?? '—';
+      final String dropTime = _transportAllocation!['stop']?['dropTime']?.toString() ?? '—';
+      final String fare = _transportAllocation!['stop']?['fare']?.toString() ?? '—';
+      final String allocationId = _transportAllocation!['id']?.toString() ?? '—';
+      final String transStatus = _transportAllocation!['status']?.toString() ?? 'ACTIVE';
+
+      String driverInfo = '—';
+      if (driverName != '—' || driverPhone != '—') {
+        if (driverName != '—' && driverPhone != '—') {
+          driverInfo = '$driverName ($driverPhone)';
+        } else if (driverName != '—') {
+          driverInfo = driverName;
+        } else {
+          driverInfo = driverPhone;
+        }
+      }
 
       return Container(
         width: double.infinity,
@@ -3951,12 +4022,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding:
                       EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
                   decoration: BoxDecoration(
-                      color: const Color(0xFFECFDF5),
+                      color: transStatus.toUpperCase() == 'ACTIVE'
+                          ? const Color(0xFFECFDF5)
+                          : const Color(0xFFFEF2F2),
                       borderRadius: BorderRadius.circular(6.r)),
                   child: Text(
                     transStatus.toUpperCase(),
                     style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF10B981)),
+                        .copyWith(color: transStatus.toUpperCase() == 'ACTIVE'
+                            ? const Color(0xFF10B981)
+                            : const Color(0xFFEF4444)),
                   ),
                 ),
               ],
@@ -3967,6 +4042,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SizedBox(height: 16.h),
             _buildGridRow(
                 'Route Start Location', startLoc, 'Route End Location', endLoc),
+            SizedBox(height: 16.h),
+            _buildGridRow(
+                'Vehicle Number', vehicleNumber, 'Driver Info', driverInfo),
+            SizedBox(height: 16.h),
+            _buildGridRow(
+                'Pickup Time', pickupTime, 'Drop Time', dropTime),
+            SizedBox(height: 16.h),
+            _buildGridRow(
+                'Monthly Fare', fare != '—' ? '₹$fare' : '—', 'Allocation ID', allocationId),
             SizedBox(height: 20.h),
             Container(
               padding: EdgeInsets.all(14.r),
@@ -4373,6 +4457,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildDocumentsVault() {
+    final bool isTeacherView = widget.studentId != null;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(20.r),
@@ -4390,7 +4476,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   size: 18.sp, color: const Color(0xFF1A6FDB)),
               SizedBox(width: 8.w),
               Text(
-                'Documents Asset Vault',
+                isTeacherView ? 'Uploaded Documents' : 'Documents Asset Vault',
                 style: GoogleFonts.outfit(
                   fontSize: 15.sp,
                   fontWeight: FontWeight.w900,
@@ -4399,6 +4485,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ],
           ),
+          if (isTeacherView) ...[
+            SizedBox(height: 4.h),
+            Text(
+              'Official documents and certificates for this student.',
+              style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+            ),
+          ],
           SizedBox(height: 16.h),
           _uploadedDocuments.isEmpty
               ? Center(
@@ -4414,8 +4507,121 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           style: AppTypography.caption
                               .copyWith(color: const Color(0xFF868E96)),
                         ),
-                        SizedBox(height: 16.h),
-                        ElevatedButton.icon(
+                        if (!isTeacherView) ...[
+                          SizedBox(height: 16.h),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: const Color(0xFF1A6FDB),
+                              side: const BorderSide(color: Color(0xFF1A6FDB)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12.r)),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 16.w, vertical: 8.h),
+                              elevation: 0,
+                            ),
+                            onPressed:
+                                _isUploadingDoc ? null : _simulateDocumentUpload,
+                            icon: _isUploadingDoc
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child:
+                                        CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.upload_file, size: 14),
+                            label: Text(
+                              _isUploadingDoc
+                                  ? 'Uploading...'
+                                  : 'Upload Document',
+                              style: AppTypography.caption,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                )
+              : Column(
+                  children: [
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _uploadedDocuments.length,
+                      itemBuilder: (ctx, idx) {
+                        final doc = _uploadedDocuments[idx];
+                        final String docTitle = isTeacherView
+                            ? (doc['docType'] ?? 'Document')
+                            : (doc['name'] ?? '');
+                        final String docSub = isTeacherView
+                            ? (doc['name'] ?? '')
+                            : 'Uploaded on: ${doc['date']}';
+                        
+                        return Container(
+                          margin: EdgeInsets.only(bottom: 8.h),
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 12.w, vertical: 10.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12.r),
+                            border: Border.all(color: const Color(0xFFE2EAF4)),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.insert_drive_file_outlined,
+                                  size: 18.sp, color: const Color(0xFF868E96)),
+                              SizedBox(width: 10.w),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      docTitle,
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF0F2547),
+                                          fontWeight: isTeacherView
+                                              ? FontWeight.bold
+                                              : FontWeight.normal),
+                                    ),
+                                    SizedBox(height: 2.h),
+                                    Text(
+                                      docSub,
+                                      style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF868E96)),
+                                    ),
+                                    if (isTeacherView) ...[
+                                      SizedBox(height: 2.h),
+                                      Text(
+                                        'Uploaded on: ${doc['date']}',
+                                        style: AppTypography.caption.copyWith(
+                                            color: const Color(0xFF94A3B8),
+                                            fontSize: 9.sp),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              if (isTeacherView)
+                                IconButton(
+                                  icon: const Icon(Icons.download_rounded,
+                                      color: Color(0xFF1A6FDB), size: 18),
+                                  onPressed: () => _downloadDocumentFile(
+                                      doc['url'] ?? '', doc['name'] ?? ''),
+                                )
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded,
+                                      color: Color(0xFFE03131), size: 18),
+                                  onPressed: () => _removeDocument(idx),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    if (!isTeacherView) ...[
+                      SizedBox(height: 12.h),
+                      Center(
+                        child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: const Color(0xFF1A6FDB),
@@ -4436,94 +4642,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.upload_file, size: 14),
                           label: Text(
-                            _isUploadingDoc
-                                ? 'Uploading...'
-                                : 'Upload Document',
+                            _isUploadingDoc ? 'Uploading...' : 'Upload Document',
                             style: AppTypography.caption,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              : Column(
-                  children: [
-                    ListView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _uploadedDocuments.length,
-                      itemBuilder: (ctx, idx) {
-                        final doc = _uploadedDocuments[idx];
-                        return Container(
-                          margin: EdgeInsets.only(bottom: 8.h),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 12.w, vertical: 10.h),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(12.r),
-                            border: Border.all(color: const Color(0xFFE2EAF4)),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.insert_drive_file_outlined,
-                                  size: 18.sp, color: const Color(0xFF868E96)),
-                              SizedBox(width: 10.w),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      doc['name'] ?? '',
-                                      style: AppTypography.caption.copyWith(
-                                          color: const Color(0xFF0F2547)),
-                                    ),
-                                    SizedBox(height: 2.h),
-                                    Text(
-                                      'Uploaded on: ${doc['date']}',
-                                      style: AppTypography.caption.copyWith(
-                                          color: const Color(0xFF868E96)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded,
-                                    color: Color(0xFFE03131), size: 18),
-                                onPressed: () => _removeDocument(idx),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    SizedBox(height: 12.h),
-                    Center(
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: const Color(0xFF1A6FDB),
-                          side: const BorderSide(color: Color(0xFF1A6FDB)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12.r)),
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 16.w, vertical: 8.h),
-                          elevation: 0,
-                        ),
-                        onPressed:
-                            _isUploadingDoc ? null : _simulateDocumentUpload,
-                        icon: _isUploadingDoc
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.upload_file, size: 14),
-                        label: Text(
-                          _isUploadingDoc ? 'Uploading...' : 'Upload Document',
-                          style: AppTypography.caption,
-                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
         ],
@@ -6514,4 +6638,62 @@ class QrPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class DashedRectPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashLength;
+  final double borderRadius;
+
+  DashedRectPainter({
+    this.color = const Color(0xFFCBD5E1),
+    this.strokeWidth = 1.0,
+    this.gap = 4.0,
+    this.dashLength = 6.0,
+    this.borderRadius = 16.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path();
+    path.addRRect(RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Radius.circular(borderRadius),
+    ));
+
+    final dashedPath = Path();
+    for (final metric in path.computeMetrics()) {
+      double distance = 0.0;
+      bool draw = true;
+      while (distance < metric.length) {
+        final length = draw ? dashLength : gap;
+        if (draw) {
+          dashedPath.addPath(
+            metric.extractPath(distance, min(distance + length, metric.length)),
+            Offset.zero,
+          );
+        }
+        distance += length;
+        draw = !draw;
+      }
+    }
+
+    canvas.drawPath(dashedPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant DashedRectPainter oldDelegate) {
+    return oldDelegate.color != color ||
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.gap != gap ||
+        oldDelegate.dashLength != dashLength ||
+        oldDelegate.borderRadius != borderRadius;
+  }
 }

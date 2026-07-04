@@ -9,10 +9,17 @@ class StudentService {
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getStudents({String? classId, String? sectionId}) async {
+  Future<Map<String, dynamic>> getStudents({
+    String? classId,
+    String? sectionId,
+    String? status,
+    String? search,
+  }) async {
     final queryParams = {
-      if (classId != null) 'classId': classId,
-      if (sectionId != null) 'sectionId': sectionId,
+      if (classId != null && classId.isNotEmpty) 'classId': classId,
+      if (sectionId != null && sectionId.isNotEmpty) 'sectionId': sectionId,
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (search != null && search.isNotEmpty) 'search': search,
       'limit': '500',
     };
     final response = await ApiService.instance.get('students', queryParams: queryParams);

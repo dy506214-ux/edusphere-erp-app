@@ -143,6 +143,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   final List<Map<String, dynamic>> _createdSlots = [];
   Timer? _debounceTimer;
 
+  List<Map<String, dynamic>> _analyticsApiSections = [];
+  bool _isLoadingAnalyticsSections = false;
+
   @override
   void initState() {
     super.initState();
@@ -267,6 +270,32 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   String get _dateStr => DateFormat('dd-MM-yyyy').format(_selectedDate);
 
+  Future<void> _loadAnalyticsSections(String classId) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingAnalyticsSections = true;
+      _analyticsApiSections.clear();
+      _analyticsSection = 'All Sections';
+    });
+    try {
+      final res = await AcademicService.instance.getSections(classId: classId);
+      final List<dynamic> sectionsRes = res['sections'] ?? res['data'] ?? [];
+      if (mounted) {
+        setState(() {
+          _analyticsApiSections = List<Map<String, dynamic>>.from(sectionsRes);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading analytics sections: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingAnalyticsSections = false;
+        });
+      }
+    }
+  }
+
   Future<void> _loadAnalytics() async {
     if (_isAnalyticsLoading) return;
 
@@ -282,8 +311,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
     setState(() {
       _isAnalyticsLoading = true;
-      _analyticsLoaded = false;
-      _analyticsSummary = null;
     });
 
     try {
@@ -297,7 +324,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
       if (_analyticsSection != 'All Sections' && classId != null) {
         final secName = _analyticsSection.replaceAll('Section ', '').trim();
-        final sec = _allSections.firstWhere(
+        final sec = _analyticsApiSections.firstWhere(
           (s) => s['classId']?.toString() == classId && s['name']?.toString() == secName,
           orElse: () => {},
         );
@@ -379,11 +406,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       dev.log('Error loading analytics: $e');
       if (mounted) {
         setState(() {
-          _analyticsData = [];
-          _analyticsStudentData = [];
-          _analyticsSummary = null;
           _isAnalyticsLoading = false;
-          _analyticsLoaded = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -494,7 +517,12 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             icon: Icons.bar_chart_rounded,
             label: 'Analytics',
             isSelected: _activeTab == 1,
-            onTap: () => setState(() => _activeTab = 1),
+            onTap: () {
+              setState(() {
+                _activeTab = 1;
+              });
+              _loadAnalytics();
+            },
           ),
         ],
       ),
@@ -1229,32 +1257,19 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   List<String> _getAnalyticsSectionsList() {
     final List<String> list = ['All Sections'];
     if (_analyticsClass == 'All Classes') {
-      final Set<String> uniqueNames = {};
-      for (var s in _allSections) {
-        final sName = s['name']?.toString() ?? '';
-        if (sName.isNotEmpty) uniqueNames.add(sName);
-      }
-      final sorted = uniqueNames.toList()..sort();
-      list.addAll(sorted);
-    } else {
-      final cls = _apiClasses.firstWhere(
-        (c) => _mapClassName(c['name']?.toString() ?? '') == _analyticsClass,
-        orElse: () => {},
-      );
-      if (cls.isNotEmpty) {
-        final classId = cls['id']?.toString();
-        final secList = _allSections
-            .where((s) => s['classId']?.toString() == classId)
-            .toList();
-        final Set<String> uniqueNames = {};
-        for (var s in secList) {
-          final sName = s['name']?.toString() ?? '';
-          if (sName.isNotEmpty) uniqueNames.add(sName);
-        }
-        final sorted = uniqueNames.toList()..sort();
-        list.addAll(sorted);
+      return list;
+    }
+    for (var s in _analyticsApiSections) {
+      final sName = s['name']?.toString() ?? '';
+      if (sName.isNotEmpty && !list.contains(sName)) {
+        list.add(sName);
       }
     }
+    list.sort((a, b) {
+      if (a == 'All Sections') return -1;
+      if (b == 'All Sections') return 1;
+      return a.compareTo(b);
+    });
     return list;
   }
 
@@ -1343,17 +1358,32 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         _buildAnalyticsDropdown(
                           value: _analyticsClass,
                           items: allClasses,
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _analyticsClass = v;
-                                final validSecs = _getAnalyticsSectionsList();
-                                if (!validSecs.contains(_analyticsSection)) {
-                                  _analyticsSection = 'All Sections';
-                                }
-                              });
-                            }
-                          },
+                          onChanged: _isAnalyticsLoading || _isLoadingAnalyticsSections
+                              ? null
+                              : (v) {
+                                  if (v != null) {
+                                    setState(() {
+                                      _analyticsClass = v;
+                                      _analyticsSection = 'All Sections';
+                                    });
+                                    if (v == 'All Classes') {
+                                      setState(() {
+                                        _analyticsApiSections.clear();
+                                      });
+                                      _loadAnalytics();
+                                    } else {
+                                      final cls = _apiClasses.firstWhere(
+                                        (c) => _mapClassName(c['name']?.toString() ?? '') == v,
+                                        orElse: () => {},
+                                      );
+                                      if (cls.isNotEmpty) {
+                                        _loadAnalyticsSections(cls['id']?.toString() ?? '').then((_) {
+                                          _loadAnalytics();
+                                        });
+                                      }
+                                    }
+                                  }
+                                },
                         ),
                       ],
                     ),
@@ -1370,13 +1400,16 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                         _buildAnalyticsDropdown(
                           value: _analyticsSection,
                           items: allSections,
-                          onChanged: (v) {
-                            if (v != null) {
-                              setState(() {
-                                _analyticsSection = v;
-                              });
-                            }
-                          },
+                          onChanged: (_isAnalyticsLoading || _isLoadingAnalyticsSections || _analyticsClass == 'All Classes')
+                              ? null
+                              : (v) {
+                                  if (v != null) {
+                                    setState(() {
+                                      _analyticsSection = v;
+                                    });
+                                    _loadAnalytics();
+                                  }
+                                },
                         ),
                       ],
                     ),
@@ -1388,6 +1421,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               // Row 2: From Date + To Date + Load button (Responsive layout)
               LayoutBuilder(
                 builder: (context, constraints) {
+                  final bool isEnabled = !_isAnalyticsLoading && !_isLoadingAnalyticsSections;
                   if (constraints.maxWidth > 550) {
                     return Row(
                       children: [
@@ -1401,27 +1435,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                               SizedBox(height: 6.h),
                               _buildAnalyticsDateField(
                                 date: _analyticsFromDate,
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _analyticsFromDate,
-                                    firstDate: DateTime(2024),
-                                    lastDate: DateTime(2027),
-                                    builder: (ctx, child) => Theme(
-                                      data: Theme.of(ctx).copyWith(
-                                          colorScheme: const ColorScheme.light(
-                                        primary: AppColors.teacherPrimary,
-                                        onPrimary: Colors.white,
-                                        surface: Colors.white,
-                                        onSurface: Color(0xFF0F172A),
-                                      )),
-                                      child: child!,
-                                    ),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _analyticsFromDate = picked);
-                                  }
-                                },
+                                isEnabled: isEnabled,
+                                onTap: !isEnabled
+                                    ? null
+                                    : () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: _analyticsFromDate,
+                                          firstDate: DateTime(2024),
+                                          lastDate: DateTime(2027),
+                                          builder: (ctx, child) => Theme(
+                                            data: Theme.of(ctx).copyWith(
+                                                colorScheme: const ColorScheme.light(
+                                              primary: AppColors.teacherPrimary,
+                                              onPrimary: Colors.white,
+                                              surface: Colors.white,
+                                              onSurface: Color(0xFF0F172A),
+                                            )),
+                                            child: child!,
+                                          ),
+                                        );
+                                        if (picked != null) {
+                                          setState(() => _analyticsFromDate = picked);
+                                          _loadAnalytics();
+                                        }
+                                      },
                               ),
                             ],
                           ),
@@ -1437,27 +1475,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                               SizedBox(height: 6.h),
                               _buildAnalyticsDateField(
                                 date: _analyticsToDate,
-                                onTap: () async {
-                                  final picked = await showDatePicker(
-                                    context: context,
-                                    initialDate: _analyticsToDate,
-                                    firstDate: DateTime(2024),
-                                    lastDate: DateTime(2027),
-                                    builder: (ctx, child) => Theme(
-                                      data: Theme.of(ctx).copyWith(
-                                          colorScheme: const ColorScheme.light(
-                                        primary: AppColors.teacherPrimary,
-                                        onPrimary: Colors.white,
-                                        surface: Colors.white,
-                                        onSurface: Color(0xFF0F172A),
-                                      )),
-                                      child: child!,
-                                    ),
-                                  );
-                                  if (picked != null) {
-                                    setState(() => _analyticsToDate = picked);
-                                  }
-                                },
+                                isEnabled: isEnabled,
+                                onTap: !isEnabled
+                                    ? null
+                                    : () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: _analyticsToDate,
+                                          firstDate: DateTime(2024),
+                                          lastDate: DateTime(2027),
+                                          builder: (ctx, child) => Theme(
+                                            data: Theme.of(ctx).copyWith(
+                                                colorScheme: const ColorScheme.light(
+                                              primary: AppColors.teacherPrimary,
+                                              onPrimary: Colors.white,
+                                              surface: Colors.white,
+                                              onSurface: Color(0xFF0F172A),
+                                            )),
+                                            child: child!,
+                                          ),
+                                        );
+                                        if (picked != null) {
+                                          setState(() => _analyticsToDate = picked);
+                                          _loadAnalytics();
+                                        }
+                                      },
                               ),
                             ],
                           ),
@@ -1468,7 +1510,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                           child: SizedBox(
                             height: 44.h,
                             child: ElevatedButton.icon(
-                              onPressed: _isAnalyticsLoading ? null : _loadAnalytics,
+                              onPressed: !isEnabled ? null : _loadAnalytics,
                               icon: _isAnalyticsLoading
                                   ? SizedBox(
                                       width: 14.w,
@@ -1514,27 +1556,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                   SizedBox(height: 6.h),
                                   _buildAnalyticsDateField(
                                     date: _analyticsFromDate,
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _analyticsFromDate,
-                                        firstDate: DateTime(2024),
-                                        lastDate: DateTime(2027),
-                                        builder: (ctx, child) => Theme(
-                                          data: Theme.of(ctx).copyWith(
-                                              colorScheme: const ColorScheme.light(
-                                            primary: AppColors.teacherPrimary,
-                                            onPrimary: Colors.white,
-                                            surface: Colors.white,
-                                            onSurface: Color(0xFF0F172A),
-                                          )),
-                                          child: child!,
-                                        ),
-                                      );
-                                      if (picked != null) {
-                                        setState(() => _analyticsFromDate = picked);
-                                      }
-                                    },
+                                    isEnabled: isEnabled,
+                                    onTap: !isEnabled
+                                        ? null
+                                        : () async {
+                                            final picked = await showDatePicker(
+                                              context: context,
+                                              initialDate: _analyticsFromDate,
+                                              firstDate: DateTime(2024),
+                                              lastDate: DateTime(2027),
+                                              builder: (ctx, child) => Theme(
+                                                data: Theme.of(ctx).copyWith(
+                                                    colorScheme: const ColorScheme.light(
+                                                  primary: AppColors.teacherPrimary,
+                                                  onPrimary: Colors.white,
+                                                  surface: Colors.white,
+                                                  onSurface: Color(0xFF0F172A),
+                                                )),
+                                                child: child!,
+                                              ),
+                                            );
+                                            if (picked != null) {
+                                              setState(() => _analyticsFromDate = picked);
+                                              _loadAnalytics();
+                                            }
+                                          },
                                   ),
                                 ],
                               ),
@@ -1550,27 +1596,31 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                                   SizedBox(height: 6.h),
                                   _buildAnalyticsDateField(
                                     date: _analyticsToDate,
-                                    onTap: () async {
-                                      final picked = await showDatePicker(
-                                        context: context,
-                                        initialDate: _analyticsToDate,
-                                        firstDate: DateTime(2024),
-                                        lastDate: DateTime(2027),
-                                        builder: (ctx, child) => Theme(
-                                          data: Theme.of(ctx).copyWith(
-                                              colorScheme: const ColorScheme.light(
-                                            primary: AppColors.teacherPrimary,
-                                            onPrimary: Colors.white,
-                                            surface: Colors.white,
-                                            onSurface: Color(0xFF0F172A),
-                                          )),
-                                          child: child!,
-                                        ),
-                                      );
-                                      if (picked != null) {
-                                        setState(() => _analyticsToDate = picked);
-                                      }
-                                    },
+                                    isEnabled: isEnabled,
+                                    onTap: !isEnabled
+                                        ? null
+                                        : () async {
+                                            final picked = await showDatePicker(
+                                              context: context,
+                                              initialDate: _analyticsToDate,
+                                              firstDate: DateTime(2024),
+                                              lastDate: DateTime(2027),
+                                              builder: (ctx, child) => Theme(
+                                                data: Theme.of(ctx).copyWith(
+                                                    colorScheme: const ColorScheme.light(
+                                                  primary: AppColors.teacherPrimary,
+                                                  onPrimary: Colors.white,
+                                                  surface: Colors.white,
+                                                  onSurface: Color(0xFF0F172A),
+                                                )),
+                                                child: child!,
+                                              ),
+                                            );
+                                            if (picked != null) {
+                                              setState(() => _analyticsToDate = picked);
+                                              _loadAnalytics();
+                                            }
+                                          },
                                   ),
                                 ],
                               ),
@@ -1582,7 +1632,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                           width: double.infinity,
                           height: 44.h,
                           child: ElevatedButton.icon(
-                            onPressed: _isAnalyticsLoading ? null : _loadAnalytics,
+                            onPressed: !isEnabled ? null : _loadAnalytics,
                             icon: _isAnalyticsLoading
                                 ? SizedBox(
                                     width: 14.w,
@@ -1725,17 +1775,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     );
   }
 
-  // ── Dropdown for analytics filters
   Widget _buildAnalyticsDropdown({
     required String value,
     required List<String> items,
-    required ValueChanged<String?> onChanged,
+    required ValueChanged<String?>? onChanged,
   }) {
+    final bool isEnabled = onChanged != null;
     return Container(
       height: 44.h,
       padding: EdgeInsets.symmetric(horizontal: 12.w),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        color: isEnabled ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
@@ -1745,7 +1795,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           isExpanded: true,
           icon: Icon(Icons.keyboard_arrow_down_rounded,
               size: 18.sp, color: const Color(0xFF94A3B8)),
-          style: AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
+          style: AppTypography.caption.copyWith(color: isEnabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
           onChanged: onChanged,
           items: items
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
@@ -1755,16 +1805,18 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     );
   }
 
-  // ── Date field for analytics
-  Widget _buildAnalyticsDateField(
-      {required DateTime date, required VoidCallback onTap}) {
+  Widget _buildAnalyticsDateField({
+    required DateTime date,
+    required VoidCallback? onTap,
+    bool isEnabled = true,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         height: 44.h,
         padding: EdgeInsets.symmetric(horizontal: 12.w),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: isEnabled ? const Color(0xFFF8FAFC) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10.r),
           border: Border.all(color: const Color(0xFFE2E8F0)),
         ),
@@ -1774,7 +1826,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               child: Text(
                 DateFormat('dd-MM-yyyy').format(date),
                 style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF0F172A)),
+                    .copyWith(color: isEnabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
               ),
             ),
             Icon(Icons.calendar_today_rounded,

@@ -828,220 +828,84 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
     final bool isPushed = Navigator.canPop(context);
     final bool isTeacher = widget.role == 'teacher';
-    final bodyContent = Stack(
-        children: [
-          Positioned.fill(
+    final bodyContent = Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding:
+                EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+            physics: const BouncingScrollPhysics(),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // H1 Header and description
-                        Text(
-                          'Announcements',
-                          style: GoogleFonts.outfit(
-                            fontSize: 28.sp,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF0F172A),
-                          ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          'Create and manage school-wide announcements',
-                          style: AppTypography.small
-                              .copyWith(color: const Color(0xFF64748B)),
-                        ),
-                        SizedBox(height: 20.h),
-                        // New Announcement Button
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0284C7),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10.r)),
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 20.w, vertical: 12.h),
-                              elevation: 0,
-                            ),
-                            onPressed: () => _openCreateSheet(),
-                            icon: Icon(Icons.add,
-                                size: 18.sp, color: Colors.white),
-                            label: Text(
-                              "New Announcement",
-                              style: AppTypography.caption
-                                  .copyWith(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 24.h),
-                        // Stats Column (stacked vertically)
-                        _buildStatsGrid(),
-                        SizedBox(height: 24.h),
-                        // Content Section (Empty State or List)
-                        _isLoading
-                            ? Container(
-                                height: 250.h,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16.r),
-                                  border: Border.all(
-                                      color: const Color(0xFFE2E8F0)),
-                                ),
-                                child: const Center(
-                                    child: CircularProgressIndicator(
-                                        color: Color(0xFF2563EB))),
-                              )
-                            : (_announcements.isEmpty
-                                ? _buildEmptyStateCard()
-                                : _buildAnnouncementsList()),
-                        SizedBox(height: 100.h),
-                      ],
+                // H1 Header and description
+                Text(
+                  'Announcements',
+                  style: GoogleFonts.outfit(
+                    fontSize: 28.sp,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0F172A),
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  'Create and manage school-wide announcements',
+                  style: AppTypography.small
+                      .copyWith(color: const Color(0xFF64748B)),
+                ),
+                SizedBox(height: 20.h),
+                // New Announcement Button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10.r)),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 20.w, vertical: 12.h),
+                      elevation: 0,
+                    ),
+                    onPressed: () => _openCreateSheet(),
+                    icon: Icon(Icons.add,
+                        size: 18.sp, color: Colors.white),
+                    label: Text(
+                      "New Announcement",
+                      style: AppTypography.caption
+                          .copyWith(color: Colors.white),
                     ),
                   ),
                 ),
-                // Bottom Navigation Bar
-                if (widget.showAppBar && widget.role != 'teacher')
-                  _buildBottomNav(),
+                SizedBox(height: 24.h),
+                // Stats Column (stacked vertically)
+                _buildStatsGrid(),
+                SizedBox(height: 24.h),
+                // Content Section (Empty State or List)
+                _isLoading
+                    ? Container(
+                        height: 250.h,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16.r),
+                          border: Border.all(
+                              color: const Color(0xFFE2E8F0)),
+                        ),
+                        child: const Center(
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF2563EB))),
+                      )
+                    : (_announcements.isEmpty
+                        ? _buildEmptyStateCard()
+                        : _buildAnnouncementsList()),
+                SizedBox(height: 100.h),
               ],
             ),
           ),
-
-          // Chatbot Assistant Overlay
-          if (_isChatOpen)
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _toggleChat,
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.1),
-                ),
-              ),
-            ),
-
-          if (_isChatOpen)
-            Positioned(
-              bottom: 80.h,
-              right: 16.w,
-              child: Material(
-                color: Colors.transparent,
-                child: Container(
-                  width: 280.w,
-                  height: 360.h,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16.r),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: EdgeInsets.all(16.r),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB),
-                          borderRadius:
-                              BorderRadius.vertical(top: Radius.circular(16.r)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.assistant,
-                                color: Colors.white, size: 20.sp),
-                            SizedBox(width: 8.w),
-                            Text(
-                              'EduSphere Assistant',
-                              style: GoogleFonts.outfit(
-                                fontSize: 14.sp,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const Spacer(),
-                            GestureDetector(
-                              onTap: _toggleChat,
-                              child: Icon(Icons.close,
-                                  color: Colors.white, size: 20.sp),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Center(
-                          child: Text(
-                            'How can I help you?',
-                            style: GoogleFonts.inter(
-                              color: const Color(0xFF64748B),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-          if (!_isChatOpen)
-            Positioned(
-              bottom: 80.h,
-              right: 16.w,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(16.r),
-                    topRight: Radius.circular(16.r),
-                    bottomLeft: Radius.circular(16.r),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'HI $_teacherFirstName!',
-                      style: AppTypography.caption.copyWith(
-                          color: const Color(0xFF0F172A), letterSpacing: 0.5),
-                    ),
-                    Text(
-                      'HOW CAN I\nHELP?',
-                      style: AppTypography.caption.copyWith(
-                          color: const Color(0xFF2563EB), letterSpacing: 0.5),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      );
-
-    final fab = FloatingActionButton(
-      heroTag: 'announcements_chatbot_fab',
-      backgroundColor: const Color(0xFF0284C7),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
-      onPressed: _toggleChat,
-      child: Icon(
-        _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
-        color: Colors.white,
-      ),
+        ),
+        // Bottom Navigation Bar
+        if (widget.showAppBar && widget.role != 'teacher')
+          _buildBottomNav(),
+      ],
     );
 
     if (widget.showAppBar && isTeacher) {
@@ -1049,7 +913,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         scaffoldKey: _scaffoldKey,
         title: 'Announcements',
         activeIndex: 11,
-        floatingActionButton: fab,
         body: bodyContent,
       );
     }
@@ -1057,7 +920,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: const Color(0xFFF1F5F9),
-      floatingActionButton: fab,
       body: bodyContent,
     );
   }

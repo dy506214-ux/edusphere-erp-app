@@ -12,9 +12,8 @@ async function main() {
     await client.connect();
     console.log("Connected to PostgreSQL database!");
     
-    // Find all attendance records
-    const res = await client.query('SELECT count(*), date FROM public."AttendanceRecord" GROUP BY date ORDER BY date DESC LIMIT 20');
-    console.log("Attendance records by date:");
+    const res = await client.query('SELECT id, title, "createdAt", "filePath" FROM public."Assignment" ORDER BY "createdAt" DESC LIMIT 10');
+    console.log("Recent assignments in database:");
     console.log(JSON.stringify(res.rows, null, 2));
     
   } catch (err) {

@@ -251,272 +251,134 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          : SingleChildScrollView(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Navigation / Header Actions Row
+                  SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 16.w,
+                      runSpacing: 12.h,
                       children: [
-                        // Top Navigation / Header Actions Row
-                        SizedBox(
-                          width: double.infinity,
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 16.w,
-                            runSpacing: 12.h,
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              GestureDetector(
-                                onTap: () => Navigator.pop(context),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.arrow_back_rounded,
-                                        size: 20.sp,
-                                        color: const Color(0xFF475569)),
-                                    SizedBox(width: 8.w),
-                                    Text(
-                                      'Back to Exam',
-                                      style: AppTypography.small.copyWith(
-                                          color: const Color(0xFF475569)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Wrap(
-                                spacing: 12.w,
-                                runSpacing: 8.h,
-                                children: [
-                                  OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(
-                                      backgroundColor: Colors.white,
-                                      side: const BorderSide(
-                                          color: Color(0xFFE2E8F0)),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8.r)),
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w, vertical: 10.h),
-                                    ),
-                                    icon: Icon(Icons.description_outlined,
-                                        size: 16.sp,
-                                        color: const Color(0xFF475569)),
-                                    label: Text(
-                                      'Generate',
-                                      style: AppTypography.caption.copyWith(
-                                          color: const Color(0xFF475569)),
-                                    ),
-                                    onPressed: () {},
-                                  ),
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF2563EB),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(8.r)),
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: 16.w, vertical: 10.h),
-                                      elevation: 0,
-                                    ),
-                                    icon: Icon(Icons.send_rounded,
-                                        size: 16.sp, color: Colors.white),
-                                    label: Text(
-                                      'Submit for Approval',
-                                      style: AppTypography.caption
-                                          .copyWith(color: Colors.white),
-                                    ),
-                                    onPressed: _submitForApproval,
-                                  ),
-                                ],
+                              Icon(Icons.arrow_back_rounded,
+                                  size: 20.sp,
+                                  color: const Color(0xFF475569)),
+                              SizedBox(width: 8.w),
+                              Text(
+                                'Back to Exam',
+                                style: AppTypography.small.copyWith(
+                                    color: const Color(0xFF475569)),
                               ),
                             ],
                           ),
                         ),
-                        SizedBox(height: 24.h),
-
-                        // Stats and Subject Progress Row/Column
-                        if (isWide)
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _buildClassReviewCard(
-                                    className,
-                                    ayName,
-                                    totalStudents,
-                                    passedCount,
-                                    failedCount,
-                                    generatedRc),
+                        Wrap(
+                          spacing: 12.w,
+                          runSpacing: 8.h,
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                side: const BorderSide(
+                                    color: Color(0xFFE2E8F0)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w, vertical: 10.h),
                               ),
-                              SizedBox(width: 16.w),
-                              Expanded(
-                                flex: 2,
-                                child: _buildSubjectProgressCard(),
+                              icon: Icon(Icons.description_outlined,
+                                  size: 16.sp,
+                                  color: const Color(0xFF475569)),
+                              label: Text(
+                                'Generate',
+                                style: AppTypography.caption.copyWith(
+                                    color: const Color(0xFF475569)),
                               ),
-                            ],
-                          )
-                        else
-                          Column(
-                            children: [
-                              _buildClassReviewCard(
-                                  className,
-                                  ayName,
-                                  totalStudents,
-                                  passedCount,
-                                  failedCount,
-                                  generatedRc),
-                              SizedBox(height: 16.h),
-                              _buildSubjectProgressCard(),
-                            ],
-                          ),
-                        SizedBox(height: 24.h),
-
-                        // Consolidated Marksheet Card
-                        _buildConsolidatedMarksheetCard(),
-                        SizedBox(height: 100.h),
+                              onPressed: () {},
+                            ),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF2563EB),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius:
+                                        BorderRadius.circular(8.r)),
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 16.w, vertical: 10.h),
+                                elevation: 0,
+                              ),
+                              icon: Icon(Icons.send_rounded,
+                                  size: 16.sp, color: Colors.white),
+                              label: Text(
+                                'Submit for Approval',
+                                style: AppTypography.caption
+                                    .copyWith(color: Colors.white),
+                              ),
+                              onPressed: _submitForApproval,
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                ),
+                  SizedBox(height: 24.h),
 
-                // Chatbot Assistant Overlay
-                if (_isChatOpen)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: _toggleChat,
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.1),
-                      ),
+                  // Stats and Subject Progress Row/Column
+                  if (isWide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: _buildClassReviewCard(
+                              className,
+                              ayName,
+                              totalStudents,
+                              passedCount,
+                              failedCount,
+                              generatedRc),
+                        ),
+                        SizedBox(width: 16.w),
+                        Expanded(
+                          flex: 2,
+                          child: _buildSubjectProgressCard(),
+                        ),
+                      ],
+                    )
+                  else
+                    Column(
+                      children: [
+                        _buildClassReviewCard(
+                            className,
+                            ayName,
+                            totalStudents,
+                            passedCount,
+                            failedCount,
+                            generatedRc),
+                        SizedBox(height: 16.h),
+                        _buildSubjectProgressCard(),
+                      ],
                     ),
-                  ),
+                  SizedBox(height: 24.h),
 
-                if (_isChatOpen)
-                  Positioned(
-                    bottom: 80.h,
-                    right: 16.w,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Container(
-                        width: 280.w,
-                        height: 360.h,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(16.r),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(16.r)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.assistant,
-                                      color: Colors.white, size: 20.sp),
-                                  SizedBox(width: 8.w),
-                                  Text(
-                                    'EduSphere Assistant',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: _toggleChat,
-                                    child: Icon(Icons.close,
-                                        color: Colors.white, size: 20.sp),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'How can I help you?',
-                                  style: GoogleFonts.inter(
-                                    color: const Color(0xFF64748B),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                if (!_isChatOpen)
-                  Positioned(
-                    bottom: 80.h,
-                    right: 16.w,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16.w, vertical: 12.h),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(16.r),
-                          topRight: Radius.circular(16.r),
-                          bottomLeft: Radius.circular(16.r),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'HI $_teacherFirstName!',
-                            style: AppTypography.caption.copyWith(
-                                color: const Color(0xFF0F172A),
-                                letterSpacing: 0.5),
-                          ),
-                          Text(
-                            'HOW CAN I\nHELP?',
-                            style: AppTypography.caption.copyWith(
-                                color: const Color(0xFF2563EB),
-                                letterSpacing: 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
+                  // Consolidated Marksheet Card
+                  _buildConsolidatedMarksheetCard(),
+                  SizedBox(height: 100.h),
+                ],
+              ),
             ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'class_review_chatbot_fab',
-        backgroundColor: const Color(0xFF0284C7),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
-        onPressed: _toggleChat,
-        child: Icon(
-          _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
-          color: Colors.white,
-        ),
-      ),
     );
   }
 

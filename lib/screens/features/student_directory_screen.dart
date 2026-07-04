@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -67,6 +68,39 @@ class StudentDirectoryScreen extends StatefulWidget {
 }
 
 class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
+  int? _getClassNumber(String name) {
+    final match = RegExp(r'\d+').firstMatch(name);
+    if (match != null) {
+      return int.tryParse(match.group(0)!);
+    }
+    return null;
+  }
+
+  int _naturalCompare(String a, String b) {
+    final regExp = RegExp(r'(\d+)|(\D+)');
+    final matchesA = regExp.allMatches(a.toLowerCase()).toList();
+    final matchesB = regExp.allMatches(b.toLowerCase()).toList();
+
+    int i = 0;
+    while (i < matchesA.length && i < matchesB.length) {
+      final mA = matchesA[i].group(0)!;
+      final mB = matchesB[i].group(0)!;
+
+      final numA = int.tryParse(mA);
+      final numB = int.tryParse(mB);
+
+      if (numA != null && numB != null) {
+        final comp = numA.compareTo(numB);
+        if (comp != 0) return comp;
+      } else {
+        final comp = mA.compareTo(mB);
+        if (comp != 0) return comp;
+      }
+      i++;
+    }
+    return matchesA.length.compareTo(matchesB.length);
+  }
+
   final TextEditingController _searchController = TextEditingController();
   int _currentPage = 1;
   final int _rowsPerPage = 50;
@@ -76,20 +110,24 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   List<StudentRecord> _allStudents = [];
   
   // ── Filters ──
-  String? _selectedClass;
+  String? _selectedClass = 'All Class';
   String _selectedSection = 'All Sections';
   String _selectedStatus = 'All Status';
-  final List<String> _classes = [];
+  final List<String> _classes = ['All Class'];
   final List<String> _sections = ['All Sections'];
   final List<String> _statuses = [
     'All Status',
     'Active',
     'Inactive',
-    'Graduated',
-    'Transferred'
+    'Suspended'
   ];
   List<Map<String, dynamic>> _apiClasses = [];
-  List<Map<String, dynamic>> _allSections = [];
+  List<Map<String, dynamic>> _apiSections = [];
+  final Set<String> _allStatusesCache = {'All Status', 'Active', 'Inactive', 'Suspended'};
+  final Map<String, List<StudentRecord>> _studentsCache = {};
+  bool _isLoadingSections = false;
+  int _retryCount = 0;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -99,37 +137,46 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     _connectRealtime();
   }
 
+  void _onSearchChanged(String query) {
+    if (_searchDebounce?.isActive ?? false) _searchDebounce!.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () {
+      setState(() {
+        _searchQuery = query;
+        _currentPage = 1;
+      });
+      _fetchStudents();
+    });
+  }
+
   Future<void> _loadApiClasses() async {
     try {
       final classesResMap = await AcademicService.instance.getClasses();
-      final sectionsResMap = await AcademicService.instance.getSections();
-
       final List<dynamic> classesRes = classesResMap['classes'] ?? classesResMap['data'] ?? [];
-      final List<dynamic> sectionsRes = sectionsResMap['sections'] ?? sectionsResMap['data'] ?? [];
 
       if (mounted) {
         setState(() {
-          _allSections = List<Map<String, dynamic>>.from(sectionsRes);
           _apiClasses = List<Map<String, dynamic>>.from(classesRes);
           _classes.clear();
-          _classes.add('All Classes');
+          _classes.add('All Class');
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
-            if (name.isNotEmpty && !_classes.contains(name)) {
-              _classes.add(name);
+            if (name.isNotEmpty) {
+              final classNum = _getClassNumber(name);
+              if (classNum == 8 || classNum == 9 || classNum == 10) {
+                if (!_classes.contains(name)) {
+                  _classes.add(name);
+                }
+              }
             }
           }
           _classes.sort((a, b) {
-            if (a == 'All Classes') return -1;
-            if (b == 'All Classes') return 1;
-            final numA = int.tryParse(a.replaceAll('Class ', '')) ?? 0;
-            final numB = int.tryParse(b.replaceAll('Class ', '')) ?? 0;
+            if (a == 'All Class') return -1;
+            if (b == 'All Class') return 1;
+            final numA = _getClassNumber(a) ?? 0;
+            final numB = _getClassNumber(b) ?? 0;
             return numA.compareTo(numB);
           });
-          if (_classes.isNotEmpty) {
-            _selectedClass = _classes.first;
-            _updateSectionsForSelectedClass();
-          }
+          _selectedClass = 'All Class';
         });
       }
     } catch (e) {
@@ -137,43 +184,42 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     }
   }
 
-  void _updateSectionsForSelectedClass() {
-    if (_selectedClass == null || _selectedClass == 'All Classes') {
+  Future<void> _loadSectionsForClass(String classId) async {
+    setState(() {
+      _isLoadingSections = true;
       _sections.clear();
       _sections.add('All Sections');
-      final uniqueSecNames = <String>{};
-      for (var s in _allSections) {
-        final sName = s['name']?.toString() ?? '';
-        if (sName.isNotEmpty) {
-          uniqueSecNames.add(sName);
-        }
-      }
-      final sortedSecNames = uniqueSecNames.toList()..sort();
-      for (var name in sortedSecNames) {
-        _sections.add('Section $name');
-      }
       _selectedSection = 'All Sections';
-      return;
-    }
-    final cls = _apiClasses.firstWhere(
-      (c) => c['name'] == _selectedClass,
-      orElse: () => {},
-    );
-    _sections.clear();
-    _sections.add('All Sections');
-    if (cls.isNotEmpty) {
-      final classId = cls['id']?.toString();
-      final secList = _allSections
-          .where((s) => s['classId']?.toString() == classId)
-          .toList();
-      for (var s in secList) {
-        final sName = s['name']?.toString() ?? '';
-        if (sName.isNotEmpty) {
-          _sections.add('Section $sName');
-        }
+    });
+    try {
+      final res = await AcademicService.instance.getSections(classId: classId);
+      final List<dynamic> sectionsRes = res['sections'] ?? res['data'] ?? [];
+      
+      if (mounted) {
+        setState(() {
+          _apiSections = List<Map<String, dynamic>>.from(sectionsRes);
+          for (var s in _apiSections) {
+            final sName = s['name']?.toString() ?? '';
+            if (sName.isNotEmpty && !_sections.contains(sName)) {
+              _sections.add(sName);
+            }
+          }
+          _sections.sort((a, b) {
+            if (a == 'All Sections') return -1;
+            if (b == 'All Sections') return 1;
+            return a.compareTo(b);
+          });
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading sections: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSections = false;
+        });
       }
     }
-    _selectedSection = 'All Sections';
   }
 
   void _connectRealtime() {
@@ -190,23 +236,71 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
     }
   }
 
-
-
   void _handleStudentUpdated(dynamic data) {
-    if (mounted) _fetchStudents();
+    if (mounted) _fetchStudents(forceRefresh: true);
   }
 
-  Future<void> _fetchStudents() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _fetchStudents({bool forceRefresh = false}) async {
+    final cacheKey = '${_selectedClass ?? ''}-${_selectedSection}-${_selectedStatus}-${_searchQuery}';
+    
+    if (!forceRefresh && _studentsCache.containsKey(cacheKey)) {
+      setState(() {
+        _allStudents = _studentsCache[cacheKey]!;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } else {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
     try {
-      final res = await StudentService.instance.getStudents();
+      String? classId;
+      if (_selectedClass != null && _selectedClass != 'All Class') {
+        final cls = _apiClasses.firstWhere(
+          (c) => c['name'] == _selectedClass,
+          orElse: () => {},
+        );
+        if (cls.isNotEmpty) {
+          classId = cls['id']?.toString();
+        }
+      }
+
+      String? sectionId;
+      if (_selectedSection != 'All Sections') {
+        final sec = _apiSections.firstWhere(
+          (s) => s['name'] == _selectedSection,
+          orElse: () => {},
+        );
+        if (sec.isNotEmpty) {
+          sectionId = sec['id']?.toString();
+        }
+      }
+
+      String? statusParam;
+      if (_selectedStatus != 'All Status') {
+        statusParam = _selectedStatus.toUpperCase();
+      }
+
+      String? searchParam;
+      if (_searchQuery.isNotEmpty) {
+        searchParam = _searchQuery;
+      }
+
+      final res = await StudentService.instance.getStudents(
+        classId: classId,
+        sectionId: sectionId,
+        status: statusParam,
+        search: searchParam,
+      );
 
       if (res['success'] == true && res['students'] != null) {
+        _retryCount = 0;
         final List<dynamic> response = res['students'];
         final List<StudentRecord> loadedStudents = [];
+        
         for (var item in response) {
           final user = (item['user'] ?? item['User']) as Map? ?? {};
           final classData = (item['currentClass'] ?? item['Class']) as Map? ?? {};
@@ -229,23 +323,56 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                 : '${ApiConfig.serverBaseUrl}$rawAvatar';
           }
 
+          final statusVal = item['status']?.toString() ?? 'ACTIVE';
+          if (statusVal.isNotEmpty) {
+            final formattedStatus = statusVal[0].toUpperCase() + statusVal.substring(1).toLowerCase();
+            _allStatusesCache.add(formattedStatus);
+          }
+
           loadedStudents.add(StudentRecord(
             id: item['id']?.toString() ?? '',
             admissionNo: item['admissionNumber']?.toString() ?? '',
             name: fullName.isNotEmpty ? fullName : 'Unknown',
             className: displayClassName,
             email: user['email']?.toString() ?? '',
-            status: item['status']?.toString() ?? 'ACTIVE',
+            status: statusVal.toUpperCase(),
             avatarUrl: avatarUrl,
           ));
         }
 
-        loadedStudents.sort((a, b) => a.name.compareTo(b.name));
+        // Filtering for Class 8, Class 9, and Class 10 only (especially when All Class is selected)
+        final List<StudentRecord> allowedStudents = loadedStudents.where((s) {
+          final classNum = _getClassNumber(s.className);
+          return classNum == 8 || classNum == 9 || classNum == 10;
+        }).toList();
+
+        // Sort: Class -> Section -> Admission Number -> Student Email
+        allowedStudents.sort((a, b) {
+          final classNumA = _getClassNumber(a.className) ?? 0;
+          final classNumB = _getClassNumber(b.className) ?? 0;
+          if (classNumA != classNumB) {
+            return classNumA.compareTo(classNumB);
+          }
+
+          final secA = a.className.split(' - ').last;
+          final secB = b.className.split(' - ').last;
+          final secComp = secA.compareTo(secB);
+          if (secComp != 0) return secComp;
+
+          final admComp = _naturalCompare(a.admissionNo, b.admissionNo);
+          if (admComp != 0) return admComp;
+
+          return _naturalCompare(a.email, b.email);
+        });
 
         if (mounted) {
           setState(() {
-            _allStudents = loadedStudents;
+            _studentsCache[cacheKey] = allowedStudents;
+            _allStudents = allowedStudents;
+            _statuses.clear();
+            _statuses.addAll(_allStatusesCache);
             _isLoading = false;
+            _errorMessage = null;
           });
         }
       } else {
@@ -253,17 +380,26 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       }
     } catch (e) {
       debugPrint('Error fetching students: $e');
-      if (mounted) {
-        setState(() {
-          _errorMessage = 'Could not load students. Pull down to retry.';
-          _isLoading = false;
+      if (_retryCount < 3) {
+        _retryCount++;
+        debugPrint('Retrying student fetch ($_retryCount/3) in 3 seconds...');
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) _fetchStudents(forceRefresh: true);
         });
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = 'Could not load students. Pull down to retry.';
+            _isLoading = false;
+          });
+        }
       }
     }
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
     try {
       SocketService().off('STUDENT_UPDATED', _handleStudentUpdated);
@@ -274,41 +410,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   List<StudentRecord> get _filteredStudents {
-    List<StudentRecord> filtered = _allStudents;
-
-    // Filter by Class and Section
-    if (_selectedClass != null && _selectedClass != 'All Classes') {
-      final String filterClass = _selectedClass!.replaceAll('Class', 'Grade');
-      if (_selectedSection != 'All Sections') {
-        final String filterSection = _selectedSection.replaceAll('Section ', '');
-        final String exactClassName = '$filterClass - $filterSection';
-        filtered = filtered.where((s) => s.className == exactClassName).toList();
-      } else {
-        filtered = filtered.where((s) => s.className.startsWith(filterClass)).toList();
-      }
-    } else {
-      if (_selectedSection != 'All Sections') {
-        final String filterSection = _selectedSection.replaceAll('Section ', '');
-        filtered = filtered.where((s) {
-          final parts = s.className.split(' - ');
-          return parts.length >= 2 && parts[1] == filterSection;
-        }).toList();
-      }
-    }
-
-    // Filter by Status
-    if (_selectedStatus != 'All Status') {
-      final String filterStatus = _selectedStatus.toUpperCase();
-      filtered = filtered.where((s) => s.status == filterStatus).toList();
-    }
-
-    if (_searchQuery.isEmpty) return filtered;
-    return filtered.where((s) {
-      final q = _searchQuery.toLowerCase();
-      return s.name.toLowerCase().contains(q) ||
-          s.admissionNo.toLowerCase().contains(q) ||
-          s.email.toLowerCase().contains(q);
-    }).toList();
+    return _allStudents;
   }
 
   List<StudentRecord> get _paginatedStudents {
@@ -326,10 +428,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final bodyContent = RefreshIndicator(
-      onRefresh: _fetchStudents,
+      onRefresh: () => _fetchStudents(forceRefresh: true),
       color: const Color(0xFF0066CC),
       child: SafeArea(
         child: SingleChildScrollView(
@@ -348,36 +449,16 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
       ),
     );
 
-    final fab = FloatingActionButton(
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const AIGeneratorScreen(),
-          ),
-        );
-      },
-      backgroundColor: const Color(0xFF0066CC),
-      shape: const CircleBorder(),
-      child: Icon(
-        Icons.assistant_rounded,
-        color: Colors.amber[400],
-        size: 28.sp,
-      ),
-    );
-
     if (widget.showAppBar) {
       return TeacherScaffold(
         title: 'Students',
         activeIndex: 2,
-        floatingActionButton: fab,
         body: bodyContent,
       );
     }
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      floatingActionButton: fab,
       body: bodyContent,
     );
   }
@@ -438,12 +519,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (val) {
-                      setState(() {
-                        _searchQuery = val;
-                        _currentPage = 1;
-                      });
-                    },
+                    onChanged: _onSearchChanged,
                     style: GoogleFonts.outfit(
                         fontSize: 14.sp, color: const Color(0xFF0F172A)),
                     decoration: InputDecoration(
@@ -463,33 +539,63 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   items: _classes
                       .map((e) => DropdownMenuItem(
                           value: e,
-                          child: Text(e == 'All Classes' ? 'All Grades' : e.replaceAll('Class', 'Grade'))))
+                          child: Text(e == 'All Class' ? 'All Class' : e.replaceAll('Class', 'Grade'))))
                       .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedClass = val;
-                        _updateSectionsForSelectedClass();
-                        _currentPage = 1;
-                      });
-                    }
-                  },
-                  hint: 'All Classes',
+                  onChanged: (_isLoading || _isLoadingSections)
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedClass = val;
+                              _selectedSection = 'All Sections';
+                              _currentPage = 1;
+                            });
+                            if (val == 'All Class') {
+                              setState(() {
+                                _sections.clear();
+                                _sections.add('All Sections');
+                              });
+                              _fetchStudents();
+                            } else {
+                              final cls = _apiClasses.firstWhere(
+                                (c) => c['name'] == val,
+                                orElse: () => {},
+                              );
+                              if (cls.isNotEmpty) {
+                                final classId = cls['id']?.toString() ?? '';
+                                _loadSectionsForClass(classId).then((_) {
+                                  _fetchStudents();
+                                });
+                              } else {
+                                _fetchStudents();
+                              }
+                            }
+                          }
+                        },
+                  hint: 'All Class',
                 );
+
+                final bool isSectionEnabled = !_isLoading &&
+                    !_isLoadingSections &&
+                    _selectedClass != null &&
+                    _selectedClass != 'All Class';
 
                 final sectionDropdown = _buildDropdown<String>(
                   value: _selectedSection,
                   items: _sections
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedSection = val;
-                        _currentPage = 1;
-                      });
-                    }
-                  },
+                  onChanged: !isSectionEnabled
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedSection = val;
+                              _currentPage = 1;
+                            });
+                            _fetchStudents();
+                          }
+                        },
                   hint: 'All Sections',
                 );
 
@@ -498,14 +604,17 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
                   items: _statuses
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
-                  onChanged: (val) {
-                    if (val != null) {
-                      setState(() {
-                        _selectedStatus = val;
-                        _currentPage = 1;
-                      });
-                    }
-                  },
+                  onChanged: (_isLoading || _isLoadingSections)
+                      ? null
+                      : (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedStatus = val;
+                              _currentPage = 1;
+                            });
+                            _fetchStudents();
+                          }
+                        },
                   hint: 'All Status',
                 );
 
@@ -1040,14 +1149,15 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   Widget _buildDropdown<T>({
     required T? value,
     required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required ValueChanged<T?>? onChanged,
     required String hint,
   }) {
+    final bool isEnabled = onChanged != null;
     return Container(
       height: 48.h,
       padding: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isEnabled ? Colors.white : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(10.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
@@ -1061,7 +1171,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           icon: Icon(Icons.keyboard_arrow_down_rounded,
               size: 20.sp, color: const Color(0xFF94A3B8)),
           style: GoogleFonts.outfit(
-              fontSize: 14.sp, color: const Color(0xFF0F172A)),
+              fontSize: 14.sp, color: isEnabled ? const Color(0xFF0F172A) : const Color(0xFF94A3B8)),
           onChanged: onChanged,
           items: items,
         ),

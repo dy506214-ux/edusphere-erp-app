@@ -9,8 +9,9 @@ class AcademicService {
     return response as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getSections() async {
-    final response = await ApiService.instance.get('academic/sections');
+  Future<Map<String, dynamic>> getSections({String? classId}) async {
+    final queryParams = classId != null ? {'classId': classId} : null;
+    final response = await ApiService.instance.get('academic/sections', queryParams: queryParams);
     return response as Map<String, dynamic>;
   }
 

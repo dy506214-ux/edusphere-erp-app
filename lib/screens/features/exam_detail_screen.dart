@@ -645,231 +645,94 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     final bodyContent = _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-          : Stack(
-              children: [
-                Positioned.fill(
-                  child: SingleChildScrollView(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+          : SingleChildScrollView(
+              padding:
+                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          padding: EdgeInsets.all(4.r),
+                          child: Icon(Icons.arrow_back_rounded,
+                              size: 24.sp,
+                              color: const Color(0xFF0F172A)),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      Expanded(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            GestureDetector(
-                              onTap: () => Navigator.pop(context),
-                              child: Container(
-                                padding: EdgeInsets.all(4.r),
-                                child: Icon(Icons.arrow_back_rounded,
-                                    size: 24.sp,
-                                    color: const Color(0xFF0F172A)),
-                              ),
-                            ),
-                            SizedBox(width: 8.w),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.examName,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 22.sp,
-                                      fontWeight: FontWeight.w800,
-                                      color: const Color(0xFF0F172A),
-                                    ),
-                                  ),
-                                  SizedBox(height: 2.h),
-                                  Text(
-                                    subtitle,
-                                    style: AppTypography.caption.copyWith(
-                                        color: const Color(0xFF64748B)),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 14.h),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            backgroundColor: const Color(0xFFEFF6FF),
-                            side: const BorderSide(color: Color(0xFFDBEAFE)),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8.r)),
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 16.w, vertical: 10.h),
-                          ),
-                          icon: Icon(Icons.assignment_outlined,
-                              size: 16.sp, color: const Color(0xFF1E40AF)),
-                          label: Text(
-                            'Class Review',
-                            style: AppTypography.caption
-                                .copyWith(color: const Color(0xFF1E40AF)),
-                          ),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ClassReviewScreen(
-                                  examId: widget.examId,
-                                  examName: widget.examName,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        SizedBox(height: 18.h),
-                        _buildTabs(),
-                        SizedBox(height: 18.h),
-                        if (_activeTabIndex == 0) _buildScheduleTab(),
-                        if (_activeTabIndex == 1) _buildMarksEntryTab(),
-                        if (_activeTabIndex == 2) _buildBulkUploadTab(),
-                        if (_activeTabIndex == 3) _buildOverviewTab(),
-                        SizedBox(height: 100.h),
-                      ],
-                    ),
-                  ),
-                ),
-                if (_isChatOpen)
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: _toggleChat,
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.1),
-                      ),
-                    ),
-                  ),
-                if (_isChatOpen)
-                  Positioned(
-                    bottom: 80.h,
-                    right: 16.w,
-                    child: Material(
-                      color: Colors.transparent,
-                      child: Container(
-                        width: 280.w,
-                        height: 360.h,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: EdgeInsets.all(16.r),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF2563EB),
-                                borderRadius: BorderRadius.vertical(
-                                    top: Radius.circular(16.r)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.assistant,
-                                      color: Colors.white, size: 20.sp),
-                                  SizedBox(width: 8.w),
-                                  Text(
-                                    'EduSphere Assistant',
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  GestureDetector(
-                                    onTap: _toggleChat,
-                                    child: Icon(Icons.close,
-                                        color: Colors.white, size: 20.sp),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Expanded(
-                              child: Center(
-                                child: Text(
-                                  'How can I help you?',
-                                  style: GoogleFonts.inter(
-                                    color: const Color(0xFF64748B),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                if (!_isChatOpen)
-                  Positioned(
-                    bottom: 80.h,
-                    right: 16.w,
-                    child: Container(
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16.w, vertical: 12.h),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(16.r),
-                          topRight: Radius.circular(16.r),
-                          bottomLeft: Radius.circular(16.r),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'HI TEACHER!',
-                            style: AppTypography.caption.copyWith(
+                            Text(
+                              widget.examName,
+                              style: GoogleFonts.outfit(
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.w800,
                                 color: const Color(0xFF0F172A),
-                                letterSpacing: 0.5),
-                          ),
-                          Text(
-                            'HOW CAN I\nHELP?',
-                            style: AppTypography.caption.copyWith(
-                                color: const Color(0xFF2563EB),
-                                letterSpacing: 0.5),
-                          ),
-                        ],
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              subtitle,
+                              style: AppTypography.caption.copyWith(
+                                  color: const Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
-              ],
-            )
-    ;
-
-    final fab = FloatingActionButton(
-      heroTag: 'exam_detail_chatbot_fab',
-      backgroundColor: const Color(0xFF0284C7),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(28.r)),
-      onPressed: _toggleChat,
-      child: Icon(
-        _isChatOpen ? Icons.close_rounded : Icons.assistant_navigation,
-        color: Colors.white,
-      ),
-    );
+                  SizedBox(height: 14.h),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      side: const BorderSide(color: Color(0xFFDBEAFE)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.r)),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 16.w, vertical: 10.h),
+                    ),
+                    icon: Icon(Icons.assignment_outlined,
+                        size: 16.sp, color: const Color(0xFF1E40AF)),
+                    label: Text(
+                      'Class Review',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF1E40AF)),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ClassReviewScreen(
+                            examId: widget.examId,
+                            examName: widget.examName,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  SizedBox(height: 18.h),
+                  _buildTabs(),
+                  SizedBox(height: 18.h),
+                  if (_activeTabIndex == 0) _buildScheduleTab(),
+                  if (_activeTabIndex == 1) _buildMarksEntryTab(),
+                  if (_activeTabIndex == 2) _buildBulkUploadTab(),
+                  if (_activeTabIndex == 3) _buildOverviewTab(),
+                  SizedBox(height: 100.h),
+                ],
+              ),
+            );
 
     return TeacherScaffold(
       scaffoldKey: _scaffoldKey,
       title: 'EduSphere',
       activeIndex: 8,
-      floatingActionButton: fab,
       body: bodyContent,
     );
   }
