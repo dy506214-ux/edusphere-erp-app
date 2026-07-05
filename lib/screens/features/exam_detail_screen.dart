@@ -142,28 +142,82 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           _selectedSubjectId = _subjects[0]['id'] as String;
         }
 
-        final List<dynamic> results = _examData!['examResults'] as List<dynamic>? ?? [];
-        _examResults = List<Map<String, dynamic>>.from(results);
+        // Fetch live consolidated results from production server
+        List<dynamic> resultsList = [];
+        try {
+          final consolidatedResponse =
+              await ApiService.instance.get('exams/${widget.examId}/consolidated');
+          if (consolidatedResponse != null && consolidatedResponse['results'] != null) {
+            resultsList = consolidatedResponse['results'] as List<dynamic>;
+          } else {
+            resultsList = _examData!['examResults'] as List<dynamic>? ?? [];
+          }
+        } catch (e) {
+          dev.log('Error loading consolidated results, falling back to main: $e', name: 'ExamDetailScreen');
+          resultsList = _examData!['examResults'] as List<dynamic>? ?? [];
+        }
 
-        _examResults.sort((a, b) {
-          final studentA = a['student'] ?? a['Student'] as Map?;
-          final userA = studentA != null ? (studentA['user'] ?? studentA['User']) as Map? : null;
+        _examResults = List<Map<String, dynamic>>.from(resultsList);
+
+        // Fallback for students list from consolidated results if empty
+        if (_students.isEmpty && resultsList.isNotEmpty) {
+          _students = resultsList.map<Map<String, dynamic>>((r) {
+            final String sName = r['studentName']?.toString() ?? 'Student';
+            final parts = sName.split(' ');
+            return {
+              'id': r['studentId']?.toString() ?? '',
+              'name': sName,
+              'user': {
+                'firstName': parts.isNotEmpty ? parts.first : sName,
+                'lastName': parts.length > 1 ? parts.sublist(1).join(' ') : '',
+              }
+            };
+          }).toList();
+        }
+
+        // Sort students by Rank in increasing order, fallback to alphabetical
+        _students.sort((a, b) {
+          final studentIdA = a['id'] as String;
+          final studentIdB = b['id'] as String;
+
+          final resA = _examResults.firstWhere(
+            (r) => r['studentId'] == studentIdA,
+            orElse: () => <String, dynamic>{},
+          );
+          final resB = _examResults.firstWhere(
+            (r) => r['studentId'] == studentIdB,
+            orElse: () => <String, dynamic>{},
+          );
+
+          final rankValA = resA.isNotEmpty ? resA['rank'] : null;
+          final rankValB = resB.isNotEmpty ? resB['rank'] : null;
+
+          final double rankA = (rankValA is num)
+              ? rankValA.toDouble()
+              : double.tryParse(rankValA?.toString() ?? '') ?? 9999.0;
+          final double rankB = (rankValB is num)
+              ? rankValB.toDouble()
+              : double.tryParse(rankValB?.toString() ?? '') ?? 9999.0;
+
+          if (rankA != rankB) {
+            return rankA.compareTo(rankB);
+          }
+
+          final userA = a['user'] ?? a['User'] as Map?;
           final nameA = '${userA?['firstName'] ?? ''} ${userA?['lastName'] ?? ''}'
               .trim()
               .toLowerCase();
-
-          final studentB = b['student'] ?? b['Student'] as Map?;
-          final userB = studentB != null ? (studentB['user'] ?? studentB['User']) as Map? : null;
+          final userB = b['user'] ?? b['User'] as Map?;
           final nameB = '${userB?['firstName'] ?? ''} ${userB?['lastName'] ?? ''}'
               .trim()
               .toLowerCase();
-
           return nameA.compareTo(nameB);
         });
 
         final List<Map<String, dynamic>> consolidatedMarks = [];
         for (var res in _examResults) {
-          final resId = res['id'];
+          final resId = res['id']?.toString() ?? '';
+          if (resId.isEmpty) continue;
           final marksList = res['marks'] as List<dynamic>? ?? [];
           for (var m in marksList) {
             consolidatedMarks.add({
@@ -205,8 +259,8 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       );
 
       Map<String, dynamic>? existingMark;
-      if (result.isNotEmpty) {
-        final resultId = result['id'] as String;
+      if (result.isNotEmpty && result['id'] != null) {
+        final resultId = result['id'].toString();
         existingMark = _examMarks.firstWhere(
           (m) =>
               m['examResultId'] == resultId &&
@@ -1014,12 +1068,12 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       activeSubjects = _subjects;
     }
 
-    final double rankWidth = 32.w;
-    final double studentWidth = isLandscape ? 130.w : 100.w;
-    final double subjectWidth = 35.w;
-    final double totalWidth = 40.w;
-    final double pctWidth = isLandscape ? 140.w : 60.w;
-    final double gradeWidth = 50.w;
+    final double rankWidth = 50.0;
+    final double studentWidth = 160.0;
+    final double subjectWidth = 65.0;
+    final double totalWidth = 70.0;
+    final double pctWidth = 70.0;
+    final double gradeWidth = 65.0;
 
     final double tableWidth = rankWidth +
         studentWidth +
@@ -1074,18 +1128,20 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               final studentId = student['id'] as String;
               final isLast = idx == _students.length - 1;
 
-              final userData = student['User'] as Map?;
-              final firstName = userData?['firstName'] ?? '';
-              final lastName = userData?['lastName'] ?? '';
-              final studentName = '$firstName $lastName'.trim().isNotEmpty
-                  ? '$firstName $lastName'
-                  : (student['name'] ?? 'Student');
-
               // Find the student's result
               final res = _examResults.firstWhere(
                 (r) => r['studentId'] == studentId,
                 orElse: () => <String, dynamic>{},
               );
+
+              final userData = (student['user'] ?? student['User']) as Map?;
+              final firstName = userData?['firstName'] ?? '';
+              final lastName = userData?['lastName'] ?? '';
+              final studentName = res.isNotEmpty && res['studentName'] != null
+                  ? res['studentName']
+                  : ('$firstName $lastName'.trim().isNotEmpty
+                      ? '$firstName $lastName'
+                      : (student['name'] ?? 'Student'));
 
               final rank =
                   res.isNotEmpty ? (res['rank']?.toString() ?? '-') : '-';
@@ -1180,18 +1236,17 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                   _tableCell(
                     Center(
                       child: Container(
-                        width: 24.r,
-                        height: 24.r,
+                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
                         decoration: BoxDecoration(
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(12.r),
                           border: Border.all(color: const Color(0xFFCBD5E1)),
                         ),
-                        child: Center(
-                          child: Text(
-                            grade,
-                            style: AppTypography.caption
-                                .copyWith(color: const Color(0xFF334155)),
-                          ),
+                        child: Text(
+                          grade,
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF334155)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),

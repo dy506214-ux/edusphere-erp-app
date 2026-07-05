@@ -495,49 +495,176 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
     );
   }
 
+  Widget _buildTeacherHeader() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      padding: EdgeInsets.all(20.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'MY SCHEDULE',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF007FD4), // bold blue
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  'View your weekly teaching schedule and class load.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Container(
+            width: 44.r,
+            height: 44.r,
+            decoration: const BoxDecoration(
+              color: Color(0xFFE0F2FE), // light blue
+              shape: BoxShape.circle,
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.access_time_rounded,
+                color: Color(0xFF007FD4),
+                size: 22,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTeacherEmptyState() {
+    return CustomPaint(
+      painter: DashedBorderPainter(
+        color: const Color(0xFFCBD5E1),
+        borderRadius: 16.r,
+        dashLength: 6.w,
+        gap: 4.w,
+        strokeWidth: 1.5.w,
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(vertical: 48.h, horizontal: 24.w),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC), // light blue-slate
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.calendar_today_outlined, // gray outlined calendar icon
+              size: 56,
+              color: Color(0xFFCBD5E1),
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'No Classes Assigned',
+              style: GoogleFonts.outfit(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+            SizedBox(height: 8.h),
+            Text(
+              "The academic department hasn't assigned periods to your timetable yet.",
+              style: GoogleFonts.inter(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF64748B),
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isPushed = Navigator.canPop(context);
     final bool isTeacher = widget.role == 'teacher';
 
+    final Widget header = isTeacher
+        ? _buildTeacherHeader()
+        : PageHeader(
+            title: 'Class Schedule',
+            subtitle: widget.role == 'student'
+                ? 'Your weekly timetable lectures'
+                : 'Your active classes & slots',
+            theme: widget.theme,
+            showBackButton: widget.showAppBar,
+          );
+
+    final Widget emptyState = isTeacher
+        ? Padding(
+            padding: EdgeInsets.all(16.r),
+            child: _buildTeacherEmptyState(),
+          )
+        : Padding(
+            padding: EdgeInsets.all(16.r),
+            child: _buildEmptyState(),
+          );
+
     final bodyContent = Column(
       children: [
-        PageHeader(
-          title: 'Class Schedule',
-          subtitle: widget.role == 'student'
-              ? 'Your weekly timetable lectures'
-              : 'Your active classes & slots',
-          theme: widget.theme,
-          showBackButton: widget.showAppBar,
-        ),
-        _buildDaySelector(),
-        Expanded(
-          child: _isLoading
-              ? Center(
-                  child: CircularProgressIndicator(
-                    color: widget.theme.primary,
-                    strokeWidth: 3.w,
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadTimetableData,
-                  color: widget.theme.primary,
-                  child: _filteredEntries.isEmpty
-                      ? SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.all(16.r),
-                          child: _buildEmptyState(),
-                        )
-                      : ListView.builder(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
-                          itemCount: _filteredEntries.length,
-                          itemBuilder: (context, index) {
-                            return _buildPeriodCard(_filteredEntries[index]);
-                          },
-                        ),
-                ),
-        ),
+        header,
+        if (_isLoading)
+          Expanded(
+            child: Center(
+              child: CircularProgressIndicator(
+                color: widget.theme.primary,
+                strokeWidth: 3.w,
+              ),
+            ),
+          )
+        else ...[
+          // Show day selector only if the timetable is not entirely empty
+          if (_allEntries.isNotEmpty) _buildDaySelector(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _loadTimetableData,
+              color: widget.theme.primary,
+              child: _filteredEntries.isEmpty || _allEntries.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.all(16.r),
+                      child: emptyState,
+                    )
+                  : ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
+                      itemCount: _filteredEntries.length,
+                      itemBuilder: (context, index) {
+                        return _buildPeriodCard(_filteredEntries[index]);
+                      },
+                    ),
+            ),
+          ),
+        ],
       ],
     );
 
@@ -582,4 +709,56 @@ class _ScheduleScreenState extends State<ScheduleScreen> {
       body: bodyContent,
     );
   }
+}
+
+class DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double strokeWidth;
+  final double gap;
+  final double dashLength;
+  final double borderRadius;
+
+  DashedBorderPainter({
+    required this.color,
+    this.strokeWidth = 1.0,
+    this.gap = 4.0,
+    this.dashLength = 6.0,
+    this.borderRadius = 12.0,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke;
+
+    final path = Path()
+      ..addRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(0, 0, size.width, size.height),
+        Radius.circular(borderRadius),
+      ));
+
+    final dashPath = Path();
+    var distance = 0.0;
+    
+    for (final pathMetric in path.computeMetrics()) {
+      while (distance < pathMetric.length) {
+        dashPath.addPath(
+          pathMetric.extractPath(distance, distance + dashLength),
+          Offset.zero,
+        );
+        distance += dashLength + gap;
+      }
+    }
+    canvas.drawPath(dashPath, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant DashedBorderPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.strokeWidth != strokeWidth ||
+      oldDelegate.gap != gap ||
+      oldDelegate.dashLength != dashLength ||
+      oldDelegate.borderRadius != borderRadius;
 }

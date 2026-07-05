@@ -113,42 +113,57 @@ class _CommunityScreenState extends State<CommunityScreen> {
       _isLoading = true;
     });
     try {
-      final res = await ApiService.instance.get('announcements');
-      final List<dynamic> raw = res['announcements'] ?? res['data'] ?? [];
-      
-      if (raw.isNotEmpty) {
-        if (mounted) {
-          setState(() {
-            _posts = List<Map<String, dynamic>>.from(raw.map((e) {
-              final rawCreatedBy = e['createdBy'];
-              final author = rawCreatedBy is Map ? rawCreatedBy : {};
-              final firstName = author['firstName'] as String? ?? '';
-              final lastName = author['lastName'] as String? ?? '';
-              final authorName = '$firstName $lastName'.trim().isEmpty
-                  ? 'EduSphere'
-                  : '$firstName $lastName'.trim();
-              return {
-                'id': e['id']?.toString() ?? '',
-                'title': e['title'] ?? 'Announcement',
-                'content': e['content'] ?? '',
-                'category': 'Announcement',
-                'authorName': authorName,
-                'createdAt': e['createdAt'] ?? DateTime.now().toIso8601String(),
-                'likesCount': 0,
-                'commentsCount': 0,
-                'isLiked': false,
-                'comments': [],
-                'pollOptions': [],
-              };
-            }));
-          });
-        }
-      } else {
-        _loadMockPosts();
+      final res = await ApiService.instance.get('community/posts');
+      final List<dynamic> raw = res['posts'] ?? res['data'] ?? [];
+
+      final prefs = await SharedPreferences.getInstance();
+      final loggedInUserId = prefs.getString('user_id') ?? '';
+
+      final List<Map<String, dynamic>> loaded = [];
+      for (var e in raw) {
+        final author = e['author'] as Map<String, dynamic>? ?? {};
+        final firstName = author['firstName'] as String? ?? '';
+        final lastName = author['lastName'] as String? ?? '';
+        final authorName = '$firstName $lastName'.trim().isEmpty
+            ? 'EduSphere'
+            : '$firstName $lastName'.trim();
+        final authorRole = author['role'] as String? ?? 'Student';
+        
+        final reactions = e['reactions'] as List? ?? [];
+        final loveCount = reactions.where((r) => r['type'] == 'LOVE').length;
+        final likeCount = reactions.where((r) => r['type'] == 'LIKE').length;
+        
+        final bool userLiked = reactions.any((r) => r['userId'] == loggedInUserId && r['type'] == 'LIKE');
+        final bool userInsightful = reactions.any((r) => r['userId'] == loggedInUserId && r['type'] == 'LOVE');
+
+        final commentCountVal = e['commentCount'] ?? (e['_count'] != null ? e['_count']['comments'] : 0) ?? 0;
+
+        loaded.add({
+          'id': e['id']?.toString() ?? '',
+          'title': e['title'] ?? '',
+          'content': e['content'] ?? '',
+          'category': e['postType'] as String? ?? 'GENERAL',
+          'authorName': authorName,
+          'authorRole': authorRole,
+          'createdAt': e['createdAt'] ?? DateTime.now().toIso8601String(),
+          'likesCount': likeCount,
+          'insightfulsCount': loveCount,
+          'commentsCount': commentCountVal,
+          'isLiked': userLiked,
+          'userInsightful': userInsightful,
+          'comments': [],
+          'pollOptions': e['pollOptions'] ?? [],
+          'viewCount': e['viewCount'] ?? 0,
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _posts = loaded;
+        });
       }
     } catch (e) {
-      debugPrint('Error loading announcements via API: $e');
-      _loadMockPosts();
+      debugPrint('Error loading community posts: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -167,23 +182,15 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Future<void> _addNewPost(String title, String content, String category,
       String audience, List<XFile> images,
       {List<Map<String, dynamic>> pollOptions = const []}) async {
-    final finalContent = title.isNotEmpty ? '$title\n\n$content' : content;
-
-    setState(() {
-      _posts.insert(0, {
-        'id': 'local_${DateTime.now().millisecondsSinceEpoch}',
-        'title': title,
-        'content': finalContent,
-        'category': category,
-        'authorName': _userName,
-        'createdAt': DateTime.now().toIso8601String(),
-        'likesCount': 0,
-        'commentsCount': 0,
-        'isLiked': false,
-        'comments': [],
-        'pollOptions': pollOptions,
-      });
+    final res = await ApiService.instance.post('community/posts', body: {
+      'title': title,
+      'content': content,
+      'postType': category.toUpperCase(),
+      'audience': 'ALL',
     });
+    if (res == null) {
+      throw Exception('Failed to create post');
+    }
   }
 
   int get _postedTodayCount {
@@ -209,35 +216,11 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _toggleLike(int index) async {
-    final p = _posts[index];
-    final isLiked = p['isLiked'] as bool? ?? false;
-    final newLikes = (p['likesCount'] as int? ?? 0) + (!isLiked ? 1 : -1);
-
-    setState(() {
-      p['isLiked'] = !isLiked;
-      p['likesCount'] = newLikes;
-    });
+    // Replaced by _handleReactionTap for full production API connection
   }
 
   Future<void> _addComment(int postIndex, String commentText) async {
-    if (commentText.trim().isEmpty) return;
-
-    final p = _posts[postIndex];
-    final List<dynamic> comments = List.from(p['comments'] ?? []);
-
-    final newComment = {
-      'id': 'c_${DateTime.now().millisecondsSinceEpoch}',
-      'authorName': _userName,
-      'authorRole': 'Student',
-      'content': commentText,
-      'timeAgo': 'Just now',
-    };
-
-    setState(() {
-      comments.add(newComment);
-      p['comments'] = comments;
-      p['commentsCount'] = comments.length;
-    });
+    // Replaced by inline handling in _showPostCommentsModal for full production API connection
   }
 
   @override
@@ -522,22 +505,34 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Widget _buildPostItem(Map<String, dynamic> post, int actualIdx) {
-    final title = post['title'] as String? ?? 'Untitled';
+    final title = post['title'] as String? ?? '';
     final content = post['content'] as String? ?? '';
     final category = post['category'] as String? ?? 'General';
     final authorName = post['authorName'] as String? ?? 'Anonymous';
+    final authorRole = post['authorRole'] as String? ?? 'Student';
     final likesCount = post['likesCount'] as int? ?? 0;
     final commentsCount = post['commentsCount'] as int? ?? 0;
     final isLiked = post['isLiked'] as bool? ?? false;
     final rawDate = post['createdAt'] as String?;
 
-    String formattedDate = 'Just now';
+    String timeAgoStr = 'Just now';
     if (rawDate != null) {
       try {
-        final parsed = DateTime.parse(rawDate);
-        formattedDate = DateFormat('MMM d, h:mm a').format(parsed);
+        final parsed = DateTime.parse(rawDate).toLocal();
+        final diff = DateTime.now().difference(parsed);
+        if (diff.inDays > 0) {
+          timeAgoStr = '${diff.inDays} days ago';
+        } else if (diff.inHours > 0) {
+          timeAgoStr = '${diff.inHours} hours ago';
+        } else if (diff.inMinutes > 0) {
+          timeAgoStr = '${diff.inMinutes} minutes ago';
+        }
       } catch (_) {}
     }
+
+    final String initials = authorName.isNotEmpty
+        ? authorName.split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join().toUpperCase()
+        : '?';
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
@@ -551,43 +546,105 @@ class _CommunityScreenState extends State<CommunityScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Avatar
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: widget.theme.primary.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8.r),
+                width: 40.w,
+                height: 40.w,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE8F1FB), // Light blue circle background
+                  shape: BoxShape.circle,
                 ),
-                child: Text(
-                  category,
-                  style: AppTypography.caption
-                      .copyWith(color: widget.theme.primary),
+                child: Center(
+                  child: Text(
+                    initials,
+                    style: GoogleFonts.outfit(
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1A6FDB),
+                    ),
+                  ),
                 ),
               ),
-              const Spacer(),
-              Text(
-                formattedDate,
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF94A3B8)),
+              SizedBox(width: 12.w),
+              // Name & Role/Time
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      authorName,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 2.h),
+                    Text(
+                      '$authorRole  •  $timeAgoStr',
+                      style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF64748B),
+                        fontSize: 11.sp,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Category & Audience pill + 3 dots
+              Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9), // Light gray background
+                      borderRadius: BorderRadius.circular(20.r),
+                    ),
+                    child: Text(
+                      category.toUpperCase(),
+                      style: GoogleFonts.outfit(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Icon(Icons.public, size: 12.sp, color: const Color(0xFF64748B)),
+                  SizedBox(width: 4.w),
+                  Text(
+                    'All',
+                    style: AppTypography.caption.copyWith(
+                      fontSize: 11.sp,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Icon(Icons.more_horiz, size: 18.sp, color: const Color(0xFF64748B)),
+                ],
               ),
             ],
           ),
-          SizedBox(height: 10.h),
-          Text(
-            title,
-            style: GoogleFonts.outfit(
-              fontSize: 15.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF0F172A),
+          SizedBox(height: 14.h),
+          if (title.isNotEmpty) ...[
+            Text(
+              title,
+              style: GoogleFonts.outfit(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
             ),
-          ),
-          SizedBox(height: 6.h),
+            SizedBox(height: 6.h),
+          ],
           Text(
             content,
-            maxLines: 4,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.caption
-                .copyWith(color: const Color(0xFF475569), height: 1.4),
+            style: AppTypography.caption.copyWith(
+              color: const Color(0xFF475569),
+              fontSize: 13.sp,
+              height: 1.4,
+            ),
           ),
           if (post['pollOptions'] != null &&
               (post['pollOptions'] as List).isNotEmpty) ...[
@@ -613,33 +670,54 @@ class _CommunityScreenState extends State<CommunityScreen> {
           SizedBox(height: 16.h),
           Row(
             children: [
-              Text(
-                'By $authorName',
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF64748B)),
-              ),
-              const Spacer(),
+              // React button
               GestureDetector(
-                onTap: () => _toggleLike(actualIdx),
-                child: Row(
-                  children: [
-                    Icon(
-                      isLiked
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      size: 16.sp,
-                      color: isLiked ? Colors.red : const Color(0xFF64748B),
+                onTap: () => _handleReactionTap(actualIdx),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+                  decoration: BoxDecoration(
+                    color: isLiked ? const Color(0xFFE8F1FB) : Colors.white,
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(
+                      color: isLiked ? const Color(0xFF1A6FDB) : const Color(0xFFE2E8F0),
+                      width: 1.w,
                     ),
-                    SizedBox(width: 4.w),
-                    Text(
-                      '$likesCount',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF64748B)),
-                    ),
-                  ],
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isLiked ? Icons.thumb_up_rounded : Icons.thumb_up_outlined,
+                        size: 14.sp,
+                        color: const Color(0xFFF1A80A), // Beautiful yellow/amber color
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        isLiked ? 'Like $likesCount' : 'React',
+                        style: AppTypography.caption.copyWith(
+                          color: isLiked ? const Color(0xFF1A6FDB) : const Color(0xFF495057),
+                          fontWeight: isLiked ? FontWeight.w700 : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              SizedBox(width: 16.w),
+              if (likesCount > 0) ...[
+                SizedBox(width: 8.w),
+                Text(
+                  '👍',
+                  style: TextStyle(fontSize: 14.sp),
+                ),
+              ],
+              if (post['insightfulsCount'] != null && (post['insightfulsCount'] as int) > 0) ...[
+                SizedBox(width: 4.w),
+                Text(
+                  '❤️',
+                  style: TextStyle(fontSize: 14.sp),
+                ),
+              ],
+              const Spacer(),
+              // Comments
               GestureDetector(
                 onTap: () => _showPostCommentsModal(post, actualIdx),
                 child: Row(
@@ -649,19 +727,182 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       size: 16.sp,
                       color: const Color(0xFF64748B),
                     ),
-                    SizedBox(width: 4.w),
+                    SizedBox(width: 6.w),
                     Text(
-                      '$commentsCount',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF64748B)),
+                      commentsCount == 1 ? '1 comment' : '$commentsCount comments',
+                      style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
                     ),
                   ],
                 ),
+              ),
+              SizedBox(width: 16.w),
+              // Views
+              Row(
+                children: [
+                  Icon(
+                    Icons.remove_red_eye_outlined,
+                    size: 16.sp,
+                    color: const Color(0xFF64748B),
+                  ),
+                  SizedBox(width: 6.w),
+                  Text(
+                    '${post['viewCount'] ?? 0}',
+                    style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+                  ),
+                ],
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  void _handleReactionTap(int index) async {
+    final post = _posts[index];
+    final bool isLiked = post['isLiked'] as bool? ?? false;
+    final bool userInsightful = post['userInsightful'] as bool? ?? false;
+
+    if (isLiked || userInsightful) {
+      final String currentType = isLiked ? 'LIKE' : 'LOVE';
+      try {
+        final res = await ApiService.instance.post(
+          'community/posts/${post['id']}/react',
+          body: {'type': currentType},
+        );
+        if (res != null) {
+          setState(() {
+            if (isLiked) {
+              post['likesCount'] = ((post['likesCount'] as int) - 1).clamp(0, 9999);
+              post['isLiked'] = false;
+            } else {
+              post['insightfulsCount'] = ((post['insightfulsCount'] as int) - 1).clamp(0, 9999);
+              post['userInsightful'] = false;
+            }
+          });
+        }
+      } catch (err) {
+        debugPrint('Error toggling reaction: $err');
+      }
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          padding: EdgeInsets.all(24.r),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'React to this post',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0F2547),
+                  ),
+                ),
+                SizedBox(height: 16.h),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            final res = await ApiService.instance.post(
+                              'community/posts/${post['id']}/react',
+                              body: {'type': 'LIKE'},
+                            );
+                            if (res != null) {
+                              setState(() {
+                                post['likesCount'] = (post['likesCount'] as int) + 1;
+                                post['isLiked'] = true;
+                              });
+                            }
+                          } catch (err) {
+                            debugPrint('Error reacting: $err');
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F1FB),
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFF1A6FDB)),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.thumb_up_rounded,
+                                  color: const Color(0xFFF1A80A), size: 28.sp),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Like',
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFF1A6FDB)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16.w),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          try {
+                            final res = await ApiService.instance.post(
+                              'community/posts/${post['id']}/react',
+                              body: {'type': 'LOVE'},
+                            );
+                            if (res != null) {
+                              setState(() {
+                                post['insightfulsCount'] = (post['insightfulsCount'] as int) + 1;
+                                post['userInsightful'] = true;
+                              });
+                            }
+                          } catch (err) {
+                            debugPrint('Error reacting: $err');
+                          }
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(vertical: 16.h),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFF1E6),
+                            borderRadius: BorderRadius.circular(16.r),
+                            border: Border.all(color: const Color(0xFFE8590C)),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(Icons.favorite_rounded,
+                                  color: Colors.redAccent, size: 28.sp),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Love',
+                                style: AppTypography.small
+                                    .copyWith(color: const Color(0xFFE8590C)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1440,135 +1681,248 @@ class _CommunityScreenState extends State<CommunityScreen> {
     );
   }
 
-  void _showPostCommentsModal(Map<String, dynamic> post, int actualIdx) {
+  void _showPostCommentsModal(Map<String, dynamic> post, int actualIdx) async {
     final commentCtrl = TextEditingController();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          final currentPost = _posts[actualIdx];
-          final List<dynamic> comments = currentPost['comments'] ?? [];
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.75,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
-            ),
-            padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w,
-                MediaQuery.of(context).viewInsets.bottom + 16.h),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 32.w,
-                    height: 4.h,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCBD5E1),
-                      borderRadius: BorderRadius.circular(2.r),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  currentPost['title'] as String? ?? 'Comments',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F172A),
-                  ),
-                ),
-                SizedBox(height: 16.h),
-                Expanded(
-                  child: comments.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No comments yet. Write one below!',
-                            style: AppTypography.caption
-                                .copyWith(color: const Color(0xFF94A3B8)),
-                          ),
-                        )
-                      : ListView.builder(
-                          itemCount: comments.length,
-                          itemBuilder: (context, i) {
-                            final c = comments[i];
-                            return Container(
-                              margin: EdgeInsets.only(bottom: 12.h),
-                              padding: EdgeInsets.all(12.r),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        c['author'] as String? ?? 'Anonymous',
-                                        style: AppTypography.caption.copyWith(
-                                            color: const Color(0xFF0F172A)),
-                                      ),
-                                      const Spacer(),
-                                      Text(
-                                        c['time'] as String? ?? '',
-                                        style: AppTypography.caption.copyWith(
-                                            color: const Color(0xFF94A3B8)),
-                                      ),
-                                    ],
-                                  ),
-                                  SizedBox(height: 6.h),
-                                  Text(
-                                    c['text'] as String? ?? '',
-                                    style: AppTypography.caption.copyWith(
-                                        color: const Color(0xFF475569)),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                ),
-                Divider(height: 1.h, color: const Color(0xFFE2E8F0)),
-                SizedBox(height: 12.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: commentCtrl,
-                        decoration: InputDecoration(
-                          hintText: 'Write a comment...',
-                          hintStyle: AppTypography.caption,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 16.w, vertical: 10.h),
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20.r)),
-                        ),
+    bool isLoadingComments = true;
+
+    if (mounted) {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (ctx) => StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final currentPost = _posts[actualIdx];
+            final List<dynamic> comments = currentPost['comments'] ?? [];
+
+            // Trigger fetch inside the modal state if first time or still loading
+            if (isLoadingComments) {
+              Future.microtask(() async {
+                try {
+                  final res = await ApiService.instance.get('community/posts/${post['id']}');
+                  if (res != null && res['comments'] != null) {
+                    final List<dynamic> commentsRaw = res['comments'];
+                    currentPost['comments'] = commentsRaw.map((c) {
+                      final author = c['author'] as Map<String, dynamic>? ?? {};
+                      final firstName = author['firstName'] as String? ?? '';
+                      final lastName = author['lastName'] as String? ?? '';
+                      final authorName = '$firstName $lastName'.trim().isEmpty
+                          ? 'EduSphere'
+                          : '$firstName $lastName'.trim();
+                      
+                      DateTime? parsedDate;
+                      String timeAgoStr = 'Recently';
+                      if (c['createdAt'] != null) {
+                        try {
+                          parsedDate = DateTime.parse(c['createdAt'] as String).toLocal();
+                          final diff = DateTime.now().difference(parsedDate);
+                          if (diff.inDays > 0) {
+                            timeAgoStr = '${diff.inDays}d ago';
+                          } else if (diff.inHours > 0) {
+                            timeAgoStr = '${diff.inHours}h ago';
+                          } else if (diff.inMinutes > 0) {
+                            timeAgoStr = '${diff.inMinutes}m ago';
+                          }
+                        } catch (_) {}
+                      }
+
+                      return {
+                        'id': c['id']?.toString() ?? '',
+                        'author': authorName,
+                        'text': c['content'] as String? ?? '',
+                        'time': timeAgoStr,
+                      };
+                    }).toList();
+                    currentPost['commentsCount'] = currentPost['comments'].length;
+                  }
+                  if (ctx.mounted) {
+                    setModalState(() {
+                      isLoadingComments = false;
+                    });
+                  }
+                  setState(() {});
+                } catch (e) {
+                  debugPrint('Error loading comments: $e');
+                  if (ctx.mounted) {
+                    setModalState(() {
+                      isLoadingComments = false;
+                    });
+                  }
+                }
+              });
+            }
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+              ),
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w,
+                  MediaQuery.of(context).viewInsets.bottom + 16.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 32.w,
+                      height: 4.h,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFCBD5E1),
+                        borderRadius: BorderRadius.circular(2.r),
                       ),
                     ),
-                    SizedBox(width: 8.w),
-                    IconButton(
-                      icon:
-                          Icon(Icons.send_rounded, color: widget.theme.primary),
-                      onPressed: () {
-                        if (commentCtrl.text.trim().isEmpty) return;
-                        _addComment(actualIdx, commentCtrl.text.trim());
-                        commentCtrl.clear();
-                        setModalState(() {});
-                        setState(() {}); // refresh stats cards
-                      },
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    currentPost['title'] as String? ?? 'Comments',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.outfit(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+                  ),
+                  SizedBox(height: 16.h),
+                  Expanded(
+                    child: isLoadingComments
+                        ? const Center(child: CircularProgressIndicator())
+                        : comments.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No comments yet. Write one below!',
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF94A3B8)),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: comments.length,
+                                itemBuilder: (context, i) {
+                                  final c = comments[i];
+                                  return Container(
+                                    margin: EdgeInsets.only(bottom: 12.h),
+                                    padding: EdgeInsets.all(12.r),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(12.r),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              c['author'] as String? ?? 'Anonymous',
+                                              style: AppTypography.caption.copyWith(
+                                                  color: const Color(0xFF0F172A),
+                                                  fontWeight: FontWeight.bold),
+                                            ),
+                                            const Spacer(),
+                                            Text(
+                                              c['time'] as String? ?? '',
+                                              style: AppTypography.caption.copyWith(
+                                                  color: const Color(0xFF94A3B8)),
+                                            ),
+                                          ],
+                                        ),
+                                        SizedBox(height: 6.h),
+                                        Text(
+                                          c['text'] as String? ?? '',
+                                          style: AppTypography.caption.copyWith(
+                                              color: const Color(0xFF475569)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                  ),
+                  Divider(height: 1.h, color: const Color(0xFFE2E8F0)),
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: commentCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Write a comment...',
+                            hintStyle: AppTypography.caption,
+                            contentPadding: EdgeInsets.symmetric(
+                                horizontal: 16.w, vertical: 10.h),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20.r)),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 8.w),
+                      IconButton(
+                        icon:
+                            Icon(Icons.send_rounded, color: widget.theme.primary),
+                        onPressed: () async {
+                          final commentText = commentCtrl.text.trim();
+                          if (commentText.isEmpty) return;
+                          commentCtrl.clear();
+
+                          try {
+                            final res = await ApiService.instance.post(
+                              'community/posts/${post['id']}/comments',
+                              body: {'content': commentText},
+                            );
+                            if (res != null) {
+                              // Reload post detail to fetch updated comment list
+                              final detailRes = await ApiService.instance.get('community/posts/${post['id']}');
+                              if (detailRes != null && detailRes['comments'] != null) {
+                                final List<dynamic> commentsRaw = detailRes['comments'];
+                                currentPost['comments'] = commentsRaw.map((c) {
+                                  final author = c['author'] as Map<String, dynamic>? ?? {};
+                                  final firstName = author['firstName'] as String? ?? '';
+                                  final lastName = author['lastName'] as String? ?? '';
+                                  final authorName = '$firstName $lastName'.trim().isEmpty
+                                      ? 'EduSphere'
+                                      : '$firstName $lastName'.trim();
+                                  
+                                  DateTime? parsedDate;
+                                  String timeAgoStr = 'Recently';
+                                  if (c['createdAt'] != null) {
+                                    try {
+                                      parsedDate = DateTime.parse(c['createdAt'] as String).toLocal();
+                                      final diff = DateTime.now().difference(parsedDate);
+                                      if (diff.inDays > 0) {
+                                        timeAgoStr = '${diff.inDays}d ago';
+                                      } else if (diff.inHours > 0) {
+                                        timeAgoStr = '${diff.inHours}h ago';
+                                      } else if (diff.inMinutes > 0) {
+                                        timeAgoStr = '${diff.inMinutes}m ago';
+                                      }
+                                    } catch (_) {}
+                                  }
+
+                                  return {
+                                    'id': c['id']?.toString() ?? '',
+                                    'author': authorName,
+                                    'text': c['content'] as String? ?? '',
+                                    'time': timeAgoStr,
+                                  };
+                                }).toList();
+                                currentPost['commentsCount'] = currentPost['comments'].length;
+                              }
+                              setModalState(() {});
+                              setState(() {});
+                            }
+                          } catch (err) {
+                            debugPrint('Error replying: $err');
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
 }

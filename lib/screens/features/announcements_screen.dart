@@ -303,12 +303,6 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   !aud.contains(_classId.toUpperCase())) {
                 continue;
               }
-            } else if (widget.role == 'teacher') {
-              if (!aud.contains('ALL') &&
-                  !aud.contains('TEACHERS') &&
-                  !aud.contains('TEACHER')) {
-                continue;
-              }
             }
 
             String formattedDate = '';

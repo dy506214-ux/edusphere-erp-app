@@ -57,7 +57,6 @@ class _AcademicScreenState extends State<AcademicScreen> {
       0; // 0 = Classes, 1 = Subjects, 2 = Sections, 3 = Exams & Results
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  bool _showFabMenu = true;
   String _userName = 'Emma Johnson';
   String _userRole = 'teacher';
 
@@ -73,7 +72,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
   String _studentName = '';
   String _studentId = '';
   String _classId = '';
-  String _className = 'Grade 1 (G1)';
+  String _className = 'Grade 8';
   String _sectionId = '';
   List<Map<String, dynamic>> _studentSubjects = [];
   List<Map<String, dynamic>> _timetableSlots = [];
@@ -134,14 +133,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
       final cachedSectionId = prefs.getString('student_section_id') ?? '';
       final cachedClassName = prefs.getString('student_class') ?? '';
 
-      if (cachedId.isNotEmpty && cachedSectionId.isNotEmpty) {
-        _studentId = cachedId;
-        _studentName = cachedName;
-        _classId = cachedClassId;
-        _sectionId = cachedSectionId;
-        _className = cachedClassName;
-      } else {
-        // 1. Fetch Student profile via REST API
+      // 1. Fetch Student profile via REST API
+      try {
         final profileRes = await StudentService.instance.getStudentProfile();
         final student = profileRes['student'];
         if (student != null) {
@@ -150,36 +143,56 @@ class _AcademicScreenState extends State<AcademicScreen> {
           _studentName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
           _classId = student['currentClassId'] ?? '';
           _sectionId = student['sectionId'] ?? '';
-          if (student['currentClass'] != null) {
-            _className = student['currentClass']['name'] ?? 'Grade 1';
+          
+          final classNameVal = student['currentClass']?['name'] ?? '';
+          final sectionNameVal = student['section']?['name'] ?? '';
+          if (classNameVal.isNotEmpty && sectionNameVal.isNotEmpty) {
+            _className = '$classNameVal ($sectionNameVal)';
+          } else if (classNameVal.isNotEmpty) {
+            _className = classNameVal;
+          } else {
+            _className = 'Grade 8';
           }
+
           await prefs.setString('student_id', _studentId);
           await prefs.setString('student_name', _studentName);
           await prefs.setString('student_class_id', _classId);
           await prefs.setString('student_section_id', _sectionId);
           await prefs.setString('student_class', _className);
-        } else {
-          // Fallback for demo student if no database record exists
-          if (_studentEmail == 'student1@demoschool.com') {
-            _studentId = 'demo-1';
-            _studentName = 'Priya Singh';
-            _className = 'Grade 10';
-          }
         }
+      } catch (e) {
+        dev.log('Error fetching student profile: $e', name: 'AcademicScreen');
+      }
+
+      // If profile API failed or returned empty but we have cached values, restore them
+      if (_studentId.isEmpty && cachedId.isNotEmpty) {
+        _studentId = cachedId;
+        _studentName = cachedName;
+        _classId = cachedClassId;
+        _sectionId = cachedSectionId;
+        _className = cachedClassName;
       }
 
       // 2. Fetch Subjects assigned to their class via REST API
       if (_classId.isNotEmpty) {
-        final subjectsRes = await AcademicService.instance.getSubjects(classId: _classId);
-        final rawSubjects = subjectsRes['subjects'] ?? subjectsRes['data'] ?? [];
-        _studentSubjects = List<Map<String, dynamic>>.from(rawSubjects);
+        try {
+          final subjectsRes = await AcademicService.instance.getSubjects(classId: _classId);
+          final rawSubjects = subjectsRes['subjects'] ?? subjectsRes['data'] ?? [];
+          _studentSubjects = List<Map<String, dynamic>>.from(rawSubjects);
+        } catch (e) {
+          dev.log('Error fetching subjects: $e', name: 'AcademicScreen');
+        }
       }
 
       // 3. Fetch Timetable slots for their section/class via REST API
       if (_sectionId.isNotEmpty) {
-        final timetableRes = await ApiService.instance.get(ApiEndpoints.studentTimetable(_sectionId));
-        if (timetableRes['success'] == true) {
-          _timetableSlots = List<Map<String, dynamic>>.from(timetableRes['schedule'] ?? []);
+        try {
+          final timetableRes = await ApiService.instance.get(ApiEndpoints.studentTimetable(_sectionId));
+          if (timetableRes['success'] == true) {
+            _timetableSlots = List<Map<String, dynamic>>.from(timetableRes['schedule'] ?? []);
+          }
+        } catch (e) {
+          dev.log('Error fetching timetable: $e', name: 'AcademicScreen');
         }
       }
 
@@ -188,52 +201,60 @@ class _AcademicScreenState extends State<AcademicScreen> {
         try {
           final attendanceRes = await ApiService.instance.get(ApiEndpoints.studentAttendance(_studentId));
           if (attendanceRes['success'] == true) {
-            _attendanceRate = (attendanceRes['stats']?['percentage'] ?? 100.0).toDouble();
             _hasAttendanceData = true;
 
             final List<dynamic> rawList = attendanceRes['attendance'] ?? [];
+            int totalMarked = 0;
+            double totalPresent = 0.0;
             List<Map<String, dynamic>> validRecords = [];
 
             for (var r in rawList) {
               final dateStr = r['date']?.toString() ?? '';
               if (dateStr.isEmpty) continue;
               validRecords.add(Map<String, dynamic>.from(r));
+
+              final status = (r['status']?.toString() ?? '').toUpperCase();
+              if (status == 'PRESENT' || status == 'P' || status == 'LATE') {
+                totalMarked++;
+                totalPresent += 1.0;
+              } else if (status == 'ABSENT' || status == 'A') {
+                totalMarked++;
+              } else if (status == 'HALF_DAY') {
+                totalMarked++;
+                totalPresent += 0.5;
+              }
             }
 
+            if (totalMarked > 0) {
+              _attendanceRate = (totalPresent / totalMarked) * 100.0;
+            } else {
+              _attendanceRate = 100.0;
+            }
+
+            // Sort by date descending
+            validRecords.sort((a, b) {
+              final da = a['date']?.toString() ?? '';
+              final db = b['date']?.toString() ?? '';
+              return db.compareTo(da);
+            });
+
             _attendanceRecords.clear();
-
-            final DateTime today = DateTime.now();
-            for (int i = 0; i < 7; i++) {
-              final date = today.subtract(Duration(days: i));
-              final dateStr =
-                  '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-
-              final matchingRecord = validRecords
-                  .where((r) => r['date']?.toString().startsWith(dateStr) == true)
-                  .toList();
-              final isWeekend = date.weekday == DateTime.saturday ||
-                  date.weekday == DateTime.sunday;
-
-              if (matchingRecord.isNotEmpty) {
-                final rec = matchingRecord.first;
-                _attendanceRecords.add({
-                  ...rec,
-                  'date': dateStr, // normalized
-                  'isWeekend': isWeekend,
-                  'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
-                });
-              } else {
-                _attendanceRecords.add({
-                  'date': dateStr,
-                  'status': isWeekend ? 'WEEKEND' : 'NOT_MARKED',
-                  'isWeekend': isWeekend,
-                });
+            for (var rec in validRecords) {
+              final dateStr = rec['date']?.toString() ?? '';
+              String normalizedDate = dateStr;
+              if (dateStr.contains('T')) {
+                normalizedDate = dateStr.split('T')[0];
               }
+              _attendanceRecords.add({
+                ...rec,
+                'date': normalizedDate,
+                'isWeekend': false,
+                'markedBy': rec['markedByName'] ?? rec['markedBy'] ?? 'System',
+              });
             }
           }
         } catch (e) {
-          dev.log('❌ Error fetching Attendance from REST API: $e',
-              name: 'AcademicScreen');
+          dev.log('❌ Error fetching Attendance from REST API: $e', name: 'AcademicScreen');
           _hasAttendanceData = false;
         }
       }
@@ -589,7 +610,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style:
-                    AppTypography.h3.copyWith(color: const Color(0xFF0066CC)),
+                    AppTypography.h3.copyWith(color: const Color(0xFF0F2547)),
               ),
               SizedBox(height: 4.h),
               Text(
@@ -600,6 +621,42 @@ class _AcademicScreenState extends State<AcademicScreen> {
                     .copyWith(color: const Color(0xFF6B7A90)),
               ),
             ],
+          ),
+        ),
+        SizedBox(width: 12.w),
+        GestureDetector(
+          onTap: () => _loadStudentOverviewData(showLoading: true),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.02),
+                  blurRadius: 6.r,
+                )
+              ],
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.refresh_rounded,
+                  color: const Color(0xFF0D7DDC),
+                  size: 16.sp,
+                ),
+                SizedBox(width: 6.w),
+                Text(
+                  'Refresh',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF0F2547),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -807,13 +864,13 @@ class _AcademicScreenState extends State<AcademicScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_className.split(' ')[0]} - A Weekly Routine',
+                  '$_className - A Weekly Routine',
                   style: AppTypography.small
                       .copyWith(color: const Color(0xFF0F2547)),
                 ),
                 SizedBox(height: 6.h),
                 Text(
-                  'Class A',
+                  'DAILY',
                   style: AppTypography.caption
                       .copyWith(color: const Color(0xFF6B7A90)),
                 ),
@@ -852,7 +909,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
       children: [
         Row(
           children: [
-            Icon(Icons.trending_up_rounded,
+            Icon(Icons.check_circle_outline_rounded,
                 color: const Color(0xFF0076F6), size: 20.sp),
             SizedBox(width: 8.w),
             Text(
@@ -878,8 +935,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                 icon: Icons.check_circle_outline_rounded,
                 label: 'Attendance Progress',
                 value: _hasAttendanceData
-                    ? '${_attendanceRate.toStringAsFixed(1)}%'
-                    : 'Data Available',
+                    ? 'Status Available'
+                    : 'Status Available',
               ),
             ),
           ],
@@ -1001,38 +1058,37 @@ class _AcademicScreenState extends State<AcademicScreen> {
             Row(
               children: [
                 Expanded(
+                  flex: 1,
+                  child: Text(
+                    'S.No.',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Expanded(
                   flex: 3,
                   child: Text(
                     'Date',
                     style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF475569)),
+                        .copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: Text(
-                    'Status',
+                    'Marked By',
                     style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF475569)),
+                        .copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
                   flex: 2,
                   child: Center(
                     child: Text(
-                      'Marked By',
+                      'Status',
                       style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF475569)),
+                          .copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                     ),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Check-in Time',
-                    style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF475569)),
-                    textAlign: TextAlign.right,
                   ),
                 ),
               ],
@@ -1046,82 +1102,53 @@ class _AcademicScreenState extends State<AcademicScreen> {
               itemBuilder: (ctx, index) {
                 final record = _attendanceRecords[index];
                 final rawDate = record['date']?.toString() ?? '';
-                final isWeekend = record['isWeekend'] == true;
                 final status =
                     (record['status']?.toString() ?? 'PRESENT').toUpperCase();
 
                 DateTime? parsedDate;
                 try {
-                  parsedDate = DateTime.parse(rawDate).toLocal();
+                  parsedDate = DateTime.parse(rawDate);
                 } catch (_) {}
 
                 final displayDate = parsedDate != null
-                    ? intl.DateFormat('EEE, MMM dd, yyyy').format(parsedDate)
+                    ? '${parsedDate.month}/${parsedDate.day}/${parsedDate.year}'
                     : rawDate;
 
-                String checkInStr = '—';
-                String markedByStr = '—';
-
-                final checkInVal = record['checkInTime'];
-                final createdAtVal = record['createdAt'];
-                final timeSource = checkInVal ?? createdAtVal;
-                if (timeSource != null) {
-                  try {
-                    final parsedTime = DateTime.parse(timeSource.toString());
-                    checkInStr =
-                        intl.DateFormat('hh:mm a').format(parsedTime.toLocal());
-                  } catch (_) {}
-                }
-
-                if (status != 'WEEKEND' && status != 'NOT_MARKED') {
-                  final scannedByQR = record['scannedByQR'] == true;
-                  final scannedByRFID = record['scannedByRFID'] == true;
-                  final markedByVal = record['markedBy']?.toString();
-                  if (scannedByQR) {
-                    markedByStr = 'QR Scan';
-                  } else if (scannedByRFID) {
-                    markedByStr = 'RFID';
-                  } else if (markedByVal != null && markedByVal.isNotEmpty) {
-                    markedByStr =
-                        markedByVal.length > 20 ? 'Teacher' : markedByVal;
-                  } else {
-                    markedByStr = 'System';
-                  }
+                String markedByStr = 'System';
+                final markedByVal = record['markedBy']?.toString();
+                if (markedByVal != null && markedByVal.isNotEmpty) {
+                  markedByStr = markedByVal.length > 20 ? 'Teacher' : markedByVal;
                 }
 
                 // Determine badge style based on status
                 Color badgeBg = Colors.white;
                 Color badgeText = const Color(0xFF64748B);
-                String badgeLabel = 'Not Marked';
+                String badgeLabel = 'NOT MARKED';
 
                 if (status == 'PRESENT' || status == 'P') {
-                  badgeLabel = 'Present';
+                  badgeLabel = 'PRESENT';
                   badgeBg = const Color(0xFFDCFCE7);
                   badgeText = const Color(0xFF16A34A);
                 } else if (status == 'ABSENT' || status == 'A') {
-                  badgeLabel = 'Absent';
+                  badgeLabel = 'ABSENT';
                   badgeBg = const Color(0xFFFEE2E2);
                   badgeText = const Color(0xFFDC2626);
                 } else if (status == 'LATE') {
-                  badgeLabel = 'Late';
+                  badgeLabel = 'LATE';
                   badgeBg = const Color(0xFFFEF9C3);
                   badgeText = const Color(0xFFCA8A04);
                 } else if (status == 'HALF_DAY') {
-                  badgeLabel = 'Half Day';
+                  badgeLabel = 'HALF DAY';
                   badgeBg = const Color(0xFFE0E7FF);
                   badgeText = const Color(0xFF4F46E5);
                 } else if (status == 'LEAVE' || status == 'ON_LEAVE') {
-                  badgeLabel = 'Leave';
+                  badgeLabel = 'LEAVE';
                   badgeBg = const Color(0xFFF3E8FF);
                   badgeText = const Color(0xFF9333EA);
                 } else if (status == 'WEEKEND' || status == 'HOLIDAY') {
-                  badgeLabel = 'Weekend';
+                  badgeLabel = 'WEEKEND';
                   badgeBg = const Color(0xFFF1F5F9);
                   badgeText = const Color(0xFF6B7A90);
-                } else if (status == 'NOT_MARKED') {
-                  badgeLabel = '—';
-                  badgeBg = Colors.transparent;
-                  badgeText = const Color(0xFF94A3B8);
                 } else {
                   badgeLabel = status;
                   badgeBg = const Color(0xFFF1F5F9);
@@ -1138,65 +1165,51 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      // S.No.
+                      Expanded(
+                        flex: 1,
+                        child: Text(
+                          '${index + 1}',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F2547), fontWeight: FontWeight.bold),
+                        ),
+                      ),
                       // Date Column
                       Expanded(
                         flex: 3,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              displayDate,
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF0F2547)),
-                            ),
-                            if (isWeekend) ...[
-                              SizedBox(height: 2.h),
-                              Text(
-                                'HOLIDAY/WEEKEND',
-                                style: AppTypography.caption
-                                    .copyWith(color: const Color(0xFF94A3B8)),
-                              ),
-                            ],
-                          ],
+                        child: Text(
+                          displayDate,
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F2547)),
+                        ),
+                      ),
+                      // Marked By Column
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          markedByStr,
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF475569)),
                         ),
                       ),
                       // Status Column
                       Expanded(
                         flex: 2,
-                        child: Container(
-                          padding: EdgeInsets.symmetric(
-                              horizontal: 8.w, vertical: 4.h),
-                          decoration: BoxDecoration(
-                            color: badgeBg,
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          child: Text(
-                            badgeLabel,
-                            style: AppTypography.caption
-                                .copyWith(color: badgeText),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                      // Marked By Column
-                      Expanded(
-                        flex: 2,
                         child: Center(
-                          child: Text(
-                            markedByStr,
-                            style: AppTypography.caption
-                                .copyWith(color: const Color(0xFF475569)),
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 10.w, vertical: 6.h),
+                            decoration: BoxDecoration(
+                              color: badgeBg,
+                              borderRadius: BorderRadius.circular(12.r),
+                            ),
+                            child: Text(
+                              badgeLabel,
+                              style: AppTypography.caption
+                                  .copyWith(color: badgeText, fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                        ),
-                      ),
-                      // Time Column
-                      Expanded(
-                        flex: 2,
-                        child: Text(
-                          checkInStr,
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF475569)),
-                          textAlign: TextAlign.right,
                         ),
                       ),
                     ],
@@ -1331,24 +1344,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
           ],
         ),
       ),
-      floatingActionButton: _activeTab < 3
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                if (_showFabMenu) _buildFabMenu(),
-                SizedBox(width: 12.w),
-                FloatingActionButton(
-                  heroTag: null,
-                  onPressed: () => setState(() => _showFabMenu = !_showFabMenu),
-                  backgroundColor: const Color(0xFF0D7DDC),
-                  elevation: 4,
-                  shape: const CircleBorder(),
-                  child: _buildFabIcon(),
-                ),
-              ],
-            )
-          : null,
+      floatingActionButton: null,
       bottomNavigationBar:
           widget.showAppBar ? _buildBottomNavigationBar() : null,
     );
@@ -1521,53 +1517,72 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   Widget _buildCustomClassesTable() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header Row
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-          decoration: const BoxDecoration(
-            border:
-                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                  flex: 3,
-                  child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(
-                  flex: 2,
-                  child: _buildTableHeaderCell('Level', TextAlign.center)),
-              Expanded(
-                  flex: 3,
-                  child:
-                      _buildTableHeaderCell('Academic Year', TextAlign.center)),
-              Expanded(
-                  flex: 4,
-                  child:
-                      _buildTableHeaderCell('Class Teacher', TextAlign.center)),
-              Expanded(
-                  flex: 3,
-                  child: _buildTableHeaderCell('Students', TextAlign.center)),
-            ],
-          ),
-        ),
-        // Data Rows
-        ..._classesList.asMap().entries.map((entry) {
-          final c = entry.value;
-          return _ClassesRowItem(
-            name: c['name']?.toString() ?? '',
-            level: c['level']?.toString() ?? '',
-            academicYear: c['academic_year']?.toString() ?? '—',
-            classTeacher: c['class_teacher']?.toString() ?? '—',
-            students: c['students']?.toString() ?? '0',
-            isHoveredDemo:
-                false, // Ensure this relies on real hover, not demo effect
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        const double minTableWidth = 580.0;
+        final bool useHorizontalScroll = availableWidth < minTableWidth;
+
+        Widget tableContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                      flex: 3,
+                      child: _buildTableHeaderCell('Name', TextAlign.left)),
+                  Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderCell('Level', TextAlign.center)),
+                  Expanded(
+                      flex: 3,
+                      child:
+                          _buildTableHeaderCell('Academic Year', TextAlign.center)),
+                  Expanded(
+                      flex: 4,
+                      child:
+                          _buildTableHeaderCell('Class Teacher', TextAlign.center)),
+                  Expanded(
+                      flex: 3,
+                      child: _buildTableHeaderCell('Students', TextAlign.center)),
+                ],
+              ),
+            ),
+            // Data Rows
+            ..._classesList.asMap().entries.map((entry) {
+              final c = entry.value;
+              return _ClassesRowItem(
+                name: c['name']?.toString() ?? '',
+                level: c['level']?.toString() ?? '',
+                academicYear: c['academic_year']?.toString() ?? '—',
+                classTeacher: c['class_teacher']?.toString() ?? '—',
+                students: c['students']?.toString() ?? '0',
+                isHoveredDemo:
+                    false, // Ensure this relies on real hover, not demo effect
+              );
+            }),
+            SizedBox(height: 12.h),
+          ],
+        );
+
+        if (useHorizontalScroll) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: minTableWidth,
+              child: tableContent,
+            ),
           );
-        }),
-        SizedBox(height: 12.h),
-      ],
+        } else {
+          return tableContent;
+        }
+      },
     );
   }
 
@@ -2362,97 +2377,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
     );
   }
 
-  Widget _buildFabIcon() {
-    if (_activeTab == 0) {
-      return Icon(Icons.person_add_rounded,
-          color: const Color(0xFFFFD700), size: 28.sp);
-    } else if (_activeTab == 1) {
-      return Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(right: 2.w),
-            child:
-                Icon(Icons.menu_book_rounded, color: Colors.white, size: 20.sp),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              padding: EdgeInsets.all(1.r),
-              decoration: const BoxDecoration(
-                color: Color(0xFF0D7DDC),
-                shape: BoxShape.circle,
-              ),
-              child:
-                  Icon(Icons.add, color: const Color(0xFFFFD700), size: 10.sp),
-            ),
-          ),
-        ],
-      );
-    } else {
-      return Icon(Icons.group_add_rounded,
-          color: const Color(0xFFFFD700), size: 28.sp);
-    }
-  }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // FAB POPUP MENU
-  // ═════════════════════════════════════════════════════════════════════════
-  Widget _buildFabMenu() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 15,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.help_outline_rounded,
-              size: 20.sp, color: const Color(0xFF64748B)),
-          SizedBox(height: 6.h),
-          Text(
-            'HELP',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            'ARJUNIT',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF0F172A)),
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            'CCAV',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            'BONNI',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF0D7DDC)),
-          ),
-          SizedBox(height: 10.h),
-          Text(
-            'HELP?',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF0D7DDC)),
-          ),
-        ],
-      ),
-    );
-  }
 
   // ═════════════════════════════════════════════════════════════════════════
   // BOTTOM NAVIGATION BAR

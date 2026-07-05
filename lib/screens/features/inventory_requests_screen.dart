@@ -87,7 +87,29 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
       // 2. Fetch User Requisitions
       final requestsRes = await ApiService.instance.get('inventory/requests');
       if (requestsRes['success'] == true && requestsRes['data'] != null) {
-        _requests = List<Map<String, dynamic>>.from(requestsRes['data']);
+        final allRequests = List<Map<String, dynamic>>.from(requestsRes['data']);
+        
+        final prefs = await SharedPreferences.getInstance();
+        final loggedInUserId = prefs.getString('user_id');
+        
+        if (loggedInUserId != null && loggedInUserId.isNotEmpty) {
+          _requests = allRequests
+              .where((req) => req['userId']?.toString() == loggedInUserId)
+              .toList();
+        } else {
+          _requests = allRequests;
+        }
+
+        _requests.sort((a, b) {
+          final dateAStr = a['createdAt']?.toString() ?? '';
+          final dateBStr = b['createdAt']?.toString() ?? '';
+          if (dateAStr.isEmpty) return 1;
+          if (dateBStr.isEmpty) return -1;
+          final dateA = DateTime.parse(dateAStr);
+          final dateB = DateTime.parse(dateBStr);
+          return dateB.compareTo(dateA); // Descending order
+        });
+
         _calculateStats();
       }
     } catch (e) {
@@ -546,21 +568,16 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
 
     switch (status.toUpperCase()) {
       case 'PENDING':
-        bg = const Color(0xFFFEF3C7); // amber 100
-        fg = const Color(0xFFD97706); // amber 600
+        bg = const Color(0xFFE0F2FE); // light blue-gray
+        fg = const Color(0xFF0369A1); // dark blue-gray
         break;
       case 'APPROVED':
-        bg = const Color(0xFFD1FAE5); // emerald 100
-        fg = const Color(0xFF059669); // emerald 600
+        bg = const Color(0xFF0D7DDC); // primary blue
+        fg = Colors.white;
         break;
       case 'REJECTED':
         bg = const Color(0xFFFEE2E2); // red 100
         fg = const Color(0xFFDC2626); // red 600
-        break;
-      case 'ISSUED':
-      case 'COMPLETED':
-        bg = const Color(0xFFE0F2FE); // sky 100
-        fg = const Color(0xFF0284C7); // sky 600
         break;
       default:
         bg = const Color(0xFFF1F5F9); // slate 100
@@ -568,7 +585,7 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20.r),
@@ -650,44 +667,7 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
                       ),
                       SizedBox(height: 24.h),
 
-                      // Stats Grid
-                      GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: isDesktop ? 4 : 2,
-                        crossAxisSpacing: 16.w,
-                        mainAxisSpacing: 16.h,
-                        childAspectRatio: isDesktop ? 2.5 : 1.7,
-                        children: [
-                          _buildStatsCard(
-                            title: 'Total Requests',
-                            value: '$_totalCount',
-                            icon: Icons.inventory_2_outlined,
-                            color: const Color(0xFF0D7DDC),
-                          ),
-                          _buildStatsCard(
-                            title: 'Pending Requests',
-                            value: '$_pendingCount',
-                            icon: Icons.pending_actions_rounded,
-                            color: const Color(0xFFD97706),
-                          ),
-                          _buildStatsCard(
-                            title: 'Approved Requests',
-                            value: '$_approvedCount',
-                            icon: Icons.check_circle_outline_rounded,
-                            color: const Color(0xFF059669),
-                          ),
-                          _buildStatsCard(
-                            title: 'Rejected Requests',
-                            value: '$_rejectedCount',
-                            icon: Icons.cancel_outlined,
-                            color: const Color(0xFFDC2626),
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 24.h),
-
-                      // History Table Container Card
+                      // History Table Container Card (Stats Grid removed to match 1st image)
                       Container(
                         width: double.infinity,
                         decoration: BoxDecoration(
@@ -745,9 +725,7 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
                                         ),
                                       ),
                                     )
-                                  : isDesktop
-                                      ? _buildHistoryTable()
-                                      : _buildHistoryCardList(),
+                                  : _buildHistoryTable(),
                             ],
                           ),
                         ),
@@ -772,65 +750,71 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
   }
 
   Widget _buildHistoryTable() {
-    return Table(
-      columnWidths: const {
-        0: FlexColumnWidth(1.2), // Date
-        1: FlexColumnWidth(2.0), // Item Name
-        2: FlexColumnWidth(1.2), // Quantity
-        3: FlexColumnWidth(1.5), // Status
-        4: FlexColumnWidth(2.5), // Notes
-      },
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      children: [
-        // Header
-        TableRow(
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
-          ),
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(
+        width: 610,
+        child: Table(
+          columnWidths: const {
+            0: FixedColumnWidth(90),  // Date
+            1: FixedColumnWidth(140), // Item Name
+            2: FixedColumnWidth(90),  // Quantity
+            3: FixedColumnWidth(110), // Status
+            4: FixedColumnWidth(180), // Notes
+          },
+          defaultVerticalAlignment: TableCellVerticalAlignment.middle,
           children: [
-            _buildTableHeaderCell('Date'),
-            _buildTableHeaderCell('Item'),
-            _buildTableHeaderCell('Quantity'),
-            _buildTableHeaderCell('Status'),
-            _buildTableHeaderCell('Notes'),
+            // Header
+            TableRow(
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+              ),
+              children: [
+                _buildTableHeaderCell('Date'),
+                _buildTableHeaderCell('Item'),
+                _buildTableHeaderCell('Quantity'),
+                _buildTableHeaderCell('Status'),
+                _buildTableHeaderCell('Notes'),
+              ],
+            ),
+            // Data Rows
+            ..._requests.map((request) {
+              final item = request['item'] ?? {};
+              final itemName = item['name'] ?? 'N/A';
+              final quantity = request['quantity'] ?? 0;
+              final unit = item['unit'] ?? 'units';
+              final notes = request['notes'] ?? '';
+              final status = request['status'] ?? 'PENDING';
+              final date = request['createdAt'] != null
+                  ? DateFormat('d/M/yyyy').format(DateTime.parse(request['createdAt']))
+                  : 'N/A';
+
+              return TableRow(
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFEDF2F7), width: 1)),
+                ),
+                children: [
+                  _buildTableDataCell(date),
+                  _buildTableDataCell(
+                    itemName,
+                    isBold: true,
+                    onTap: () => _showRequestDetailsDialog(request),
+                  ),
+                  _buildTableDataCell('$quantity $unit'),
+                  Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12.h),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildStatusBadge(status),
+                    ),
+                  ),
+                  _buildTableDataCell(notes, maxLines: 1),
+                ],
+              );
+            }),
           ],
         ),
-        // Data Rows
-        ..._requests.map((request) {
-          final item = request['item'] ?? {};
-          final itemName = item['name'] ?? 'N/A';
-          final quantity = request['quantity'] ?? 0;
-          final unit = item['unit'] ?? 'units';
-          final notes = request['notes'] ?? '';
-          final status = request['status'] ?? 'PENDING';
-          final date = request['createdAt'] != null
-              ? DateFormat('dd/MM/yyyy').format(DateTime.parse(request['createdAt']))
-              : 'N/A';
-
-          return TableRow(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Color(0xFFEDF2F7), width: 1)),
-            ),
-            children: [
-              _buildTableDataCell(date),
-              _buildTableDataCell(
-                itemName,
-                isBold: true,
-                onTap: () => _showRequestDetailsDialog(request),
-              ),
-              _buildTableDataCell('$quantity $unit'),
-              Padding(
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildStatusBadge(status),
-                ),
-              ),
-              _buildTableDataCell(notes, maxLines: 1),
-            ],
-          );
-        }),
-      ],
+      ),
     );
   }
 
@@ -961,8 +945,8 @@ class _InventoryRequestsScreenState extends State<InventoryRequestsScreen> {
           style: GoogleFonts.inter(
             fontSize: 12.sp,
             fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
-            color: onTap != null ? const Color(0xFF0D7DDC) : AppColors.textDark,
-            decoration: onTap != null ? TextDecoration.underline : null,
+            color: onTap != null ? const Color(0xFF0F172A) : AppColors.textDark,
+            decoration: null,
           ),
         ),
       ),

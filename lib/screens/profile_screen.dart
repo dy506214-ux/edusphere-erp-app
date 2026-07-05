@@ -22,6 +22,7 @@ import 'package:dio/dio.dart';
 
 import '../services/cache_service.dart';
 import '../services/student_service.dart';
+import '../services/app_state_notifier.dart';
 
 import '../theme/colors.dart';
 import '../widgets/common_widgets.dart';
@@ -234,10 +235,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _transportAllocation;
   Map<int, List<Map<String, dynamic>>> _timetableSlots = {};
 
-  @override
+  bool get _isOwnProfile {
+    return widget.role == 'student'
+        ? (widget.studentId == null)
+        : (widget.teacherId == null ||
+            widget.teacherId == _currentUserId);
+  }
+
+  void _onGlobalPhotoUrlChanged() {
+    if (mounted && _isOwnProfile) {
+      setState(() {
+        _avatarUrl = AppStateNotifier.userProfilePhotoUrl.value;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    AppStateNotifier.userProfilePhotoUrl.addListener(_onGlobalPhotoUrlChanged);
     _currentUserId = CacheService.instance.prefs.getString('user_id');
     if (widget.role == 'teacher') {
       _loadTeacherDataFromSupabase();
@@ -270,6 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    AppStateNotifier.userProfilePhotoUrl.removeListener(_onGlobalPhotoUrlChanged);
     _profilePollTimer?.cancel();
     _qrRefreshTimer?.cancel();
     _clearRealTimeSync();
@@ -626,11 +643,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _avatarUrl = null;
         }
 
+        final String? avatar = _avatarUrl;
         final prefs = CacheService.instance.prefs;
-        if (_avatarUrl != null) {
-          prefs.setString('student_photo_url', _avatarUrl!);
+        if (avatar != null) {
+          final String busterUrl = avatar.contains('?t=') 
+              ? avatar 
+              : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
+          prefs.setString('student_photo_url', busterUrl);
+          if (_isOwnProfile) {
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+          }
         } else {
           prefs.remove('student_photo_url');
+          if (_isOwnProfile) {
+            AppStateNotifier.userProfilePhotoUrl.value = null;
+          }
         }
 
         _userName = _studentName;
@@ -1574,11 +1601,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _avatarUrl = null;
         }
         
+        final String? avatar = _avatarUrl;
         final prefs = CacheService.instance.prefs;
-        if (_avatarUrl != null) {
-          prefs.setString('teacher_photo_url', _avatarUrl!);
+        if (avatar != null) {
+          final String busterUrl = avatar.contains('?t=') 
+              ? avatar 
+              : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
+          prefs.setString('teacher_photo_url', busterUrl);
+          if (_isOwnProfile) {
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+          }
         } else {
           prefs.remove('teacher_photo_url');
+          if (_isOwnProfile) {
+            AppStateNotifier.userProfilePhotoUrl.value = null;
+          }
         }
 
         final rawGender = userMap['gender'] as String? ?? 'Not Specified';
@@ -5117,13 +5154,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final publicUrl = res['user']?['avatar'] as String?;
         final prefs = CacheService.instance.prefs;
         if (publicUrl != null) {
-          await prefs.setString('${widget.role}_photo_url', publicUrl);
+          final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+          await prefs.setString('${widget.role}_photo_url', busterUrl);
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(publicUrl);
+            widget.onAvatarUpdated!(busterUrl);
+          }
+          if (_isOwnProfile) {
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+          }
+          if (widget.role == 'teacher') {
+            await _loadTeacherDataFromSupabase();
+          } else if (widget.role == 'student') {
+            await _loadStudentDataFromSupabase();
           }
           if (mounted) {
             setState(() {
-              _avatarUrl = publicUrl;
+              _avatarUrl = busterUrl;
             });
             showToast(context, 'Avatar updated successfully!');
           }
@@ -5133,7 +5179,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       debugPrint('Avatar upload failed: $e');
-      if (mounted) showToast(context, 'Upload failed: $e');
+      String errMsg = 'Upload failed: $e';
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode != null) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errMsg = data['message'].toString();
+          } else {
+            switch (statusCode) {
+              case 401: errMsg = 'Unauthorized. Please log in again.'; break;
+              case 403: errMsg = 'Access denied.'; break;
+              case 404: errMsg = 'Endpoint not found.'; break;
+              case 413: errMsg = 'File size is too large.'; break;
+              case 422: errMsg = 'Invalid image format.'; break;
+              case 429: errMsg = 'Too many requests. Please try later.'; break;
+              case 500: errMsg = 'Internal server error.'; break;
+              default: errMsg = 'Server returned code $statusCode.';
+            }
+          }
+        } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errMsg = 'Connection timed out. Please check your internet.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errMsg = 'No internet connection detected.';
+        }
+      }
+      if (mounted) showToast(context, errMsg);
     }
   }
 
@@ -5155,6 +5226,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (widget.onAvatarUpdated != null) {
           widget.onAvatarUpdated!('');
         }
+        if (_isOwnProfile) {
+          AppStateNotifier.userProfilePhotoUrl.value = null;
+        }
+        if (widget.role == 'teacher') {
+          await _loadTeacherDataFromSupabase();
+        } else if (widget.role == 'student') {
+          await _loadStudentDataFromSupabase();
+        }
         if (mounted) {
           setState(() {
             _avatarUrl = null;
@@ -5166,7 +5245,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       debugPrint('Avatar removal failed: $e');
-      if (mounted) showToast(context, 'Failed to remove avatar: $e');
+      String errMsg = 'Failed to remove avatar: $e';
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode != null) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errMsg = data['message'].toString();
+          }
+        }
+      }
+      if (mounted) showToast(context, errMsg);
     }
   }
 

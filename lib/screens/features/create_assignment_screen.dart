@@ -2658,23 +2658,33 @@ class QuantitySpinnerState extends State<QuantitySpinner> {
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      final newVal = widget.value + 1;
-                      _controller.text = newVal.toString();
-                      widget.onChanged(newVal);
-                    },
-                    child: Icon(Icons.arrow_drop_up_rounded, size: 18.sp, color: const Color(0xFF64748B)),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      if (widget.value > 0) {
-                        final newVal = widget.value - 1;
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        final newVal = widget.value + 1;
                         _controller.text = newVal.toString();
                         widget.onChanged(newVal);
-                      }
-                    },
-                    child: Icon(Icons.arrow_drop_down_rounded, size: 18.sp, color: const Color(0xFF64748B)),
+                      },
+                      child: Center(
+                        child: Icon(Icons.arrow_drop_up_rounded, size: 14.sp, color: const Color(0xFF64748B)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (widget.value > 0) {
+                          final newVal = widget.value - 1;
+                          _controller.text = newVal.toString();
+                          widget.onChanged(newVal);
+                        }
+                      },
+                      child: Center(
+                        child: Icon(Icons.arrow_drop_down_rounded, size: 14.sp, color: const Color(0xFF64748B)),
+                      ),
+                    ),
                   ),
                 ],
               ),

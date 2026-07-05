@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'dart:developer' as dev;
 import '../services/academic_service.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../theme/colors.dart';
 
 import '../services/socket_service.dart';
@@ -36,6 +37,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../services/cache_service.dart';
 import '../services/app_state_notifier.dart';
+import '../config/api_config.dart';
 import 'dart:io';
 import 'dart:convert';
 import '../widgets/ai_chatbot_overlay.dart';
@@ -220,6 +222,7 @@ class _MainScreenState extends State<MainScreen> {
     });
     MainScreen._activeState = this;
     _loadUserName();
+    _syncProfilePhoto();
     _initSocketConnection();
   }
 
@@ -425,14 +428,75 @@ class _MainScreenState extends State<MainScreen> {
       _lastSeenAnnouncementTime = DateTime.tryParse(timeStr);
     }
     final muted = prefs.getBool('notifications_muted') ?? false;
+    final cachedPhoto = prefs.getString('${widget.role}_photo_url');
+    AppStateNotifier.userProfilePhotoUrl.value = cachedPhoto;
     setState(() {
       _isMuted = muted;
       _userName = prefs.getString('${widget.role}_name') ??
           (widget.role == 'teacher' ? prefs.getString('teacher_name') : null) ??
           (widget.role == 'student' ? prefs.getString('student_name') : null) ??
           'EduSphere User';
-      _profilePhotoUrl = prefs.getString('${widget.role}_photo_url');
+      _profilePhotoUrl = cachedPhoto;
     });
+  }
+
+  Future<void> _syncProfilePhoto() async {
+    try {
+      if (widget.role == 'student') {
+        final res = await ApiService.instance.get('students/me');
+        if (res != null && res['success'] == true && res['student'] != null) {
+          final studentData = res['student'] as Map<String, dynamic>;
+          final userMap = studentData['user'] as Map<String, dynamic>? ?? {};
+          final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? '';
+          if (rawAvatar.isNotEmpty) {
+            final publicUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
+                ? rawAvatar
+                : '${ApiConfig.serverBaseUrl}${rawAvatar.startsWith('/') ? '' : '/'}$rawAvatar';
+            
+            // Append a unique startup/current time timestamp to invalidate any local device cache from previous session
+            final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+            
+            final prefs = CacheService.instance.prefs;
+            await prefs.setString('student_photo_url', busterUrl);
+            
+            // Update global AppStateNotifier
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            if (mounted) {
+              setState(() {
+                _profilePhotoUrl = busterUrl;
+              });
+            }
+          }
+        }
+      } else if (widget.role == 'teacher') {
+        final res = await ApiService.instance.get('users/me');
+        if (res != null && res['success'] == true && res['user'] != null) {
+          final userMap = res['user'] as Map<String, dynamic>;
+          final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? '';
+          if (rawAvatar.isNotEmpty) {
+            final publicUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
+                ? rawAvatar
+                : '${ApiConfig.serverBaseUrl}${rawAvatar.startsWith('/') ? '' : '/'}$rawAvatar';
+            
+            // Append a unique startup/current time timestamp to invalidate any local device cache from previous session
+            final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+            
+            final prefs = CacheService.instance.prefs;
+            await prefs.setString('teacher_photo_url', busterUrl);
+            
+            // Update global AppStateNotifier
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            if (mounted) {
+              setState(() {
+                _profilePhotoUrl = busterUrl;
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Sync profile photo on startup failed: $e');
+    }
   }
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -2190,10 +2254,6 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
               height: 60,
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x0F000000),

@@ -55,6 +55,7 @@ class CommunityPostModel {
   final String authorRole;
   final String timeAgo;
   final String category; // 'SAMPLE' | 'EVENT' | 'ANNOUNCEMENT' | 'UPDATE'
+  final String title;
   final String content;
   int likes;
   int insightfuls;
@@ -71,6 +72,7 @@ class CommunityPostModel {
     required this.authorRole,
     required this.timeAgo,
     required this.category,
+    required this.title,
     required this.content,
     required this.likes,
     required this.insightfuls,
@@ -88,6 +90,7 @@ class CommunityPostModel {
         'authorRole': authorRole,
         'timeAgo': timeAgo,
         'category': category,
+        'title': title,
         'content': content,
         'likes': likes,
         'insightfuls': insightfuls,
@@ -134,6 +137,7 @@ class CommunityPostModel {
       authorRole: json['author_role'] ?? json['authorRole'] ?? 'Student',
       timeAgo: timeAgoStr,
       category: json['category'] as String? ?? 'General',
+      title: json['title'] as String? ?? '',
       content: json['content'] as String? ?? '',
       likes: json['likes'] as int? ?? 0,
       insightfuls: json['insightfuls'] as int? ?? 0,
@@ -261,49 +265,79 @@ class _MessagesScreenState extends State<MessagesScreen> {
   Future<void> _loadCommunityPosts() async {
     setState(() => _isLoadingCommunity = true);
     try {
-      // Try fetching announcements from backend as community feed
-      final res = await ApiService.instance.get('announcements');
-      final List<dynamic> raw = res['announcements'] ?? res['data'] ?? [];
+      final res = await ApiService.instance.get('community/posts');
+      final List<dynamic> raw = res['posts'] ?? res['data'] ?? [];
 
-      if (raw.isNotEmpty) {
-        final loaded = raw.map<CommunityPostModel>((e) {
-          final rawCreatedBy = e['createdBy'];
-          final author = rawCreatedBy is Map ? rawCreatedBy : {};
-          final firstName = author['firstName'] as String? ?? '';
-          final lastName = author['lastName'] as String? ?? '';
-          final authorName = '$firstName $lastName'.trim().isEmpty
-              ? 'EduSphere'
-              : '$firstName $lastName'.trim();
-          return CommunityPostModel(
-            id: e['id'] as String? ?? '',
-            authorName: authorName,
-            authorRole: (e['targetAudience'] is List)
-                ? (e['targetAudience'] as List).join(', ')
-                : e['targetAudience']?.toString() ?? 'All',
-            timeAgo: 'Recently',
-            category: 'ANNOUNCEMENT',
-            content: e['content'] as String? ?? e['title'] as String? ?? '',
-            likes: 0,
-            insightfuls: 0,
-            commentsCount: 0,
-            comments: [],
-            createdAt: e['createdAt'] != null
-                ? DateTime.tryParse(e['createdAt'] as String)
-                : null,
-          );
-        }).toList();
-        if (mounted) setState(() => _communityPosts = loaded);
-        return;
+      final prefs = await SharedPreferences.getInstance();
+      final loggedInUserId = prefs.getString('user_id') ?? '';
+
+      final List<CommunityPostModel> loaded = [];
+      for (var e in raw) {
+        final author = e['author'] as Map<String, dynamic>? ?? {};
+        final firstName = author['firstName'] as String? ?? '';
+        final lastName = author['lastName'] as String? ?? '';
+        final authorName = '$firstName $lastName'.trim().isEmpty
+            ? 'EduSphere'
+            : '$firstName $lastName'.trim();
+        final authorRole = author['role'] as String? ?? 'Student';
+        
+        final reactions = e['reactions'] as List? ?? [];
+        final loveCount = reactions.where((r) => r['type'] == 'LOVE').length;
+        final likeCount = reactions.where((r) => r['type'] == 'LIKE').length;
+        
+        final bool userLiked = reactions.any((r) => r['userId'] == loggedInUserId && r['type'] == 'LIKE');
+        final bool userInsightful = reactions.any((r) => r['userId'] == loggedInUserId && r['type'] == 'LOVE');
+
+        // Resolve timeAgo
+        DateTime? parsedDate;
+        String timeAgoStr = 'Recently';
+        if (e['createdAt'] != null) {
+          try {
+            parsedDate = DateTime.parse(e['createdAt'] as String).toLocal();
+            final diff = DateTime.now().difference(parsedDate);
+            if (diff.inDays > 0) {
+              timeAgoStr = '${diff.inDays} days ago';
+            } else if (diff.inHours > 0) {
+              timeAgoStr = '${diff.inHours} hours ago';
+            } else if (diff.inMinutes > 0) {
+              timeAgoStr = '${diff.inMinutes} minutes ago';
+            }
+          } catch (_) {}
+        }
+
+        final commentCountVal = e['commentCount'] ?? (e['_count'] != null ? e['_count']['comments'] : 0) ?? 0;
+
+        loaded.add(CommunityPostModel(
+          id: e['id'] as String? ?? '',
+          authorName: authorName,
+          authorRole: authorRole,
+          timeAgo: timeAgoStr,
+          category: e['postType'] as String? ?? 'GENERAL',
+          title: e['title'] as String? ?? '',
+          content: e['content'] as String? ?? '',
+          likes: likeCount,
+          insightfuls: loveCount,
+          commentsCount: commentCountVal,
+          userLiked: userLiked,
+          userInsightful: userInsightful,
+          comments: [],
+          createdAt: parsedDate,
+        ));
+      }
+
+      if (mounted) {
+        setState(() {
+          _communityPosts = loaded;
+          _isLoadingCommunity = false;
+        });
       }
     } catch (e) {
-      dev.log('Error loading community posts from backend: $e');
-    }
-
-    // Fallback to mock community posts
-    if (mounted) {
-      setState(() {
-        _communityPosts = _buildMockCommunityPosts();
-      });
+      dev.log('Error loading community posts: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingCommunity = false;
+        });
+      }
     }
   }
 
@@ -1594,6 +1628,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ],
           ),
           SizedBox(height: 14.h),
+          if (post.title.isNotEmpty) ...[
+            Text(
+              post.title,
+              style: GoogleFonts.outfit(
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F2547),
+              ),
+            ),
+            SizedBox(height: 6.h),
+          ],
           Text(
             post.content,
             style: AppTypography.caption
@@ -1658,68 +1703,70 @@ class _MessagesScreenState extends State<MessagesScreen> {
   }
 
   Widget _buildReactionButton(CommunityPostModel post) {
-    final bool hasLikes = post.likes > 0;
-    final bool hasInsightfuls = post.insightfuls > 0;
-    final bool isReactedStyle = hasLikes || hasInsightfuls;
+    final int totalReactions = post.likes + post.insightfuls;
+    final bool hasLove = post.insightfuls > 0;
 
-    String label = 'React';
-    IconData icon = Icons.thumb_up_rounded;
+    String label = totalReactions > 0 ? 'React $totalReactions' : 'React';
 
-    if (hasInsightfuls) {
-      label = 'Insightful ${post.insightfuls}';
-      icon = Icons.lightbulb_rounded;
-    } else if (hasLikes) {
-      label = 'Like ${post.likes}';
-      icon = Icons.thumb_up_rounded;
-    }
-
-    final Color textColor =
-        isReactedStyle ? const Color(0xFF1A6FDB) : const Color(0xFF495057);
-    final Color borderColor = isReactedStyle
-        ? const Color(0xFF1A6FDB).withValues(alpha: 0.5)
-        : const Color(0xFFE2EAF4);
-    final Color bgColor =
-        isReactedStyle ? const Color(0xFFE8F1FB) : Colors.white;
-
-    return GestureDetector(
-      onTap: () => _handleReactionTap(post),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(20.r),
-          border: Border.all(color: borderColor, width: 1.w),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              size: 14.sp,
-              color: const Color(
-                  0xFFF1A80A), // Beautiful yellow/amber color as in reference image
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: () => _handleReactionTap(post),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 8.h),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20.r),
+              border: Border.all(color: const Color(0xFFE2EAF4), width: 1.w),
             ),
-            SizedBox(width: 6.w),
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(color: textColor),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.thumb_up_outlined,
+                  size: 14.sp,
+                  color: const Color(0xFFF1A80A), // gold/amber color
+                ),
+                SizedBox(width: 6.w),
+                Text(
+                  label,
+                  style: AppTypography.caption.copyWith(color: const Color(0xFF495057)),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        if (hasLove) ...[
+          SizedBox(width: 8.w),
+          Text(
+            '❤️',
+            style: TextStyle(fontSize: 16.sp),
+          ),
+        ],
+      ],
     );
   }
 
   void _handleReactionTap(CommunityPostModel post) async {
     if (post.userLiked || post.userInsightful) {
-      setState(() {
-        if (post.userLiked) {
-          post.likes--;
-          post.userLiked = false;
-        } else if (post.userInsightful) {
-          post.insightfuls--;
-          post.userInsightful = false;
+      final String currentType = post.userLiked ? 'LIKE' : 'LOVE';
+      try {
+        final res = await ApiService.instance.post(
+          'community/posts/${post.id}/react',
+          body: {'type': currentType},
+        );
+        if (res != null) {
+          if (post.userLiked) {
+            post.likes = (post.likes - 1).clamp(0, 9999);
+            post.userLiked = false;
+          } else {
+            post.insightfuls = (post.insightfuls - 1).clamp(0, 9999);
+            post.userInsightful = false;
+          }
+          setState(() {});
         }
-      });
+      } catch (err) {
+        debugPrint('Error toggling reaction: $err');
+      }
       return;
     }
 
@@ -1753,11 +1800,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: GestureDetector(
                         onTap: () async {
                           Navigator.pop(ctx);
-                          setState(() {
-                            post.likes++;
-                            post.userLiked = true;
-                          });
-                          // Local state update only
+                          try {
+                            final res = await ApiService.instance.post(
+                              'community/posts/${post.id}/react',
+                              body: {'type': 'LIKE'},
+                            );
+                            if (res != null) {
+                              setState(() {
+                                post.likes++;
+                                post.userLiked = true;
+                              });
+                            }
+                          } catch (err) {
+                            debugPrint('Error reacting: $err');
+                          }
                         },
                         child: Container(
                           padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -1786,11 +1842,20 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       child: GestureDetector(
                         onTap: () async {
                           Navigator.pop(ctx);
-                          setState(() {
-                            post.insightfuls++;
-                            post.userInsightful = true;
-                          });
-                          // Local state update only
+                          try {
+                            final res = await ApiService.instance.post(
+                              'community/posts/${post.id}/react',
+                              body: {'type': 'LOVE'},
+                            );
+                            if (res != null) {
+                              setState(() {
+                                post.insightfuls++;
+                                post.userInsightful = true;
+                              });
+                            }
+                          } catch (err) {
+                            debugPrint('Error reacting: $err');
+                          }
                         },
                         child: Container(
                           padding: EdgeInsets.symmetric(vertical: 16.h),
@@ -1801,11 +1866,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           ),
                           child: Column(
                             children: [
-                              Icon(Icons.lightbulb_rounded,
-                                  color: const Color(0xFFF1A80A), size: 28.sp),
+                              Icon(Icons.favorite_rounded,
+                                  color: Colors.redAccent, size: 28.sp),
                               SizedBox(height: 8.h),
                               Text(
-                                'Insightful',
+                                'Love',
                                 style: AppTypography.small
                                     .copyWith(color: const Color(0xFFE8590C)),
                               ),
@@ -1826,6 +1891,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
   void _openCreatePostSheet() {
     String selectedCategory = 'General';
+    final titleCtrl = TextEditingController();
     final contentCtrl = TextEditingController();
     final List<TextEditingController> pollOptionCtrls = [
       TextEditingController(),
@@ -1930,6 +1996,35 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 ),
                               );
                             }).toList(),
+                          ),
+                          SizedBox(height: 20.h),
+                          Text(
+                            'Title',
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF0F2547)),
+                          ),
+                          SizedBox(height: 8.h),
+                          TextField(
+                            controller: titleCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'Enter post title...',
+                              hintStyle: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF94A3B8)),
+                              filled: true,
+                              fillColor: const Color(0xFFF8FAFC),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide:
+                                    const BorderSide(color: Color(0xFFE2EAF4)),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12.r),
+                                borderSide: const BorderSide(
+                                    color: Color(0xFF1A6FDB), width: 1.5),
+                              ),
+                            ),
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF495057)),
                           ),
                           SizedBox(height: 20.h),
                           Text(
@@ -2043,7 +2138,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                                 borderRadius: BorderRadius.circular(12.r)),
                           ),
                           onPressed: () async {
-                            if (contentCtrl.text.trim().isEmpty) {
+                            final title = titleCtrl.text.trim();
+                            final content = contentCtrl.text.trim();
+
+                            if (title.isEmpty) {
+                              showToast(context, 'Please enter a title');
+                              return;
+                            }
+                            if (content.isEmpty) {
                               showToast(context, 'Please enter some content');
                               return;
                             }
@@ -2069,29 +2171,25 @@ class _MessagesScreenState extends State<MessagesScreen> {
                               const SnackBar(content: Text('Publishing...')),
                             );
 
-                            setState(() {
-                              final newPost = CommunityPostModel(
-                                id: 'post_${DateTime.now().millisecondsSinceEpoch}',
-                                authorName: '$_firstName Gupta',
-                                authorRole: 'Student',
-                                timeAgo: 'Just now',
-                                category: selectedCategory,
-                                content: contentCtrl.text.trim(),
-                                likes: 0,
-                                insightfuls: 0,
-                                commentsCount: 0,
-                                comments: [],
-                                pollOptions: finalPollOptions,
-                                createdAt: DateTime.now(),
-                              );
-                              _communityPosts.insert(0, newPost);
-                            });
-
-                            if (mounted) {
-                              ScaffoldMessenger.of(context)
-                                  .hideCurrentSnackBar();
-                              showToast(
-                                  context, '🎉 Post published successfully!');
+                            try {
+                              final res = await ApiService.instance.post('community/posts', body: {
+                                'title': title,
+                                'content': content,
+                                'postType': selectedCategory.toUpperCase(),
+                                'audience': 'ALL',
+                              });
+                              if (res != null) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  showToast(context, '🎉 Post published successfully!');
+                                }
+                                _loadCommunityPosts();
+                              }
+                            } catch (err) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                showToast(context, 'Failed to publish post: $err', isError: true);
+                              }
                             }
                           },
                           child: Text(
@@ -2112,8 +2210,58 @@ class _MessagesScreenState extends State<MessagesScreen> {
     );
   }
 
-  void _openCommentsSheet(CommunityPostModel post) {
+  void _openCommentsSheet(CommunityPostModel post) async {
     final commentCtrl = TextEditingController();
+    bool isLoadingComments = true;
+
+    // First show details loading
+    try {
+      final res = await ApiService.instance.get('community/posts/${post.id}');
+      if (res != null && res['comments'] != null) {
+        final List<dynamic> commentsRaw = res['comments'];
+        post.comments = commentsRaw.map<CommunityCommentModel>((c) {
+          final author = c['author'] as Map<String, dynamic>? ?? {};
+          final firstName = author['firstName'] as String? ?? '';
+          final lastName = author['lastName'] as String? ?? '';
+          final authorName = '$firstName $lastName'.trim().isEmpty
+              ? 'EduSphere'
+              : '$firstName $lastName'.trim();
+          final authorRole = author['role'] as String? ?? 'Student';
+          
+          DateTime? parsedDate;
+          String timeAgoStr = 'Recently';
+          if (c['createdAt'] != null) {
+            try {
+              parsedDate = DateTime.parse(c['createdAt'] as String).toLocal();
+              final diff = DateTime.now().difference(parsedDate);
+              if (diff.inDays > 0) {
+                timeAgoStr = '${diff.inDays}d ago';
+              } else if (diff.inHours > 0) {
+                timeAgoStr = '${diff.inHours}h ago';
+              } else if (diff.inMinutes > 0) {
+                timeAgoStr = '${diff.inMinutes}m ago';
+              }
+            } catch (_) {}
+          }
+          
+          return CommunityCommentModel(
+            id: c['id'] as String? ?? '',
+            authorName: authorName,
+            authorRole: authorRole,
+            content: c['content'] as String? ?? '',
+            timeAgo: timeAgoStr,
+          );
+        }).toList();
+        post.commentsCount = post.comments.length;
+      }
+      isLoadingComments = false;
+      setState(() {});
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+      isLoadingComments = false;
+    }
+
+    if (!mounted) return;
 
     showModalBottomSheet(
       context: context,
@@ -2145,7 +2293,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Replies (${post.comments.length})',
+                          isLoadingComments
+                              ? 'Loading replies...'
+                              : 'Replies (${post.comments.length})',
                           style: GoogleFonts.outfit(
                             fontSize: 18.sp,
                             fontWeight: FontWeight.w900,
@@ -2161,94 +2311,100 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   ),
                   const Divider(color: Color(0xFFCBD5E1)),
                   Expanded(
-                    child: post.comments.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No comments yet. Be the first to reply!',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF868E96)),
+                    child: isLoadingComments
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF1A6FDB),
                             ),
                           )
-                        : ListView.builder(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 24.w, vertical: 12.h),
-                            itemCount: post.comments.length,
-                            itemBuilder: (ctx, idx) {
-                              final comment = post.comments[idx];
-                              final String initials =
-                                  comment.authorName.isNotEmpty
-                                      ? comment.authorName
-                                          .split(' ')
-                                          .map((n) => n[0])
-                                          .take(2)
-                                          .join()
-                                          .toUpperCase()
-                                      : '?';
-                              return Container(
-                                margin: EdgeInsets.only(bottom: 16.h),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 36.w,
-                                      height: 36.w,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFFF1F3F5),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          initials,
-                                          style: GoogleFonts.outfit(
-                                            fontSize: 12.sp,
-                                            fontWeight: FontWeight.w900,
-                                            color: const Color(0xFF495057),
+                        : post.comments.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No comments yet. Be the first to reply!',
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF868E96)),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 24.w, vertical: 12.h),
+                                itemCount: post.comments.length,
+                                itemBuilder: (ctx, idx) {
+                                  final comment = post.comments[idx];
+                                  final String initials =
+                                      comment.authorName.isNotEmpty
+                                          ? comment.authorName
+                                              .split(' ')
+                                              .map((n) => n[0])
+                                              .take(2)
+                                              .join()
+                                              .toUpperCase()
+                                          : '?';
+                                  return Container(
+                                    margin: EdgeInsets.only(bottom: 16.h),
+                                    child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Container(
+                                          width: 36.w,
+                                          height: 36.w,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFF1F3F5),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              initials,
+                                              style: GoogleFonts.outfit(
+                                                fontSize: 12.sp,
+                                                fontWeight: FontWeight.w900,
+                                                color: const Color(0xFF495057),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                    SizedBox(width: 12.w),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
+                                        SizedBox(width: 12.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                comment.authorName,
-                                                style: AppTypography.caption
-                                                    .copyWith(
-                                                        color: const Color(
-                                                            0xFF0F2547)),
+                                              Row(
+                                                children: [
+                                                  Text(
+                                                    comment.authorName,
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: const Color(
+                                                                0xFF0F2547)),
+                                                  ),
+                                                  SizedBox(width: 6.w),
+                                                  Text(
+                                                    '${comment.authorRole} • ${comment.timeAgo}',
+                                                    style: AppTypography.caption
+                                                        .copyWith(
+                                                            color: const Color(
+                                                                0xFF868E96)),
+                                                  ),
+                                                ],
                                               ),
-                                              SizedBox(width: 6.w),
+                                              SizedBox(height: 4.h),
                                               Text(
-                                                '${comment.authorRole} • ${comment.timeAgo}',
+                                                comment.content,
                                                 style: AppTypography.caption
                                                     .copyWith(
-                                                        color: const Color(
-                                                            0xFF868E96)),
+                                                        color:
+                                                            const Color(0xFF495057),
+                                                        height: 1.4),
                                               ),
                                             ],
                                           ),
-                                          SizedBox(height: 4.h),
-                                          Text(
-                                            comment.content,
-                                            style: AppTypography.caption
-                                                .copyWith(
-                                                    color:
-                                                        const Color(0xFF495057),
-                                                    height: 1.4),
-                                          ),
-                                        ],
-                                      ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
+                                  );
+                                },
+                              ),
                   ),
                   SafeArea(
                     child: Container(
@@ -2276,22 +2432,61 @@ class _MessagesScreenState extends State<MessagesScreen> {
                           ),
                           GestureDetector(
                             onTap: () async {
-                              if (commentCtrl.text.trim().isEmpty) return;
-                              final newComment = CommunityCommentModel(
-                                id: 'c_${DateTime.now().millisecondsSinceEpoch}',
-                                authorName: '$_firstName Gupta',
-                                authorRole: 'Student',
-                                content: commentCtrl.text.trim(),
-                                timeAgo: 'Just now',
-                              );
-                              setState(() {
-                                post.comments.add(newComment);
-                              });
-                              setModalState(() {});
-
-                              // Local state comment update only
-
+                              final commentText = commentCtrl.text.trim();
+                              if (commentText.isEmpty) return;
                               commentCtrl.clear();
+
+                              try {
+                                final res = await ApiService.instance.post(
+                                  'community/posts/${post.id}/comments',
+                                  body: {'content': commentText},
+                                );
+                                if (res != null) {
+                                  // Refresh comments list from single post API
+                                  final detailRes = await ApiService.instance.get('community/posts/${post.id}');
+                                  if (detailRes != null && detailRes['comments'] != null) {
+                                    final List<dynamic> commentsRaw = detailRes['comments'];
+                                    post.comments = commentsRaw.map<CommunityCommentModel>((c) {
+                                      final author = c['author'] as Map<String, dynamic>? ?? {};
+                                      final firstName = author['firstName'] as String? ?? '';
+                                      final lastName = author['lastName'] as String? ?? '';
+                                      final authorName = '$firstName $lastName'.trim().isEmpty
+                                          ? 'EduSphere'
+                                          : '$firstName $lastName'.trim();
+                                      final authorRole = author['role'] as String? ?? 'Student';
+                                      
+                                      DateTime? parsedDate;
+                                      String timeAgoStr = 'Recently';
+                                      if (c['createdAt'] != null) {
+                                        try {
+                                          parsedDate = DateTime.parse(c['createdAt'] as String).toLocal();
+                                          final diff = DateTime.now().difference(parsedDate);
+                                          if (diff.inDays > 0) {
+                                            timeAgoStr = '${diff.inDays}d ago';
+                                          } else if (diff.inHours > 0) {
+                                            timeAgoStr = '${diff.inHours}h ago';
+                                          } else if (diff.inMinutes > 0) {
+                                            timeAgoStr = '${diff.inMinutes}m ago';
+                                          }
+                                        } catch (_) {}
+                                      }
+                                      
+                                      return CommunityCommentModel(
+                                        id: c['id'] as String? ?? '',
+                                        authorName: authorName,
+                                        authorRole: authorRole,
+                                        content: c['content'] as String? ?? '',
+                                        timeAgo: timeAgoStr,
+                                      );
+                                    }).toList();
+                                    post.commentsCount = post.comments.length;
+                                  }
+                                  setState(() {});
+                                  setModalState(() {});
+                                }
+                              } catch (err) {
+                                debugPrint('Error replying: $err');
+                              }
                             },
                             child: Container(
                               padding: EdgeInsets.all(8.r),

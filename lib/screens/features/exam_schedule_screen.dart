@@ -900,18 +900,23 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
               child: Row(
                 children: [
                   SizedBox(
-                      width: 110.w,
+                      width: 140.w,
                       child: Text('Exam Name', style: _headerStyle())),
+                  SizedBox(width: 12.w),
                   SizedBox(
-                      width: 60.w, child: Text('Class', style: _headerStyle())),
+                      width: 80.w, child: Text('Class', style: _headerStyle())),
+                  SizedBox(width: 12.w),
                   SizedBox(
-                      width: 50.w, child: Text('Term', style: _headerStyle())),
+                      width: 60.w, child: Text('Term', style: _headerStyle())),
+                  SizedBox(width: 12.w),
                   SizedBox(
-                      width: 80.w,
+                      width: 90.w,
                       child: Text('Start Date', style: _headerStyle())),
+                  SizedBox(width: 12.w),
                   SizedBox(
-                      width: 80.w,
+                      width: 90.w,
                       child: Text('Status', style: _headerStyle())),
+                  SizedBox(width: 12.w),
                   SizedBox(
                       width: 50.w,
                       child: Text('Actions',
@@ -968,41 +973,52 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                   children: [
                     // Exam Name
                     SizedBox(
-                      width: 110.w,
+                      width: 140.w,
                       child: Text(
                         e['name'] as String? ?? 'Untitled',
                         style: AppTypography.caption
                             .copyWith(color: const Color(0xFF0F172A)),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    SizedBox(width: 12.w),
                     // Class
                     SizedBox(
-                      width: 60.w,
+                      width: 80.w,
                       child: Text(
                         displayClass,
                         style: _cellStyle(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    SizedBox(width: 12.w),
                     // Term
                     SizedBox(
-                      width: 50.w,
+                      width: 60.w,
                       child: Text(
                         e['term'] as String? ?? '-',
                         style: _cellStyle(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    SizedBox(width: 12.w),
                     // Start Date
                     SizedBox(
-                      width: 80.w,
+                      width: 90.w,
                       child: Text(
                         formatDateString(e['start_date']),
                         style: _cellStyle(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    SizedBox(width: 12.w),
                     // Status Badge
                     SizedBox(
-                      width: 80.w,
+                      width: 90.w,
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Container(
@@ -1017,11 +1033,13 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                             style: AppTypography.caption
                                 .copyWith(color: statusColor),
                             textAlign: TextAlign.center,
+                            maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
                     ),
+                    SizedBox(width: 12.w),
                     // Actions
                     SizedBox(
                       width: 50.w,

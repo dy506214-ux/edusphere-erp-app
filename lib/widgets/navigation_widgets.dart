@@ -277,7 +277,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
         children: [
           Container(
             margin: EdgeInsets.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             height: 72,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -303,31 +303,33 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                   },
                   child: Icon(
                     isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
-                    color: const Color(0xFF0056C6),
+                    color: const Color(0xFF0D47A1),
                     size: 28,
                   ),
                 ),
 
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
 
-                // Center/Left-Center Logo and Title (wrapped in Expanded to prevent overflow)
+                // Center/Left-Center Logo and Title (wrapped in Expanded/Flexible to prevent overflow)
                 Expanded(
                   child: Row(
                     children: [
                       const GraduationCap3D(size: 28),
                       const SizedBox(width: 8),
-                      Expanded(
+                      Flexible(
                         child: Text(
-                          widget.title,
+                          widget.title.toUpperCase(),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                           style: GoogleFonts.outfit(
                             fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: const Color(0xFF0056C6),
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0D47A1),
+                            letterSpacing: 0.5,
                           ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                     ],
                   ),
                 ),
@@ -344,7 +346,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                         RotationTransition(
                           turns: _shake1Animation,
                           child: IconButton(
-                            icon: const Icon(Icons.notifications_rounded, size: 28, color: Color(0xFF0056C6)),
+                            icon: const Icon(Icons.notifications_rounded, size: 28, color: Color(0xFF0D47A1)),
                             onPressed: () => _showNotificationsDropdown(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -356,7 +358,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                             top: -4,
                             child: Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: Color(0xFF0056C6), shape: BoxShape.circle),
+                              decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
@@ -374,7 +376,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                     Container(
                       width: 1,
                       height: 18,
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
                       color: const Color(0xFFE2E8F0),
                     ),
 
@@ -389,7 +391,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                             icon: Icon(
                               _isMuted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
                               size: 28,
-                              color: const Color(0xFF0056C6),
+                              color: const Color(0xFF0D47A1),
                             ),
                             onPressed: () => _showMuteDialog(context),
                             padding: EdgeInsets.zero,
@@ -402,7 +404,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                             top: -4,
                             child: Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: Color(0xFF0056C6), shape: BoxShape.circle),
+                              decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
@@ -924,7 +926,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
         children: [
           Container(
             margin: EdgeInsets.zero,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             height: 72,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -950,31 +952,36 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                   },
                   child: Icon(
                     isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
-                    color: const Color(0xFF0D7DDC),
+                    color: const Color(0xFF0D47A1),
                     size: 28,
                   ),
                 ),
 
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
 
-                // Center/Left-Center Logo and Title
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Image.asset('assets/images/logo.png', height: 28, fit: BoxFit.contain),
-                    const SizedBox(width: 8),
-                    Text(
-                      'EduSphere',
-                      style: GoogleFonts.outfit(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: const Color(0xFF0D7DDC),
+                // Center/Left-Center Logo and Title (wrapped in Expanded/Flexible to prevent overflow)
+                Expanded(
+                  child: Row(
+                    children: [
+                      const GraduationCap3D(size: 28),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          widget.title.toUpperCase(),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: const Color(0xFF0D47A1),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 8),
+                    ],
+                  ),
                 ),
-
-                const Spacer(),
 
                 // Right Actions: Bells
                 Row(
@@ -988,7 +995,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                         RotationTransition(
                           turns: _shake1Animation,
                           child: IconButton(
-                            icon: const Icon(Icons.notifications_rounded, size: 28, color: Color(0xFF0D7DDC)),
+                            icon: const Icon(Icons.notifications_rounded, size: 28, color: Color(0xFF0D47A1)),
                             onPressed: () => _showNotificationsDropdown(context),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
@@ -1000,7 +1007,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                             top: -4,
                             child: Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: Color(0xFF0D7DDC), shape: BoxShape.circle),
+                              decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
@@ -1018,7 +1025,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                     Container(
                       width: 1,
                       height: 18,
-                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
                       color: const Color(0xFFE2E8F0),
                     ),
 
@@ -1033,7 +1040,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                             icon: Icon(
                               _isMuted ? Icons.notifications_off_rounded : Icons.notifications_active_rounded,
                               size: 28,
-                              color: const Color(0xFF0D7DDC),
+                              color: const Color(0xFF0D47A1),
                             ),
                             onPressed: () => _showMuteDialog(context),
                             padding: EdgeInsets.zero,
@@ -1046,7 +1053,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                             top: -4,
                             child: Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(color: Color(0xFF0D7DDC), shape: BoxShape.circle),
+                              decoration: const BoxDecoration(color: Color(0xFF0D47A1), shape: BoxShape.circle),
                               constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                               child: Center(
                                 child: Text(
@@ -1433,20 +1440,16 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
     return SafeArea(
       top: false,
       child: Container(
-        height: 64.h,
+        height: 64,
         margin: EdgeInsets.zero,
         child: Stack(
           clipBehavior: Clip.none,
           alignment: Alignment.bottomCenter,
           children: [
             Container(
-              height: 64.h,
+              height: 64,
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
-                ),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x0F000000),
@@ -1456,12 +1459,12 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                 ],
               ),
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
                     Expanded(child: _buildBottomTab(layoutTabs[0], displayPhotoUrl)),
                     Expanded(child: _buildBottomTab(layoutTabs[1], displayPhotoUrl)),
-                    SizedBox(width: 64.w), // Space for center floating button
+                    const SizedBox(width: 64), // Space for center floating button
                     Expanded(child: _buildBottomTab(layoutTabs[3], displayPhotoUrl)),
                     Expanded(child: _buildBottomTab(layoutTabs[4], displayPhotoUrl)),
                   ],
@@ -1469,7 +1472,7 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
               ),
             ),
             Positioned(
-              bottom: 14.h,
+              bottom: 14,
               child: ScaleTransition(
                 scale: _scaleAnimation,
                 child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
@@ -1491,22 +1494,22 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
       button: true,
       child: InkWell(
         onTap: () => MainScreen.navigateTo(context, item.targetScreenIndex),
-        borderRadius: BorderRadius.circular(20.r),
+        borderRadius: BorderRadius.circular(20),
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 4.h, horizontal: 1.w),
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 1),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (isProfile && photoUrl != null && photoUrl.isNotEmpty)
                 Container(
-                  width: 22.w,
-                  height: 22.w,
+                  width: 22,
+                  height: 22,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                   ),
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11.r),
+                    borderRadius: BorderRadius.circular(11),
                     child: ColorFiltered(
                       colorFilter: const ColorFilter.matrix([
                         0.2126, 0.7152, 0.0722, 0, 0,
@@ -1521,19 +1524,19 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
               else if (isProfile)
                 Icon(
                   Icons.person_rounded,
-                  size: 22.sp,
+                  size: 22,
                   color: const Color(0xFF1E293B),
                 )
               else
-                Icon(item.icon, size: 22.sp, color: color),
-              SizedBox(height: 2.h),
+                Icon(item.icon, size: 22, color: color),
+              const SizedBox(height: 2),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 child: Text(
                   item.label,
                   maxLines: 1,
                   style: GoogleFonts.inter(
-                    fontSize: 10.sp,
+                    fontSize: 10,
                     fontWeight: FontWeight.w700,
                     color: color,
                   ),

@@ -20,6 +20,7 @@ import '../../theme/typography.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../utils/download_helper.dart';
+import '../../services/app_state_notifier.dart';
 
 class StudentProfileDetailsScreen extends StatefulWidget {
   final Function(String)? onAvatarUpdated;
@@ -89,15 +90,25 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
   double _uploadProgress = 0.0;
   Timer? _qrRefreshTimer;
 
+  void _onGlobalPhotoUrlChanged() {
+    if (mounted) {
+      setState(() {
+        _avatarUrl = AppStateNotifier.userProfilePhotoUrl.value;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    AppStateNotifier.userProfilePhotoUrl.addListener(_onGlobalPhotoUrlChanged);
     _loadNotificationPreferences();
     _loadStudentDataFromSupabase();
   }
 
   @override
   void dispose() {
+    AppStateNotifier.userProfilePhotoUrl.removeListener(_onGlobalPhotoUrlChanged);
     _qrRefreshTimer?.cancel();
     super.dispose();
   }
@@ -285,11 +296,17 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
 
         final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? '';
         if (rawAvatar.isNotEmpty) {
-          _avatarUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
+          final publicUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
               ? rawAvatar
               : '${ApiConfig.serverBaseUrl}${rawAvatar.startsWith('/') ? '' : '/'}$rawAvatar';
+          final busterUrl = publicUrl.contains('?t=') 
+              ? publicUrl 
+              : '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+          _avatarUrl = busterUrl;
+          AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
         } else {
           _avatarUrl = null;
+          AppStateNotifier.userProfilePhotoUrl.value = null;
         }
 
         // Parse documents
@@ -502,12 +519,14 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         final publicUrl = res['user']?['avatar'] as String?;
         final prefs = CacheService.instance.prefs;
         if (publicUrl != null) {
-          await prefs.setString('student_photo_url', publicUrl);
+          final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+          await prefs.setString('student_photo_url', busterUrl);
+          AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
           setState(() {
-            _avatarUrl = publicUrl;
+            _avatarUrl = busterUrl;
           });
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(publicUrl);
+            widget.onAvatarUpdated!(busterUrl);
           }
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
         } else {
@@ -519,7 +538,32 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       }
     } catch (e) {
       debugPrint('Upload avatar failed: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      String errMsg = 'Upload failed: $e';
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode != null) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errMsg = data['message'].toString();
+          } else {
+            switch (statusCode) {
+              case 401: errMsg = 'Unauthorized. Please log in again.'; break;
+              case 403: errMsg = 'Access denied.'; break;
+              case 404: errMsg = 'Endpoint not found.'; break;
+              case 413: errMsg = 'File size is too large.'; break;
+              case 422: errMsg = 'Invalid image format.'; break;
+              case 429: errMsg = 'Too many requests. Please try later.'; break;
+              case 500: errMsg = 'Internal server error.'; break;
+              default: errMsg = 'Server returned code $statusCode.';
+            }
+          }
+        } else if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.sendTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errMsg = 'Connection timed out. Please check your internet.';
+        } else if (e.type == DioExceptionType.connectionError) {
+          errMsg = 'No internet connection detected.';
+        }
+      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errMsg)));
     }
   }
 
@@ -529,6 +573,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
       if (res != null && res['success'] == true) {
         final prefs = CacheService.instance.prefs;
         await prefs.remove('student_photo_url');
+        AppStateNotifier.userProfilePhotoUrl.value = null;
         setState(() {
           _avatarUrl = null;
         });
@@ -537,7 +582,20 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         }
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo removed.')));
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Avatar removal failed: $e');
+      String errMsg = 'Failed to remove photo: $e';
+      if (e is DioException) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode != null) {
+          final data = e.response?.data;
+          if (data is Map && data['message'] != null) {
+            errMsg = data['message'].toString();
+          }
+        }
+      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errMsg)));
+    }
   }
 
   Future<void> _uploadVerificationDocument() async {
@@ -1034,15 +1092,27 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                               ],
                             ),
                             const SizedBox(height: 6),
-                            Row(
+                            Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
-                                const Icon(Icons.school_rounded, size: 14, color: AppColors.textLight),
-                                const SizedBox(width: 4),
-                                Text('Class $_studentClass - $_section', style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.badge_rounded, size: 14, color: AppColors.textLight),
-                                const SizedBox(width: 4),
-                                Text('Roll No. $_rollNo', style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.school_rounded, size: 14, color: AppColors.textLight),
+                                    const SizedBox(width: 4),
+                                    Text('Class $_studentClass - $_section', style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
+                                  ],
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.badge_rounded, size: 14, color: AppColors.textLight),
+                                    const SizedBox(width: 4),
+                                    Text('Roll No. $_rollNo', style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
+                                  ],
+                                ),
                               ],
                             ),
                             const SizedBox(height: 6),
@@ -1087,43 +1157,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             ),
             const SizedBox(height: 16),
 
-            // Digital Identity / QR
-            _sectionHeader('🔑 Digital ID Pass'),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 150,
-                    height: 150,
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: _dbQrCode != null
-                        ? Image.memory(base64Decode(_dbQrCode!.split(',').last), fit: BoxFit.contain)
-                        : const Center(child: CircularProgressIndicator()),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('QR Code refreshes dynamically every 20 seconds for secure attendance logs.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                  const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: _downloadQRCodePDF,
-                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
-                    label: const Text('Download PDF Pass', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.studentPrimary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+
 
             // Summary Grid
             GridView.count(
@@ -1165,29 +1199,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             ),
             const SizedBox(height: 20),
 
-            // Address Details
-            _sectionHeader('📍 Address & Location'),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Street Address', style: AppTypography.caption.copyWith(color: AppColors.textLight)),
-                  const SizedBox(height: 4),
-                  Text(_address, style: AppTypography.caption.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
-                  _divider(),
-                  _infoRow(Icons.location_city_rounded, 'City', _studentCity),
-                  _divider(),
-                  _infoRow(Icons.map_rounded, 'State', _studentState),
-                  _divider(),
-                  _infoRow(Icons.pin_drop_rounded, 'PIN Code', _studentPincode),
-                  _divider(),
-                  _infoRow(Icons.public_rounded, 'Country', _studentCountry),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+
 
             // Health Protocol
             _sectionHeader('❤️ Health Protocol'),
@@ -1237,7 +1249,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                     onChanged: _togglePushNotifications,
                     activeColor: AppColors.studentPrimary,
                     title: const Text('Push Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Receive alerts about attendance & announcements', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    subtitle: const Text('Receive browser push alerts', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
                   ),
                   _divider(),
                   SwitchListTile(
@@ -1245,23 +1257,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                     onChanged: _toggleInAppNotifications,
                     activeColor: AppColors.studentPrimary,
                     title: const Text('In-App Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Show popups and badge counts inside the app', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                  ),
-                  _divider(),
-                  SwitchListTile(
-                    value: _emailNotifications,
-                    onChanged: _toggleEmailNotifications,
-                    activeColor: AppColors.studentPrimary,
-                    title: const Text('Email Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Receive daily summaries and fee invoices via email', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                  ),
-                  _divider(),
-                  SwitchListTile(
-                    value: _smsNotifications,
-                    onChanged: _toggleSMSNotifications,
-                    activeColor: AppColors.studentPrimary,
-                    title: const Text('SMS Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Receive emergency alerts and attendance logs on phone', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    subtitle: const Text('Show alerts inside dashboard', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
                   ),
                 ],
               ),
@@ -1373,6 +1369,44 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                         );
                       },
                     ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Digital Identity / QR (Moved to bottom)
+            _sectionHeader('🔑 Digital ID Pass'),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 150,
+                    height: 150,
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: _dbQrCode != null
+                        ? Image.memory(base64Decode(_dbQrCode!.split(',').last), fit: BoxFit.contain)
+                        : const Center(child: CircularProgressIndicator()),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('QR Code refreshes dynamically every 20 seconds for secure attendance logs.', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                  const SizedBox(height: 12),
+                  ElevatedButton.icon(
+                    onPressed: _downloadQRCodePDF,
+                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
+                    label: const Text('Download PDF Pass', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.studentPrimary, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                  ),
                 ],
               ),
             ),
