@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1403,7 +1404,7 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   Widget _renderProfileAvatar(String? photoUrl, {required double width, required double height}) {
     if (photoUrl != null && photoUrl.isNotEmpty) {
-      if (photoUrl.startsWith('http')) {
+      if (kIsWeb || photoUrl.startsWith('http') || photoUrl.startsWith('data:image') || photoUrl.startsWith('blob:')) {
         return Image.network(photoUrl, width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
       } else {
         return Image.file(File(photoUrl), width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
