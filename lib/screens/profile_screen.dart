@@ -650,11 +650,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? avatar 
               : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
           prefs.setString('student_photo_url', busterUrl);
+          _avatarUrl = busterUrl;
           if (_isOwnProfile) {
             AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
           }
         } else {
           prefs.remove('student_photo_url');
+          _avatarUrl = null;
           if (_isOwnProfile) {
             AppStateNotifier.userProfilePhotoUrl.value = null;
           }
@@ -1608,11 +1610,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? avatar 
               : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
           prefs.setString('teacher_photo_url', busterUrl);
+          _avatarUrl = busterUrl;
           if (_isOwnProfile) {
             AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
           }
         } else {
           prefs.remove('teacher_photo_url');
+          _avatarUrl = null;
           if (_isOwnProfile) {
             AppStateNotifier.userProfilePhotoUrl.value = null;
           }
@@ -1657,7 +1661,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
 
         _employeeId = teacherMap['employeeId'] as String? ?? 'ID_PENDING';
-        _designation = teacherMap['specialization'] as String? ?? 'TEACHER';
+        final String spec = teacherMap['specialization'] as String? ?? '';
+        _designation = spec.isNotEmpty ? spec : 'TEACHER';
         _department = teacherMap['qualification'] as String? ?? 'CORE_SYSTEM';
 
         final rawExp = teacherMap['experience']?.toString();
@@ -1782,7 +1787,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _address =
               prefs.getString('teacher_address') ?? 'No location registered';
           _employeeId = prefs.getString('teacher_emp_id') ?? 'ID_PENDING';
-          _designation = prefs.getString('teacher_design') ?? 'TEACHER';
+          final String designVal = prefs.getString('teacher_design') ?? '';
+          _designation = designVal.isNotEmpty ? designVal : 'TEACHER';
           _department = prefs.getString('teacher_dept') ?? 'CORE_SYSTEM';
           _experience = prefs.getString('teacher_exp') ?? 'N/A';
           _activityStatus = prefs.getString('teacher_activity') ?? 'Offline';
@@ -3706,27 +3712,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Fee Status',
-                  style: GoogleFonts.outfit(
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w800,
-                    color: const Color(0xFF0F2547),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Fee Status',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F2547),
+                    ),
                   ),
-                ),
-                SizedBox(height: 4.h),
-                Text(
-                  'Current academic year fee details',
-                  style: GoogleFonts.inter(
-                    fontSize: 12.sp,
-                    color: const Color(0xFF64748B),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Current academic year fee details',
+                    style: GoogleFonts.inter(
+                      fontSize: 12.sp,
+                      color: const Color(0xFF64748B),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
+            SizedBox(width: 8.w),
             ElevatedButton.icon(
               onPressed: () {
                 final studentId = widget.studentId ?? _currentStudentDbId ?? '';
