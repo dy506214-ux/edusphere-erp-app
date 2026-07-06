@@ -513,6 +513,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     setState(() {
       _isProfileLoading = true;
       _hasProfileError = false;
+      _isQrLoading = true;
+      _qrError = false;
     });
 
     if (widget.studentId != null) {
@@ -725,13 +727,33 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             if (qr != null && qr.isNotEmpty) {
               setState(() {
                 _dbQrCode = qr;
+                _qrError = false;
+                _isQrLoading = false;
               });
               await prefs.setString('student_qrcode', qr);
+            } else {
+              setState(() {
+                _isQrLoading = false;
+                _qrError = _dbQrCode == null;
+              });
             }
+          } else {
+            setState(() {
+              _isQrLoading = false;
+              _qrError = _dbQrCode == null;
+            });
           }
         } catch (e) {
           debugPrint('Error fetching QR from API: $e');
+          setState(() {
+            _isQrLoading = false;
+            _qrError = _dbQrCode == null;
+          });
         }
+      } else {
+        setState(() {
+          _isQrLoading = false;
+        });
       }
 
       final studentId = studentResMap['id'] as String;
@@ -1590,20 +1612,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       }
 
       Map<String, dynamic>? teacherMap;
-      if (widget.teacherId == null || widget.teacherId == _currentUserId) {
-        final res = await ApiService.instance.get('teachers/me');
-        if (res != null && res['success'] == true) {
-          teacherMap = res['teacher'] as Map<String, dynamic>?;
-        }
-      } else {
-        final res = await ApiService.instance.get('users/$currentUserId');
-        if (res != null && res['success'] == true) {
-          final userRes = res['user'] as Map<String, dynamic>?;
-          if (userRes != null && userRes['teacher'] != null) {
-            final tMap = Map<String, dynamic>.from(userRes['teacher'] as Map);
-            tMap['user'] = userRes;
-            teacherMap = tMap;
-          }
+      final res = await ApiService.instance.get('teachers');
+      if (res != null && res['success'] == true && res['teachers'] is List) {
+        final teachersList = res['teachers'] as List;
+        final match = teachersList.firstWhere(
+          (t) => t['userId'] == currentUserId || t['id'] == currentUserId || (t['user'] != null && t['user']['id'] == currentUserId),
+          orElse: () => null,
+        );
+        if (match != null) {
+          teacherMap = Map<String, dynamic>.from(match as Map);
         }
       }
 
@@ -1620,10 +1637,12 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
       final tMap = teacherMap;
       final userMap = tMap['user'] as Map<String, dynamic>? ?? {};
+      currentUserId = userMap['id']?.toString() ?? currentUserId;
 
       // Fetch QR Code from Render API specifically
       String? qrCode;
       bool fetchQrSuccess = false;
+      bool? qrIssuedFromApi;
       try {
         final qrRes = await ApiService.instance.get('users/$currentUserId/qr');
         if (qrRes != null &&
@@ -1631,6 +1650,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             qrRes['qrCode'] != null) {
           qrCode = qrRes['qrCode'] as String?;
           fetchQrSuccess = true;
+          if (qrRes['qrIssued'] != null) {
+            qrIssuedFromApi = qrRes['qrIssued'] as bool?;
+          }
         }
       } catch (e) {
         // Handled via fetchQrSuccess flag
@@ -1710,7 +1732,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         }
 
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
-        _qrIssued = userMap['qrIssued'] as bool? ?? false;
+        _qrIssued = qrIssuedFromApi ?? userMap['qrIssued'] as bool? ?? false;
         _activityStatus = (userMap['isActive'] as bool? ?? true) ? 'Active' : 'Inactive';
         _userRole = userMap['role']?.toString() ?? 'TEACHER';
 
@@ -1754,6 +1776,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         await prefs.setString('teacher_design', _designation);
         await prefs.setString('teacher_dept', _department);
         await prefs.setString('teacher_exp', _experience);
+        await prefs.setString('teacher_activity', _activityStatus);
+        await prefs.setString('teacher_last_pwd', _lastPasswordChange);
         if (_dbQrCode != null) {
           await prefs.setString('teacher_qrcode', _dbQrCode!);
         }
@@ -3282,20 +3306,20 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       children: [
                         pw.TableRow(
                           children: [
-                            pw.Text('Admission No:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
-                            pw.Text(_admissionNo, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text(widget.role == 'teacher' ? 'Employee ID:' : 'Admission No:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                            pw.Text(widget.role == 'teacher' ? _employeeId : _admissionNo, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                           ],
                         ),
                         pw.TableRow(
                           children: [
-                            pw.Text('Student ID:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
-                            pw.Text(userId, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text(widget.role == 'teacher' ? 'Department:' : 'Student ID:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                            pw.Text(widget.role == 'teacher' ? _department : userId, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                           ],
                         ),
                         pw.TableRow(
                           children: [
-                            pw.Text('Class & Section:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
-                            pw.Text('$_studentClass - $_section', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                            pw.Text(widget.role == 'teacher' ? 'Designation:' : 'Class & Section:', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                            pw.Text(widget.role == 'teacher' ? _designation : '$_studentClass - $_section', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
                           ],
                         ),
                         pw.TableRow(
@@ -4875,57 +4899,87 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: const Color(0xFFE2EAF4)),
             ),
-            child: _dbQrCode != null && _dbQrCode!.startsWith('data:image')
-                ? (() {
-                    try {
-                      final base64Str = _dbQrCode!.split(',').last;
-                      final bytes = base64Decode(base64Str);
-                      return Image.memory(
-                        bytes,
-                        fit: BoxFit.contain,
-                        errorBuilder: (cxt, err, stack) {
-                          return Center(
-                            child: Text(
-                              'QR Error',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF0F2547)),
+            child: _isQrLoading && _dbQrCode == null
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF1A6FDB),
+                    ),
+                  )
+                : _qrError && _dbQrCode == null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 28),
+                            SizedBox(height: 8.h),
+                            Text(
+                              'Failed to load QR',
+                              style: AppTypography.caption.copyWith(color: Colors.red),
                             ),
-                          );
-                        },
-                      );
-                    } catch (e) {
-                      return Center(
-                        child: Text(
-                          'QR Error',
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF0F2547)),
+                            TextButton(
+                              onPressed: () {
+                                _loadStudentDataFromSupabase();
+                              },
+                              child: Text(
+                                'Retry',
+                                style: AppTypography.caption.copyWith(color: const Color(0xFF1A6FDB)),
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    }
-                  })()
-                : QrImageView(
-                    data: _admissionNo,
-                    version: QrVersions.auto,
-                    size: 156.w,
-                    gapless: false,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF0F2547),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF0F2547),
-                    ),
-                    errorStateBuilder: (cxt, err) {
-                      return Center(
-                        child: Text(
-                          'Error',
-                          style:
-                              GoogleFonts.inter(color: const Color(0xFF0F2547)),
-                        ),
-                      );
-                    },
-                  ),
+                      )
+                    : (_dbQrCode != null && _dbQrCode!.startsWith('data:image')
+                        ? (() {
+                            try {
+                              final base64Str = _dbQrCode!.split(',').last;
+                              final bytes = base64Decode(base64Str);
+                              return Image.memory(
+                                bytes,
+                                fit: BoxFit.contain,
+                                errorBuilder: (cxt, err, stack) {
+                                  return Center(
+                                    child: Text(
+                                      'QR Error',
+                                      style: AppTypography.caption
+                                          .copyWith(color: const Color(0xFF0F2547)),
+                                    ),
+                                  );
+                                },
+                              );
+                            } catch (e) {
+                              return Center(
+                                child: Text(
+                                  'QR Error',
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF0F2547)),
+                                ),
+                              );
+                            }
+                          })()
+                        : QrImageView(
+                            data: (_dbQrCode != null && _dbQrCode!.isNotEmpty)
+                                ? _dbQrCode!
+                                : (_admissionNo.isNotEmpty ? _admissionNo : 'STUDENT'),
+                            version: QrVersions.auto,
+                            size: 156.w,
+                            gapless: false,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Color(0xFF0F2547),
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF0F2547),
+                            ),
+                            errorStateBuilder: (cxt, err) {
+                              return Center(
+                                child: Text(
+                                  'Error',
+                                  style: GoogleFonts.inter(color: const Color(0xFF0F2547)),
+                                ),
+                              );
+                            },
+                          )),
           ),
           SizedBox(height: 12.h),
           Text(

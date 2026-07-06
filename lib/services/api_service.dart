@@ -107,11 +107,13 @@ class ApiService {
           }
         }
 
-        // Automatic retry logic for generic network timeouts/issues (retry up to 3 times)
+        // Automatic retry logic for generic network timeouts/issues/server wakeups (retry up to 5 times)
+        final statusCode = e.response?.statusCode ?? 0;
+        final isRetryableHttpError = statusCode == 502 || statusCode == 503 || statusCode == 504;
         final int retryCount = e.requestOptions.extra['retryCount'] ?? 0;
-        if (isSocketException && retryCount < 3) {
+        if ((isSocketException || isRetryableHttpError) && retryCount < 5) {
           e.requestOptions.extra['retryCount'] = retryCount + 1;
-          dev.log('📡 [API RETRY] Retrying request ${e.requestOptions.uri} (${retryCount + 1}/3)...', name: 'ApiService');
+          dev.log('📡 [API RETRY] Retrying request ${e.requestOptions.uri} (${retryCount + 1}/5)...', name: 'ApiService');
           await Future.delayed(Duration(seconds: 2 * (retryCount + 1))); // Exponential backoff
           try {
             final response = await _dio.fetch(e.requestOptions);
