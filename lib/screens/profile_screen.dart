@@ -116,7 +116,7 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _teacherScaffoldKey =
       GlobalKey<ScaffoldState>();
   bool _showLogout = false;
@@ -184,6 +184,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _admissionNo = 'ADM-2023-0681';
   String? _dbQrCode;
   String? _avatarUrl;
+  bool _qrIssued = false;
+  bool _isQrLoading = false;
+  bool _qrError = false;
+  String _userRole = 'TEACHER';
   String _studentClass = 'Grade 11';
   String _section = 'C';
   String _rollNo = '118';
@@ -253,6 +257,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (_isOwnProfile) {
       _avatarUrl = AppStateNotifier.userProfilePhotoUrl.value;
       if (_avatarUrl == null || _avatarUrl!.isEmpty) {
@@ -293,6 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppStateNotifier.userProfilePhotoUrl.removeListener(_onGlobalPhotoUrlChanged);
     _profilePollTimer?.cancel();
     _qrRefreshTimer?.cancel();
@@ -307,6 +313,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _addressCtrl.dispose();
     _dobCtrl.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (widget.role == 'teacher') {
+        _loadTeacherDataFromSupabase();
+      }
+    }
   }
 
   Future<void> _loadAllTabDetails(String studentId, String? sectionId) async {
@@ -876,7 +891,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _qrRefreshTimer?.cancel();
     _qrRefreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) async {
       final prefs = CacheService.instance.prefs;
-      final userId = _studentUserId ?? prefs.getString('user_id');
+      final userId = widget.role == 'teacher'
+          ? (widget.teacherId ?? _currentUserId ?? prefs.getString('user_id'))
+          : (_studentUserId ?? prefs.getString('user_id'));
       if (userId != null && mounted) {
         try {
           final qrRes = await ApiService.instance.get(ApiEndpoints.userQrCode(userId));
@@ -885,12 +902,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (qr != null && qr.isNotEmpty && mounted) {
               setState(() {
                 _dbQrCode = qr;
+                _qrError = false;
               });
-              await prefs.setString('student_qrcode', qr);
+              final prefKey = widget.role == 'teacher' ? 'teacher_qrcode' : 'student_qrcode';
+              await prefs.setString(prefKey, qr);
             }
           }
         } catch (e) {
-          debugPrint('Periodic QR Code refresh error: $e');
+          if (mounted && _dbQrCode == null) {
+            setState(() {
+              _qrError = true;
+            });
+          }
         }
       }
     });
@@ -1559,6 +1582,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
+      if (mounted) {
+        setState(() {
+          _isQrLoading = true;
+          _qrError = false;
+        });
+      }
+
       Map<String, dynamic>? teacherMap;
       if (widget.teacherId == null || widget.teacherId == _currentUserId) {
         final res = await ApiService.instance.get('teachers/me');
@@ -1578,6 +1608,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       if (teacherMap == null) {
+        if (mounted) {
+          setState(() {
+            _isQrLoading = false;
+            _qrError = true;
+          });
+        }
         await _loadProfileData();
         return;
       }
@@ -1587,15 +1623,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Fetch QR Code from Render API specifically
       String? qrCode;
+      bool fetchQrSuccess = false;
       try {
         final qrRes = await ApiService.instance.get('users/$currentUserId/qr');
         if (qrRes != null &&
             qrRes['success'] == true &&
             qrRes['qrCode'] != null) {
           qrCode = qrRes['qrCode'] as String?;
+          fetchQrSuccess = true;
         }
       } catch (e) {
-        debugPrint('Error fetching teacher QR from API: $e');
+        // Handled via fetchQrSuccess flag
       }
 
       setState(() {
@@ -1672,6 +1710,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
+        _qrIssued = userMap['qrIssued'] as bool? ?? false;
+        _activityStatus = (userMap['isActive'] as bool? ?? true) ? 'Active' : 'Inactive';
+        _userRole = userMap['role']?.toString() ?? 'TEACHER';
 
         _employeeId = tMap['employeeId'] as String? ?? 'ID_PENDING';
         final String spec = tMap['specialization'] as String? ?? '';
@@ -1696,6 +1737,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Sync local variables which are shared with the QR identity card
         _studentName = _userName;
         _admissionNo = _employeeId;
+        
+        _isQrLoading = false;
+        _qrError = !fetchQrSuccess && _dbQrCode == null;
       });
 
       if (widget.teacherId == null || widget.teacherId == _currentUserId) {
@@ -1713,9 +1757,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (_dbQrCode != null) {
           await prefs.setString('teacher_qrcode', _dbQrCode!);
         }
+        _startQrRefreshTimer();
       }
     } catch (e) {
-      debugPrint('Error loading teacher profile from API: $e');
+      if (mounted) {
+        setState(() {
+          _isQrLoading = false;
+          _qrError = true;
+        });
+      }
       await _loadProfileData();
     }
   }
@@ -3100,14 +3150,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _downloadQRCodePDF() async {
+    if (widget.role == 'teacher' && (_dbQrCode == null || _dbQrCode!.isEmpty)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Please wait until the QR code is loaded.',
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+          ),
+        );
+      }
+      return;
+    }
+
     try {
       final pdf = pw.Document();
       
       final qrData = widget.role == 'teacher'
-          ? (_employeeId.isNotEmpty && _employeeId != 'ID_PENDING' ? _employeeId : 'TEACHER')
+          ? ((_dbQrCode != null && !_dbQrCode!.startsWith('data:image') && _dbQrCode!.isNotEmpty)
+              ? _dbQrCode!
+              : (_employeeId.isNotEmpty && _employeeId != 'ID_PENDING' ? _employeeId : 'TEACHER'))
           : _admissionNo;
       final userName = widget.role == 'teacher' ? _userName : _studentName;
-      final userRole = widget.role;
+      final userRole = widget.role == 'teacher' ? _userRole : widget.role;
       final userId = widget.role == 'teacher' ? _employeeId : (_studentUserId ?? _admissionNo);
 
       pw.MemoryImage? qrImageProvider;
@@ -6191,57 +6256,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(16.r),
               border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
-            child: _dbQrCode != null && _dbQrCode!.startsWith('data:image')
-                ? (() {
-                    try {
-                      final base64Str = _dbQrCode!.split(',').last;
-                      final bytes = base64Decode(base64Str);
-                      return Image.memory(
-                        bytes,
-                        fit: BoxFit.contain,
-                        errorBuilder: (cxt, err, stack) {
-                          return Center(
-                            child: Text(
-                              'QR Error',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF0F172A)),
+            child: _isQrLoading && _dbQrCode == null
+                ? const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF1A6FDB),
+                    ),
+                  )
+                : _qrError && _dbQrCode == null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline, color: Colors.red, size: 28),
+                            SizedBox(height: 8.h),
+                            Text(
+                              'Failed to load QR',
+                              style: AppTypography.caption.copyWith(color: Colors.red),
                             ),
-                          );
-                        },
-                      );
-                    } catch (e) {
-                      return Center(
-                        child: Text(
-                          'QR Error',
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF0F172A)),
+                            TextButton(
+                              onPressed: () {
+                                _loadTeacherDataFromSupabase();
+                              },
+                              child: Text(
+                                'Retry',
+                                style: AppTypography.caption.copyWith(color: const Color(0xFF1A6FDB)),
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                    }
-                  })()
-                : QrImageView(
-                    data: _employeeId.isNotEmpty ? _employeeId : 'TEACHER',
-                    version: QrVersions.auto,
-                    size: 156.w,
-                    gapless: false,
-                    eyeStyle: const QrEyeStyle(
-                      eyeShape: QrEyeShape.square,
-                      color: Color(0xFF0F172A),
-                    ),
-                    dataModuleStyle: const QrDataModuleStyle(
-                      dataModuleShape: QrDataModuleShape.square,
-                      color: Color(0xFF0F172A),
-                    ),
-                    errorStateBuilder: (cxt, err) {
-                      return Center(
-                        child: Text(
-                          'Error',
-                          style:
-                              GoogleFonts.inter(color: const Color(0xFF0F172A)),
-                        ),
-                      );
-                    },
-                  ),
+                      )
+                    : (_dbQrCode != null && _dbQrCode!.startsWith('data:image')
+                        ? (() {
+                            try {
+                              final base64Str = _dbQrCode!.split(',').last;
+                              final bytes = base64Decode(base64Str);
+                              return Image.memory(
+                                bytes,
+                                fit: BoxFit.contain,
+                                errorBuilder: (cxt, err, stack) {
+                                  return Center(
+                                    child: Text(
+                                      'QR Error',
+                                      style: AppTypography.caption
+                                          .copyWith(color: const Color(0xFF0F172A)),
+                                    ),
+                                  );
+                                },
+                              );
+                            } catch (e) {
+                              return Center(
+                                child: Text(
+                                  'QR Error',
+                                  style: AppTypography.caption
+                                      .copyWith(color: const Color(0xFF0F172A)),
+                                ),
+                              );
+                            }
+                          })()
+                        : QrImageView(
+                            data: (_dbQrCode != null && _dbQrCode!.isNotEmpty)
+                                ? _dbQrCode!
+                                : (_employeeId.isNotEmpty ? _employeeId : 'TEACHER'),
+                            version: QrVersions.auto,
+                            size: 156.w,
+                            gapless: false,
+                            eyeStyle: const QrEyeStyle(
+                              eyeShape: QrEyeShape.square,
+                              color: Color(0xFF0F172A),
+                            ),
+                            dataModuleStyle: const QrDataModuleStyle(
+                              dataModuleShape: QrDataModuleShape.square,
+                              color: Color(0xFF0F172A),
+                            ),
+                            errorStateBuilder: (cxt, err) {
+                              return Center(
+                                child: Text(
+                                  'Error',
+                                  style: GoogleFonts.inter(color: const Color(0xFF0F172A)),
+                                ),
+                              );
+                            },
+                          )),
           ),
           SizedBox(height: 16.h),
           Text(
@@ -6256,7 +6351,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               borderRadius: BorderRadius.circular(12.r),
             ),
             child: Text(
-              widget.role.toUpperCase(),
+              _userRole.toUpperCase(),
               style: AppTypography.caption
                   .copyWith(color: const Color(0xFF2563EB)),
             ),
@@ -6281,11 +6376,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Container(
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
               decoration: BoxDecoration(
-                color: const Color(0xFF0284C7),
+                color: _qrIssued ? const Color(0xFF0284C7) : const Color(0xFF10B981),
                 borderRadius: BorderRadius.circular(20.r),
               ),
               child: Text(
-                'ISSUED & LOCKED',
+                _qrIssued ? 'ISSUED & LOCKED' : 'ACTIVE & UNLOCKED',
                 style: AppTypography.caption
                     .copyWith(color: Colors.white, letterSpacing: 0.5),
               ),

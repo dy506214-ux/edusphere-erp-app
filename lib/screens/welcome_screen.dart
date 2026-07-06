@@ -214,12 +214,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           await prefs.setString('teacher_qual', qualVal);
         }
 
-        final qrCodeVal = userObj['qrCode'] as String? ?? '';
-        if (qrCodeVal.isNotEmpty) {
-          await prefs.setString('teacher_qrcode', qrCodeVal);
-        } else {
-          await prefs.remove('teacher_qrcode');
-        }
+        await prefs.remove('teacher_qrcode');
 
         await prefs.setString(
             '${role}_name', fullName.isNotEmpty ? fullName : 'Emma Johnson');
