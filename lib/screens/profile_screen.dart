@@ -1582,7 +1582,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      final userMap = teacherMap['user'] as Map<String, dynamic>? ?? {};
+      final tMap = teacherMap;
+      final userMap = tMap['user'] as Map<String, dynamic>? ?? {};
 
       // Fetch QR Code from Render API specifically
       String? qrCode;
@@ -1672,16 +1673,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
 
-        _employeeId = teacherMap['employeeId'] as String? ?? 'ID_PENDING';
-        final String spec = teacherMap['specialization'] as String? ?? '';
+        _employeeId = tMap['employeeId'] as String? ?? 'ID_PENDING';
+        final String spec = tMap['specialization'] as String? ?? '';
         _designation = spec.isNotEmpty ? spec : 'TEACHER';
-        _department = teacherMap['qualification'] as String? ?? 'CORE_SYSTEM';
+        _department = tMap['qualification'] as String? ?? 'CORE_SYSTEM';
 
-        final rawExp = teacherMap['experience']?.toString();
+        final rawExp = tMap['experience']?.toString();
         _experience =
             (rawExp != null && rawExp.isNotEmpty) ? '$rawExp Years' : 'N/A';
 
-        final joinDateStr = teacherMap['joiningDate'] as String?;
+        final joinDateStr = tMap['joiningDate'] as String?;
         if (joinDateStr != null) {
           try {
             final parsed = DateTime.parse(joinDateStr);

@@ -241,7 +241,7 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   Future<void> _fetchStudents({bool forceRefresh = false}) async {
-    final cacheKey = '${_selectedClass ?? ''}-${_selectedSection}-${_selectedStatus}-${_searchQuery}';
+    final cacheKey = '${_selectedClass ?? ''}-$_selectedSection-$_selectedStatus-$_searchQuery';
     
     if (!forceRefresh && _studentsCache.containsKey(cacheKey)) {
       setState(() {
