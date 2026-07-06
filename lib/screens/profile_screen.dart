@@ -253,6 +253,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    if (_isOwnProfile) {
+      _avatarUrl = AppStateNotifier.userProfilePhotoUrl.value;
+      if (_avatarUrl == null || _avatarUrl!.isEmpty) {
+        final prefs = CacheService.instance.prefs;
+        _avatarUrl = prefs.getString('${widget.role}_photo_url');
+      }
+    }
     AppStateNotifier.userProfilePhotoUrl.addListener(_onGlobalPhotoUrlChanged);
     _currentUserId = CacheService.instance.prefs.getString('user_id');
     if (widget.role == 'teacher') {
@@ -1552,18 +1559,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return;
       }
 
-      // Fetch teacher list from Render API
-      final teachersData = await ApiService.instance.get('teachers');
-      if (teachersData == null || teachersData['success'] != true) {
-        await _loadProfileData();
-        return;
+      Map<String, dynamic>? teacherMap;
+      if (widget.teacherId == null || widget.teacherId == _currentUserId) {
+        final res = await ApiService.instance.get('teachers/me');
+        if (res != null && res['success'] == true) {
+          teacherMap = res['teacher'] as Map<String, dynamic>?;
+        }
+      } else {
+        final res = await ApiService.instance.get('users/$currentUserId');
+        if (res != null && res['success'] == true) {
+          final userRes = res['user'] as Map<String, dynamic>?;
+          if (userRes != null && userRes['teacher'] != null) {
+            final tMap = Map<String, dynamic>.from(userRes['teacher'] as Map);
+            tMap['user'] = userRes;
+            teacherMap = tMap;
+          }
+        }
       }
-
-      final teachersList = teachersData['teachers'] as List? ?? [];
-      final teacherMap = teachersList.firstWhere(
-        (t) => t['userId'] == currentUserId,
-        orElse: () => null,
-      ) as Map<String, dynamic>?;
 
       if (teacherMap == null) {
         await _loadProfileData();
@@ -1757,6 +1769,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       if (widget.role == 'teacher') {
         if (widget.teacherId != null && widget.teacherId != _currentUserId) {
+          _avatarUrl = null;
           _userName = 'Loading Teacher...';
           _email = '';
           _phone = 'N/A';
@@ -1777,6 +1790,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _studentName = _userName;
           _admissionNo = _employeeId;
         } else {
+          _avatarUrl = prefs.getString('teacher_photo_url');
           _userName = prefs.getString('teacher_name') ?? 'Vikram Yadav';
           _email =
               prefs.getString('teacher_email') ?? 'teacher1@demoschool.com';
@@ -1801,20 +1815,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _admissionNo = _employeeId;
         }
       } else {
-        _userName = prefs.getString('student_name') ?? '—';
-        _email = prefs.getString('student_email') ?? '—';
-        _phone = prefs.getString('student_phone') ?? 'N/A';
-        _gender = prefs.getString('student_gender') ?? 'Not Specified';
-        _dob = prefs.getString('student_dob') ?? 'Not set';
-        _bloodGroup = prefs.getString('student_blood') ?? 'Not assigned';
-        _address = prefs.getString('student_address') ?? 'No location registered';
-        _rollNumber = prefs.getString('student_roll') ?? '—';
-        _className = prefs.getString('student_class') ?? '—';
-        _admissionId = prefs.getString('student_admission_id') ?? '—';
-        _activityStatus = prefs.getString('student_activity') ?? 'Offline';
-        _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
-        _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
-        _lastPasswordChange = prefs.getString('student_last_pwd') ?? 'Action Required';
+        if (widget.studentId != null && widget.studentId != _currentUserId) {
+          _avatarUrl = null;
+          _userName = 'Loading Student...';
+          _email = '';
+          _phone = 'N/A';
+          _gender = 'Not Specified';
+          _dob = 'Not set';
+          _bloodGroup = 'Not assigned';
+          _address = 'No location registered';
+          _rollNumber = '—';
+          _className = '—';
+          _admissionId = '—';
+          _activityStatus = 'Offline';
+          _pushEnabled = true;
+          _inAppEnabled = true;
+          _lastPasswordChange = 'Action Required';
+        } else {
+          _avatarUrl = prefs.getString('student_photo_url');
+          _userName = prefs.getString('student_name') ?? '—';
+          _email = prefs.getString('student_email') ?? '—';
+          _phone = prefs.getString('student_phone') ?? 'N/A';
+          _gender = prefs.getString('student_gender') ?? 'Not Specified';
+          _dob = prefs.getString('student_dob') ?? 'Not set';
+          _bloodGroup = prefs.getString('student_blood') ?? 'Not assigned';
+          _address = prefs.getString('student_address') ?? 'No location registered';
+          _rollNumber = prefs.getString('student_roll') ?? '—';
+          _className = prefs.getString('student_class') ?? '—';
+          _admissionId = prefs.getString('student_admission_id') ?? '—';
+          _activityStatus = prefs.getString('student_activity') ?? 'Offline';
+          _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
+          _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
+          _lastPasswordChange = prefs.getString('student_last_pwd') ?? 'Action Required';
+        }
       }
     });
   }
@@ -5586,7 +5619,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               )
                             : Image.network(
-                                _avatarUrl!,
+                                _avatarUrl!.contains('?') 
+                                    ? _avatarUrl! 
+                                    : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
                                     Image.asset(
@@ -5736,7 +5771,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             )
                           : Image.network(
-                              _avatarUrl!,
+                              _avatarUrl!.contains('?') 
+                                  ? _avatarUrl! 
+                                  : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
                               fit: BoxFit.cover,
                               errorBuilder: (context, error, stackTrace) =>
                                   Image.asset(

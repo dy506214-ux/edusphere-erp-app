@@ -1405,7 +1405,10 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
   Widget _renderProfileAvatar(String? photoUrl, {required double width, required double height}) {
     if (photoUrl != null && photoUrl.isNotEmpty) {
       if (kIsWeb || photoUrl.startsWith('http') || photoUrl.startsWith('data:image') || photoUrl.startsWith('blob:')) {
-        return Image.network(photoUrl, width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
+        final cleanUrl = (photoUrl.startsWith('http') || photoUrl.startsWith('blob:')) && !photoUrl.contains('?')
+            ? '$photoUrl?t=${DateTime.now().millisecondsSinceEpoch}'
+            : photoUrl;
+        return Image.network(cleanUrl, width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
       } else {
         return Image.file(File(photoUrl), width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
       }

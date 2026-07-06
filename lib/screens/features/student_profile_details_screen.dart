@@ -101,6 +101,11 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
   @override
   void initState() {
     super.initState();
+    _avatarUrl = AppStateNotifier.userProfilePhotoUrl.value;
+    if (_avatarUrl == null || _avatarUrl!.isEmpty) {
+      final prefs = CacheService.instance.prefs;
+      _avatarUrl = prefs.getString('student_photo_url');
+    }
     AppStateNotifier.userProfilePhotoUrl.addListener(_onGlobalPhotoUrlChanged);
     _loadNotificationPreferences();
     _loadStudentDataFromSupabase();

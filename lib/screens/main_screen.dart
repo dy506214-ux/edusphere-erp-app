@@ -469,7 +469,7 @@ class _MainScreenState extends State<MainScreen> {
           }
         }
       } else if (widget.role == 'teacher') {
-        final res = await ApiService.instance.get('users/me');
+        final res = await ApiService.instance.get('auth/me');
         if (res != null && res['success'] == true && res['user'] != null) {
           final userMap = res['user'] as Map<String, dynamic>;
           final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? '';
