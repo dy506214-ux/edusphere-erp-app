@@ -23,4 +23,7 @@ class AppStateNotifier {
 
   /// Trigger to force app bars to reload notifications.
   static final ValueNotifier<int> refreshNotificationsTrigger = ValueNotifier<int>(0);
+
+  /// Currently assigned QR Scanner for the teacher
+  static final ValueNotifier<String?> assignedScannerId = ValueNotifier<String?>(null);
 }

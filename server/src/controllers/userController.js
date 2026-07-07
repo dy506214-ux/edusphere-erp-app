@@ -806,6 +806,37 @@ const updateProfilePicture = asyncHandler(async (req, res) => {
     });
 });
 
+/**
+ * Delete user profile picture (avatar)
+ */
+const deleteProfilePicture = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Check permissions: User can delete own, or Admin/SuperAdmin
+    const userRoles = req.user.roles || [req.user.role];
+    const isAdminRole = userRoles.some(r => ['SUPER_ADMIN', 'ADMIN'].includes(r));
+    if (!isAdminRole && req.user.userId !== id) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { avatar: null },
+      select: { id: true, email: true, firstName: true, lastName: true, avatar: true }
+    });
+
+    res.json({
+      success: true,
+      message: 'Profile picture removed successfully',
+      user: updatedUser
+    });
+});
+
 module.exports = {
   getAllUsers,
   getUserById,
@@ -816,6 +847,7 @@ module.exports = {
   getUsersByRole,
   resetPassword,
   updateProfilePicture,
+  deleteProfilePicture,
   uploadProfilePicture,
   getUserQR,
   regenerateUserQR,

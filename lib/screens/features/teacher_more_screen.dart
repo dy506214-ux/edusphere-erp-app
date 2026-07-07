@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/colors.dart';
 import '../welcome_screen.dart';
 import '../../services/auth_service.dart';
+import '../../services/app_state_notifier.dart';
 import 'package:edusphere/theme/typography.dart';
 
 class TeacherMoreScreen extends StatefulWidget {
@@ -98,10 +99,18 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       label: 'Attendance',
                       onTap: () => widget.onNavigate(3),
                     ),
-                    _buildMenuItem(
-                      icon: Icons.qr_code_scanner_rounded,
-                      label: 'QR Scanner',
-                      onTap: () => widget.onNavigate(5),
+                    ValueListenableBuilder<String?>(
+                      valueListenable: AppStateNotifier.assignedScannerId,
+                      builder: (context, assignedScannerId, child) {
+                        if (assignedScannerId == null || assignedScannerId.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return _buildMenuItem(
+                          icon: Icons.qr_code_scanner_rounded,
+                          label: 'QR Scanner',
+                          onTap: () => widget.onNavigate(5),
+                        );
+                      },
                     ),
                     _buildMenuItem(
                       icon: Icons.check_box_outlined,

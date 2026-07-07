@@ -46,7 +46,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
 
-  analyzer: ^13.0.0
+  analyzer: ^10.0.1
 
 flutter_launcher_icons:
   android: "launcher_icon"

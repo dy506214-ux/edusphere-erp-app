@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import '../features/attendance_screen.dart';
@@ -662,38 +663,42 @@ class _StudentDashboardState extends State<StudentDashboard>
                       SizedBox(width: 8.w),
                       Row(
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          OutlinedButton.icon(
-                            onPressed: _isRefreshing
-                                ? null
-                                : () => _loadStudentData(showLoading: true),
-                            icon: _isRefreshing
-                                ? SizedBox(
-                                    width: 14.sp,
-                                    height: 14.sp,
-                                    child: const CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.textMedium))
-                                : Icon(Icons.history_rounded,
-                                    size: 14.sp, color: AppColors.textMedium),
-                            label: Text('Refresh',
-                                style: AppTypography.caption
-                                    .copyWith(color: AppColors.textMedium)),
-                            style: OutlinedButton.styleFrom(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 10.w, vertical: 8.h),
-                              minimumSize: Size.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(6.r)),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              backgroundColor: Colors.white,
+                          SizedBox(
+                            height: 34.h,
+                            child: OutlinedButton.icon(
+                              onPressed: _isRefreshing
+                                  ? null
+                                  : () => _loadStudentData(showLoading: true),
+                              icon: _isRefreshing
+                                  ? SizedBox(
+                                      width: 14.sp,
+                                      height: 14.sp,
+                                      child: const CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: AppColors.textMedium))
+                                  : Icon(Icons.history_rounded,
+                                      size: 14.sp, color: AppColors.textMedium),
+                              label: Text('Refresh',
+                                  style: AppTypography.caption
+                                      .copyWith(color: AppColors.textMedium)),
+                              style: OutlinedButton.styleFrom(
+                                padding: EdgeInsets.symmetric(horizontal: 10.w),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(6.r)),
+                                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                                backgroundColor: Colors.white,
+                              ),
                             ),
                           ),
                           SizedBox(width: 6.w),
                           Container(
-                            padding: EdgeInsets.symmetric(
-                                horizontal: 10.w, vertical: 8.h),
+                            height: 34.h,
+                            alignment: Alignment.center,
+                            padding: EdgeInsets.symmetric(horizontal: 10.w),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(6.r),
@@ -770,17 +775,38 @@ class _StudentDashboardState extends State<StudentDashboard>
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 60.w,
-                height: 60.w,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE0F2FE),
-                  shape: BoxShape.circle,
-                  border:
-                      Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
-                ),
-                child: Icon(Icons.school_rounded,
-                    color: const Color(0xFF0284C7), size: 28.sp),
+              ValueListenableBuilder<String?>(
+                valueListenable: AppStateNotifier.userProfilePhotoUrl,
+                builder: (context, photoUrl, _) {
+                  if (photoUrl != null && photoUrl.isNotEmpty) {
+                    return Container(
+                      width: 60.w,
+                      height: 60.w,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
+                      ),
+                      child: ClipOval(
+                        child: photoUrl.startsWith('data:image')
+                            ? Image.memory(
+                                base64Decode(photoUrl.split(',').last),
+                                width: 60.w,
+                                height: 60.w,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _defaultSchoolIcon(),
+                              )
+                            : Image.network(
+                                photoUrl,
+                                width: 60.w,
+                                height: 60.w,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => _defaultSchoolIcon(),
+                              ),
+                      ),
+                    );
+                  }
+                  return _defaultSchoolIcon();
+                },
               ),
               SizedBox(width: 16.w),
               Expanded(
@@ -935,7 +961,21 @@ class _StudentDashboardState extends State<StudentDashboard>
     );
   }
 
-  // ── METRICS GRID ROW WIDGET ────────────────────────────────────────────────
+  Widget _defaultSchoolIcon() {
+    return Container(
+      width: 60.w,
+      height: 60.w,
+      decoration: BoxDecoration(
+        color: const Color(0xFFE0F2FE),
+        shape: BoxShape.circle,
+        border: Border.all(color: const Color(0xFFBAE6FD), width: 2.w),
+      ),
+      child: Icon(Icons.school_rounded,
+          color: const Color(0xFF0284C7), size: 28.sp),
+    );
+  }
+
+  // ── METRICS GRID WIDGET ────────────────────────────────────────────────────
   Widget _buildMetricsRow(bool isDesktop) {
     return isDesktop
         ? Row(

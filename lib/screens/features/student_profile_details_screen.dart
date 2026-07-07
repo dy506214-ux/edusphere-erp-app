@@ -300,18 +300,25 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         _phone = userMap['phone'] as String? ?? '—';
 
         final rawAvatar = userMap['avatar'] ?? userMap['photoUrl'] ?? '';
+        String? newAvatarUrl;
         if (rawAvatar.isNotEmpty) {
-          final publicUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
+          newAvatarUrl = (rawAvatar.startsWith('http') || rawAvatar.startsWith('data:image'))
               ? rawAvatar
               : '${ApiConfig.serverBaseUrl}${rawAvatar.startsWith('/') ? '' : '/'}$rawAvatar';
-          final busterUrl = publicUrl.contains('?t=') 
-              ? publicUrl 
-              : '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
-          _avatarUrl = busterUrl;
-          AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
-        } else {
-          _avatarUrl = null;
-          AppStateNotifier.userProfilePhotoUrl.value = null;
+        }
+
+        if (_avatarUrl == null || !_avatarUrl!.startsWith('data:image')) {
+          _avatarUrl = newAvatarUrl;
+          if (_avatarUrl != null) {
+            final busterUrl = _avatarUrl!.contains('?t=') 
+                ? _avatarUrl! 
+                : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+            _avatarUrl = busterUrl;
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+          } else {
+            _avatarUrl = null;
+            AppStateNotifier.userProfilePhotoUrl.value = null;
+          }
         }
 
         // Parse documents
@@ -525,13 +532,17 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         final prefs = CacheService.instance.prefs;
         if (publicUrl != null) {
           final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
+          
+          final base64Str = base64Encode(bytes);
+          final dataUrl = 'data:image/$extension;base64,$base64Str';
+          
           await prefs.setString('student_photo_url', busterUrl);
-          AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+          AppStateNotifier.userProfilePhotoUrl.value = dataUrl;
           setState(() {
-            _avatarUrl = busterUrl;
+            _avatarUrl = dataUrl;
           });
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(busterUrl);
+            widget.onAvatarUpdated!(dataUrl);
           }
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
         } else {
@@ -574,7 +585,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
 
   Future<void> _deleteAvatar(String userId) async {
     try {
-      final res = await ApiService.instance.put('users/me', body: {'avatar': null});
+      final res = await ApiService.instance.delete('users/$userId/avatar');
       if (res != null && res['success'] == true) {
         final prefs = CacheService.instance.prefs;
         await prefs.remove('student_photo_url');
@@ -1039,22 +1050,29 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                           Container(
                             width: 80,
                             height: 80,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE0F2FE),
-                              borderRadius: BorderRadius.circular(24),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE0F2FE),
+                              shape: BoxShape.circle,
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
+                            child: ClipOval(
                               child: _avatarUrl != null
-                                  ? Image.network(
-                                      _avatarUrl!.contains('?') 
-                                          ? _avatarUrl! 
-                                          : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (ctx, err, trace) => Center(
-                                        child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
-                                      ),
-                                    )
+                                  ? (_avatarUrl!.startsWith('data:image')
+                                      ? Image.memory(
+                                          base64Decode(_avatarUrl!.split(',').last),
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, err, trace) => Center(
+                                            child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
+                                          ),
+                                        )
+                                      : Image.network(
+                                          _avatarUrl!.contains('?') 
+                                              ? _avatarUrl! 
+                                              : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (ctx, err, trace) => Center(
+                                            child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
+                                          ),
+                                        ))
                                   : Center(
                                       child: Text(initials, style: AppTypography.h3.copyWith(color: const Color(0xFF0284C7))),
                                     ),

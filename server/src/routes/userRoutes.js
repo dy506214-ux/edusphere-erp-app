@@ -11,6 +11,7 @@ const {
   getUsersByRole,
   resetPassword,
   updateProfilePicture,
+  deleteProfilePicture,
   uploadProfilePicture,
   getUserQR,
   regenerateUserQR,
@@ -57,6 +58,9 @@ router.post('/:id/reset-password', requireRole('SUPER_ADMIN', 'ADMIN'), resetPas
 
 // Update profile picture - Anyone for their own account, or Admin for anyone
 router.patch('/:id/avatar', uploadProfilePicture, updateProfilePicture);
+
+// Delete profile picture (avatar) - Anyone for their own account, or Admin
+router.delete('/:id/avatar', deleteProfilePicture);
 
 // Delete user (soft delete) - Super Admin only
 router.delete('/:id', requireRole('SUPER_ADMIN'), deleteUser);

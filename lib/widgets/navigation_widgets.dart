@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -1332,19 +1333,22 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
   late Animation<double> _scaleAnimation;
   int _lastActiveModule = -1;
 
-  final List<TabItem> _allTabs = [
-    TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_rounded, targetScreenIndex: 7),
-    TabItem(index: 2, label: 'QR Scanner', icon: Icons.qr_code_scanner_rounded, targetScreenIndex: 5),
-    TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
-    TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 3),
-    TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 13),
-  ];
+  List<TabItem> get _allTabs {
+    return [
+      TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_rounded, targetScreenIndex: 7),
+      TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
+      TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 3),
+      TabItem(index: 5, label: 'Students', icon: Icons.people_alt_rounded, targetScreenIndex: 2),
+      TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 13),
+    ];
+  }
 
   @override
   void initState() {
     super.initState();
     _loadPhoto();
     AppStateNotifier.userProfilePhotoUrl.addListener(_onPhotoUrlChanged);
+    AppStateNotifier.assignedScannerId.addListener(_onScannerAccessChanged);
 
     _scaleController = AnimationController(duration: const Duration(milliseconds: 250), vsync: this);
     _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(CurvedAnimation(parent: _scaleController, curve: Curves.easeOutBack));
@@ -1353,6 +1357,7 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   @override
   void dispose() {
+    AppStateNotifier.assignedScannerId.removeListener(_onScannerAccessChanged);
     AppStateNotifier.userProfilePhotoUrl.removeListener(_onPhotoUrlChanged);
     _scaleController.dispose();
     super.dispose();
@@ -1360,6 +1365,10 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   void _onPhotoUrlChanged() {
     if (mounted) setState(() => _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value);
+  }
+
+  void _onScannerAccessChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadPhoto() async {
@@ -1373,13 +1382,13 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   int _getActiveModuleIndex(int currentIdx) {
     if (currentIdx == 0) return 0; // Dashboard is index 0
+    if (currentIdx == 2) return 5; // Students is index 5
     if (currentIdx == 3) return 3; // Attendance is index 3
-    if (currentIdx == 5) return 2; // QR Scanner is index 2
+    if (currentIdx == 5) return AppStateNotifier.assignedScannerId.value != null ? 2 : 0; // QR Scanner is index 2
     if (currentIdx == 13) return 4; // My Profile is index 4
     
     // Academic tabs check
     if (currentIdx == 1 ||
-        currentIdx == 2 ||
         currentIdx == 6 ||
         currentIdx == 7 ||
         currentIdx == 8 ||
@@ -1396,7 +1405,15 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   List<TabItem> _getLayoutTabs(int activeModuleIndex) {
     final List<TabItem> tabs = List.from(_allTabs);
-    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex, orElse: () => _allTabs.firstWhere((t) => t.index == 0));
+    
+    if (activeModuleIndex == 2) {
+      tabs.removeWhere((t) => t.index == 0);
+      final qrTab = TabItem(index: 2, label: 'QR Scanner', icon: Icons.qr_code_scanner_rounded, targetScreenIndex: 5);
+      tabs.insert(2, qrTab);
+      return tabs;
+    }
+
+    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex, orElse: () => _allTabs.firstWhere((t) => t.index == 0, orElse: () => _allTabs.first));
     tabs.remove(activeTab);
     tabs.insert(2, activeTab);
     return tabs;
@@ -1404,7 +1421,13 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
 
   Widget _renderProfileAvatar(String? photoUrl, {required double width, required double height}) {
     if (photoUrl != null && photoUrl.isNotEmpty) {
-      if (kIsWeb || photoUrl.startsWith('http') || photoUrl.startsWith('data:image') || photoUrl.startsWith('blob:')) {
+      if (photoUrl.startsWith('data:image')) {
+        try {
+          return Image.memory(base64Decode(photoUrl.split(',').last), width: width.w, height: height.h, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _defaultAvatar(width, height));
+        } catch (_) {
+          return _defaultAvatar(width, height);
+        }
+      } else if (kIsWeb || photoUrl.startsWith('http') || photoUrl.startsWith('blob:')) {
         final cleanUrl = (photoUrl.startsWith('http') || photoUrl.startsWith('blob:')) && !photoUrl.contains('?')
             ? '$photoUrl?t=${DateTime.now().millisecondsSinceEpoch}'
             : photoUrl;
@@ -1466,21 +1489,23 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Row(
                   children: [
-                    Expanded(child: _buildBottomTab(layoutTabs[0], displayPhotoUrl)),
-                    Expanded(child: _buildBottomTab(layoutTabs[1], displayPhotoUrl)),
-                    const SizedBox(width: 64), // Space for center floating button
-                    Expanded(child: _buildBottomTab(layoutTabs[3], displayPhotoUrl)),
-                    Expanded(child: _buildBottomTab(layoutTabs[4], displayPhotoUrl)),
+                    for (int i = 0; i < layoutTabs.length; i++)
+                      if (i == 2)
+                        const SizedBox(width: 64)
+                      else
+                        Expanded(
+                          child: _buildBottomTab(layoutTabs[i], displayPhotoUrl),
+                        ),
                   ],
                 ),
               ),
             ),
             Positioned(
               bottom: 14,
-              child: ScaleTransition(
+              child: 2 < layoutTabs.length ? ScaleTransition(
                 scale: _scaleAnimation,
                 child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
-              ),
+              ) : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -1491,7 +1516,7 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
   Widget _buildBottomTab(TabItem item, String? photoUrl) {
     final bool isProfile = item.index == 4;
     // Inactive bottom tabs are styled with premium dark slate/black
-    final Color color = const Color(0xFF1E293B);
+    final Color color = Colors.black;
 
     return Semantics(
       label: 'Navigate to ${item.label}',
@@ -1529,10 +1554,10 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                 Icon(
                   Icons.person_rounded,
                   size: 22,
-                  color: const Color(0xFF1E293B),
+                  color: Colors.black,
                 )
               else
-                Icon(item.icon, size: 22, color: color),
+                Icon(item.icon, size: 22, color: Colors.black),
               const SizedBox(height: 2),
               FittedBox(
                 fit: BoxFit.scaleDown,
@@ -1541,8 +1566,8 @@ class _TeacherBottomNavigationState extends State<TeacherBottomNavigation> with 
                   maxLines: 1,
                   style: GoogleFonts.inter(
                     fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: color,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
               ),

@@ -658,31 +658,33 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             userMap['photoUrl'] ??
             userMap['profileImage']?.toString() ??
             '';
+        String? newAvatarUrl;
         if (rawAvatar.isNotEmpty) {
-          _avatarUrl = (rawAvatar.startsWith('http') ||
+          newAvatarUrl = (rawAvatar.startsWith('http') ||
                   rawAvatar.startsWith('data:image'))
               ? rawAvatar
               : '${ApiConfig.serverBaseUrl}$rawAvatar';
-        } else {
-          _avatarUrl = null;
         }
 
-        final String? avatar = _avatarUrl;
-        final prefs = CacheService.instance.prefs;
-        if (avatar != null) {
-          final String busterUrl = avatar.contains('?t=') 
-              ? avatar 
-              : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
-          prefs.setString('student_photo_url', busterUrl);
-          _avatarUrl = busterUrl;
-          if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
-          }
-        } else {
-          prefs.remove('student_photo_url');
-          _avatarUrl = null;
-          if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = null;
+        if (_avatarUrl == null || !_avatarUrl!.startsWith('data:image')) {
+          _avatarUrl = newAvatarUrl;
+          final String? avatar = _avatarUrl;
+          final prefs = CacheService.instance.prefs;
+          if (avatar != null) {
+            final String busterUrl = avatar.contains('?t=') 
+                ? avatar 
+                : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
+            prefs.setString('student_photo_url', busterUrl);
+            _avatarUrl = busterUrl;
+            if (_isOwnProfile) {
+              AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            }
+          } else {
+            prefs.remove('student_photo_url');
+            _avatarUrl = null;
+            if (_isOwnProfile) {
+              AppStateNotifier.userProfilePhotoUrl.value = null;
+            }
           }
         }
 
@@ -1667,31 +1669,33 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _phone = userMap['phone'] as String? ?? 'N/A';
 
         final rawAvatar = userMap['avatar']?.toString() ?? '';
+        String? newAvatarUrl;
         if (rawAvatar.isNotEmpty) {
-          _avatarUrl = (rawAvatar.startsWith('http') ||
+          newAvatarUrl = (rawAvatar.startsWith('http') ||
                   rawAvatar.startsWith('data:image'))
               ? rawAvatar
               : '${ApiConfig.serverBaseUrl}$rawAvatar';
-        } else {
-          _avatarUrl = null;
         }
         
-        final String? avatar = _avatarUrl;
-        final prefs = CacheService.instance.prefs;
-        if (avatar != null) {
-          final String busterUrl = avatar.contains('?t=') 
-              ? avatar 
-              : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
-          prefs.setString('teacher_photo_url', busterUrl);
-          _avatarUrl = busterUrl;
-          if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
-          }
-        } else {
-          prefs.remove('teacher_photo_url');
-          _avatarUrl = null;
-          if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = null;
+        if (_avatarUrl == null || !_avatarUrl!.startsWith('data:image')) {
+          _avatarUrl = newAvatarUrl;
+          final String? avatar = _avatarUrl;
+          final prefs = CacheService.instance.prefs;
+          if (avatar != null) {
+            final String busterUrl = avatar.contains('?t=') 
+                ? avatar 
+                : '$avatar?t=${DateTime.now().millisecondsSinceEpoch}';
+            prefs.setString('teacher_photo_url', busterUrl);
+            _avatarUrl = busterUrl;
+            if (_isOwnProfile) {
+              AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            }
+          } else {
+            prefs.remove('teacher_photo_url');
+            _avatarUrl = null;
+            if (_isOwnProfile) {
+              AppStateNotifier.userProfilePhotoUrl.value = null;
+            }
           }
         }
 
@@ -5313,25 +5317,28 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       );
 
       if (res != null && res['success'] == true) {
-        final publicUrl = res['user']?['avatar'] as String?;
+        String? publicUrl = res['user']?['avatar'] as String?;
         final prefs = CacheService.instance.prefs;
         if (publicUrl != null) {
+          if (!publicUrl.startsWith('http') && !publicUrl.startsWith('data:image')) {
+            publicUrl = '${ApiConfig.serverBaseUrl}${publicUrl.startsWith('/') ? '' : '/'}$publicUrl';
+          }
           final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
           await prefs.setString('${widget.role}_photo_url', busterUrl);
+          final base64Str = base64Encode(bytes);
+          final dataUrl = 'data:image/$extension;base64,$base64Str';
+          
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(busterUrl);
+            widget.onAvatarUpdated!(dataUrl);
           }
+          
           if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            AppStateNotifier.userProfilePhotoUrl.value = dataUrl;
           }
-          if (widget.role == 'teacher') {
-            await _loadTeacherDataFromSupabase();
-          } else if (widget.role == 'student') {
-            await _loadStudentDataFromSupabase();
-          }
+          
           if (mounted) {
             setState(() {
-              _avatarUrl = busterUrl;
+              _avatarUrl = dataUrl;
             });
             showToast(context, 'Avatar updated successfully!');
           }
@@ -5373,15 +5380,8 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   Future<void> _deleteAvatar(String userId) async {
     if (mounted) showToast(context, 'Removing avatar...');
     try {
-      final updatePayload = {
-        'avatar': null,
-      };
+      final res = await ApiService.instance.delete('users/$userId/avatar');
       
-      final url = widget.studentId != null
-          ? ApiEndpoints.studentProfile(widget.studentId!)
-          : 'users/me';
-      
-      final res = await ApiService.instance.put(url, body: updatePayload);
       if (res != null && res['success'] == true) {
         final prefs = CacheService.instance.prefs;
         await prefs.remove('${widget.role}_photo_url');
@@ -5390,11 +5390,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         }
         if (_isOwnProfile) {
           AppStateNotifier.userProfilePhotoUrl.value = null;
-        }
-        if (widget.role == 'teacher') {
-          await _loadTeacherDataFromSupabase();
-        } else if (widget.role == 'student') {
-          await _loadStudentDataFromSupabase();
         }
         if (mounted) {
           setState(() {
@@ -5715,57 +5710,60 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Initials circle avatar with edit overlays
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                Container(
-                  width: 90.r,
-                  height: 90.r,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border:
-                        Border.all(color: const Color(0xFFE2E8F0), width: 3),
-                  ),
-                  child: ClipOval(
-                    child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                        ? (_avatarUrl!.startsWith('data:image')
-                            ? Image.memory(
-                                base64Decode(_avatarUrl!.split(',').last),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset(
-                                  'assets/images/logo.png',
+            GestureDetector(
+              onTap: _pickAndUploadAvatar,
+              child: Stack(
+                alignment: Alignment.bottomRight,
+                children: [
+                  Container(
+                    width: 90.r,
+                    height: 90.r,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border:
+                          Border.all(color: const Color(0xFFE2E8F0), width: 3),
+                    ),
+                    child: ClipOval(
+                      child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                          ? (_avatarUrl!.startsWith('data:image')
+                              ? Image.memory(
+                                  base64Decode(_avatarUrl!.split(',').last),
                                   fit: BoxFit.cover,
-                                ),
-                              )
-                            : Image.network(
-                                _avatarUrl!.contains('?') 
-                                    ? _avatarUrl! 
-                                    : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Image.asset(
-                                  'assets/images/logo.png',
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Image.asset(
+                                    'assets/images/logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                )
+                              : Image.network(
+                                  _avatarUrl!.contains('?') 
+                                      ? _avatarUrl! 
+                                      : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
                                   fit: BoxFit.cover,
-                                ),
-                              ))
-                        : Image.asset(
-                            'assets/images/logo.png',
-                            fit: BoxFit.cover,
-                          ),
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Image.asset(
+                                    'assets/images/logo.png',
+                                    fit: BoxFit.cover,
+                                  ),
+                                ))
+                          : Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.cover,
+                            ),
+                    ),
                   ),
-                ),
-                Container(
-                  padding: EdgeInsets.all(6.r),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                  Container(
+                    padding: EdgeInsets.all(6.r),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Icon(Icons.camera_alt_outlined,
+                        color: Colors.white, size: 12.sp),
                   ),
-                  child: Icon(Icons.camera_alt_outlined,
-                      color: Colors.white, size: 12.sp),
-                ),
-              ],
+                ],
+              ),
             ),
             SizedBox(height: 16.h),
 
@@ -5868,56 +5866,59 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Stack(
-            alignment: Alignment.bottomRight,
-            children: [
-              Container(
-                width: 80.r,
-                height: 80.r,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 3),
-                ),
-                child: ClipOval(
-                  child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                      ? (_avatarUrl!.startsWith('data:image')
-                          ? Image.memory(
-                              base64Decode(_avatarUrl!.split(',').last),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset(
-                                'assets/images/logo.png',
+          GestureDetector(
+            onTap: _pickAndUploadAvatar,
+            child: Stack(
+              alignment: Alignment.bottomRight,
+              children: [
+                Container(
+                  width: 80.r,
+                  height: 80.r,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFE2E8F0), width: 3),
+                  ),
+                  child: ClipOval(
+                    child: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                        ? (_avatarUrl!.startsWith('data:image')
+                            ? Image.memory(
+                                base64Decode(_avatarUrl!.split(',').last),
                                 fit: BoxFit.cover,
-                              ),
-                            )
-                          : Image.network(
-                              _avatarUrl!.contains('?') 
-                                  ? _avatarUrl! 
-                                  : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Image.asset(
-                                'assets/images/logo.png',
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            : Image.network(
+                                _avatarUrl!.contains('?') 
+                                    ? _avatarUrl! 
+                                    : '$_avatarUrl?t=${DateTime.now().millisecondsSinceEpoch}',
                                 fit: BoxFit.cover,
-                              ),
-                            ))
-                      : Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.cover,
-                        ),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ))
+                        : Image.asset(
+                            'assets/images/logo.png',
+                            fit: BoxFit.cover,
+                          ),
+                  ),
                 ),
-              ),
-              Container(
-                padding: EdgeInsets.all(4.r),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0284C7),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
+                Container(
+                  padding: EdgeInsets.all(4.r),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1.5),
+                  ),
+                  child: Icon(Icons.camera_alt_outlined,
+                      color: Colors.white, size: 10.sp),
                 ),
-                child: Icon(Icons.camera_alt_outlined,
-                    color: Colors.white, size: 10.sp),
-              ),
-            ],
+              ],
+            ),
           ),
           SizedBox(width: 24.w),
           Expanded(

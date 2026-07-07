@@ -75,7 +75,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   String _userName = '';
   String? _profilePhotoUrl;
   int _idx = 0;
@@ -213,6 +213,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _idx = widget.initialIndex;
     _visitedIndices.add(_idx);
     AppStateNotifier.currentNavigationIndex.value = _idx;
@@ -223,11 +224,20 @@ class _MainScreenState extends State<MainScreen> {
     MainScreen._activeState = this;
     _loadUserName();
     _syncProfilePhoto();
+    _syncTeacherScannerAccess();
     _initSocketConnection();
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncTeacherScannerAccess();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     AppStateNotifier.currentNavigationIndex.removeListener(_onNavigationIndexChanged);
     if (MainScreen._activeState == this) {
       MainScreen._activeState = null;
@@ -496,6 +506,33 @@ class _MainScreenState extends State<MainScreen> {
       }
     } catch (e) {
       debugPrint('Sync profile photo on startup failed: $e');
+    }
+  }
+
+  Future<void> _syncTeacherScannerAccess() async {
+    if (widget.role != 'teacher') return;
+    try {
+      final currentUserId = CacheService.instance.prefs.getString('user_id');
+      if (currentUserId == null || currentUserId.isEmpty) return;
+
+      final res = await ApiService.instance.get('teachers');
+      if (res != null && res['success'] == true && res['teachers'] is List) {
+        final teachersList = res['teachers'] as List;
+        final match = teachersList.firstWhere(
+          (t) => t['userId'] == currentUserId || t['id'] == currentUserId || (t['user'] != null && t['user']['id'] == currentUserId),
+          orElse: () => null,
+        );
+        if (match != null) {
+          final assignedId = match['assignedScannerId'] as String?;
+          if (AppStateNotifier.assignedScannerId.value != assignedId) {
+            AppStateNotifier.assignedScannerId.value = assignedId;
+          }
+        } else {
+          AppStateNotifier.assignedScannerId.value = null;
+        }
+      }
+    } catch (e) {
+      debugPrint('Sync teacher scanner access failed: $e');
     }
   }
 
@@ -1171,19 +1208,29 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
   late Animation<double> _scaleAnimation;
   int _lastActiveModule = -1;
 
-  final List<TabItem> _allTabs = [
-    TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
-    TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_outlined, targetScreenIndex: 7),
-    TabItem(index: 2, label: 'QR Scanner', icon: Icons.qr_code_scanner_rounded, targetScreenIndex: 5),
-    TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 3),
-    TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 13),
-  ];
+  List<TabItem> get _allTabs {
+    final hasScanner = AppStateNotifier.assignedScannerId.value != null && AppStateNotifier.assignedScannerId.value!.isNotEmpty;
+    final tabs = [
+      TabItem(index: 0, label: 'Dashboard', icon: Icons.grid_view_rounded, targetScreenIndex: 0),
+      TabItem(index: 1, label: 'Academic', icon: Icons.menu_book_outlined, targetScreenIndex: 7),
+    ];
+    if (hasScanner) {
+      tabs.add(TabItem(index: 2, label: 'QR Scanner', icon: Icons.qr_code_scanner_rounded, targetScreenIndex: 5));
+    }
+    tabs.addAll([
+      TabItem(index: 3, label: 'Attendance', icon: Icons.event_available_rounded, targetScreenIndex: 3),
+      TabItem(index: 5, label: 'Students', icon: Icons.people_alt_rounded, targetScreenIndex: 2),
+      TabItem(index: 4, label: 'My Profile', icon: Icons.person_rounded, targetScreenIndex: 13),
+    ]);
+    return tabs;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadPhoto();
     AppStateNotifier.userProfilePhotoUrl.addListener(_onPhotoUrlChanged);
+    AppStateNotifier.assignedScannerId.addListener(_onScannerAccessChanged);
 
     _scaleController = AnimationController(
       duration: const Duration(milliseconds: 250),
@@ -1197,6 +1244,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
 
   @override
   void dispose() {
+    AppStateNotifier.assignedScannerId.removeListener(_onScannerAccessChanged);
     AppStateNotifier.userProfilePhotoUrl.removeListener(_onPhotoUrlChanged);
     _scaleController.dispose();
     super.dispose();
@@ -1208,6 +1256,10 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
         _localPhotoUrl = AppStateNotifier.userProfilePhotoUrl.value;
       });
     }
+  }
+
+  void _onScannerAccessChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadPhoto() async {
@@ -1235,13 +1287,13 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
 
   int _getActiveModuleIndex(int currentIdx) {
     if (currentIdx == 0) return 0;
+    if (currentIdx == 2) return 5;
     if (currentIdx == 3) return 3;
-    if (currentIdx == 5) return 2;
+    if (currentIdx == 5) return AppStateNotifier.assignedScannerId.value != null ? 2 : 0;
     if (currentIdx == 13) return 4;
     
     // Academic tabs check
     if (currentIdx == 1 ||
-        currentIdx == 2 ||
         currentIdx == 6 ||
         currentIdx == 7 ||
         currentIdx == 8 ||
@@ -1258,7 +1310,7 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
 
   List<TabItem> _getLayoutTabs(int activeModuleIndex) {
     final List<TabItem> tabs = List.from(_allTabs);
-    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex);
+    final activeTab = tabs.firstWhere((t) => t.index == activeModuleIndex, orElse: () => _allTabs.first);
     tabs.remove(activeTab);
     tabs.insert(2, activeTab);
     return tabs;
@@ -1305,41 +1357,26 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
                 padding: EdgeInsets.symmetric(horizontal: 8.w),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[0], displayPhotoUrl, key: ValueKey(layoutTabs[0].index)),
-                      ),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[1], displayPhotoUrl, key: ValueKey(layoutTabs[1].index)),
-                      ),
-                    ),
-                    SizedBox(width: 72.w),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[3], displayPhotoUrl, key: ValueKey(layoutTabs[3].index)),
-                      ),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[4], displayPhotoUrl, key: ValueKey(layoutTabs[4].index)),
-                      ),
-                    ),
+                    for (int i = 0; i < layoutTabs.length; i++)
+                      if (i == 2)
+                        SizedBox(width: 72.w)
+                      else
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: _buildInactiveItem(layoutTabs[i], displayPhotoUrl, key: ValueKey(layoutTabs[i].index)),
+                          ),
+                        ),
                   ],
                 ),
               ),
             ),
             Positioned(
               bottom: 12.h,
-              child: ScaleTransition(
+              child: 2 < layoutTabs.length ? ScaleTransition(
                 scale: _scaleAnimation,
                 child: _buildCenterActiveButton(layoutTabs[2], displayPhotoUrl),
-              ),
+              ) : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -1391,15 +1428,15 @@ class _TeacherBottomNavBarState extends State<TeacherBottomNavBar> with SingleTi
                   Icon(
                     item.icon,
                     size: 22.sp,
-                    color: const Color(0xFF94A3B8),
+                    color: Colors.black,
                   ),
                 SizedBox(height: 3.h),
                 Text(
                   item.index == 1 ? getAcademicTabConfig(widget.activeIndex).label : item.label,
                   style: GoogleFonts.inter(
                     fontSize: 10.sp,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
                   ),
                 ),
               ],
@@ -1712,14 +1749,22 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                             inactiveText: inactiveText,
                             onTap: () => MainScreen.navigateTo(context, 3),
                           ),
-                          _drawerItem(
-                            icon: Icons.qr_code_scanner_rounded,
-                            label: 'QR Scanner',
-                            activeBlue: activeBlue,
-                            inactiveIcon: inactiveIcon,
-                            inactiveText: inactiveText,
-                            onTap: () => MainScreen.navigateTo(
-                                context, isDesktop ? 4 : 5),
+                          ValueListenableBuilder<String?>(
+                            valueListenable: AppStateNotifier.assignedScannerId,
+                            builder: (context, assignedScannerId, child) {
+                              if (assignedScannerId == null || assignedScannerId.isEmpty) {
+                                return const SizedBox.shrink();
+                              }
+                              return _drawerItem(
+                                icon: Icons.qr_code_scanner_rounded,
+                                label: 'QR Scanner',
+                                activeBlue: activeBlue,
+                                inactiveIcon: inactiveIcon,
+                                inactiveText: inactiveText,
+                                onTap: () => MainScreen.navigateTo(
+                                    context, isDesktop ? 4 : 5),
+                              );
+                            },
                           ),
                           _drawerItem(
                             icon: Icons.check_box_outlined,
@@ -2266,31 +2311,16 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[0], displayPhotoUrl, key: ValueKey(layoutTabs[0].index)),
-                      ),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[1], displayPhotoUrl, key: ValueKey(layoutTabs[1].index)),
-                      ),
-                    ),
-                    const SizedBox(width: 72),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[3], displayPhotoUrl, key: ValueKey(layoutTabs[3].index)),
-                      ),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 250),
-                        child: _buildInactiveItem(layoutTabs[4], displayPhotoUrl, key: ValueKey(layoutTabs[4].index)),
-                      ),
-                    ),
+                    for (int i = 0; i < layoutTabs.length; i++)
+                      if (i == 2)
+                        const SizedBox(width: 72)
+                      else
+                        Expanded(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 250),
+                            child: _buildInactiveItem(layoutTabs[i], displayPhotoUrl, key: ValueKey(layoutTabs[i].index)),
+                          ),
+                        ),
                   ],
                 ),
               ),
