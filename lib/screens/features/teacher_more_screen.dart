@@ -128,6 +128,16 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       onTap: () => widget.onNavigate(8),
                     ),
                     _buildMenuItem(
+                      icon: Icons.local_library_rounded,
+                      label: 'Library',
+                      onTap: () => widget.onNavigate(14),
+                    ),
+                    _buildMenuItem(
+                      icon: Icons.inventory_2_rounded,
+                      label: 'Inventory Requests',
+                      onTap: () => widget.onNavigate(15),
+                    ),
+                    _buildMenuItem(
                       icon: Icons.access_time_rounded,
                       label: 'My Schedule',
                       onTap: () => widget.onNavigate(10),
@@ -147,16 +157,7 @@ class _TeacherMoreScreenState extends State<TeacherMoreScreen> {
                       label: 'My Profile',
                       onTap: () => widget.onNavigate(13),
                     ),
-                    _buildMenuItem(
-                      icon: Icons.local_library_rounded,
-                      label: 'Library',
-                      onTap: () => widget.onNavigate(14),
-                    ),
-                    _buildMenuItem(
-                      icon: Icons.inventory_2_rounded,
-                      label: 'Inventory Requests',
-                      onTap: () => widget.onNavigate(15),
-                    ),
+
 
                     Padding(
                       padding:

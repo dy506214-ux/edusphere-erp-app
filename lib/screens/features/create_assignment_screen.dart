@@ -172,53 +172,54 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchSubmissions(
-      String assignmentId) async {
-    try {
-      final res = await ApiService.instance.get('assignments/$assignmentId');
-      final assignment = res['assignment'] as Map<String, dynamic>?;
-      final rawSubs = assignment?['submissions'] as List<dynamic>? ?? [];
-      return rawSubs.map((sub) {
-        final student = sub['student'] as Map<String, dynamic>?;
-        final user = student?['user'] as Map<String, dynamic>?;
-        final fn = user?['firstName'] as String? ?? '';
-        final ln = user?['lastName'] as String? ?? '';
-        final name =
-            '$fn $ln'.trim().isEmpty ? 'Unknown Student' : '$fn $ln'.trim();
-        return {
-          'id': sub['id'],
-          'assignment_id': assignmentId,
-          'student_id': sub['studentId'],
-          'student_name': name,
-          'submitted_at': sub['submittedAt'],
-          'grade': sub['grade'] ?? 'Pending',
-          'score': sub['feedback'] ?? 'Not Graded',
-          'file_name': sub['filePath'] != null
-              ? (sub['filePath'] as String).split('/').last
-              : null,
-          'status': sub['status'] ?? 'PENDING',
-          'assignment_title': assignment?['title'] ?? 'Untitled',
-        };
-      }).toList();
-    } catch (e) {
-      dev.log('⚠️ Error fetching submissions: $e',
-          name: 'CreateAssignmentScreen');
-      return [];
-    }
-  }
-
   Future<void> _selectAssignment(Map<String, dynamic> assignment) async {
     setState(() {
-      _selectedAssignment = assignment;
+      _selectedAssignment = {'id': assignment['id'], '_isLoading': true};
       _isLoadingSubmissions = true;
     });
-    final subs = await _fetchSubmissions(assignment['id'] as String);
-    if (mounted) {
-      setState(() {
-        _submissionsList.clear();
-        _submissionsList.addAll(subs);
-        _isLoadingSubmissions = false;
-      });
+    
+    try {
+      final res = await ApiService.instance.get('assignments/${assignment['id']}');
+      final fetchedAssignment = res['assignment'] as Map<String, dynamic>?;
+      
+      if (fetchedAssignment != null && mounted) {
+        final rawSubs = fetchedAssignment['submissions'] as List<dynamic>? ?? [];
+        final mappedSubs = rawSubs.map((sub) {
+          final student = sub['student'] as Map<String, dynamic>?;
+          final user = student?['user'] as Map<String, dynamic>?;
+          final fn = user?['firstName'] as String? ?? '';
+          final ln = user?['lastName'] as String? ?? '';
+          final name =
+              '$fn $ln'.trim().isEmpty ? 'Unknown Student' : '$fn $ln'.trim();
+          return {
+            'id': sub['id'],
+            'assignment_id': assignment['id'],
+            'student_id': sub['studentId'],
+            'student_name': name,
+            'submitted_at': sub['submittedAt'],
+            'grade': sub['grade'] ?? 'Pending',
+            'score': sub['feedback'] ?? 'Not Graded',
+            'file_name': sub['filePath'] != null
+                ? (sub['filePath'] as String).split('/').last
+                : null,
+            'status': sub['status'] ?? 'PENDING',
+            'assignment_title': fetchedAssignment['title'] ?? 'Untitled',
+          };
+        }).toList();
+
+        setState(() {
+          _selectedAssignment = fetchedAssignment;
+          _submissionsList.clear();
+          _submissionsList.addAll(mappedSubs);
+          _isLoadingSubmissions = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoadingSubmissions = false);
+      }
+    } catch (e) {
+      dev.log('⚠️ Error fetching assignment details: $e',
+          name: 'CreateAssignmentScreen');
+      if (mounted) setState(() => _isLoadingSubmissions = false);
     }
   }
 
@@ -616,11 +617,35 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
             child: Row(children: [
               Expanded(
                   flex: 3,
-                  child: Text(a['title'] as String? ?? 'Untitled',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF0F172A)),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(a['title'] as String? ?? 'Untitled',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF0F172A)),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                      if (a['filePath'] != null && a['filePath'].toString().isNotEmpty) ...[
+                        SizedBox(height: 4.h),
+                        GestureDetector(
+                          onTap: () => _downloadFile(a['filePath'], a['filePath'].toString().split('/').last),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.open_in_new_rounded, size: 12.sp, color: const Color(0xFF1976D2)),
+                              SizedBox(width: 4.w),
+                              Flexible(
+                                child: Text('Reference File',
+                                    style: AppTypography.caption.copyWith(color: const Color(0xFF1976D2), fontSize: 10.sp),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  )),
               Expanded(
                   flex: 3,
                   child: Column(
@@ -659,7 +684,6 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
                         GestureDetector(
                           onTap: () {
                             _selectAssignment(a);
-                            _showAssignmentDetailsBottomSheet(context, a);
                           },
                           child: Container(
                             padding: EdgeInsets.symmetric(
@@ -713,6 +737,12 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
   // ─────────────────────────────────────────────────────
   // SUBMISSION TRACKER
   // ─────────────────────────────────────────────────────
+  String _safeExtractName(dynamic field, [String defaultValue = '']) {
+    if (field == null) return defaultValue;
+    if (field is String) return field.isNotEmpty ? field : defaultValue;
+    if (field is Map) return field['name']?.toString() ?? defaultValue;
+    return defaultValue;
+  }
 
   Widget _buildSubmissionTrackerCard() {
     return Container(
@@ -725,36 +755,47 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (_selectedAssignment != null) ...[
-          Row(children: [
-            Expanded(
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                  Text('Submission Tracker',
-                      style: AppTypography.small
-                          .copyWith(color: const Color(0xFF0F172A))),
-                  SizedBox(height: 2.h),
-                  Text('Submissions for: ${_selectedAssignment!['title']}',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF64748B))),
-                ])),
-            GestureDetector(
-              onTap: () => setState(() {
-                _selectedAssignment = null;
-                _submissionsList.clear();
-              }),
-              child: Icon(Icons.close_rounded,
-                  size: 20.sp, color: const Color(0xFF94A3B8)),
+          if (_selectedAssignment!['_isLoading'] == true)
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 40.h),
+              child: const Center(
+                  child: CircularProgressIndicator(color: Color(0xFF1976D2))),
+            )
+          else ...[
+            Row(children: [
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text('${_selectedAssignment!['title']?.toString() ?? 'Untitled Assignment'}',
+                        style: AppTypography.small
+                            .copyWith(color: const Color(0xFF0F172A))),
+                    SizedBox(height: 2.h),
+                    Text('${_selectedAssignment!['class_name'] ?? _safeExtractName(_selectedAssignment!['class'], 'N/A')} - ${_safeExtractName(_selectedAssignment!['subject'], 'General')}',
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF64748B))),
+                  ])),
+              GestureDetector(
+                onTap: () => setState(() {
+                  _selectedAssignment = null;
+                  _submissionsList.clear();
+                }),
+                child: Icon(Icons.close_rounded,
+                    size: 20.sp, color: const Color(0xFF94A3B8)),
+              ),
+            ]),
+            SizedBox(height: 24.h),
+            Text(
+              'SUBMISSIONS',
+              style: AppTypography.caption.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF475569),
+                letterSpacing: 0.5,
+              ),
             ),
-          ]),
-          SizedBox(height: 16.h),
-          if (_isLoadingSubmissions)
-            const Center(
-                child: Padding(
-                    padding: EdgeInsets.all(30),
-                    child: CircularProgressIndicator(color: Color(0xFF1976D2))))
-          else
+            SizedBox(height: 10.h),
             _buildSubmissionsList(),
+          ],
         ] else
           _buildTrackerEmpty(),
       ]),
@@ -786,20 +827,14 @@ class _CreateAssignmentScreenState extends State<CreateAssignmentScreen> {
 
   Widget _buildSubmissionsList() {
     if (_submissionsList.isEmpty) {
-      return CustomPaint(
-        painter:
-            DashedRectPainter(color: const Color(0xFFAEC6DC), radius: 12.r),
-        child: Container(
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: 32.h),
-            child: Column(children: [
-              Icon(Icons.folder_open_outlined,
-                  color: const Color(0xFFAEC6DC), size: 40.r),
-              SizedBox(height: 10.h),
-              Text('No submissions received yet.',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B))),
-            ])),
+      return Padding(
+        padding: EdgeInsets.only(top: 24.h, bottom: 24.h),
+        child: Center(
+          child: Text('No submissions yet.',
+              style: AppTypography.caption.copyWith(
+                  color: const Color(0xFF64748B),
+                  fontStyle: FontStyle.italic)),
+        ),
       );
     }
     return Column(children: [

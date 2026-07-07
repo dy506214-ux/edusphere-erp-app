@@ -530,19 +530,27 @@ class _StudentAppBarState extends State<StudentAppBar> with TickerProviderStateM
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF3B82F6).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6.r),
-                                    ),
-                                    child: Text(
-                                      notif.type,
-                                      style: AppTypography.caption.copyWith(color: const Color(0xFF3B82F6)),
+                                  Expanded(
+                                    child: Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 2.h),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF3B82F6).withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6.r),
+                                        ),
+                                        child: Text(
+                                          notif.type,
+                                          style: AppTypography.caption.copyWith(color: const Color(0xFF3B82F6)),
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        ),
+                                      ),
                                     ),
                                   ),
+                                  SizedBox(width: 8.w),
                                   Text(
                                     DateFormat('dd MMM hh:mm a').format(notif.createdAt),
                                     style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),

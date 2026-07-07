@@ -3502,33 +3502,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
             SizedBox(height: 20.h),
             _buildGridRow(
                 'Gender',
-                _studentGender != '—' ? _studentGender : 'N/A',
+                _studentGender != '—' ? _studentGender.toUpperCase() : 'N/A',
                 'Blood Group',
                 _studentBloodGroup != '—' ? _studentBloodGroup : 'N/A'),
             SizedBox(height: 16.h),
             _buildGridRow(
                 'Roll Number', 
-                _rollNo.isNotEmpty ? _rollNo : 'N/A',
+                _rollNo.isNotEmpty && _rollNo != '—' ? _rollNo : 'N/A',
                 'Admission Number', 
                 _admissionNo),
-            SizedBox(height: 16.h),
-            _buildGridRow(
-                'Admission Date',
-                _studentJoinedDate != '—' ? _studentJoinedDate : 'N/A',
-                'Status',
-                _studentStatus.isNotEmpty ? _studentStatus : 'N/A'),
-            SizedBox(height: 16.h),
-            _buildGridRow(
-                'Batch (Academic Year)',
-                _batch.isNotEmpty ? _batch : 'N/A',
-                'Medium',
-                _medium.isNotEmpty ? _medium : 'N/A'),
-            SizedBox(height: 16.h),
-            _buildGridRow(
-                'House',
-                'Green House',
-                'Category',
-                'General'),
           ],
         ),
       );
@@ -3648,17 +3630,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: personalCard),
-                SizedBox(width: 20.w),
-                Expanded(child: coreIdentityCard),
-              ],
-            ),
-            SizedBox(height: 20.h),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(child: guardianCard),
-                SizedBox(width: 20.w),
-                Expanded(child: addressCard),
               ],
             ),
           ],
@@ -3667,12 +3638,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         return Column(
           children: [
             personalCard,
-            SizedBox(height: 16.h),
-            coreIdentityCard,
-            SizedBox(height: 16.h),
-            guardianCard,
-            SizedBox(height: 16.h),
-            addressCard,
           ],
         );
       }
@@ -3727,25 +3692,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       final int displayAbsent = total > 0 ? absent : 2;
       final int displayTotal = total > 0 ? total : 26;
 
-      final statsRow = Row(
-        children: [
-          _buildAttendanceStatCard(
-              'Attendance Rate',
-              '${percentage.toStringAsFixed(1)}%',
-              const Color(0xFF1A6FDB),
-              const Color(0xFFE8F1FB)),
-          SizedBox(width: 8.w),
-          _buildAttendanceStatCard(
-              'Days Present',
-              '$displayPresent/$displayTotal',
-              const Color(0xFF10B981),
-              const Color(0xFFECFDF5)),
-          SizedBox(width: 8.w),
-          _buildAttendanceStatCard('Days Absent', '$displayAbsent',
-              const Color(0xFFEF4444), const Color(0xFFFEF2F2)),
-        ],
-      );
-
       final qrCard = _buildDigitalIdentityCard(isDesktop,
           customTitle: 'Attendance Records');
 
@@ -3789,11 +3735,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          statsRow,
-          SizedBox(height: 16.h),
           qrCard,
-          SizedBox(height: 16.h),
-          logCard,
         ],
       );
     }

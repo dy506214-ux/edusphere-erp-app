@@ -161,11 +161,8 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
             if (name.isNotEmpty) {
-              final classNum = _getClassNumber(name);
-              if (classNum == 8 || classNum == 9 || classNum == 10) {
-                if (!_classes.contains(name)) {
-                  _classes.add(name);
-                }
+              if (!_classes.contains(name)) {
+                _classes.add(name);
               }
             }
           }
@@ -241,20 +238,10 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
   }
 
   Future<void> _fetchStudents({bool forceRefresh = false}) async {
-    final cacheKey = '${_selectedClass ?? ''}-$_selectedSection-$_selectedStatus-$_searchQuery';
-    
-    if (!forceRefresh && _studentsCache.containsKey(cacheKey)) {
-      setState(() {
-        _allStudents = _studentsCache[cacheKey]!;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } else {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-    }
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
       String? classId;
@@ -340,35 +327,9 @@ class _StudentDirectoryScreenState extends State<StudentDirectoryScreen> {
           ));
         }
 
-        // Filtering for Class 8, Class 9, and Class 10 only (especially when All Class is selected)
-        final List<StudentRecord> allowedStudents = loadedStudents.where((s) {
-          final classNum = _getClassNumber(s.className);
-          return classNum == 8 || classNum == 9 || classNum == 10;
-        }).toList();
-
-        // Sort: Class -> Section -> Admission Number -> Student Email
-        allowedStudents.sort((a, b) {
-          final classNumA = _getClassNumber(a.className) ?? 0;
-          final classNumB = _getClassNumber(b.className) ?? 0;
-          if (classNumA != classNumB) {
-            return classNumA.compareTo(classNumB);
-          }
-
-          final secA = a.className.split(' - ').last;
-          final secB = b.className.split(' - ').last;
-          final secComp = secA.compareTo(secB);
-          if (secComp != 0) return secComp;
-
-          final admComp = _naturalCompare(a.admissionNo, b.admissionNo);
-          if (admComp != 0) return admComp;
-
-          return _naturalCompare(a.email, b.email);
-        });
-
         if (mounted) {
           setState(() {
-            _studentsCache[cacheKey] = allowedStudents;
-            _allStudents = allowedStudents;
+            _allStudents = loadedStudents;
             _statuses.clear();
             _statuses.addAll(_allStatusesCache);
             _isLoading = false;

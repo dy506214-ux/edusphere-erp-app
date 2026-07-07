@@ -339,10 +339,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
           (results[2]['sections'] ?? results[2]['data'] ?? []) as List;
 
       final List<Map<String, dynamic>> loadedClasses = rawClasses.map((c) {
-        final classTeacherUser = c['classTeacher'] as Map?;
-        final tName = classTeacherUser != null
-            ? '${classTeacherUser['firstName'] ?? ''} ${classTeacherUser['lastName'] ?? ''}'
-                .trim()
+        final classTeacher = c['classTeacher'] as Map?;
+        final user = classTeacher != null ? classTeacher['user'] as Map? : null;
+        
+        final tName = user != null
+            ? '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim()
             : '—';
 
         // Use Prisma's _count if available, else 0
@@ -352,8 +353,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
         return {
           'id': c['id'],
           'name': c['name']?.toString() ?? '',
-          'level': c['level']?.toString() ?? '',
-          'academic_year': '2024-2025',
+          'level': c['numericValue']?.toString() ?? c['level']?.toString() ?? '',
+          'academic_year': c['academicYear'] != null ? c['academicYear']['name']?.toString() ?? '2024-2025' : '2024-2025',
           'class_teacher': tName.isNotEmpty ? tName : '—',
           'students': stCount,
         };
@@ -363,12 +364,23 @@ class _AcademicScreenState extends State<AcademicScreen> {
         final classData = s['Class'] ?? s['class'] as Map?;
         final className =
             classData != null ? classData['name']?.toString() ?? '—' : '—';
+        
+        final teachersList = s['teachers'] as List?;
+        String tName = '—';
+        if (teachersList != null && teachersList.isNotEmpty) {
+          final firstTeacher = teachersList[0]['teacher'] as Map?;
+          if (firstTeacher != null && firstTeacher['user'] != null) {
+            final user = firstTeacher['user'];
+            tName = '${user['firstName'] ?? ''} ${user['lastName'] ?? ''}'.trim();
+          }
+        }
+
         return {
           'id': s['id'],
           'name': s['name']?.toString() ?? '',
           'code': s['code']?.toString() ?? '',
           'class': className,
-          'teacher': '—',
+          'teacher': tName.isNotEmpty ? tName : '—',
           'description': s['description']?.toString() ?? '-',
         };
       }).toList();
@@ -1648,48 +1660,68 @@ class _AcademicScreenState extends State<AcademicScreen> {
   }
 
   Widget _buildCustomSubjectsTable() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header Row
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-          decoration: const BoxDecoration(
-            border:
-                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                  flex: 3,
-                  child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(
-                  flex: 2,
-                  child: _buildTableHeaderCell('Code', TextAlign.left)),
-              Expanded(
-                  flex: 2,
-                  child: _buildTableHeaderCell('Class', TextAlign.left)),
-              Expanded(
-                  flex: 2,
-                  child: _buildTableHeaderCell('Teacher', TextAlign.left)),
-              Expanded(
-                  flex: 2,
-                  child: _buildTableHeaderCell('Description', TextAlign.left)),
-            ],
-          ),
-        ),
-        // Data Rows
-        ..._subjectsList.map((s) {
-          return _SubjectsRowItem(
-            name: s['name']?.toString() ?? '',
-            code: s['code']?.toString() ?? '',
-            className: s['class']?.toString() ?? '—',
-            teacher: s['teacher']?.toString() ?? '—',
-            description: s['description']?.toString() ?? '-',
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        const double minTableWidth = 580.0;
+        final bool useHorizontalScroll = availableWidth < minTableWidth;
+
+        Widget tableContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+              decoration: const BoxDecoration(
+                border:
+                    Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                      flex: 3,
+                      child: _buildTableHeaderCell('Name', TextAlign.left)),
+                  Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderCell('Code', TextAlign.left)),
+                  Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderCell('Class', TextAlign.left)),
+                  Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderCell('Teacher', TextAlign.left)),
+                  Expanded(
+                      flex: 2,
+                      child: _buildTableHeaderCell('Description', TextAlign.left)),
+                ],
+              ),
+            ),
+            // Data Rows
+            ..._subjectsList.map((s) {
+              return _SubjectsRowItem(
+                name: s['name']?.toString() ?? '',
+                code: s['code']?.toString() ?? '',
+                className: s['class']?.toString() ?? '—',
+                teacher: s['teacher']?.toString() ?? '—',
+                description: s['description']?.toString() ?? '-',
+              );
+            }),
+            SizedBox(height: 12.h),
+          ],
+        );
+
+        if (useHorizontalScroll) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: minTableWidth,
+              child: tableContent,
+            ),
           );
-        }),
-        SizedBox(height: 12.h),
-      ],
+        } else {
+          return tableContent;
+        }
+      },
     );
   }
 
@@ -1749,55 +1781,75 @@ class _AcademicScreenState extends State<AcademicScreen> {
 
   // ── Teacher exams listing ──
   Widget _buildCustomSectionsTable() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header Row
-        Container(
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-          decoration: const BoxDecoration(
-            border:
-                Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                  flex: 4,
-                  child: _buildTableHeaderCell('Name', TextAlign.left)),
-              Expanded(
-                  flex: 3,
-                  child: _buildTableHeaderCell('Class', TextAlign.left)),
-              Expanded(
-                  flex: 3,
-                  child:
-                      _buildTableHeaderCell('Max\nStudents', TextAlign.left)),
-              Expanded(
-                  flex: 3,
-                  child: _buildTableHeaderCell('Students', TextAlign.left)),
-            ],
-          ),
-        ),
-        // Data Rows
-        ..._sectionsList.map((s) {
-          final rawName = s['name']?.toString().trim() ?? '';
-          String formattedName = rawName;
-          if (rawName.isNotEmpty &&
-              !rawName.toLowerCase().startsWith('section')) {
-            formattedName = 'Section\n$rawName';
-          } else if (rawName.toLowerCase().startsWith('section ')) {
-            // Replace the first space with a newline to match the stacked look
-            formattedName = rawName.replaceFirst(' ', '\n');
-          }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth;
+        const double minTableWidth = 580.0;
+        final bool useHorizontalScroll = availableWidth < minTableWidth;
 
-          return _SectionsRowItem(
-            name: formattedName,
-            className: s['class']?.toString() ?? '—',
-            maxStudents: s['max_students']?.toString() ?? '40',
-            students: s['students']?.toString() ?? '0',
+        Widget tableContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Row
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+              decoration: const BoxDecoration(
+                border:
+                    Border(bottom: BorderSide(color: Color(0xFFF1F5F9), width: 1)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                      flex: 4,
+                      child: _buildTableHeaderCell('Name', TextAlign.left)),
+                  Expanded(
+                      flex: 3,
+                      child: _buildTableHeaderCell('Class', TextAlign.left)),
+                  Expanded(
+                      flex: 3,
+                      child:
+                          _buildTableHeaderCell('Max\nStudents', TextAlign.left)),
+                  Expanded(
+                      flex: 3,
+                      child: _buildTableHeaderCell('Students', TextAlign.left)),
+                ],
+              ),
+            ),
+            // Data Rows
+            ..._sectionsList.map((s) {
+              final rawName = s['name']?.toString().trim() ?? '';
+              String formattedName = rawName;
+              if (rawName.isNotEmpty &&
+                  !rawName.toLowerCase().startsWith('section')) {
+                formattedName = 'Section\n$rawName';
+              } else if (rawName.toLowerCase().startsWith('section ')) {
+                // Replace the first space with a newline to match the stacked look
+                formattedName = rawName.replaceFirst(' ', '\n');
+              }
+
+              return _SectionsRowItem(
+                name: formattedName,
+                className: s['class']?.toString() ?? '—',
+                maxStudents: s['max_students']?.toString() ?? '40',
+                students: s['students']?.toString() ?? '0',
+              );
+            }),
+            SizedBox(height: 12.h),
+          ],
+        );
+
+        if (useHorizontalScroll) {
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: minTableWidth,
+              child: tableContent,
+            ),
           );
-        }),
-        SizedBox(height: 12.h),
-      ],
+        } else {
+          return tableContent;
+        }
+      },
     );
   }
 
@@ -3212,11 +3264,27 @@ class _SubjectsRowItemState extends State<_SubjectsRowItem> {
             ),
             Expanded(
               flex: 2,
-              child: Text(
-                widget.teacher,
-                textAlign: TextAlign.left,
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF1E293B)),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: widget.teacher == '—' || widget.teacher.isEmpty
+                    ? Text(
+                        '—',
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF1E293B)),
+                      )
+                    : Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFE0F2FE), // Light blue background
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Text(
+                          widget.teacher,
+                          style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF475569),
+                          ),
+                        ),
+                      ),
               ),
             ),
             Expanded(

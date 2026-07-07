@@ -41,7 +41,6 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   int _studentCount = 60;
   int _pendingAttendance = 0;
   int _overdueBooks = 0;
-  double _attendanceTodayPercentage = 90.0;
 
   double _teacherAttendanceRate = 100.0;
   bool _teacherAttendanceLoaded = false;
@@ -182,28 +181,14 @@ class _TeacherDashboardState extends State<TeacherDashboard>
       if (response != null && response['success'] == true) {
         final stats = response['stats'] as Map<String, dynamic>? ?? {};
 
-        final studentCount = stats['totalStudents'] as int? ??
-            stats['activeStudents'] as int? ??
-            60;
+        final studentCount = stats['myClassStudents'] as int? ?? 0;
         final overdueCount = stats['overdueBooks'] as int? ?? 0;
-
-        final attDetails = stats['attendanceDetails'] as Map<String, dynamic>?;
-        double attendancePct = 90.0;
-        int pendingAttend = 0;
-        if (attDetails != null) {
-          final marked = attDetails['marked'] as int? ?? 0;
-          final total = attDetails['total'] as int? ?? 0;
-          if (total > 0) {
-            attendancePct = (marked / total) * 100.0;
-            pendingAttend = (total - marked).clamp(0, 9999);
-          }
-        }
+        final pendingAttend = stats['pendingAttendance'] as int? ?? 0;
 
         if (mounted) {
           setState(() {
             _studentCount = studentCount;
             _overdueBooks = overdueCount;
-            _attendanceTodayPercentage = attendancePct;
             _pendingAttendance = pendingAttend;
             _lastRefreshTime = DateTime.now();
           });
@@ -228,7 +213,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
         final int present = stats['present'] as int? ?? 0;
         final int late = stats['late'] as int? ?? 0;
 
-        final double pct = total > 0 ? ((present + late) / total) * 100.0 : 100.0;
+        final double pct = total > 0 ? ((present + late) / total) * 100.0 : 0.0;
         if (mounted) {
           setState(() {
             _teacherAttendanceRate = pct;
@@ -587,7 +572,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
   Widget _buildMetricsGrid(bool isDesktop) {
     final cards = [
       _buildResponsiveStatCard(
-        title: 'ATTENDANCE TODAY',
+        title: 'MY ATTENDANCE',
         value: _teacherAttendanceLoaded
             ? '${_teacherAttendanceRate.toStringAsFixed(0)}%'
             : '—%',
@@ -718,7 +703,7 @@ class _TeacherDashboardState extends State<TeacherDashboard>
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
-                widthFactor: ((progress ?? _attendanceTodayPercentage) / 100.0)
+                widthFactor: ((progress ?? 0.0) / 100.0)
                     .clamp(0.0, 1.0),
                 child: Container(
                   decoration: BoxDecoration(

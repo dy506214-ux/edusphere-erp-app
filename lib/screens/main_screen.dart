@@ -1794,6 +1794,24 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                                 context, isDesktop ? 7 : 8),
                           ),
                           _drawerItem(
+                            icon: Icons.local_library_rounded,
+                            label: 'Library',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () => MainScreen.navigateTo(
+                                context, isDesktop ? 13 : 14),
+                          ),
+                          _drawerItem(
+                            icon: Icons.inventory_2_rounded,
+                            label: 'Inventory Requests',
+                            activeBlue: activeBlue,
+                            inactiveIcon: inactiveIcon,
+                            inactiveText: inactiveText,
+                            onTap: () => MainScreen.navigateTo(
+                                context, isDesktop ? 14 : 15),
+                          ),
+                          _drawerItem(
                             icon: Icons.access_time_rounded,
                             label: 'My Schedule',
                             activeBlue: activeBlue,
@@ -1829,24 +1847,7 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                             onTap: () => MainScreen.navigateTo(
                                 context, isDesktop ? 12 : 13),
                           ),
-                          _drawerItem(
-                            icon: Icons.local_library_rounded,
-                            label: 'Library',
-                            activeBlue: activeBlue,
-                            inactiveIcon: inactiveIcon,
-                            inactiveText: inactiveText,
-                            onTap: () => MainScreen.navigateTo(
-                                context, isDesktop ? 13 : 14),
-                          ),
-                          _drawerItem(
-                            icon: Icons.inventory_2_rounded,
-                            label: 'Inventory Requests',
-                            activeBlue: activeBlue,
-                            inactiveIcon: inactiveIcon,
-                            inactiveText: inactiveText,
-                            onTap: () => MainScreen.navigateTo(
-                                context, isDesktop ? 14 : 15),
-                          ),
+
                         ]
                       : [
                           _drawerItem(
