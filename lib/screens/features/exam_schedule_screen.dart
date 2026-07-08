@@ -53,6 +53,23 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
   // Trend Points for Line Chart (defaults matching Screenshot 2)
   List<double> _trendPoints = [50.0, 66.0, 70.0];
 
+  int _selectedRadarIndex = 2;
+  int _selectedTrendIndex = 1;
+
+  String? _getSelectedClassId() {
+    if (_selectedClass == 'All Classes') return null;
+    try {
+      final match = _dbClasses.firstWhere(
+        (c) =>
+            (c['name'] as String).replaceAll('Class', 'Grade') ==
+            _selectedClass,
+      );
+      return match['id']?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Timer? _pollingTimer;
 
   @override
@@ -155,9 +172,8 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
         }
       }
 
-      // Load supporting chart averages from results
-      _loadSubjectAverages();
-      _loadScoreTrend();
+      // Load supporting chart stats from results in a single API call
+      _loadGraphData();
     } catch (e) {
       dev.log('Error loading exams from REST API: $e');
       if (mounted) {
@@ -166,68 +182,98 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     }
   }
 
-  Future<void> _loadSubjectAverages() async {
+  Future<void> _loadGraphData() async {
     try {
-      final response = await ApiService.instance.get('dashboard/exam-stats');
-      if (response != null && response['subjectAverages'] != null) {
-        final List<dynamic> list = response['subjectAverages'];
-        double mathSum = 0;
-        int mathCount = 0;
-        double sciSum = 0;
-        int sciCount = 0;
-        double engSum = 0;
-        int engCount = 0;
+      final classId = _getSelectedClassId();
+      final Map<String, String>? queryParams =
+          classId != null ? {'classId': classId} : null;
+      final response = await ApiService.instance
+          .get('dashboard/exam-stats', queryParams: queryParams);
 
-        for (var mark in list) {
-          final sub = mark['subject']?.toString().toLowerCase() ?? '';
-          final avg = double.tryParse(mark['average']?.toString() ?? '') ?? 0.0;
+      if (response != null) {
+        // 1. Production API response format (success: true, data: [...])
+        if (response['data'] != null) {
+          final List<dynamic> list = response['data'];
+          double mathVal = 60.0;
+          double engVal = 80.0;
+          double sciVal = 70.0;
 
-          if (sub.contains('math')) {
-            mathSum += avg;
-            mathCount++;
-          } else if (sub.contains('science') || sub.contains('sci')) {
-            sciSum += avg;
-            sciCount++;
-          } else if (sub.contains('english') || sub.contains('eng')) {
-            engSum += avg;
-            engCount++;
+          for (var item in list) {
+            final sub = item['subject']?.toString().toLowerCase() ?? '';
+            final avg =
+                double.tryParse(item['average']?.toString() ?? '') ?? 0.0;
+            if (sub.contains('math')) {
+              mathVal = avg;
+            } else if (sub.contains('english') || sub.contains('eng')) {
+              engVal = avg;
+            } else if (sub.contains('science') || sub.contains('sci')) {
+              sciVal = avg;
+            }
+          }
+
+          if (mounted) {
+            setState(() {
+              _mathAvg = mathVal;
+              _engAvg = engVal;
+              _sciAvg = sciVal;
+              _trendPoints = [mathVal, engVal, sciVal];
+            });
           }
         }
+        // 2. Fallback local API response format (success: true, subjectAverages: [...], recentPerformance: [...])
+        else {
+          double mathSum = 0;
+          int mathCount = 0;
+          double sciSum = 0;
+          int sciCount = 0;
+          double engSum = 0;
+          int engCount = 0;
 
-        if (mounted) {
-          setState(() {
-            if (mathCount > 0) _mathAvg = mathSum / mathCount;
-            if (sciCount > 0) _sciAvg = sciSum / sciCount;
-            if (engCount > 0) _engAvg = engSum / engCount;
-          });
+          if (response['subjectAverages'] != null) {
+            final List<dynamic> list = response['subjectAverages'];
+            for (var mark in list) {
+              final sub = mark['subject']?.toString().toLowerCase() ?? '';
+              final avg =
+                  double.tryParse(mark['average']?.toString() ?? '') ?? 0.0;
+
+              if (sub.contains('math')) {
+                mathSum += avg;
+                mathCount++;
+              } else if (sub.contains('science') || sub.contains('sci')) {
+                sciSum += avg;
+                sciCount++;
+              } else if (sub.contains('english') || sub.contains('eng')) {
+                engSum += avg;
+                engCount++;
+              }
+            }
+          }
+
+          List<double> pts = [];
+          if (response['recentPerformance'] != null) {
+            final List<dynamic> list = response['recentPerformance'];
+            pts = list.map((res) {
+              return (res['percentage'] as num?)?.toDouble() ?? 0.0;
+            }).toList();
+          }
+
+          if (mounted) {
+            setState(() {
+              if (mathCount > 0) _mathAvg = mathSum / mathCount;
+              if (sciCount > 0) _sciAvg = sciSum / sciCount;
+              if (engCount > 0) _engAvg = engSum / engCount;
+
+              if (pts.length >= 3) {
+                _trendPoints = pts.sublist(pts.length - 3);
+              } else if (pts.isNotEmpty) {
+                _trendPoints = pts;
+              }
+            });
+          }
         }
       }
     } catch (e) {
-      dev.log('Error loading subject averages via REST API: $e');
-    }
-  }
-
-  Future<void> _loadScoreTrend() async {
-    try {
-      final response = await ApiService.instance.get('dashboard/exam-stats');
-      if (response != null && response['recentPerformance'] != null) {
-        final List<dynamic> list = response['recentPerformance'];
-        final List<double> pts = list.map((res) {
-          return (res['percentage'] as num?)?.toDouble() ?? 0.0;
-        }).toList();
-
-        if (pts.length >= 3 && mounted) {
-          setState(() {
-            _trendPoints = pts.sublist(pts.length - 3);
-          });
-        } else if (pts.isNotEmpty && mounted) {
-          setState(() {
-            _trendPoints = pts;
-          });
-        }
-      }
-    } catch (e) {
-      dev.log('Error loading trend points via REST API: $e');
+      dev.log('Error loading graph stats: $e');
     }
   }
 
@@ -590,14 +636,64 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           SizedBox(
             height: 200.h,
             width: double.infinity,
-            child: CustomPaint(
-              painter: _SubjectPerformancePainter(
-                labelStyle: AppTypography.caption
-                    .copyWith(color: const Color(0xFF64748B)),
-                mathAvg: _mathAvg,
-                engAvg: _engAvg,
-                sciAvg: _sciAvg,
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                final height = constraints.maxHeight;
+                final cx = width / 2;
+                final cy = height / 2;
+                final radius = math.min(cx, cy) - 20.0;
+                final angles = [-math.pi / 2, math.pi / 6, 5 * math.pi / 6];
+
+                final mathR = radius * (_mathAvg / 100.0);
+                final mathPt = Offset(cx + mathR * math.cos(angles[0]),
+                    cy + mathR * math.sin(angles[0]));
+
+                final engR = radius * (_engAvg / 100.0);
+                final engPt = Offset(cx + engR * math.cos(angles[1]),
+                    cy + engR * math.sin(angles[1]));
+
+                final sciR = radius * (_sciAvg / 100.0);
+                final sciPt = Offset(cx + sciR * math.cos(angles[2]),
+                    cy + sciR * math.sin(angles[2]));
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    final pos = details.localPosition;
+                    final dMath = (pos - mathPt).distance;
+                    final dEng = (pos - engPt).distance;
+                    final dSci = (pos - sciPt).distance;
+
+                    int closest = 0;
+                    double minD = dMath;
+                    if (dEng < minD) {
+                      minD = dEng;
+                      closest = 1;
+                    }
+                    if (dSci < minD) {
+                      minD = dSci;
+                      closest = 2;
+                    }
+
+                    if (minD < 45.0) {
+                      setState(() {
+                        _selectedRadarIndex = closest;
+                      });
+                    }
+                  },
+                  child: CustomPaint(
+                    painter: _SubjectPerformancePainter(
+                      labelStyle: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
+                      mathAvg: _mathAvg,
+                      engAvg: _engAvg,
+                      sciAvg: _sciAvg,
+                      selectedIndex: _selectedRadarIndex,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -634,16 +730,53 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
           SizedBox(
             height: 200.h,
             width: double.infinity,
-            child: CustomPaint(
-              painter: _AverageScoreTrendPainter(
-                yLabels: const ['80', '60', '40', '20', '0'],
-                xLabel: 'Recent',
-                dotColor: const Color(0xFF2563EB),
-                gridColor: const Color(0xFFE2E8F0),
-                labelStyle: AppTypography.caption
-                    .copyWith(color: const Color(0xFF64748B)),
-                trendPoints: _trendPoints,
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final width = constraints.maxWidth;
+                const leftPad = 30.0;
+                final chartW = width - leftPad;
+                final count = _trendPoints.length;
+
+                final xCoords = List.generate(
+                    count,
+                    (i) =>
+                        leftPad +
+                        (count > 1 ? (chartW / (count - 1)) * i : 0.0));
+
+                return GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    final pos = details.localPosition;
+                    if (count == 0) return;
+                    int closest = 0;
+                    double minD = (pos.dx - xCoords[0]).abs();
+                    for (int i = 1; i < count; i++) {
+                      final d = (pos.dx - xCoords[i]).abs();
+                      if (d < minD) {
+                        minD = d;
+                        closest = i;
+                      }
+                    }
+                    if (minD < 50.0) {
+                      setState(() {
+                        _selectedTrendIndex = closest;
+                      });
+                    }
+                  },
+                  child: CustomPaint(
+                    painter: _AverageScoreTrendPainter(
+                      yLabels: const ['80', '60', '40', '20', '0'],
+                      xLabel: 'Recent',
+                      dotColor: const Color(0xFF2563EB),
+                      gridColor: const Color(0xFFE2E8F0),
+                      labelStyle: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
+                      trendPoints: _trendPoints,
+                      selectedTrendIndex: _selectedTrendIndex,
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           SizedBox(height: 16.h),
@@ -778,11 +911,18 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
                 (v) => setState(() => _selectedYear = v!),
               ),
               SizedBox(height: 12.h),
-              _buildFilterDropdown(
+               _buildFilterDropdown(
                 'Class',
                 _selectedClass,
                 _classes,
-                (v) => setState(() => _selectedClass = v!),
+                (v) {
+                  setState(() {
+                    _selectedClass = v!;
+                    _selectedRadarIndex = 2;
+                    _selectedTrendIndex = 1;
+                  });
+                  _loadGraphData();
+                },
               ),
               SizedBox(height: 12.h),
               _buildFilterDropdown(
@@ -1159,12 +1299,14 @@ class _SubjectPerformancePainter extends CustomPainter {
   final double mathAvg;
   final double engAvg;
   final double sciAvg;
+  final int selectedIndex;
 
   _SubjectPerformancePainter({
     required this.labelStyle,
     required this.mathAvg,
     required this.engAvg,
     required this.sciAvg,
+    required this.selectedIndex,
   });
 
   @override
@@ -1243,48 +1385,65 @@ class _SubjectPerformancePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Active dot for Science (index 2)
-    final activeDotPaint = Paint()..color = const Color(0xFFF472B6);
-    canvas.drawCircle(dataPoints[2], 5.0, activeDotPaint);
-    final dotCenterPaint = Paint()..color = Colors.white;
-    canvas.drawCircle(dataPoints[2], 2.5, dotCenterPaint);
+    if (selectedIndex >= 0 && selectedIndex < 3) {
+      final activeDotPaint = Paint()..color = const Color(0xFFF472B6);
+      canvas.drawCircle(dataPoints[selectedIndex], 5.0, activeDotPaint);
+      final dotCenterPaint = Paint()..color = Colors.white;
+      canvas.drawCircle(dataPoints[selectedIndex], 2.5, dotCenterPaint);
 
-    // Tooltip below Science
-    final tooltipX = dataPoints[2].dx - 10;
-    final tooltipY = dataPoints[2].dy + 15;
+      double tooltipX = dataPoints[selectedIndex].dx - 110;
+      if (tooltipX < 4.0) tooltipX = 4.0;
+      if (tooltipX + 220.0 > size.width - 4.0) {
+        tooltipX = size.width - 220.0 - 4.0;
+      }
+      final tooltipY = selectedIndex == 0
+          ? dataPoints[selectedIndex].dy - 65
+          : dataPoints[selectedIndex].dy + 15;
 
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(tooltipX, tooltipY, 150, 50),
-      const Radius.circular(8.0),
-    );
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(tooltipX, tooltipY, 220, 48),
+        const Radius.circular(8.0),
+      );
 
-    canvas.drawShadow(Path()..addRRect(rect), Colors.black, 4.0, false);
-    canvas.drawRRect(rect, Paint()..color = Colors.white);
-    canvas.drawRRect(
-        rect,
-        Paint()
-          ..color = const Color(0xFFE2E8F0)
-          ..style = PaintingStyle.stroke);
+      canvas.drawShadow(Path()..addRRect(rect), Colors.black, 4.0, false);
+      canvas.drawRRect(rect, Paint()..color = Colors.white);
+      canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = const Color(0xFFE2E8F0)
+            ..style = PaintingStyle.stroke);
 
-    tp.text = TextSpan(
-      children: [
-        TextSpan(
-            text: 'Science\n',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFF0F172A))),
-        TextSpan(
-            text: 'Subject Performance : ${sciAvg.toStringAsFixed(0)}',
-            style:
-                AppTypography.caption.copyWith(color: const Color(0xFFF472B6))),
-      ],
-    );
-    tp.layout();
-    tp.paint(canvas, Offset(tooltipX + 10, tooltipY + 8));
+      final val = selectedIndex == 0
+          ? mathAvg
+          : selectedIndex == 1
+              ? engAvg
+              : sciAvg;
+
+      tp.text = TextSpan(
+        children: [
+          TextSpan(
+              text: '${labels[selectedIndex]}\n',
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFF0F172A))),
+          TextSpan(
+              text: 'Subject Performance : ${val.toStringAsFixed(0)}',
+              style: AppTypography.caption
+                  .copyWith(color: const Color(0xFFF472B6))),
+        ],
+      );
+      tp.layout();
+      final textX = tooltipX + (220 - tp.width) / 2;
+      final textY = tooltipY + (48 - tp.height) / 2;
+      tp.paint(canvas, Offset(textX, textY));
+    }
   }
 
   @override
   bool shouldRepaint(covariant _SubjectPerformancePainter old) =>
-      old.mathAvg != mathAvg || old.engAvg != engAvg || old.sciAvg != sciAvg;
+      old.mathAvg != mathAvg ||
+      old.engAvg != engAvg ||
+      old.sciAvg != sciAvg ||
+      old.selectedIndex != selectedIndex;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1298,6 +1457,7 @@ class _AverageScoreTrendPainter extends CustomPainter {
   final Color gridColor;
   final TextStyle labelStyle;
   final List<double> trendPoints;
+  final int selectedTrendIndex;
 
   _AverageScoreTrendPainter({
     required this.yLabels,
@@ -1306,6 +1466,7 @@ class _AverageScoreTrendPainter extends CustomPainter {
     required this.gridColor,
     required this.labelStyle,
     required this.trendPoints,
+    required this.selectedTrendIndex,
   });
 
   @override
@@ -1388,11 +1549,58 @@ class _AverageScoreTrendPainter extends CustomPainter {
       canvas.drawCircle(pt, 4.0, dotP);
       canvas.drawCircle(pt, 2.0, dotCenter);
     }
+
+    if (selectedTrendIndex >= 0 && selectedTrendIndex < count) {
+      final activePt = points[selectedTrendIndex];
+      final activePaint = Paint()..color = dotColor;
+      canvas.drawCircle(activePt, 6.0, activePaint);
+      final activeCenter = Paint()..color = Colors.white;
+      canvas.drawCircle(activePt, 3.0, activeCenter);
+
+      double tooltipX = activePt.dx - 60;
+      if (tooltipX < 4.0) tooltipX = 4.0;
+      if (tooltipX + 120.0 > size.width - 4.0) {
+        tooltipX = size.width - 120.0 - 4.0;
+      }
+      final tooltipY = activePt.dy - 55;
+
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(tooltipX, tooltipY, 120, 42),
+        const Radius.circular(8.0),
+      );
+
+      canvas.drawShadow(Path()..addRRect(rect), Colors.black, 4.0, false);
+      canvas.drawRRect(rect, Paint()..color = Colors.white);
+      canvas.drawRRect(
+          rect,
+          Paint()
+            ..color = const Color(0xFFE2E8F0)
+            ..style = PaintingStyle.stroke);
+
+      tp.text = TextSpan(
+        children: [
+          TextSpan(
+              text: 'Recent\n', style: labelStyle.copyWith(fontSize: 10.sp)),
+          TextSpan(
+              text:
+                  'average: ${trendPoints[selectedTrendIndex].toStringAsFixed(0)}',
+              style: AppTypography.caption.copyWith(
+                  color: const Color(0xFF0F172A),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11.sp)),
+        ],
+      );
+      tp.layout();
+      final textX = tooltipX + (120 - tp.width) / 2;
+      final textY = tooltipY + (42 - tp.height) / 2;
+      tp.paint(canvas, Offset(textX, textY));
+    }
   }
 
   @override
   bool shouldRepaint(covariant _AverageScoreTrendPainter old) =>
-      old.trendPoints != trendPoints;
+      old.trendPoints != trendPoints ||
+      old.selectedTrendIndex != selectedTrendIndex;
 }
 
 // ═══════════════════════════════════════════════════════════

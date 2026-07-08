@@ -990,10 +990,36 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               ),
             ),
           ),
+          Divider(height: 1.h, thickness: 1, color: AppColors.border),
+          GestureDetector(
+            onTap: () async {
+              await AuthService.logout(context);
+            },
+            child: Container(
+              color: Colors.transparent,
+              margin: EdgeInsets.fromLTRB(24.w, 14.h, 24.w, 14.h),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.logout_rounded,
+                    color: const Color(0xFFC62828),
+                    size: 20.sp,
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    'Logout',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFFC62828),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           Container(
-            padding: EdgeInsets.all(24.r),
-            decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: AppColors.border))),
+            padding: EdgeInsets.fromLTRB(24.w, 4.h, 24.w, 24.h),
             child: Row(
               children: [
                 CircleAvatar(
@@ -1013,12 +1039,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     ],
                   ),
                 ),
-                IconButton(
-                    icon: Icon(Icons.logout_rounded,
-                        color: AppColors.error, size: 20.sp),
-                    onPressed: () async {
-                      await AuthService.logout(context);
-                    }),
               ],
             ),
           ),
@@ -1652,8 +1672,8 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(20.w, 18.h, 20.w, 14.h),
+             Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 18.h, 12.w, 14.h),
               child: Row(
                 children: [
                   Container(
@@ -1686,17 +1706,21 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                       ),
                     ),
                   ),
-                  SizedBox(width: 10.w),
-                  Text(
-                    'EDUSPHERE',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0D47A1),
-                      letterSpacing: 0.8,
+                  SizedBox(width: 8.w),
+                  Expanded(
+                    child: Text(
+                      'EDUSPHERE',
+                      style: GoogleFonts.outfit(
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0D47A1),
+                        letterSpacing: 0.8,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const Spacer(),
+                  SizedBox(width: 8.w),
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
                     child: Icon(
@@ -1932,8 +1956,35 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
               ),
             ),
             Divider(height: 1.h, thickness: 1, color: const Color(0xFFEDF2F7)),
+            GestureDetector(
+              onTap: () async {
+                await AuthService.logout(context);
+              },
+              child: Container(
+                color: Colors.transparent,
+                margin: EdgeInsets.fromLTRB(26.w, 14.h, 26.w, 14.h),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      color: const Color(0xFFC62828),
+                      size: 20.sp,
+                    ),
+                    SizedBox(width: 10.w),
+                    Text(
+                      'Logout',
+                      style: GoogleFonts.inter(
+                        color: const Color(0xFFC62828),
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.sp,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             Container(
-              margin: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 4.h),
+              margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 16.h),
               padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
               decoration: BoxDecoration(
                 color: activeBlue.withValues(alpha: 0.08),
@@ -1977,41 +2028,6 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                     ),
                   ),
                 ],
-              ),
-            ),
-            GestureDetector(
-              onTap: () async {
-                await AuthService.logout(context);
-              },
-              child: Container(
-                margin: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 12.h),
-                padding: EdgeInsets.symmetric(vertical: 14.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDC2626),
-                  borderRadius: BorderRadius.circular(14.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFFDC2626).withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.logout_rounded, color: Colors.white, size: 20.sp),
-                    SizedBox(width: 10.w),
-                    Text(
-                      'Logout',
-                      style: GoogleFonts.inter(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 14.sp,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],

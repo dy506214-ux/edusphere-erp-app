@@ -54,7 +54,9 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
   final Map<String, TextEditingController> _pracControllers = {};
   final Map<String, TextEditingController> _intControllers = {};
   final Map<String, bool> _absentStatus = {};
+  final Map<String, String> _absenceTypes = {};
   bool _isSavingMarks = false;
+  bool _showSuccessBanner = false;
 
   // For Bulk Upload Tab
   String _uploadedFileName = 'No file chosen';
@@ -216,13 +218,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
 
         final List<Map<String, dynamic>> consolidatedMarks = [];
         for (var res in _examResults) {
-          final resId = res['id']?.toString() ?? '';
-          if (resId.isEmpty) continue;
+          final studentId = res['studentId']?.toString() ?? '';
+          if (studentId.isEmpty) continue;
           final marksList = res['marks'] as List<dynamic>? ?? [];
           for (var m in marksList) {
             consolidatedMarks.add({
               ...m as Map<String, dynamic>,
-              'examResultId': resId,
+              'studentId': studentId,
             });
           }
         }
@@ -259,16 +261,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       );
 
       Map<String, dynamic>? existingMark;
-      if (result.isNotEmpty && result['id'] != null) {
-        final resultId = result['id'].toString();
-        existingMark = _examMarks.firstWhere(
-          (m) =>
-              m['examResultId'] == resultId &&
-              m['subjectName'].toString().toLowerCase() ==
-                  subjectName.toLowerCase(),
-          orElse: () => <String, dynamic>{},
-        );
-      }
+      existingMark = _examMarks.firstWhere(
+        (m) =>
+            m['studentId'] == studentId &&
+            m['subjectName'].toString().toLowerCase() ==
+                subjectName.toLowerCase(),
+        orElse: () => <String, dynamic>{},
+      );
 
       final String theoryVal = existingMark != null && existingMark.isNotEmpty
           ? (existingMark['theoryObtained']?.toString() ?? '0')
@@ -283,17 +282,24 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           existingMark.isNotEmpty &&
           (existingMark['isAbsent'] == true ||
               existingMark['isAbsent'].toString().toLowerCase() == 'true');
+      final String absenceTypeVal = existingMark != null &&
+              existingMark.isNotEmpty &&
+              existingMark['absenceType'] != null
+          ? existingMark['absenceType'].toString()
+          : 'ABSENT';
 
       if (_theoryControllers.containsKey(studentId)) {
         _theoryControllers[studentId]!.text = theoryVal;
         _pracControllers[studentId]!.text = pracVal;
         _intControllers[studentId]!.text = intVal;
         _absentStatus[studentId] = absentVal;
+        _absenceTypes[studentId] = absenceTypeVal;
       } else {
         _theoryControllers[studentId] = TextEditingController(text: theoryVal);
         _pracControllers[studentId] = TextEditingController(text: pracVal);
         _intControllers[studentId] = TextEditingController(text: intVal);
         _absentStatus[studentId] = absentVal;
+        _absenceTypes[studentId] = absenceTypeVal;
       }
     }
   }
@@ -331,12 +337,17 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             ? 0
             : (int.tryParse(_intControllers[studentId]?.text ?? '0') ?? 0);
 
+        final String? absenceType = isAbsent
+            ? (_absenceTypes[studentId] ?? 'ABSENT')
+            : null;
+
         marksList.add({
           'studentId': studentId,
           'theoryObtained': theory,
           'practicalObtained': practical,
           'internalObtained': internal,
           'isAbsent': isAbsent,
+          'absenceType': absenceType,
         });
       }
 
@@ -350,11 +361,16 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       if (response != null && response['success'] == true) {
         await _loadData();
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Marks saved successfully!', style: GoogleFonts.inter()),
-            backgroundColor: const Color(0xFF10B981),
-            behavior: SnackBarBehavior.floating,
-          ));
+          setState(() {
+            _showSuccessBanner = true;
+          });
+          Future.delayed(const Duration(seconds: 4), () {
+            if (mounted) {
+              setState(() {
+                _showSuccessBanner = false;
+              });
+            }
+          });
         }
       } else {
         if (mounted) {
@@ -810,7 +826,12 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
             final isActive = idx == _activeTabIndex;
 
             return GestureDetector(
-              onTap: () => setState(() => _activeTabIndex = idx),
+              onTap: () {
+                setState(() => _activeTabIndex = idx);
+                if (idx == 3) {
+                  _loadData();
+                }
+              },
               child: Container(
                 padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
                 decoration: BoxDecoration(
@@ -1019,12 +1040,14 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     );
   }
 
-  Widget _tableCell(Widget child, double width, {bool hasBottomBorder = true}) {
+  Widget _tableCell(Widget child, double width,
+      {bool hasBottomBorder = true,
+      Alignment alignment = Alignment.centerLeft}) {
     return Container(
       width: width,
-      height: 52.h,
-      alignment: Alignment.centerLeft,
-      padding: EdgeInsets.symmetric(horizontal: 4.w),
+      constraints: BoxConstraints(minHeight: 52.h),
+      alignment: alignment,
+      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
       decoration: BoxDecoration(
         border: Border(
           bottom: hasBottomBorder
@@ -1036,11 +1059,12 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     );
   }
 
-  Widget _headerCell(String text, double width) {
+  Widget _headerCell(String text, double width,
+      {Alignment alignment = Alignment.centerLeft}) {
     return Container(
       width: width,
       height: 40.h,
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       padding: EdgeInsets.symmetric(horizontal: 4.w),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
@@ -1048,32 +1072,26 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           bottom: BorderSide(color: Color(0xFFE2E8F0)),
         ),
       ),
-      child: Text(text, style: _headerStyle()),
+      child: Text(
+        text,
+        style: _headerStyle(),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 
   Widget _buildOverviewTable() {
     final bool isLandscape = MediaQuery.of(context).size.width > 500;
 
-    final List<Map<String, dynamic>> activeSubjects;
-    if (_examMarks.isNotEmpty) {
-      final Set<String> subjectsWithMarks = _examMarks
-          .map((m) => m['subjectName'].toString().toLowerCase())
-          .toSet();
-      activeSubjects = _subjects.where((s) {
-        final name = s['name'].toString().toLowerCase();
-        return subjectsWithMarks.contains(name);
-      }).toList();
-    } else {
-      activeSubjects = _subjects;
-    }
+    final List<Map<String, dynamic>> activeSubjects = _subjects;
 
-    final double rankWidth = 50.0;
-    final double studentWidth = 160.0;
-    final double subjectWidth = 65.0;
-    final double totalWidth = 70.0;
-    final double pctWidth = 70.0;
-    final double gradeWidth = 65.0;
+    final double rankWidth = 50.w;
+    final double studentWidth = 160.w;
+    final double subjectWidth = 70.w;
+    final double totalWidth = 70.w;
+    final double pctWidth = 70.w;
+    final double gradeWidth = 70.w;
 
     final double tableWidth = rankWidth +
         studentWidth +
@@ -1081,7 +1099,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
         totalWidth +
         pctWidth +
         gradeWidth +
-        6.0;
+        6.w;
 
     return Container(
       width: tableWidth,
@@ -1096,15 +1114,16 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
           // Header row
           Row(
             children: [
-              _headerCell('Rank', rankWidth),
+              _headerCell('Rank', rankWidth, alignment: Alignment.center),
               _headerCell('Student', studentWidth),
               ...activeSubjects.map((s) {
                 return _headerCell(
-                    abbreviateSubject(s['name'] as String), subjectWidth);
+                    abbreviateSubject(s['name'] as String), subjectWidth,
+                    alignment: Alignment.center);
               }),
-              _headerCell('Total', totalWidth),
-              _headerCell('%', pctWidth),
-              _headerCell('Grade', gradeWidth),
+              _headerCell('Total', totalWidth, alignment: Alignment.center),
+              _headerCell('%', pctWidth, alignment: Alignment.center),
+              _headerCell('Grade', gradeWidth, alignment: Alignment.center),
             ],
           ),
 
@@ -1154,24 +1173,25 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
               final grade =
                   res.isNotEmpty ? (res['grade']?.toString() ?? '-') : '-';
 
-              final studentMarks = res.isNotEmpty
-                  ? _examMarks
-                      .where((m) => m['examResultId'] == res['id'])
-                      .toList()
-                  : [];
+              final studentMarks = _examMarks
+                  .where((m) => m['studentId'] == studentId)
+                  .toList();
 
               return Row(
                 children: [
                   _tableCell(
                     Text(
                       rank,
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF0F172A)),
+                      style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.bold,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     rankWidth,
                     hasBottomBorder: !isLast,
+                    alignment: Alignment.center,
                   ),
                   _tableCell(
                     Text(
@@ -1185,11 +1205,13 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     hasBottomBorder: !isLast,
                   ),
                   ...activeSubjects.map((s) {
+                    final subjectId = s['id']?.toString() ?? '';
                     final name = s['name'] as String;
                     final mark = studentMarks.firstWhere(
                       (m) =>
+                          m['subjectId']?.toString() == subjectId ||
                           m['subjectName'].toString().toLowerCase() ==
-                          name.toLowerCase(),
+                              name.toLowerCase(),
                       orElse: () => <String, dynamic>{},
                     );
                     final isMarkAbsent = mark.isNotEmpty &&
@@ -1198,30 +1220,40 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                                 'true');
                     final displayMark = mark.isNotEmpty
                         ? (isMarkAbsent
-                            ? 'Ab'
+                            ? 'AB'
                             : mark['obtainedMarks']?.toString() ?? '-')
                         : '-';
                     return _tableCell(
                       Text(
                         displayMark,
-                        style: _cellStyle(),
+                        style: _cellStyle().copyWith(
+                          color: isMarkAbsent
+                              ? const Color(0xFF64748B)
+                              : const Color(0xFF0F172A),
+                          fontWeight:
+                              isMarkAbsent ? FontWeight.normal : FontWeight.bold,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       subjectWidth,
                       hasBottomBorder: !isLast,
+                      alignment: Alignment.center,
                     );
                   }),
                   _tableCell(
                     Text(
                       totalObtained,
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF0F172A)),
+                      style: AppTypography.caption.copyWith(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.bold,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     totalWidth,
                     hasBottomBorder: !isLast,
+                    alignment: Alignment.center,
                   ),
                   _tableCell(
                     Text(
@@ -1232,19 +1264,23 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     ),
                     pctWidth,
                     hasBottomBorder: !isLast,
+                    alignment: Alignment.center,
                   ),
                   _tableCell(
                     Center(
                       child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8.w, vertical: 2.h),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12.r),
                           border: Border.all(color: const Color(0xFFCBD5E1)),
                         ),
                         child: Text(
                           grade,
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF334155)),
+                          style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF334155),
+                            fontWeight: FontWeight.w600,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1252,6 +1288,7 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
                     ),
                     gradeWidth,
                     hasBottomBorder: !isLast,
+                    alignment: Alignment.center,
                   ),
                 ],
               );
@@ -1260,11 +1297,61 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       ),
     );
   }
-
   Widget _buildMarksEntryTab() {
     if (_subjects.isEmpty) {
       return const Center(
           child: Text('No subjects configured for this class.'));
+    }
+
+    final selectedSubject = _subjects.firstWhere(
+      (s) => s['id'] == _selectedSubjectId,
+      orElse: () => _subjects[0],
+    );
+    final theoryMax =
+        (selectedSubject['theoryMaxMarks'] as num? ?? 100).toInt();
+    final practicalMax =
+        (selectedSubject['practicalMaxMarks'] as num? ?? 0).toInt();
+    final internalMax =
+        (selectedSubject['internalMaxMarks'] as num? ?? 0).toInt();
+
+    final double studentWidth = 200.w;
+    final double theoryWidth = 100.w;
+    final double pracWidth = 100.w;
+    final double intWidth = 100.w;
+    final double totalWidth = 80.w;
+    final double statusWidth = 160.w;
+
+    final double tableWidth = studentWidth +
+        theoryWidth +
+        pracWidth +
+        intWidth +
+        totalWidth +
+        statusWidth +
+        6.w;
+
+    // Check for any validation errors to disable Save button
+    bool hasValidationError = false;
+    for (var student in _students) {
+      final studentId = student['id'] as String;
+      final isAbsent = _absentStatus[studentId] ?? false;
+      if (!isAbsent) {
+        final theory =
+            int.tryParse(_theoryControllers[studentId]?.text ?? '') ?? 0;
+        final practical =
+            int.tryParse(_pracControllers[studentId]?.text ?? '') ?? 0;
+        final internal =
+            int.tryParse(_intControllers[studentId]?.text ?? '') ?? 0;
+
+        if (theoryMax > 0 && theory > theoryMax) {
+          hasValidationError = true;
+        }
+        if (practicalMax > 0 && practical > practicalMax) {
+          hasValidationError = true;
+        }
+        if (internalMax > 0 && internal > internalMax) {
+          hasValidationError = true;
+        }
+      }
     }
 
     return Container(
@@ -1278,204 +1365,584 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Enter Subject Marks',
-            style: GoogleFonts.outfit(
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF0F172A),
-            ),
-          ),
-          SizedBox(height: 16.h),
-          DropdownButtonFormField<String>(
-            initialValue: _selectedSubjectId,
-            decoration: InputDecoration(
-              labelText: 'Select Subject',
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8.r)),
-            ),
-            items: _subjects.map((s) {
-              return DropdownMenuItem(
-                value: s['id'] as String,
-                child: Text(s['name'] as String),
-              );
-            }).toList(),
-            onChanged: (val) {
-              setState(() {
-                _selectedSubjectId = val;
-                _initializeMarksControllers();
-              });
-            },
-          ),
-          SizedBox(height: 24.h),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _students.length,
-            itemBuilder: (context, idx) {
-              final student = _students[idx];
-              final studentId = student['id'] as String;
-              final userData = student['User'] as Map?;
-              final firstName = userData?['firstName'] ?? '';
-              final lastName = userData?['lastName'] ?? '';
-              final studentName = '$firstName $lastName'.trim().isNotEmpty
-                  ? '$firstName $lastName'
-                  : (student['name'] ?? 'Student');
-              final isAbsent = _absentStatus[studentId] ?? false;
-
-              return Container(
-                margin: EdgeInsets.only(bottom: 16.h),
-                padding: EdgeInsets.all(12.r),
-                decoration: BoxDecoration(
-                  color:
-                      isAbsent ? Colors.grey.shade50 : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12.r),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          studentName,
-                          style: AppTypography.caption
-                              .copyWith(color: const Color(0xFF0F172A)),
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              'Absent',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFF64748B)),
+          LayoutBuilder(builder: (context, headerConstraints) {
+            final isMobile = headerConstraints.maxWidth < 600;
+            final children = [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Manual Marks Entry',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w800,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  SizedBox(height: 4.h),
+                  Text(
+                    'Enter student marks for the selected subject.',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
+                ],
+              ),
+              if (isMobile) SizedBox(height: 16.h) else const Spacer(),
+              Row(
+                mainAxisAlignment: isMobile
+                    ? MainAxisAlignment.spaceBetween
+                    : MainAxisAlignment.end,
+                children: [
+                  isMobile
+                      ? Expanded(
+                          child: SizedBox(
+                            height: 42.h,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedSubjectId,
+                                isDense: true,
+                                style: AppTypography.caption
+                                    .copyWith(color: const Color(0xFF0F172A)),
+                                decoration: InputDecoration(
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 10.w, vertical: 6.h),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE2E8F0)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8.r),
+                                    borderSide: const BorderSide(
+                                        color: Color(0xFFE2E8F0)),
+                                  ),
+                                ),
+                                items: _subjects.map((s) {
+                                  return DropdownMenuItem(
+                                    value: s['id'] as String,
+                                    child: Text(
+                                      s['name'] as String,
+                                      style: AppTypography.caption,
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _selectedSubjectId = val;
+                                    _initializeMarksControllers();
+                                  });
+                                },
+                              ),
                             ),
-                            Checkbox(
-                              value: isAbsent,
+                          ),
+                        )
+                      : SizedBox(
+                          width: 160.w,
+                          height: 42.h,
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedSubjectId,
+                              isDense: true,
+                              style: AppTypography.caption
+                                  .copyWith(color: const Color(0xFF0F172A)),
+                              decoration: InputDecoration(
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 10.w, vertical: 8.h),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFE2E8F0)),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  borderSide: const BorderSide(
+                                      color: Color(0xFFE2E8F0)),
+                                ),
+                              ),
+                              items: _subjects.map((s) {
+                                return DropdownMenuItem(
+                                  value: s['id'] as String,
+                                  child: Text(
+                                    s['name'] as String,
+                                    style: AppTypography.caption,
+                                  ),
+                                );
+                              }).toList(),
                               onChanged: (val) {
                                 setState(() {
-                                  _absentStatus[studentId] = val ?? false;
+                                    _selectedSubjectId = val;
+                                    _initializeMarksControllers();
                                 });
                               },
                             ),
-                          ],
+                          ),
                         ),
-                      ],
+                  SizedBox(width: 12.w),
+                  GestureDetector(
+                    onTap: (hasValidationError || _isSavingMarks)
+                        ? null
+                        : _saveMarks,
+                    child: Container(
+                      height: 42.h,
+                      padding: EdgeInsets.symmetric(horizontal: 16.w),
+                      decoration: BoxDecoration(
+                        color: hasValidationError
+                            ? const Color(0xFF93C5FD)
+                            : const Color(0xFF2563EB),
+                        borderRadius: BorderRadius.circular(8.r),
+                      ),
+                      alignment: Alignment.center,
+                      child: _isSavingMarks
+                          ? SizedBox(
+                              width: 16.w,
+                              height: 16.w,
+                              child: const CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Icon(Icons.save_rounded,
+                                    color: Colors.white, size: 16.sp),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  'Save All',
+                                  style: AppTypography.small
+                                      .copyWith(color: Colors.white),
+                                ),
+                              ],
+                            ),
                     ),
-                    SizedBox(height: 12.h),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Theory',
+                  ),
+                ],
+              ),
+            ];
+
+            return isMobile
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children,
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: children,
+                  );
+          }),
+          SizedBox(height: 24.h),
+          if (_showSuccessBanner) ...[
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+              margin: EdgeInsets.only(bottom: 16.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: const Color(0xFFDCFCE7)),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_box_outlined,
+                    color: const Color(0xFF15803D),
+                    size: 18.sp,
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    'Marks saved successfully',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF15803D),
+                      fontSize: 13.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Container(
+              width: tableWidth,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8.r),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              clipBehavior: Clip.hardEdge,
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      _headerCell('Student', studentWidth),
+                      _headerCell('Theory ($theoryMax)', theoryWidth,
+                          alignment: Alignment.center),
+                      _headerCell('Prac ($practicalMax)', pracWidth,
+                          alignment: Alignment.center),
+                      _headerCell('Int ($internalMax)', intWidth,
+                          alignment: Alignment.center),
+                      _headerCell('Total', totalWidth,
+                          alignment: Alignment.center),
+                      _headerCell('Status', statusWidth),
+                    ],
+                  ),
+                  if (_students.isEmpty)
+                    Container(
+                      width: tableWidth,
+                      padding: EdgeInsets.symmetric(vertical: 32.h),
+                      child: Center(
+                        child: Text(
+                          'No active students in this class.',
+                          style: AppTypography.caption
+                              .copyWith(color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._students.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final student = entry.value;
+                      final studentId = student['id'] as String;
+                      final isLast = idx == _students.length - 1;
+                      final isAbsent = _absentStatus[studentId] ?? false;
+
+                      final userData =
+                          (student['user'] ?? student['User']) as Map?;
+                      final firstName = userData?['firstName'] ?? '';
+                      final lastName = userData?['lastName'] ?? '';
+                      final studentName =
+                          '$firstName $lastName'.trim().isNotEmpty
+                              ? '$firstName $lastName'
+                              : (student['name'] ?? 'Student');
+                      final admissionNumber = student['admissionNumber'] ??
+                          student['admissionNo'] ??
+                          '';
+
+                      final theoryObtained = isAbsent
+                          ? 0
+                          : (int.tryParse(
+                                  _theoryControllers[studentId]?.text ?? '') ??
+                              0);
+                      final pracObtained = isAbsent
+                          ? 0
+                          : (int.tryParse(
+                                  _pracControllers[studentId]?.text ?? '') ??
+                              0);
+                      final intObtained = isAbsent
+                          ? 0
+                          : (int.tryParse(
+                                  _intControllers[studentId]?.text ?? '') ??
+                              0);
+                      final totalObtained =
+                          theoryObtained + pracObtained + intObtained;
+
+                      final isTheoryInvalid =
+                          !isAbsent && theoryMax > 0 && theoryObtained > theoryMax;
+                      final isPracInvalid =
+                          !isAbsent && practicalMax > 0 && pracObtained > practicalMax;
+                      final isIntInvalid =
+                          !isAbsent && internalMax > 0 && intObtained > internalMax;
+
+                      return Row(
+                        children: [
+                          _tableCell(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  studentName,
                                   style: AppTypography.caption.copyWith(
-                                      color: const Color(0xFF64748B))),
-                              SizedBox(height: 4.h),
-                              TextField(
+                                    color: const Color(0xFF0F172A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (admissionNumber.toString().isNotEmpty) ...[
+                                  SizedBox(height: 2.h),
+                                  Text(
+                                    admissionNumber.toString(),
+                                    style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF64748B),
+                                      fontSize: 10.sp,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            studentWidth,
+                            hasBottomBorder: !isLast,
+                          ),
+                          _tableCell(
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 4.w, vertical: 4.h),
+                              child: TextField(
                                 controller: _theoryControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
+                                style: AppTypography.caption,
+                                textAlign: TextAlign.center,
+                                onChanged: (_) => setState(() {}),
                                 decoration: InputDecoration(
+                                  isDense: true,
                                   contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 10.w, vertical: 8.h),
+                                      horizontal: 6.w, vertical: 6.h),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6.r)),
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isTheoryInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFCBD5E1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isTheoryInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFE2E8F0)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isTheoryInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF2563EB),
+                                        width: 2),
+                                  ),
                                   fillColor: isAbsent
-                                      ? Colors.grey.shade200
+                                      ? const Color(0xFFF1F5F9)
                                       : Colors.white,
                                   filled: true,
+                                  errorText: isTheoryInvalid
+                                      ? 'Max $theoryMax'
+                                      : null,
+                                  errorStyle: TextStyle(
+                                    color: const Color(0xFFEF4444),
+                                    fontSize: 9.sp,
+                                    height: 0.8,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
+                            theoryWidth,
+                            hasBottomBorder: !isLast,
+                            alignment: Alignment.center,
                           ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Practical',
-                                  style: AppTypography.caption.copyWith(
-                                      color: const Color(0xFF64748B))),
-                              SizedBox(height: 4.h),
-                              TextField(
+                          _tableCell(
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 4.w, vertical: 4.h),
+                              child: TextField(
                                 controller: _pracControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
+                                style: AppTypography.caption,
+                                textAlign: TextAlign.center,
+                                onChanged: (_) => setState(() {}),
                                 decoration: InputDecoration(
+                                  isDense: true,
                                   contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 10.w, vertical: 8.h),
+                                      horizontal: 6.w, vertical: 6.h),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6.r)),
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isPracInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFCBD5E1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isPracInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFE2E8F0)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isPracInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF2563EB),
+                                        width: 2),
+                                  ),
                                   fillColor: isAbsent
-                                      ? Colors.grey.shade200
+                                      ? const Color(0xFFF1F5F9)
                                       : Colors.white,
                                   filled: true,
+                                  errorText:
+                                      isPracInvalid ? 'Max $practicalMax' : null,
+                                  errorStyle: TextStyle(
+                                    color: const Color(0xFFEF4444),
+                                    fontSize: 9.sp,
+                                    height: 0.8,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
+                            pracWidth,
+                            hasBottomBorder: !isLast,
+                            alignment: Alignment.center,
                           ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Internal',
-                                  style: AppTypography.caption.copyWith(
-                                      color: const Color(0xFF64748B))),
-                              SizedBox(height: 4.h),
-                              TextField(
+                          _tableCell(
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 4.w, vertical: 4.h),
+                              child: TextField(
                                 controller: _intControllers[studentId],
                                 keyboardType: TextInputType.number,
                                 enabled: !isAbsent,
+                                style: AppTypography.caption,
+                                textAlign: TextAlign.center,
+                                onChanged: (_) => setState(() {}),
                                 decoration: InputDecoration(
+                                  isDense: true,
                                   contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 10.w, vertical: 8.h),
+                                      horizontal: 6.w, vertical: 6.h),
                                   border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6.r)),
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isIntInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFCBD5E1)),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isIntInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFFE2E8F0)),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6.r),
+                                    borderSide: BorderSide(
+                                        color: isIntInvalid
+                                            ? const Color(0xFFEF4444)
+                                            : const Color(0xFF2563EB),
+                                        width: 2),
+                                  ),
                                   fillColor: isAbsent
-                                      ? Colors.grey.shade200
+                                      ? const Color(0xFFF1F5F9)
                                       : Colors.white,
                                   filled: true,
+                                  errorText:
+                                      isIntInvalid ? 'Max $internalMax' : null,
+                                  errorStyle: TextStyle(
+                                    color: const Color(0xFFEF4444),
+                                    fontSize: 9.sp,
+                                    height: 0.8,
+                                  ),
                                 ),
                               ),
-                            ],
+                            ),
+                            intWidth,
+                            hasBottomBorder: !isLast,
+                            alignment: Alignment.center,
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          SizedBox(height: 20.h),
-          SizedBox(
-            width: double.infinity,
-            height: 48.h,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r)),
+                           _tableCell(
+                            Builder(
+                              builder: (context) {
+                                final String totalDisplay =
+                                    isAbsent ? 'AB' : '$totalObtained';
+                                return Text(
+                                  totalDisplay,
+                                  style: AppTypography.caption.copyWith(
+                                    color: const Color(0xFF0F172A),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                );
+                              }
+                            ),
+                            totalWidth,
+                            hasBottomBorder: !isLast,
+                            alignment: Alignment.center,
+                          ),
+                          _tableCell(
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: isAbsent,
+                                  activeColor: const Color(0xFF2563EB),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _absentStatus[studentId] = val ?? false;
+                                      if (val == true &&
+                                          (_absenceTypes[studentId] == null ||
+                                              _absenceTypes[studentId]!.isEmpty)) {
+                                        _absenceTypes[studentId] = 'ABSENT';
+                                      }
+                                    });
+                                  },
+                                ),
+                                SizedBox(width: 4.w),
+                                isAbsent
+                                    ? Container(
+                                        height: 28.h,
+                                        padding:
+                                            EdgeInsets.symmetric(horizontal: 4.w),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: const Color(0xFFCBD5E1)),
+                                          borderRadius:
+                                              BorderRadius.circular(4.r),
+                                          color: Colors.white,
+                                        ),
+                                        child: DropdownButtonHideUnderline(
+                                          child: DropdownButton<String>(
+                                            value: _absenceTypes[studentId] ??
+                                                'ABSENT',
+                                            isDense: true,
+                                            style:
+                                                AppTypography.caption.copyWith(
+                                              color: const Color(0xFF0F172A),
+                                              fontSize: 11.sp,
+                                            ),
+                                            items: const [
+                                              DropdownMenuItem(
+                                                value: 'ABSENT',
+                                                child: Text('Absent'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'MEDICAL',
+                                                child: Text('Medical'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: 'EXEMPTED',
+                                                child: Text('Exempt'),
+                                              ),
+                                            ],
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                setState(() {
+                                                  _absenceTypes[studentId] =
+                                                      val;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      )
+                                    : Text(
+                                        'Mark Absent',
+                                        style: AppTypography.caption.copyWith(
+                                          color: const Color(0xFF334155),
+                                          fontSize: 11.sp,
+                                        ),
+                                      ),
+                              ],
+                            ),
+                            statusWidth,
+                            hasBottomBorder: !isLast,
+                          ),
+                        ],
+                      );
+                    }),
+                ],
               ),
-              onPressed: _isSavingMarks ? null : _saveMarks,
-              child: _isSavingMarks
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : Text(
-                      'Save Marks',
-                      style: AppTypography.small.copyWith(color: Colors.white),
-                    ),
             ),
           ),
         ],

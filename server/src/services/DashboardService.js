@@ -621,7 +621,7 @@ class DashboardService {
 
     async getExamStats(classId) {
         const [marks, results] = await Promise.all([
-            DashboardRepository.getSubjectAverages(),
+            DashboardRepository.getSubjectAverages(classId),
             DashboardRepository.getRecentExamsAndResults(classId)
         ]);
 

@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:edusphere/services/api_service.dart';
 import 'dart:developer' as dev;
 import 'package:edusphere/theme/typography.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:edusphere/config/api_config.dart';
+import 'package:edusphere/widgets/teacher_scaffold.dart';
 
 class ClassReviewScreen extends StatefulWidget {
   final String examId;
@@ -63,6 +66,12 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
 
     try {
       final res = await ApiService.instance.get('exams/${widget.examId}/consolidated');
+      final reportCardsRes = await ApiService.instance.get('report-cards', queryParams: {'examId': widget.examId});
+
+      final List<dynamic> reportCardsList = (reportCardsRes != null && reportCardsRes['reportCards'] != null)
+          ? reportCardsRes['reportCards'] as List<dynamic>
+          : [];
+
       if (res != null && res['success'] == true) {
         final examObj = res['exam'] as Map<String, dynamic>;
         _examData = {
@@ -84,6 +93,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
             'id': sp['subjectId'],
             'name': sp['subjectName'],
             'code': sp['subjectCode'],
+            'totalMarks': sp['totalMarks'] ?? 100,
           };
         }).toList();
 
@@ -100,34 +110,38 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
           };
         }).toList();
 
-        _students.sort((a, b) {
-          final nameA = (a['name'] as String? ?? '').toLowerCase();
-          final nameB = (b['name'] as String? ?? '').toLowerCase();
-          return nameA.compareTo(nameB);
-        });
-
         _examResults = [];
         _examMarks = [];
         for (var r in resultsList) {
-          if (r['id'] != null) {
-            _examResults.add({
-              'id': r['id'],
-              'studentId': r['studentId'],
-              'percentage': r['percentage'],
-              'obtainedMarks': r['obtainedMarks'],
-              'result': r['result'],
-              'isPublished': r['isPublished'] ?? false,
-            });
-            if (r['marks'] != null) {
-              for (var mk in r['marks']) {
-                _examMarks.add({
-                  'id': mk['id'],
-                  'examResultId': r['id'],
-                  'subjectName': mk['subjectName'],
-                  'obtainedMarks': mk['obtainedMarks'],
-                  'isAbsent': mk['isAbsent'] ?? false,
-                });
-              }
+          final studentId = r['studentId'] as String;
+
+          final reportCard = reportCardsList.firstWhere(
+            (rc) => rc['studentId'] == studentId,
+            orElse: () => null,
+          );
+
+          final resId = reportCard != null ? reportCard['id']?.toString() ?? '' : '';
+          final isPublished = reportCard != null && (reportCard['status'] == 'PUBLISHED');
+
+          _examResults.add({
+            'id': resId,
+            'studentId': studentId,
+            'percentage': r['percentage'],
+            'obtainedMarks': r['obtainedMarks'],
+            'result': r['result'],
+            'isPublished': isPublished,
+          });
+          if (r['marks'] != null) {
+            for (var mk in r['marks']) {
+              _examMarks.add({
+                'id': mk['id']?.toString() ?? '',
+                'examResultId': resId,
+                'studentId': studentId,
+                'subjectName': mk['subjectName'],
+                'obtainedMarks': mk['obtainedMarks'],
+                'isAbsent': mk['isAbsent'] ?? false,
+                'absenceType': mk['absenceType'],
+              });
             }
           }
         }
@@ -172,6 +186,53 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
     }
   }
 
+  Future<void> _generateReportCards() async {
+    if (_selectedStudentIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Please select at least one student to generate report cards.'),
+        backgroundColor: Colors.orange,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await ApiService.instance.post(
+        'report-cards/generate',
+        body: {
+          'examId': widget.examId,
+          'studentIds': _selectedStudentIds.toList(),
+        },
+      );
+      if (response != null && response['success'] == true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Report cards generated successfully!'),
+            backgroundColor: Color(0xFF10B981),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+        await _loadData();
+      } else {
+        throw Exception(response?['message'] ?? 'Failed to generate report cards');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to generate report cards: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
   void _toggleChat() {
     setState(() {
       _isChatOpen = !_isChatOpen;
@@ -189,19 +250,11 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
   }
 
   String getSubjectHeader(Map<String, dynamic> subject) {
-    final code = subject['code']?.toString().toUpperCase() ?? '';
-    if (code.isNotEmpty) return code;
-
     final name = subject['name'] as String? ?? '';
-    final abbreviated = abbreviateSubject(name).toUpperCase();
-    final className = _examData?['Class']?['name']?.toString() ?? '';
-    final regExp = RegExp(r'\d+');
-    final match = regExp.firstMatch(className);
-    final gradeNum = match != null ? match.group(0) : '';
-    if (gradeNum != null && gradeNum.isNotEmpty) {
-      return '$abbreviated-$gradeNum';
-    }
-    return abbreviated;
+    final code = subject['code']?.toString().toUpperCase() ?? '';
+    final headerName = code.isNotEmpty ? code : abbreviateSubject(name).toUpperCase();
+    final totalMarks = (subject['totalMarks'] as num? ?? 100).toInt().toString();
+    return '$headerName ($totalMarks)';
   }
 
   bool get _isAllSelected =>
@@ -243,11 +296,11 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
     final totalStudents = _students.length;
     final passedCount = _examResults.where((r) => r['result'] == 'PASS').length;
     final failedCount = totalStudents - passedCount;
-    final generatedRc = _examResults.length;
+    final generatedRc = _examResults.where((r) => (r['id'] as String).isNotEmpty).length;
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF1F5F9),
+    return TeacherScaffold(
+      scaffoldKey: _scaffoldKey,
+      activeIndex: 8,
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
@@ -307,7 +360,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                                 style: AppTypography.caption.copyWith(
                                     color: const Color(0xFF475569)),
                               ),
-                              onPressed: () {},
+                              onPressed: _generateReportCards,
                             ),
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
@@ -483,10 +536,10 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               children: _subjects.map((sub) {
                 final subName = sub['name'] as String;
                 int enteredCount = 0;
-                for (var res in _examResults) {
-                  final resultId = res['id'];
+                for (var student in _students) {
+                  final studentId = student['id'] as String;
                   final hasMark = _examMarks.any((m) =>
-                      m['examResultId'] == resultId &&
+                      m['studentId'] == studentId &&
                       m['subjectName'].toString().toLowerCase() ==
                           subName.toLowerCase());
                   if (hasMark) {
@@ -616,11 +669,12 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
     );
   }
 
-  Widget _tableCell(Widget child, double width, {bool hasBottomBorder = true}) {
+  Widget _tableCell(Widget child, double width,
+      {bool hasBottomBorder = true, Alignment alignment = Alignment.centerLeft}) {
     return Container(
       width: width,
       height: 52.h,
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       decoration: BoxDecoration(
         border: Border(
@@ -633,11 +687,11 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
     );
   }
 
-  Widget _headerCell(Widget child, double width) {
+  Widget _headerCell(Widget child, double width, {Alignment alignment = Alignment.centerLeft}) {
     return Container(
       width: width,
       height: 40.h,
-      alignment: Alignment.centerLeft,
+      alignment: alignment,
       padding: EdgeInsets.symmetric(horizontal: 8.w),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
@@ -656,12 +710,12 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
 
     final double checkboxWidth = 40.w;
     final double rankWidth = 40.w;
-    final double studentWidth = isLandscape ? 160.w : 120.w;
-    final double subjectWidth = 75.w;
-    final double totalWidth = 60.w;
-    final double pctWidth = 60.w;
-    final double resultWidth = 80.w;
-    final double rcStatusWidth = 140.w;
+    final double studentWidth = 160.w;
+    final double subjectWidth = 100.w;
+    final double totalWidth = 80.w;
+    final double pctWidth = 80.w;
+    final double resultWidth = 90.w;
+    final double rcStatusWidth = 160.w;
 
     final double tableWidth = checkboxWidth +
         rankWidth +
@@ -730,43 +784,53 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
               ),
               ...activeSubjects.map((s) {
                 return _headerCell(
-                  Text(
-                    getSubjectHeader(s),
-                    style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF64748B)),
+                  Center(
+                    child: Text(
+                      getSubjectHeader(s),
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
+                    ),
                   ),
                   subjectWidth,
                 );
               }),
               _headerCell(
-                Text(
-                  'Total',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B)),
+                Center(
+                  child: Text(
+                    'Total',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
                 ),
                 totalWidth,
               ),
               _headerCell(
-                Text(
-                  '%',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B)),
+                Center(
+                  child: Text(
+                    '%',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
                 ),
                 pctWidth,
               ),
               _headerCell(
-                Text(
-                  'Result',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B)),
+                Center(
+                  child: Text(
+                    'Result',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
                 ),
                 resultWidth,
               ),
               _headerCell(
-                Text(
-                  'RC Status',
-                  style: AppTypography.caption
-                      .copyWith(color: const Color(0xFF64748B)),
+                Center(
+                  child: Text(
+                    'RC Status',
+                    style: AppTypography.caption
+                        .copyWith(color: const Color(0xFF64748B)),
+                  ),
                 ),
                 rcStatusWidth,
               ),
@@ -808,7 +872,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
 
               final isSelected = _selectedStudentIds.contains(studentId);
 
-              final rank = computedRanks[studentId]?.toString() ?? '-';
+              final serialNo = (idx + 1).toString();
               final pctDouble = res.isNotEmpty
                   ? (res['percentage'] as num? ?? 0.0).toDouble()
                   : null;
@@ -820,13 +884,14 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   ? (res['result']?.toString() ?? 'FAIL')
                   : 'FAIL';
 
-              final studentMarks = res.isNotEmpty
-                  ? _examMarks
-                      .where((m) => m['examResultId'] == res['id'])
-                      .toList()
-                  : [];
+              final studentMarks = _examMarks
+                  .where((m) => m['studentId'] == studentId)
+                  .toList();
 
-              final isRcPublished = res.isNotEmpty &&
+              final isRcGenerated = res.isNotEmpty &&
+                  res['id'] != null &&
+                  res['id'].toString().isNotEmpty;
+              final isRcPublished = isRcGenerated &&
                   (res['isPublished'] == true ||
                       res['isPublished'].toString().toLowerCase() == 'true');
 
@@ -850,7 +915,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                   ),
                   _tableCell(
                     Text(
-                      rank,
+                      serialNo,
                       style: AppTypography.caption
                           .copyWith(color: const Color(0xFF0F172A)),
                     ),
@@ -869,108 +934,163 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                     hasBottomBorder: !isLast,
                   ),
                   ...activeSubjects.map((s) {
+                    final subjectId = s['id']?.toString() ?? '';
                     final name = s['name'] as String;
                     final mark = studentMarks.firstWhere(
                       (m) =>
+                          m['subjectId']?.toString() == subjectId ||
                           m['subjectName'].toString().toLowerCase() ==
-                          name.toLowerCase(),
+                              name.toLowerCase(),
                       orElse: () => <String, dynamic>{},
                     );
                     final isMarkAbsent = mark.isNotEmpty &&
                         (mark['isAbsent'] == true ||
                             mark['isAbsent'].toString().toLowerCase() ==
                                 'true');
-                    final displayMark = mark.isNotEmpty
-                        ? (isMarkAbsent
-                            ? 'AB'
-                            : mark['obtainedMarks']?.toString() ?? '0')
-                        : '0';
+                    final absenceType = mark.isNotEmpty ? mark['absenceType']?.toString() ?? '' : '';
 
+                    String displayMark = '-';
+                    Color markColor = const Color(0xFF64748B);
+                    FontWeight markWeight = FontWeight.normal;
+
+                    if (mark.isNotEmpty) {
+                      if (isMarkAbsent) {
+                        if (absenceType == 'MEDICAL') {
+                          displayMark = 'M';
+                          markColor = const Color(0xFFF59E0B);
+                          markWeight = FontWeight.bold;
+                        } else if (absenceType == 'EXEMPTED') {
+                          displayMark = 'EX';
+                          markColor = const Color(0xFF64748B);
+                          markWeight = FontWeight.bold;
+                        } else {
+                          displayMark = 'AB';
+                          markColor = const Color(0xFFEF4444);
+                          markWeight = FontWeight.bold;
+                        }
+                      } else {
+                        displayMark = mark['obtainedMarks']?.toString() ?? '0';
+                        markColor = const Color(0xFF0F172A);
+                        markWeight = FontWeight.bold;
+                      }
+                    } else {
+                      displayMark = '0';
+                    }
                     return _tableCell(
-                      Text(
-                        displayMark,
-                        style: AppTypography.caption.copyWith(
-                            color: isMarkAbsent
-                                ? const Color(0xFFEF4444)
-                                : const Color(0xFF334155)),
+                      Center(
+                        child: Text(
+                          displayMark,
+                          style: AppTypography.caption.copyWith(
+                              color: markColor, fontWeight: markWeight),
+                        ),
                       ),
                       subjectWidth,
+                      alignment: Alignment.center,
                       hasBottomBorder: !isLast,
                     );
                   }),
                   _tableCell(
-                    Text(
-                      totalObtained,
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF0F172A)),
+                    Center(
+                      child: Text(
+                        totalObtained,
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF0F172A),
+                            fontWeight: FontWeight.bold),
+                      ),
                     ),
                     totalWidth,
+                    alignment: Alignment.center,
                     hasBottomBorder: !isLast,
                   ),
                   _tableCell(
-                    Text(
-                      pctDouble != null ? '${pctDouble.round()}%' : '0%',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF334155)),
+                    Center(
+                      child: Text(
+                        pctDouble != null ? '${pctDouble.round()}%' : '0%',
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF334155),
+                            fontWeight: FontWeight.w600),
+                      ),
                     ),
                     pctWidth,
+                    alignment: Alignment.center,
                     hasBottomBorder: !isLast,
                   ),
                   _tableCell(
-                    Container(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                      decoration: BoxDecoration(
-                        color: resultText == 'PASS'
-                            ? const Color(0xFFDCFCE7)
-                            : const Color(0xFFFEE2E2),
-                        borderRadius: BorderRadius.circular(20.r),
-                      ),
-                      child: Text(
-                        resultText,
-                        style: AppTypography.caption.copyWith(
-                            color: resultText == 'PASS'
-                                ? const Color(0xFF15803D)
-                                : const Color(0xFFB91C1C)),
+                    Center(
+                      child: Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                        decoration: BoxDecoration(
+                          color: resultText == 'PASS'
+                              ? const Color(0xFFDCFCE7)
+                              : const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(20.r),
+                        ),
+                        child: Text(
+                          resultText,
+                          style: AppTypography.caption.copyWith(
+                              color: resultText == 'PASS'
+                                  ? const Color(0xFF15803D)
+                                  : const Color(0xFFB91C1C),
+                              fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                     resultWidth,
+                    alignment: Alignment.center,
                     hasBottomBorder: !isLast,
                   ),
                   _tableCell(
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
                           padding: EdgeInsets.symmetric(
                               horizontal: 10.w, vertical: 4.h),
                           decoration: BoxDecoration(
-                            color: isRcPublished
-                                ? const Color(0xFFDCFCE7)
+                            color: isRcGenerated
+                                ? (isRcPublished
+                                    ? const Color(0xFFDCFCE7)
+                                    : const Color(0xFFF1F5F9))
                                 : const Color(0xFFF1F5F9),
                             borderRadius: BorderRadius.circular(20.r),
                           ),
                           child: Text(
-                            isRcPublished ? 'Published' : 'Pending',
+                            isRcGenerated
+                                ? (isRcPublished ? 'Published' : 'Pending')
+                                : 'Not Generated',
                             style: AppTypography.caption.copyWith(
                                 color: isRcPublished
                                     ? const Color(0xFF15803D)
-                                    : const Color(0xFF475569)),
+                                    : const Color(0xFF475569),
+                                fontWeight: FontWeight.w600),
                           ),
                         ),
-                        IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: Icon(
-                            Icons.download_rounded,
-                            size: 16.sp,
-                            color: const Color(0xFF64748B),
+                        if (isRcGenerated) ...[
+                          SizedBox(width: 8.w),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              Icons.download_rounded,
+                              size: 16.sp,
+                              color: const Color(0xFF64748B),
+                            ),
+                            onPressed: () async {
+                              final url = '${ApiConfig.liveBaseUrl}/api/v1/report-cards/${res['id']}/pdf';
+                              final uri = Uri.parse(url);
+                              try {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                              } catch (e) {
+                                dev.log('Error launching pdf: $e', name: 'ClassReviewScreen');
+                              }
+                            },
                           ),
-                          onPressed: () {},
-                        ),
+                        ],
                       ],
                     ),
                     rcStatusWidth,
+                    alignment: Alignment.center,
                     hasBottomBorder: !isLast,
                   ),
                 ],

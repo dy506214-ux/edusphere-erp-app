@@ -453,9 +453,18 @@ class DashboardRepository {
         });
     }
 
-    async getSubjectAverages() {
+    async getSubjectAverages(classId) {
+        const where = {};
+        if (classId) {
+            where.examResult = {
+                student: {
+                    currentClassId: classId
+                }
+            };
+        }
         return prisma.examMark.groupBy({
             by: ['subjectName'],
+            where,
             _avg: { obtainedMarks: true },
             _count: { id: true }
         });
