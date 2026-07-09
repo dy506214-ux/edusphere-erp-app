@@ -4,6 +4,73 @@ plugins {
     id "dev.flutter.flutter-gradle-plugin"
 }
 
+// Install Reflection Proxy for TaskContainer to resolve Flutter 3.44.5 task configuration bugs
+import java.lang.reflect.Proxy
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Method
+import org.gradle.api.tasks.TaskContainer
+
+def originalTasks = project.tasks
+def handler = new InvocationHandler() {
+    @Override
+    Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        if (method.name == "register" && args != null && args.length == 3 && args[0] == "compileFlutterBuildRelease") {
+            def existing = originalTasks.findByName(args[0])
+            if (existing != null) {
+                def action = args[2]
+                if (action instanceof org.gradle.api.Action) {
+                    action.execute(existing)
+                } else if (action instanceof Closure) {
+                    Closure c = (Closure) action.clone()
+                    c.delegate = existing
+                    c.resolveStrategy = Closure.DELEGATE_FIRST
+                    c.call()
+                }
+                return originalTasks.named(args[0], args[1])
+            }
+        }
+        try {
+            return method.invoke(originalTasks, args)
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            throw e.cause
+        }
+    }
+}
+
+def interfaces = originalTasks.class.interfaces
+def interfaceList = (interfaces as List) + TaskContainer.class
+try {
+    def internalClass = originalTasks.class.classLoader.loadClass("org.gradle.api.internal.tasks.TaskContainerInternal")
+    interfaceList += internalClass
+} catch (Exception ignored) {}
+
+def proxyTasks = Proxy.newProxyInstance(
+    originalTasks.class.classLoader,
+    interfaceList.unique().toArray(new Class[0]),
+    handler
+)
+
+def projectClass = project.class
+def taskContainerField = null
+while (projectClass != null) {
+    try {
+        taskContainerField = projectClass.getDeclaredField("taskContainer")
+        break
+    } catch (NoSuchFieldException e) {
+        projectClass = projectClass.superclass
+    }
+}
+if (taskContainerField != null) {
+    taskContainerField.setAccessible(true)
+    taskContainerField.set(project, proxyTasks)
+}
+
+// Pre-create compile tasks to resolve evaluation phase dependency lookups
+tasks.maybeCreate("compileFlutterBuildDebug", com.flutter.gradle.tasks.FlutterTask)
+tasks.maybeCreate("compileFlutterBuildProfile", com.flutter.gradle.tasks.FlutterTask)
+tasks.maybeCreate("compileFlutterBuildRelease", com.flutter.gradle.tasks.FlutterTask)
+
+
 android {
     namespace "com.edusphere.app"
     compileSdk 36
