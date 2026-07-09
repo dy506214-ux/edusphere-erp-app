@@ -1200,7 +1200,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             const SizedBox(height: 20),
 
             // Core Identity
-            _sectionHeader('👤 Core Identity'),
+            _sectionHeader(Icons.person_rounded, 'Core Identity'),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
@@ -1225,7 +1225,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
 
 
             // Health Protocol
-            _sectionHeader('❤️ Health Protocol'),
+            _sectionHeader(Icons.favorite_rounded, 'Health Protocol'),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -1249,7 +1249,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             const SizedBox(height: 20),
 
             // Guardian Details
-            _sectionHeader('👨‍👩‍👧 Guardian Details'),
+            _sectionHeader(Icons.people_alt_rounded, 'Guardian Details'),
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
@@ -1264,7 +1264,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             const SizedBox(height: 20),
 
             // Notification Preferences
-            _sectionHeader('🔔 Notification Preferences'),
+            _sectionHeader(Icons.notifications_active_rounded, 'Notification Preferences'),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
@@ -1302,7 +1302,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             const SizedBox(height: 20),
 
             // Asset Vault
-            _sectionHeader('📁 Documents Asset Vault'),
+            _sectionHeader(Icons.folder_shared_rounded, 'Documents Asset Vault'),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -1412,7 +1412,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             const SizedBox(height: 20),
 
             // Digital Identity / QR (Moved to bottom)
-            _sectionHeader('🔑 Digital ID Pass'),
+            _sectionHeader(Icons.vpn_key_rounded, 'Digital ID Pass'),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
@@ -1454,9 +1454,15 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
     );
   }
 
-  Widget _sectionHeader(String t) => Padding(
+  Widget _sectionHeader(IconData icon, String t) => Padding(
         padding: const EdgeInsets.only(left: 4, bottom: 12),
-        child: Text(t, style: AppTypography.small.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: AppColors.textDark),
+            const SizedBox(width: 8),
+            Text(t, style: AppTypography.small.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+          ],
+        ),
       );
 
   Widget _infoRow(IconData icon, String k, String v) => Padding(
