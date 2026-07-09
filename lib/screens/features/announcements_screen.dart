@@ -276,7 +276,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
     try {
       dev.log('📡 [ANNOUNCEMENTS FETCH] Querying Announcements from API', name: 'AnnouncementsScreen');
-      final res = await ApiService.instance.get('announcements');
+      final isStudent = (_userRole == 'student' || widget.role == 'student');
+      final String endpoint = isStudent ? 'announcements/active' : 'announcements';
+      final res = await ApiService.instance.get(endpoint);
       final List<dynamic> data = res['announcements'] ?? res['data'] ?? [];
 
       final prefs = await SharedPreferences.getInstance();
@@ -296,7 +298,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             final String priorityStr = e['priority'] ?? 'NORMAL';
 
             // Smart Filtering
-            if (widget.role == 'student') {
+            if (isStudent) {
               if (!aud.contains('ALL') &&
                   !aud.contains('STUDENTS') &&
                   !aud.contains('STUDENT') &&
@@ -326,17 +328,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             ));
           }
 
-          // Ordering
-          fetched.sort((a, b) {
-            final pA = a.priority.toUpperCase();
-            final pB = b.priority.toUpperCase();
-            int weightA = pA == 'URGENT' ? 3 : (pA == 'HIGH' ? 2 : 1);
-            int weightB = pB == 'URGENT' ? 3 : (pB == 'HIGH' ? 2 : 1);
-            if (weightA != weightB) {
-              return weightB.compareTo(weightA);
-            }
-            return b.date.compareTo(a.date);
-          });
+          // Ordering: strictly date descending (newest first)
+          fetched.sort((a, b) => b.date.compareTo(a.date));
 
           _announcements = fetched;
         });
@@ -1191,6 +1184,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                 isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
             final priorityTextColor =
                 isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
+            final priorityBorderColor =
+                isHigh ? const Color(0xFFFCA5A5) : const Color(0xFFFED7AA);
 
             return GestureDetector(
               onTap: () async {
@@ -1270,58 +1265,81 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Text(
+                            ann.title,
+                            style: AppTypography.small.copyWith(
+                                color: const Color(0xFF0F2547),
+                                fontWeight: FontWeight.bold),
+                          ),
+                          SizedBox(height: 8.h),
+                          Wrap(
+                            spacing: 6.w,
+                            runSpacing: 6.h,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  ann.title,
-                                  style: AppTypography.small
-                                      .copyWith(color: const Color(0xFF0F2547)),
-                                ),
-                              ),
-                              SizedBox(width: 8.w),
+                              // Priority Badge
                               Container(
                                 padding: EdgeInsets.symmetric(
-                                    horizontal: 10.w, vertical: 4.h),
+                                    horizontal: 8.w, vertical: 2.h),
                                 decoration: BoxDecoration(
                                   color: priorityBg,
-                                  borderRadius: BorderRadius.circular(12.r),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  border: Border.all(
+                                      color: priorityBorderColor),
                                 ),
                                 child: Text(
                                   ann.priority.toUpperCase(),
-                                  style: AppTypography.caption
-                                      .copyWith(color: priorityTextColor),
+                                  style: AppTypography.caption.copyWith(
+                                      color: priorityTextColor,
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              // Audience Badges
+                              ...audienceTags.map((t) {
+                                final isSt = t == 'STUDENTS' || t == 'STUDENT';
+                                final bgColor = isSt ? const Color(0xFFEFF6FF) : const Color(0xFFF3E8FF);
+                                final textColor = isSt ? const Color(0xFF2563EB) : const Color(0xFF7C3AED);
+                                final borderColor = isSt ? const Color(0xFFBFDBFE) : const Color(0xFFE9D5FF);
+                                return Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w, vertical: 2.h),
+                                  decoration: BoxDecoration(
+                                    color: bgColor,
+                                    borderRadius:
+                                        BorderRadius.circular(8.r),
+                                    border: Border.all(
+                                        color: borderColor),
+                                  ),
+                                  child: Text(
+                                    t == 'ALL' ? 'EVERYONE' : t,
+                                    style: AppTypography.caption.copyWith(
+                                        color: textColor,
+                                        fontSize: 10.sp,
+                                        fontWeight: FontWeight.w700),
+                                  ),
+                                );
+                              }),
+                              // Active Status Badge
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 8.w, vertical: 2.h),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(8.r),
+                                  border: Border.all(
+                                      color: const Color(0xFFA7F3D0)),
+                                ),
+                                child: Text(
+                                  'Active',
+                                  style: AppTypography.caption.copyWith(
+                                      color: const Color(0xFF10B981),
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w700),
                                 ),
                               ),
                             ],
                           ),
                           SizedBox(height: 12.h),
-                          if (audienceTags.isNotEmpty) ...[
-                            Wrap(
-                              spacing: 8.w,
-                              runSpacing: 8.h,
-                              children: audienceTags
-                                  .map((t) => Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 10.w, vertical: 4.h),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                              BorderRadius.circular(8.r),
-                                          border: Border.all(
-                                              color: const Color(0xFFE2EAF4)),
-                                        ),
-                                        child: Text(
-                                          t == 'ALL' ? 'EVERYONE' : t,
-                                          style: AppTypography.caption.copyWith(
-                                              color: const Color(0xFF475569)),
-                                        ),
-                                      ))
-                                  .toList(),
-                            ),
-                            SizedBox(height: 12.h),
-                          ],
                           Row(
                             children: [
                               Icon(Icons.calendar_today_outlined,

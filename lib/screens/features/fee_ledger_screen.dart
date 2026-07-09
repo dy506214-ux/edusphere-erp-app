@@ -25,10 +25,9 @@ class FeeLedgerScreen extends StatefulWidget {
   State<FeeLedgerScreen> createState() => _FeeLedgerScreenState();
 }
 
-class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProviderStateMixin {
+class _FeeLedgerScreenState extends State<FeeLedgerScreen> {
   bool _loading = true;
   bool _isOffline = false;
-  TabController? _tabController;
 
   // Search and Filter State
   String _searchQuery = '';
@@ -65,22 +64,9 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
 
   Timer? _feePollTimer;
 
-  final List<String> _tabs = [
-    'Overview',
-    'Detailed Ledger',
-    'Fee Structure',
-    'Installments',
-    'Payment History',
-    'Due Fees & Fines',
-    'Scholarships',
-    'Receipts & Downloads',
-    'FAQs & Support',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
     _loadLedgerData(showLoading: true);
     _connectRealTime();
   }
@@ -88,7 +74,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
   @override
   void dispose() {
     _feePollTimer?.cancel();
-    _tabController?.dispose();
     _searchController.dispose();
     try {
       SocketService().off('FEE_UPDATED', _onFeeUpdated);
@@ -363,9 +348,9 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
     }
   }
 
-  String _formatCurrency(double amount) {
+  String _formatCurrency(double amount, {String prefix = '₹'}) {
     if (amount >= 1000000) {
-      return '₹${(amount / 100000).toStringAsFixed(1)}L';
+      return '$prefix${(amount / 100000).toStringAsFixed(1)}L';
     }
     final str = amount.toStringAsFixed(0);
     final parts = <String>[];
@@ -378,7 +363,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
         count = 0;
       }
     }
-    return '₹${parts.join('')}';
+    return '$prefix${parts.join('')}';
   }
 
   List<Map<String, dynamic>> get _filteredPayments {
@@ -477,7 +462,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                             pw.Text('STUDENT INFORMATION', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
                             pw.SizedBox(height: 6),
                             pw.Text(_studentName, style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, color: darkText)),
-                            pw.Text('Admission #: $_admissionNo  •  Roll #: $_rollNo', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                            pw.Text('Admission #: $_admissionNo  |  Roll #: $_rollNo', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                             pw.Text('Class: $_className - $_sectionName', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
                           ],
                         ),
@@ -519,7 +504,7 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                         _pdfCell(txnId),
                         _pdfCell(pmtMode),
                         _pdfCell(payment['collectedBy']?.toString() ?? 'Online Portal'),
-                        _pdfCell(_formatCurrency(amountPaid), textColor: greenColor),
+                        _pdfCell(_formatCurrency(amountPaid, prefix: 'Rs. '), textColor: greenColor),
                       ],
                     ),
                   ],
@@ -533,9 +518,9 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      pw.Text('Total Academic Fee: ${_formatCurrency(_totalFee)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: darkText)),
-                      pw.Text('Total Paid to Date: ${_formatCurrency(_totalPaid)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: greenColor)),
-                      pw.Text('Remaining Balance: ${_formatCurrency(_balance)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _balance > 0 ? PdfColor.fromHex('#EF4444') : greenColor)),
+                      pw.Text('Total Academic Fee: ${_formatCurrency(_totalFee, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: darkText)),
+                      pw.Text('Total Paid to Date: ${_formatCurrency(_totalPaid, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: greenColor)),
+                      pw.Text('Remaining Balance: ${_formatCurrency(_balance, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: _balance > 0 ? PdfColor.fromHex('#EF4444') : greenColor)),
                     ],
                   ),
                 ),
@@ -684,9 +669,9 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                       children: [
                         pw.Text('FINANCIAL SUMMARY', style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, fontWeight: pw.FontWeight.bold)),
                         pw.SizedBox(height: 4),
-                        pw.Text('Total Fee: ${_formatCurrency(_totalFee)}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: darkText)),
-                        pw.Text('Total Paid: ${_formatCurrency(_totalPaid)}', style: pw.TextStyle(fontSize: 10, color: greenColor, fontWeight: pw.FontWeight.bold)),
-                        pw.Text('Balance Due: ${_formatCurrency(_balance)}', style: pw.TextStyle(fontSize: 10, color: _balance > 0 ? redColor : greenColor, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Total Fee: ${_formatCurrency(_totalFee, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: darkText)),
+                        pw.Text('Total Paid: ${_formatCurrency(_totalPaid, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, color: greenColor, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Balance Due: ${_formatCurrency(_balance, prefix: 'Rs. ')}', style: pw.TextStyle(fontSize: 10, color: _balance > 0 ? redColor : greenColor, fontWeight: pw.FontWeight.bold)),
                       ],
                     ),
                   ],
@@ -716,8 +701,8 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                           children: [
                             _pdfCell(_formatDate(p['date'] as String?)),
                             _pdfCell(p['method'] as String? ?? 'UPI'),
-                            _pdfCell(p['receipt'] as String? ?? '—'),
-                            _pdfCell(_formatCurrency((p['amount'] as num? ?? 0).toDouble()), textColor: greenColor),
+                            _pdfCell(p['receipt'] as String? ?? '-'),
+                            _pdfCell(_formatCurrency((p['amount'] as num? ?? 0).toDouble(), prefix: 'Rs. '), textColor: greenColor),
                             _pdfCell((p['status'] as String? ?? 'COMPLETED').toUpperCase(), textColor: greenColor),
                           ],
                         )),
@@ -793,9 +778,20 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
                           children: [
                             _buildHeroSummaryCard(isDesktop),
                             SizedBox(height: 20.h),
-                            _buildEnterpriseTabBar(),
-                            SizedBox(height: 20.h),
-                            _buildTabContent(isDesktop),
+                            if (isDesktop)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 5, child: _buildDetailedLedgerCard()),
+                                  SizedBox(width: 20.w),
+                                  Expanded(flex: 3, child: _buildRecentHistoryCard()),
+                                ],
+                              )
+                            else ...[
+                              _buildDetailedLedgerCard(),
+                              SizedBox(height: 20.h),
+                              _buildRecentHistoryCard(),
+                            ],
                             SizedBox(height: 40.h),
                           ],
                         ),
@@ -1062,473 +1058,6 @@ class _FeeLedgerScreenState extends State<FeeLedgerScreen> with SingleTickerProv
     );
   }
 
-  // ── ENTERPRISE TAB BAR ──────────────────
-  Widget _buildEnterpriseTabBar() {
-    return Container(
-      padding: EdgeInsets.all(4.r),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: TabBar(
-        controller: _tabController,
-        isScrollable: true,
-        physics: const BouncingScrollPhysics(),
-        indicatorSize: TabBarIndicatorSize.tab,
-        indicatorPadding: EdgeInsets.zero,
-        indicator: BoxDecoration(
-          color: const Color(0xFF1A6FDB),
-          borderRadius: BorderRadius.circular(10.r),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF1A6FDB).withValues(alpha: 0.3),
-              blurRadius: 8.r,
-              offset: Offset(0, 3.h),
-            ),
-          ],
-        ),
-        labelColor: Colors.white,
-        unselectedLabelColor: const Color(0xFF64748B),
-        labelPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-        labelStyle: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700),
-        unselectedLabelStyle: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w600),
-        tabs: _tabs.map((t) => Center(child: Text(t))).toList(),
-      ),
-    );
-  }
-
-  // ── TAB CONTENT SWITCHER ──────────────────
-  Widget _buildTabContent(bool isDesktop) {
-    return SizedBox(
-      height: 650.h,
-      child: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildOverviewTab(isDesktop),
-          _buildDetailedLedgerTab(),
-          _buildFeeStructureTab(),
-          _buildInstallmentsTab(),
-          _buildPaymentHistoryTab(),
-          _buildDueFeesTab(),
-          _buildScholarshipsTab(),
-          _buildReceiptsTab(),
-          _buildFaqsTab(),
-        ],
-      ),
-    );
-  }
-
-  // 1. OVERVIEW TAB
-  Widget _buildOverviewTab(bool isDesktop) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          if (isDesktop)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 5, child: _buildDetailedLedgerCard()),
-                SizedBox(width: 20.w),
-                Expanded(flex: 3, child: _buildRecentHistoryCard()),
-              ],
-            )
-          else ...[
-            _buildDetailedLedgerCard(),
-            SizedBox(height: 20.h),
-            _buildRecentHistoryCard(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // 2. DETAILED LEDGER TAB
-  Widget _buildDetailedLedgerTab() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          _buildSearchAndFilterControls(),
-          SizedBox(height: 16.h),
-          _buildDetailedLedgerCard(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSearchAndFilterControls() {
-    return Container(
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Search by receipt #, transaction ID, mode...',
-                hintStyle: GoogleFonts.inter(fontSize: 12.sp, color: const Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search_rounded, color: Color(0xFF64748B)),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 10.h),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10.r), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              ),
-            ),
-          ),
-          SizedBox(width: 12.w),
-          DropdownButton<String>(
-            value: _selectedStatusFilter,
-            underline: const SizedBox.shrink(),
-            items: const [
-              DropdownMenuItem(value: 'ALL', child: Text('All Statuses')),
-              DropdownMenuItem(value: 'COMPLETED', child: Text('Completed')),
-              DropdownMenuItem(value: 'PENDING', child: Text('Pending')),
-            ],
-            onChanged: (val) => setState(() => _selectedStatusFilter = val!),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 3. FEE STRUCTURE TAB
-  Widget _buildFeeStructureTab() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Official Fee Head Breakdown', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            Text('Itemized breakdown assigned to your class for $_academicYearName', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-            SizedBox(height: 20.h),
-            if (_feeStructureItems.isEmpty)
-              Padding(padding: EdgeInsets.all(20.r), child: Center(child: Text('No itemized breakdown heads registered', style: GoogleFonts.inter(color: const Color(0xFF64748B)))))
-            else
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _feeStructureItems.length,
-                separatorBuilder: (_, __) => Divider(color: const Color(0xFFF1F5F9), height: 16.h),
-                itemBuilder: (context, idx) {
-                  final item = _feeStructureItems[idx];
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.label_important_outline_rounded, color: const Color(0xFF1A6FDB), size: 18.sp),
-                          SizedBox(width: 12.w),
-                          Text(item['headName'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A))),
-                        ],
-                      ),
-                      Text(_formatCurrency(item['amount'] as double), style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-                    ],
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 4. INSTALLMENTS TAB
-  Widget _buildInstallmentsTab() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Quarterly Installment Schedules', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            Text('Automated installment timeline and due dates', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-            SizedBox(height: 20.h),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _installments.length,
-              itemBuilder: (ctx, idx) {
-                final inst = _installments[idx];
-                final status = inst['status'] as String;
-                final Color statusColor = status == 'PAID' ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-                final Color statusBg = status == 'PAID' ? const Color(0xFFECFDF5) : const Color(0xFFFEF2F2);
-
-                return Container(
-                  margin: EdgeInsets.only(bottom: 12.h),
-                  padding: EdgeInsets.all(16.r),
-                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(12.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(inst['title'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-                          SizedBox(height: 4.h),
-                          Text('Due Date: ${inst['dueDate']} • Late Penalty: ₹250', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(_formatCurrency(inst['amount'] as double), style: GoogleFonts.inter(fontSize: 14.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-                          SizedBox(height: 4.h),
-                          Container(
-                            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
-                            decoration: BoxDecoration(color: statusBg, borderRadius: BorderRadius.circular(6.r)),
-                            child: Text(status, style: GoogleFonts.inter(fontSize: 9.sp, fontWeight: FontWeight.w800, color: statusColor)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 5. PAYMENT HISTORY TAB
-  Widget _buildPaymentHistoryTab() {
-    final payments = _filteredPayments;
-
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Complete Payment Transaction History', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            Text('Click on download receipt to generate official PDF receipt', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-            SizedBox(height: 16.h),
-            if (payments.isEmpty)
-              Padding(padding: EdgeInsets.all(30.r), child: Center(child: Text('No matching payment transactions found.', style: GoogleFonts.inter(color: const Color(0xFF64748B)))))
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: payments.length,
-                itemBuilder: (context, idx) {
-                  final pmt = payments[idx];
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 12.h),
-                    padding: EdgeInsets.all(16.r),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12.r), border: Border.all(color: const Color(0xFFE2EAF4))),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_formatCurrency(pmt['amount'] as double), style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A))),
-                              SizedBox(height: 4.h),
-                              Text('${_formatDate(pmt['date'] as String?)} • ${pmt['method']} • Receipt: ${pmt['receipt']}', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B)), maxLines: 2, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        OutlinedButton.icon(
-                          onPressed: () => _downloadPaymentReceipt(pmt),
-                          icon: Icon(Icons.download_rounded, size: 14.sp, color: const Color(0xFF1A6FDB)),
-                          label: Text('Receipt PDF', style: GoogleFonts.inter(fontSize: 10.sp, fontWeight: FontWeight.w700, color: const Color(0xFF1A6FDB))),
-                          style: OutlinedButton.styleFrom(side: const BorderSide(color: Color(0xFF1A6FDB)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r))),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 6. DUE FEES TAB
-  Widget _buildDueFeesTab() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Upcoming Dues & Pending Fines', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            SizedBox(height: 16.h),
-            if (_balance <= 0)
-              Container(
-                padding: EdgeInsets.all(24.r),
-                decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(12.r)),
-                child: Row(
-                  children: [
-                    Icon(Icons.check_circle_rounded, color: const Color(0xFF10B981), size: 28.sp),
-                    SizedBox(width: 16.w),
-                    Expanded(child: Text('All dues clear! You have zero outstanding balance for this academic session.', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w700, color: const Color(0xFF065F46)))),
-                  ],
-                ),
-              )
-            else
-              Column(
-                children: [
-                  Container(
-                    padding: EdgeInsets.all(20.r),
-                    decoration: BoxDecoration(color: const Color(0xFFFEF2F2), borderRadius: BorderRadius.circular(12.r), border: Border.all(color: const Color(0xFFFECACA))),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Current Total Outstanding', style: GoogleFonts.inter(fontSize: 12.sp, fontWeight: FontWeight.w700, color: const Color(0xFF991B1B))),
-                            Text(_formatCurrency(_balance), style: GoogleFonts.inter(fontSize: 22.sp, fontWeight: FontWeight.w900, color: const Color(0xFFDC2626))),
-                          ],
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => FeePaymentScreen(
-                                  theme: widget.theme,
-                                  outstandingAmount: _balance,
-                                  studentId: _studentId,
-                                  feeStructureId: _feeStructureId,
-                                  ledgerId: _ledgerId,
-                                  academicYearId: _academicYearId,
-                                ),
-                              ),
-                            ).then((_) => _loadLedgerData(showLoading: false));
-                          },
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.r))),
-                          child: Text('Pay Now', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 7. SCHOLARSHIPS TAB
-  Widget _buildScholarshipsTab() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Scholarships & Concessions', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            Text('Approved fee waivers and merit scholarship records', style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-            SizedBox(height: 16.h),
-            if (_adjustments.isEmpty)
-              Padding(padding: EdgeInsets.all(24.r), child: Center(child: Text('No active scholarship or discount records attached.', style: GoogleFonts.inter(color: const Color(0xFF64748B)))))
-            else
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _adjustments.length,
-                itemBuilder: (ctx, idx) {
-                  final adj = _adjustments[idx];
-                  return Container(
-                    margin: EdgeInsets.only(bottom: 10.h),
-                    padding: EdgeInsets.all(14.r),
-                    decoration: BoxDecoration(color: const Color(0xFFF5F3FF), borderRadius: BorderRadius.circular(10.r), border: Border.all(color: const Color(0xFFDDD6FE))),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(adj['reason'] as String, style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF5B21B6))),
-                            Text('Type: ${adj['type']} • Date: ${_formatDate(adj['date'] as String?)}', style: GoogleFonts.inter(fontSize: 10.sp, color: const Color(0xFF6D28D9))),
-                          ],
-                        ),
-                        Text(_formatCurrency(adj['amount'] as double), style: GoogleFonts.inter(fontSize: 15.sp, fontWeight: FontWeight.w900, color: const Color(0xFF7C3AED))),
-                      ],
-                    ),
-                  );
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 8. RECEIPTS TAB
-  Widget _buildReceiptsTab() {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Receipt & Statement Download Center', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            SizedBox(height: 16.h),
-            ElevatedButton.icon(
-              onPressed: _downloadStatement,
-              icon: Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 18.sp),
-              label: Text('Download Annual Fee Statement (PDF)', style: GoogleFonts.inter(fontWeight: FontWeight.w800)),
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A6FDB), foregroundColor: Colors.white, minimumSize: Size(double.infinity, 46.h), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r))),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 9. FAQS TAB
-  Widget _buildFaqsTab() {
-    final faqs = [
-      {'q': 'How can I pay my school fees online?', 'a': 'You can pay using UPI, Credit/Debit cards, or Net Banking by clicking "Pay Outstanding Dues" on your fee overview screen.'},
-      {'q': 'When are quarterly fee installments due?', 'a': 'Installments are due on the 10th of April, July, October, and January. Late penalties apply after due dates.'},
-      {'q': 'Are online e-receipts valid for tax exemptions?', 'a': 'Yes, all PDFs generated in EduSphere ERP feature authorized digital seals and unique transaction QR codes.'},
-    ];
-
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.all(20.r),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Frequently Asked Questions', style: GoogleFonts.inter(fontSize: 16.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-            SizedBox(height: 16.h),
-            ...faqs.map((f) => Container(
-                  margin: EdgeInsets.only(bottom: 12.h),
-                  padding: EdgeInsets.all(14.r),
-                  decoration: BoxDecoration(color: const Color(0xFFF8FAFC), borderRadius: BorderRadius.circular(10.r), border: Border.all(color: const Color(0xFFE2E8F0))),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Q: ${f['q']}', style: GoogleFonts.inter(fontSize: 13.sp, fontWeight: FontWeight.w800, color: const Color(0xFF0F172A))),
-                      SizedBox(height: 4.h),
-                      Text(f['a']!, style: GoogleFonts.inter(fontSize: 11.sp, color: const Color(0xFF64748B))),
-                    ],
-                  ),
-                )),
-          ],
-        ),
-      ),
-    );
-  }
 
   // HELPER COMPONENTS
   Widget _buildDetailedLedgerCard() {

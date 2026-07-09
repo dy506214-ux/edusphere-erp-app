@@ -697,6 +697,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             AnnouncementsScreen(
               theme: _theme,
               role: 'student',
+              showAppBar: false,
             ),
             MessagesScreen(
               theme: _theme,
@@ -1931,6 +1932,13 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                               inactiveText: inactiveText,
                               onTap: () => MainScreen.navigateTo(context, 8)),
                           _drawerItem(
+                              icon: Icons.local_library_rounded,
+                              label: 'Library',
+                              activeBlue: activeBlue,
+                              inactiveIcon: inactiveIcon,
+                              inactiveText: inactiveText,
+                              onTap: () => MainScreen.navigateTo(context, 12)),
+                          _drawerItem(
                               icon: Icons.room_service_outlined,
                               label: 'Services',
                               activeBlue: activeBlue,
@@ -1944,13 +1952,6 @@ class _EduSphereDrawerState extends State<EduSphereDrawer> {
                               inactiveIcon: inactiveIcon,
                               inactiveText: inactiveText,
                               onTap: () => MainScreen.navigateTo(context, 10)),
-                          _drawerItem(
-                              icon: Icons.local_library_rounded,
-                              label: 'Library',
-                              activeBlue: activeBlue,
-                              inactiveIcon: inactiveIcon,
-                              inactiveText: inactiveText,
-                              onTap: () => MainScreen.navigateTo(context, 12)),
                         ],
                 ),
               ),
@@ -2160,6 +2161,8 @@ StudentAcademicConfig getStudentAcademicTabConfig(int activeIndex) {
       return StudentAcademicConfig(icon: Icons.notifications_none_rounded, label: 'Announcements');
     case 9:
       return StudentAcademicConfig(icon: Icons.room_service_outlined, label: 'Services');
+    case 12:
+      return StudentAcademicConfig(icon: Icons.local_library_rounded, label: 'Library');
     case 3:
     default:
       return StudentAcademicConfig(icon: Icons.school_rounded, label: 'Academic');
@@ -2273,7 +2276,8 @@ class _StudentBottomNavBarState extends State<StudentBottomNavBar> with SingleTi
         currentIdx == 4 ||
         currentIdx == 5 ||
         currentIdx == 6 ||
-        currentIdx == 9) {
+        currentIdx == 9 ||
+        currentIdx == 12) {
       return 1;
     }
     return 0;

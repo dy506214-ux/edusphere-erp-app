@@ -849,33 +849,7 @@ class _AdvancedAssignmentModalState extends State<AdvancedAssignmentModal>
             ),
             SizedBox(height: 24.h),
 
-            // Instructions
-            Text(
-              'Instructions',
-              style: GoogleFonts.outfit(
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-            SizedBox(height: 8.h),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(16.r),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16.r),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Text(
-                (widget.assignment['description'] as String).isNotEmpty
-                    ? widget.assignment['description'] as String
-                    : 'No specific instructions provided.',
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFF334155), height: 1.5),
-              ),
-            ),
-            SizedBox(height: 24.h),
+
 
             // Upload Section
             if (isSubmitted) ...[

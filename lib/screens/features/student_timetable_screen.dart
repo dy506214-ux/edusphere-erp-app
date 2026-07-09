@@ -84,7 +84,7 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
           return {
             'day': weekdayToName[sMap['dayOfWeek']] ?? 'Monday',
             'start_time': sMap['startTime'] ?? '', // Format like '08:00:00'
-            'subject_name': subject?['name'] ?? 'Class',
+            'subject_name': subject?['name'] ?? 'Unassigned',
           };
         }).toList();
       }
@@ -254,8 +254,9 @@ class _StudentTimetableScreenState extends State<StudentTimetableScreen> {
                   bgColor: const Color(0xFFFFF9F2));
             }
             final subject = _getSubjectForSlot(day, col['start']!);
+            final bool isUnassigned = subject == null || subject == 'Unassigned';
             return _buildCell(subject ?? 'Unassigned',
-                width: 125.w, isUnassigned: subject == null);
+                width: 125.w, isUnassigned: isUnassigned);
           }),
         ],
       ),
