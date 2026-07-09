@@ -15,6 +15,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:edusphere/theme/typography.dart';
 import '../services/cache_service.dart';
 import '../widgets/navigation_widgets.dart';
+import 'community_screen.dart';
 
 class CommunityCommentModel {
   final String id;
@@ -1131,25 +1132,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   // --- Student Layout Helpers ---
 
   Widget _buildStudentListView() {
-    Widget bodyContent = _buildCommunityFeedContent();
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: widget.showAppBar
-          ? const StudentTopNavbar(title: 'Messages')
-          : null,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Column(
-              children: [
-                Expanded(child: bodyContent),
-              ],
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: null,
+    return CommunityScreen(
+      theme: widget.theme,
+      onBack: widget.onBack,
+      showAppBar: widget.showAppBar,
+      onOpenDrawer: widget.onOpenDrawer,
     );
   }
 

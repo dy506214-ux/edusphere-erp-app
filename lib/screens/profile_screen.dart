@@ -1740,10 +1740,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _activityStatus = (userMap['isActive'] as bool? ?? true) ? 'Active' : 'Inactive';
         _userRole = userMap['role']?.toString() ?? 'TEACHER';
 
-        _employeeId = tMap['employeeId'] as String? ?? 'ID_PENDING';
-        final String spec = tMap['specialization'] as String? ?? '';
-        _designation = spec.isNotEmpty ? spec : 'TEACHER';
-        _department = tMap['qualification'] as String? ?? 'CORE_SYSTEM';
+        _employeeId = 'ID_PENDING';
+        _designation = 'TEACHER';
+        _department = 'CORE_SYSTEM';
 
         final rawExp = tMap['experience']?.toString();
         _experience =
@@ -1879,10 +1878,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           _bloodGroup = prefs.getString('teacher_blood') ?? 'Not assigned';
           _address =
               prefs.getString('teacher_address') ?? 'No location registered';
-          _employeeId = prefs.getString('teacher_emp_id') ?? 'ID_PENDING';
-          final String designVal = prefs.getString('teacher_design') ?? '';
-          _designation = designVal.isNotEmpty ? designVal : 'TEACHER';
-          _department = prefs.getString('teacher_dept') ?? 'CORE_SYSTEM';
+          _employeeId = 'ID_PENDING';
+          _designation = 'TEACHER';
+          _department = 'CORE_SYSTEM';
           _experience = prefs.getString('teacher_exp') ?? 'N/A';
           _activityStatus = prefs.getString('teacher_activity') ?? 'Offline';
           _pushEnabled = prefs.getBool('notifications_enabled') ?? true;

@@ -20,11 +20,12 @@ void main() async {
     'Authorization': 'Bearer $token',
   };
 
-  print('1. Querying GET /auth/me...');
-  final resAuthMe = await http.get(Uri.parse('$baseUrl/auth/me'), headers: headers);
-  print('auth/me response: ${resAuthMe.body}');
-
-  print('\n2. Querying GET /teachers/me...');
-  final resTeacherMe = await http.get(Uri.parse('$baseUrl/teachers/me'), headers: headers);
-  print('teachers/me response: ${resTeacherMe.body}');
+  print('Fetching teachers list...');
+  final res = await http.get(Uri.parse('$baseUrl/teachers'), headers: headers);
+  final data = jsonDecode(res.body);
+  final List teachers = data['teachers'] ?? [];
+  final teacher = teachers.firstWhere((t) => t['user']['email'] == 'teacher1@edusphere.com', orElse: () => null);
+  
+  print('Teacher detail from live production API:');
+  print(jsonEncode(teacher));
 }

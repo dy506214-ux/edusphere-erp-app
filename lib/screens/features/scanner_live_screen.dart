@@ -17,6 +17,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../services/socket_service.dart';
 import '../../services/api_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
 
 class ScannerLiveScreen extends StatefulWidget {
   final RoleTheme theme;
@@ -36,7 +37,7 @@ class ScannerLiveScreen extends StatefulWidget {
   State<ScannerLiveScreen> createState() => _ScannerLiveScreenState();
 }
 
-class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
+class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindingObserver {
   bool _isLoading = true;
   Map<String, dynamic>? _scannerDetails;
   List<Map<String, dynamic>> _scanEvents = [];
@@ -55,11 +56,12 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
   // QR Scanner State
   final MobileScannerController _qrController = MobileScannerController();
   bool _isProcessingQR = false;
+  bool _cameraPermissionDenied = false;
 
-  // Manual scanner entry for desktop/fallback
-  final TextEditingController _manualScanCtrl = TextEditingController();
-
-  bool _useManualMode = false;
+  // GPS Tracking State
+  Position? _currentPosition;
+  StreamSubscription<Position>? _positionSubscription;
+  String _gpsStatus = 'GPS Pending';
 
   bool get _isDesktopPlatform {
     if (kIsWeb) return false;
@@ -83,8 +85,9 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
   @override
   void initState() {
     super.initState();
-    _useManualMode = _isDesktopPlatform;
+    WidgetsBinding.instance.addObserver(this);
     _requestCameraPermission();
+    _initGPSTracking();
     _loadLiveDashboard();
     _loadTeacherName();
     _setupRealtimeSubscription();
@@ -101,8 +104,101 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     try {
       final status = await Permission.camera.request();
       debugPrint('📷 [Camera Permission Status] $status');
+      if (mounted) {
+        setState(() {
+          _cameraPermissionDenied = status.isDenied || status.isPermanentlyDenied;
+        });
+      }
     } catch (e) {
       debugPrint('⚠️ [Camera Permission Error] Failed to request permission: $e');
+    }
+  }
+
+  Future<void> _initGPSTracking() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          setState(() {
+            _gpsStatus = 'GPS Error';
+          });
+        }
+        return;
+      }
+
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        if (mounted) {
+          setState(() {
+            _gpsStatus = 'GPS Error';
+          });
+        }
+        return;
+      }
+
+      final Position initialPos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (mounted) {
+        setState(() {
+          _currentPosition = initialPos;
+          _gpsStatus = 'GPS Ready';
+        });
+      }
+
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 5,
+        ),
+      ).listen(
+        (Position pos) {
+          if (mounted) {
+            setState(() {
+              _currentPosition = pos;
+              _gpsStatus = 'GPS Ready';
+            });
+          }
+        },
+        onError: (err) {
+          debugPrint('⚠️ [Geolocator Stream Error] $err');
+          if (mounted) {
+            setState(() {
+              _gpsStatus = 'GPS Error';
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('⚠️ [Geolocator Init Error] $e');
+      if (mounted) {
+        setState(() {
+          _gpsStatus = 'GPS Error';
+        });
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (!_cameraPermissionDenied && !_isDesktopOrWeb) {
+        try {
+          _qrController.start();
+        } catch (e) {
+          debugPrint('Error starting camera: $e');
+        }
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      try {
+        _qrController.stop();
+      } catch (e) {
+        debugPrint('Error stopping camera: $e');
+      }
     }
   }
 
@@ -117,9 +213,10 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
     _qrController.dispose();
-    _manualScanCtrl.dispose();
+    _positionSubscription?.cancel();
     try {
       SocketService().off('ATTENDANCE_MARKED', _onAttendanceMarked);
     } catch (e) {
@@ -144,10 +241,17 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
           widget.sessionAction?.toLowerCase() == 'check_in';
       final actionParam = isCheckIn ? 'checkin' : 'checkout';
 
+      final dateStr = widget.sessionDate != null
+          ? _formatDate(widget.sessionDate!)
+          : _formatDate(DateTime.now());
+
       final response = await ApiService.instance.post('attendance/qr-scan', body: {
         'qrPayload': rawCode.trim(),
         'scannerId': widget.scannerId,
         'action': actionParam,
+        'date': dateStr,
+        'scanLat': _currentPosition?.latitude,
+        'scanLng': _currentPosition?.longitude,
       });
 
       if (response != null && response['success'] == true) {
@@ -217,7 +321,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
       if (mounted) {
         setState(() => _isProcessingQR = false);
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted && !_useManualMode && !_isDesktopOrWeb) {
+          if (mounted && !_isDesktopOrWeb) {
             _qrController.start();
           }
         });
@@ -342,12 +446,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
     }
   }
 
-  Future<void> _submitManualScan() async {
-    final code = _manualScanCtrl.text.trim();
-    if (code.isEmpty) return;
-    _manualScanCtrl.clear();
-    await _processQRData(code);
-  }
+
 
   String _getAttendeeName(Map<String, dynamic> record) {
     final type = (record['attendeeType'] ?? 'STUDENT').toString().toUpperCase();
@@ -518,31 +617,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
                               .copyWith(color: const Color(0xFF64748B)),
                         ),
                       ),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                            horizontal: 8.w, vertical: 3.h),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(4.r),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.location_off_rounded,
-                              size: 11.sp,
-                              color: const Color(0xFFD97706),
-                            ),
-                            SizedBox(width: 4.w),
-                            Text(
-                              'GPS Pending',
-                              style: AppTypography.caption
-                                  .copyWith(color: const Color(0xFFD97706)),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _buildGPSBadge(true),
                     ],
                   ),
                 ),
@@ -597,30 +672,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
                     .copyWith(color: const Color(0xFF64748B)),
               ),
               const Spacer(),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(6.r),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.location_off_rounded,
-                      size: 13.sp,
-                      color: const Color(0xFFD97706),
-                    ),
-                    SizedBox(width: 6.w),
-                    Text(
-                      'GPS Pending',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFFD97706)),
-                    ),
-                  ],
-                ),
-              ),
+              _buildGPSBadge(false),
               SizedBox(width: 16.w),
               Text(
                 'Scanning: STUDENT, TEACHER, STAFF',
@@ -631,6 +683,59 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildGPSBadge(bool isNarrow) {
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    IconData icon;
+    String text;
+
+    if (_gpsStatus == 'GPS Ready') {
+      bgColor = const Color(0xFFDCFCE7);
+      borderColor = const Color(0xFFBBF7D0);
+      textColor = const Color(0xFF15803D);
+      icon = Icons.wifi_rounded;
+      text = 'GPS Ready';
+    } else if (_gpsStatus == 'GPS Error') {
+      bgColor = const Color(0xFFFEE2E2);
+      borderColor = const Color(0xFFFCA5A5);
+      textColor = const Color(0xFFB91C1C);
+      icon = Icons.location_off_rounded;
+      text = 'GPS Error';
+    } else {
+      bgColor = const Color(0xFFFEF3C7);
+      borderColor = const Color(0xFFFDE68A);
+      textColor = const Color(0xFFB45309);
+      icon = Icons.wifi_off_rounded;
+      text = 'GPS Pending';
+    }
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+          horizontal: isNarrow ? 8.w : 10.w, vertical: isNarrow ? 3.h : 4.h),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(isNarrow ? 4.r : 6.r),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: isNarrow ? 11.sp : 13.sp,
+            color: textColor,
+          ),
+          SizedBox(width: isNarrow ? 4.w : 6.w),
+          Text(
+            text,
+            style: AppTypography.caption.copyWith(color: textColor),
+          ),
+        ],
+      ),
     );
   }
 
@@ -728,229 +833,131 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> {
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: _useManualMode
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (!_isDesktopPlatform) ...[
-                  _buildToggleHeader(),
-                  const Spacer(),
-                ],
-                Icon(
-                  Icons.desktop_windows_rounded,
-                  size: 48.sp,
-                  color: const Color(0xFF94A3B8),
+      child: _cameraPermissionDenied
+          ? Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.videocam_off_rounded,
+                      size: 48.sp,
+                      color: const Color(0xFFEF4444),
+                    ),
+                    SizedBox(height: 12.h),
+                    Text(
+                      'Camera access denied — check app camera permissions',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFFEF4444)),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 16.h),
+                    ElevatedButton(
+                      onPressed: () {
+                        openAppSettings();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.theme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8.r),
+                        ),
+                      ),
+                      child: Text(
+                        'Open Settings',
+                        style: AppTypography.caption.copyWith(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: 12.h),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: Text(
-                    'Please type student QR payload below to verify & scan.',
-                    style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF64748B)),
-                    textAlign: TextAlign.center,
+              ),
+            )
+          : Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.r),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12.r),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          MobileScanner(
+                            controller: _qrController,
+                            onDetect: (capture) async {
+                              if (_isProcessingQR) return;
+                              final barcodes = capture.barcodes;
+                              if (barcodes.isNotEmpty) {
+                                final code = barcodes.first.rawValue?.trim() ?? '';
+                                if (code.isEmpty) return;
+                                await _processQRData(code);
+                              }
+                            },
+                          ),
+                          Center(
+                            child: Container(
+                              width: 200.w,
+                              height: 200.w,
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                    color: widget.theme.primary, width: 4),
+                                borderRadius: BorderRadius.circular(12.r),
+                              ),
+                            ),
+                          ),
+                          if (_isProcessingQR)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const CircularProgressIndicator(color: Colors.white),
+                                    SizedBox(height: 12.h),
+                                    Text(
+                                      'Processing...',
+                                      style: GoogleFonts.inter(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                SizedBox(height: 20.h),
-                _buildManualEntryField(),
-                if (!_isDesktopPlatform) const Spacer(),
-              ],
-            )
-          : Stack(
-              alignment: Alignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16.r),
-                  child: Stack(
+                Padding(
+                  padding: EdgeInsets.only(bottom: 16.h),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      MobileScanner(
-                        controller: _qrController,
-                        onDetect: (capture) async {
-                          if (_isProcessingQR) return;
-                          final barcodes = capture.barcodes;
-                          if (barcodes.isNotEmpty) {
-                            final code = barcodes.first.rawValue?.trim() ?? '';
-                            if (code.isEmpty) return;
-                            await _processQRData(code);
-                          }
-                        },
+                      Container(
+                        width: 8.w,
+                        height: 8.w,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF22C55E),
+                          shape: BoxShape.circle,
+                        ),
                       ),
-                      Center(
-                        child: Container(
-                          width: 250.w,
-                          height: 250.w,
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                                color: widget.theme.primary, width: 6),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Camera active — point at QR code',
+                        style: AppTypography.caption.copyWith(
+                          color: const Color(0xFF64748B),
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (!_isDesktopPlatform)
-                  Positioned(
-                    top: 12.h,
-                    child: _buildToggleHeader(),
-                  ),
-                if (_isProcessingQR)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      borderRadius: BorderRadius.circular(16.r),
-                    ),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 12.h),
-                          Text(
-                            'Processing...',
-                            style: GoogleFonts.inter(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
               ],
             ),
-    );
-  }
-
-  Widget _buildToggleHeader() {
-    return Container(
-      padding: EdgeInsets.all(4.r),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
-        borderRadius: BorderRadius.circular(10.r),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildToggleTab(
-            title: 'Camera Scanner',
-            isSelected: !_useManualMode,
-            onTap: () {
-              setState(() {
-                _useManualMode = false;
-              });
-              try {
-                _qrController.start();
-              } catch (e) {
-                debugPrint('Error starting camera: $e');
-              }
-            },
-          ),
-          _buildToggleTab(
-            title: 'Manual Entry',
-            isSelected: _useManualMode,
-            onTap: () {
-              setState(() {
-                _useManualMode = true;
-              });
-              try {
-                _qrController.stop();
-              } catch (e) {
-                debugPrint('Error stopping camera: $e');
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildToggleTab({
-    required String title,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-        decoration: BoxDecoration(
-          color: isSelected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(8.r),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 4.r,
-                    offset: Offset(0, 2.h),
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          title,
-          style: GoogleFonts.outfit(
-            fontSize: 13.sp,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-            color: isSelected ? widget.theme.primary : const Color(0xFF64748B),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildManualEntryField() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 24.w),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: TextField(
-              controller: _manualScanCtrl,
-              style:
-                  AppTypography.small.copyWith(color: const Color(0xFF0F172A)),
-              decoration: InputDecoration(
-                hintText: 'Enter Student QR Payload (e.g. ADM-2023-0681)',
-                hintStyle: AppTypography.caption
-                    .copyWith(color: const Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.qr_code_2_rounded,
-                    color: Color(0xFF64748B)),
-                border: InputBorder.none,
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-              ),
-              onSubmitted: (_) => _submitManualScan(),
-            ),
-          ),
-          SizedBox(height: 12.h),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _submitManualScan,
-              icon: const Icon(Icons.search, color: Colors.white, size: 18),
-              label: Text(
-                'Verify & Scan',
-                style: AppTypography.caption.copyWith(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.theme.primary,
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10.r),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
