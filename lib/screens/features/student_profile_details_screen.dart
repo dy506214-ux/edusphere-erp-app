@@ -1166,7 +1166,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                       child: ElevatedButton.icon(
                         onPressed: _uploadVerificationDocument,
                         icon: const Icon(Icons.add, size: 18, color: Colors.white),
-                        label: const Text('Upload Verification Document', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        label: const Text('Upload Document', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.studentPrimary,
                           elevation: 0,
@@ -1189,12 +1189,12 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
               physics: const NeverScrollableScrollPhysics(),
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 1.6,
+              childAspectRatio: 1.5,
               children: [
-                _summaryCard('Batch', _batch, const Color(0xFFE0F2FE), Icons.calendar_today_rounded),
-                _summaryCard('Medium', _medium, const Color(0xFFDCFCE7), Icons.language_rounded),
-                _summaryCard('Joined', _studentJoinedDate, const Color(0xFFF3E8FF), Icons.event_available_rounded),
-                _summaryCard('Emergency Info', _phone != '—' ? _phone : '—', const Color(0xFFFEE2E2), Icons.favorite_rounded),
+                _summaryCard('Batch', _batch, const Color(0xFFEFF6FF), Icons.calendar_today_rounded, const Color(0xFF3B82F6)),
+                _summaryCard('Medium', _medium.toUpperCase(), const Color(0xFFECFDF5), Icons.language_rounded, const Color(0xFF10B981)),
+                _summaryCard('Joined', _studentJoinedDate, const Color(0xFFF5F3FF), Icons.event_available_rounded, const Color(0xFF8B5CF6)),
+                _summaryCard('Emergency Info', (_emergencyInfo == '—' || _emergencyInfo.isEmpty) ? 'UNSET' : _emergencyInfo, const Color(0xFFFFF7ED), Icons.favorite_rounded, const Color(0xFFF97316), isRedVal: (_emergencyInfo == '—' || _emergencyInfo.isEmpty)),
               ],
             ),
             const SizedBox(height: 20),
@@ -1239,7 +1239,10 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                   const SizedBox(height: 16),
                   _healthItem('EMERGENCY CONTACT NAME', _emergencyContactName),
                   const SizedBox(height: 16),
-                  _healthItem('EMERGENCY CONTACT PHONE', _emergencyInfo, color: const Color(0xFFEF4444)),
+                  if (_emergencyInfo == '—' || _emergencyInfo.isEmpty)
+                    _healthItem('EMERGENCY CONTACT PHONE', 'Unset - No number', color: const Color(0xFFEF4444))
+                  else
+                    _healthItem('EMERGENCY CONTACT PHONE', _emergencyInfo),
                 ],
               ),
             ),
@@ -1265,24 +1268,35 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    value: _pushNotifications,
-                    onChanged: _togglePushNotifications,
-                    activeColor: AppColors.studentPrimary,
-                    title: const Text('Push Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Receive browser push alerts', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                  ),
-                  _divider(),
-                  SwitchListTile(
-                    value: _inAppNotifications,
-                    onChanged: _toggleInAppNotifications,
-                    activeColor: AppColors.studentPrimary,
-                    title: const Text('In-App Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                    subtitle: const Text('Show alerts inside dashboard', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                  ),
-                ],
+              child: Material(
+                color: Colors.transparent,
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      value: _pushNotifications,
+                      onChanged: _togglePushNotifications,
+                      activeColor: AppColors.studentPrimary,
+                      title: const Text('Push Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      subtitle: const Text('Receive browser push alerts', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    ),
+                    _divider(),
+                    SwitchListTile(
+                      value: _inAppNotifications,
+                      onChanged: _toggleInAppNotifications,
+                      activeColor: AppColors.studentPrimary,
+                      title: const Text('In-App Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      subtitle: const Text('Show alerts inside dashboard', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    ),
+                    _divider(),
+                    SwitchListTile(
+                      value: _emailNotifications,
+                      onChanged: _toggleEmailNotifications,
+                      activeColor: AppColors.studentPrimary,
+                      title: const Text('Email Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      subtitle: const Text('Receive email digests', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -1492,29 +1506,49 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         ],
       );
 
-  Widget _summaryCard(String title, String val, Color color, IconData icon) => Container(
-        padding: const EdgeInsets.all(12),
+  Widget _summaryCard(String title, String val, Color color, IconData icon, Color borderColor, {bool isRedVal = false}) => Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title, style: AppTypography.caption.copyWith(color: AppColors.textLight)),
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                  child: Icon(icon, size: 12, color: AppColors.textDark),
-                ),
-              ],
+            Container(
+              width: 4.w,
+              color: borderColor,
             ),
-            Text(val, style: AppTypography.caption.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(title, style: AppTypography.caption.copyWith(color: AppColors.textLight, fontWeight: FontWeight.w600)),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                          child: Icon(icon, size: 12, color: borderColor),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      val,
+                      style: AppTypography.caption.copyWith(
+                        color: isRedVal ? const Color(0xFFEF4444) : AppColors.textDark,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       );
