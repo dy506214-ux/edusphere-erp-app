@@ -82,6 +82,9 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
   bool _inAppNotifications = true;
   bool _emailNotifications = true;
   bool _smsNotifications = true;
+  bool _updatingPush = false;
+  bool _updatingInApp = false;
+  bool _updatingEmail = false;
 
   String? _avatarUrl;
   String? _dbQrCode;
@@ -265,29 +268,31 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         }
 
         _emergencyInfo = studentResMap['emergencyPhone'] as String? ?? '—';
-        final rawGender = userMap['gender'] as String? ?? '—';
+        final rawGender = studentResMap['gender'] as String? ?? '';
         if (rawGender.toUpperCase() == 'MALE') {
           _studentGender = 'Male';
         } else if (rawGender.toUpperCase() == 'FEMALE') {
           _studentGender = 'Female';
         } else {
-          _studentGender = rawGender;
+          _studentGender = rawGender.isEmpty ? '—' : rawGender;
         }
 
-        final dobStr = userMap['dateOfBirth'] as String?;
-        if (dobStr != null) {
+        final dobStr = studentResMap['dateOfBirth'] as String?;
+        if (dobStr != null && dobStr.isNotEmpty) {
           try {
             final parsed = DateTime.parse(dobStr);
             _studentDob = '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
           } catch (_) {
             _studentDob = dobStr;
           }
+        } else {
+          _studentDob = '—';
         }
 
         _studentBloodGroup = studentResMap['bloodGroup'] as String? ?? '—';
-        _religion = studentResMap['religion'] as String? ?? '—';
-        _casteGroup = studentResMap['caste'] as String? ?? '—';
-        _nationality = studentResMap['nationality'] as String? ?? '—';
+        _religion = studentResMap['religion'] as String? ?? 'INDIAN';
+        _casteGroup = studentResMap['caste'] as String? ?? 'GENERAL';
+        _nationality = studentResMap['nationality'] as String? ?? 'INDIAN';
         _studentStatus = studentResMap['status'] as String? ?? 'ACTIVE';
         _studentCity = studentResMap['city'] as String? ?? '—';
         _studentState = studentResMap['state'] as String? ?? '—';
@@ -394,31 +399,99 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
   }
 
   Future<void> _togglePushNotifications(bool val) async {
-    setState(() => _pushNotifications = val);
-    final prefs = CacheService.instance.prefs;
-    await prefs.setBool('student_push_notifications', val);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Push notification preferences saved.')));
+    if (_updatingPush) return;
+    setState(() => _updatingPush = true);
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      final prefs = CacheService.instance.prefs;
+      final success = await prefs.setBool('student_push_notifications', val);
+      if (!success) throw Exception('Local storage write failed');
+      setState(() {
+        _pushNotifications = val;
+        _updatingPush = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(val ? 'Push notifications enabled!' : 'Push notifications disabled!'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (_) {
+      setState(() => _updatingPush = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update push notification preferences.')),
+        );
+      }
+    }
   }
 
   Future<void> _toggleInAppNotifications(bool val) async {
-    setState(() => _inAppNotifications = val);
-    final prefs = CacheService.instance.prefs;
-    await prefs.setBool('student_inapp_notifications', val);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('In-App notification preferences saved.')));
+    if (_updatingInApp) return;
+    setState(() => _updatingInApp = true);
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      final prefs = CacheService.instance.prefs;
+      final success = await prefs.setBool('student_inapp_notifications', val);
+      if (!success) throw Exception('Local storage write failed');
+      setState(() {
+        _inAppNotifications = val;
+        _updatingInApp = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(val ? 'In-App notifications enabled!' : 'In-App notifications disabled!'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (_) {
+      setState(() => _updatingInApp = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update In-App notification preferences.')),
+        );
+      }
+    }
   }
 
   Future<void> _toggleEmailNotifications(bool val) async {
-    setState(() => _emailNotifications = val);
-    final prefs = CacheService.instance.prefs;
-    await prefs.setBool('student_email_notifications', val);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email notification preferences saved.')));
+    if (_updatingEmail) return;
+    setState(() => _updatingEmail = true);
+    try {
+      await Future.delayed(const Duration(milliseconds: 300));
+      final prefs = CacheService.instance.prefs;
+      final success = await prefs.setBool('student_email_notifications', val);
+      if (!success) throw Exception('Local storage write failed');
+      setState(() {
+        _emailNotifications = val;
+        _updatingEmail = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(val ? 'Email notifications enabled!' : 'Email notifications disabled!'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (_) {
+      setState(() => _updatingEmail = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to update email notification preferences.')),
+        );
+      }
+    }
   }
 
   Future<void> _toggleSMSNotifications(bool val) async {
     setState(() => _smsNotifications = val);
     final prefs = CacheService.instance.prefs;
     await prefs.setBool('student_sms_notifications', val);
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('SMS notification preferences saved.')));
   }
 
   Future<void> _pickAndUploadAvatar() async {
@@ -1206,17 +1279,29 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: AppColors.border)),
               child: Column(
                 children: [
-                  _infoRow(Icons.person_outline_rounded, 'Gender', _studentGender),
+                  Row(
+                    children: [
+                      Expanded(child: _infoRow(Icons.person_outline_rounded, 'Gender', _studentGender)),
+                      const SizedBox(width: 24),
+                      Expanded(child: _infoRow(Icons.cake_outlined, 'Date of Birth', _studentDob)),
+                    ],
+                  ),
                   _divider(),
-                  _infoRow(Icons.cake_outlined, 'Date of Birth', _studentDob),
+                  Row(
+                    children: [
+                      Expanded(child: _infoRow(Icons.water_drop_outlined, 'Blood Group', _studentBloodGroup)),
+                      const SizedBox(width: 24),
+                      Expanded(child: _infoRow(Icons.account_balance_rounded, 'Religion', _religion)),
+                    ],
+                  ),
                   _divider(),
-                  _infoRow(Icons.water_drop_outlined, 'Blood Group', _studentBloodGroup),
-                  _divider(),
-                  _infoRow(Icons.account_balance_rounded, 'Religion', _religion),
-                  _divider(),
-                  _infoRow(Icons.groups_outlined, 'Caste Group', _casteGroup),
-                  _divider(),
-                  _infoRow(Icons.public_rounded, 'Nationality', _nationality),
+                  Row(
+                    children: [
+                      Expanded(child: _infoRow(Icons.groups_outlined, 'Caste Group', _casteGroup)),
+                      const SizedBox(width: 24),
+                      Expanded(child: _infoRow(Icons.public_rounded, 'Nationality', _nationality)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -1274,26 +1359,34 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
                   children: [
                     SwitchListTile(
                       value: _pushNotifications,
-                      onChanged: _togglePushNotifications,
+                      onChanged: _updatingPush ? null : _togglePushNotifications,
                       activeColor: AppColors.studentPrimary,
-                      title: const Text('Push Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      title: Row(
+                        children: [
+                          const Text('Push Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                          if (_updatingPush) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.studentPrimary)),
+                          ]
+                        ],
+                      ),
                       subtitle: const Text('Receive browser push alerts', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
                     ),
                     _divider(),
                     SwitchListTile(
                       value: _inAppNotifications,
-                      onChanged: _toggleInAppNotifications,
+                      onChanged: _updatingInApp ? null : _toggleInAppNotifications,
                       activeColor: AppColors.studentPrimary,
-                      title: const Text('In-App Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                      title: Row(
+                        children: [
+                          const Text('In-App Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
+                          if (_updatingInApp) ...[
+                            const SizedBox(width: 8),
+                            SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.studentPrimary)),
+                          ]
+                        ],
+                      ),
                       subtitle: const Text('Show alerts inside dashboard', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
-                    ),
-                    _divider(),
-                    SwitchListTile(
-                      value: _emailNotifications,
-                      onChanged: _toggleEmailNotifications,
-                      activeColor: AppColors.studentPrimary,
-                      title: const Text('Email Notifications', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textDark)),
-                      subtitle: const Text('Receive email digests', style: TextStyle(fontSize: 11, color: AppColors.textMedium)),
                     ),
                   ],
                 ),
