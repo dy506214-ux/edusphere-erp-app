@@ -131,27 +131,32 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
     });
   }
 
+  Future<void> _fetchDynamicQR() async {
+    final prefs = CacheService.instance.prefs;
+    final userId = _studentUserId.isNotEmpty ? _studentUserId : prefs.getString('user_id');
+    if (userId != null && mounted) {
+      try {
+        final qrRes = await ApiService.instance.get('users/$userId/qr');
+        if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
+          final qr = qrRes['qrCode'] as String?;
+          if (qr != null && qr.isNotEmpty && mounted) {
+            setState(() {
+              _dbQrCode = qr;
+            });
+            await prefs.setString('student_qrcode', qr);
+          }
+        }
+      } catch (e) {
+        debugPrint('Dynamic QR Code fetch error: $e');
+      }
+    }
+  }
+
   void _startQrRefreshTimer() {
     _qrRefreshTimer?.cancel();
+    _fetchDynamicQR();
     _qrRefreshTimer = Timer.periodic(const Duration(seconds: 20), (timer) async {
-      final prefs = CacheService.instance.prefs;
-      final userId = _studentUserId.isNotEmpty ? _studentUserId : prefs.getString('user_id');
-      if (userId != null && mounted) {
-        try {
-          final qrRes = await ApiService.instance.get('users/$userId/qr');
-          if (qrRes != null && qrRes['success'] == true && qrRes['qrCode'] != null) {
-            final qr = qrRes['qrCode'] as String?;
-            if (qr != null && qr.isNotEmpty && mounted) {
-              setState(() {
-                _dbQrCode = qr;
-              });
-              await prefs.setString('student_qrcode', qr);
-            }
-          }
-        } catch (e) {
-          debugPrint('Periodic QR Code refresh error: $e');
-        }
-      }
+      await _fetchDynamicQR();
     });
   }
 

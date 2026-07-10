@@ -69,6 +69,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   Future<void> _safeStartCamera() async {
     if (_isDesktopOrWeb) return;
     if (_cameraPermissionDenied) return;
+    if (_isLoading) return;
     if (_isDisposed) return;
     if (_isCameraStarting || _isCameraRunning) return;
 
@@ -79,6 +80,11 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error starting camera safely: $e');
+      if (e.toString().contains('controllerNotAttached') && mounted) {
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _safeStartCamera();
+        });
+      }
     } finally {
       _isCameraStarting = false;
     }
@@ -306,14 +312,21 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
           ? _formatDate(widget.sessionDate!)
           : _formatDate(DateTime.now());
 
-      final response = await ApiService.instance.post('attendance/qr-scan', body: {
+      final Map<String, dynamic> requestBody = {
         'qrPayload': rawCode.trim(),
         'scannerId': widget.scannerId,
         'action': actionParam,
         'date': dateStr,
-        'scanLat': _currentPosition?.latitude,
-        'scanLng': _currentPosition?.longitude,
-      });
+      };
+
+      if (_currentPosition?.latitude != null) {
+        requestBody['scanLat'] = _currentPosition!.latitude;
+      }
+      if (_currentPosition?.longitude != null) {
+        requestBody['scanLng'] = _currentPosition!.longitude;
+      }
+
+      final response = await ApiService.instance.post('attendance/qr-scan', body: requestBody);
 
       if (response != null && response['success'] == true) {
         final user = response['user'] as Map<String, dynamic>? ?? {};
@@ -436,6 +449,9 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _safeStartCamera();
+        });
       }
     }
   }

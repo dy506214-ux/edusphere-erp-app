@@ -194,7 +194,7 @@ class AttendanceRepository {
     }
 
     async findUserById(id) {
-        return prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { id },
             select: {
                 id: true, firstName: true, lastName: true, role: true, roles: true, avatar: true, isActive: true,
@@ -203,6 +203,26 @@ class AttendanceRepository {
                 staff: { select: { id: true, assignedScannerId: true } },
             }
         });
+
+        if (!user) {
+            const student = await prisma.student.findUnique({
+                where: { admissionNumber: id },
+                include: {
+                    user: {
+                        select: {
+                            id: true, firstName: true, lastName: true, role: true, roles: true, avatar: true, isActive: true,
+                            student: { select: { id: true, currentClassId: true, sectionId: true } },
+                            teacher: { select: { id: true, assignedScannerId: true } },
+                            staff: { select: { id: true, assignedScannerId: true } },
+                        }
+                    }
+                }
+            });
+            if (student) {
+                user = student.user;
+            }
+        }
+        return user;
     }
 
     async findScannerById(id) {

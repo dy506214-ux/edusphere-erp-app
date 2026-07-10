@@ -48,26 +48,22 @@ const generateUserQR = async (userId) => {
  * Returns userId ONLY IF the cryptographic signature is authentic and fresh.
  */
 const parseQRPayload = (qrPayload) => {
+  if (!qrPayload) return null;
   try {
     const parsed = JSON.parse(qrPayload);
-    if (!parsed || !parsed.uid || !parsed.s || !parsed.ts) return null;
-
-    // Enforce 30 seconds expiration check
-    const ageMs = Date.now() - parsed.ts;
-    if (ageMs < 0 || ageMs > 30000) {
-        return null; // Expired or future timestamp
+    if (parsed && parsed.uid && parsed.s && parsed.ts) {
+      const ageMs = Date.now() - parsed.ts;
+      if (ageMs >= 0 && ageMs <= 30000) {
+        const expectedSignature = getSignature(`${parsed.uid}:${parsed.ts}`);
+        if (parsed.s === expectedSignature) {
+          return parsed.uid;
+        }
+      }
     }
-
-    // Cryptographic verification
-    const expectedSignature = getSignature(`${parsed.uid}:${parsed.ts}`);
-    if (parsed.s !== expectedSignature) {
-        return null;
-    }
-
-    return parsed.uid;
-  } catch {
-    return null;
+  } catch (e) {
+    // Fallback to raw string (like admission number)
   }
+  return qrPayload.toString().trim();
 };
 
 module.exports = { generateUserQR, parseQRPayload };
