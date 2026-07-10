@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../services/api_service.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
@@ -82,6 +83,8 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDesktop = MediaQuery.of(context).size.width > 900;
+
     final bodyContent = Column(
         children: [
           PageHeader(
@@ -103,13 +106,15 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                     : RefreshIndicator(
                         onRefresh: _loadScannersData,
                         color: widget.theme.primary,
-                        child: ListView.builder(
-                          padding: EdgeInsets.all(16.r),
-                          itemCount: _scanners.length,
-                          itemBuilder: (context, index) {
-                            return _buildScannerCard(_scanners[index]);
-                          },
-                        ),
+                        child: isDesktop
+                            ? _buildDesktopTable()
+                            : ListView.builder(
+                                padding: EdgeInsets.all(16.r),
+                                itemCount: _scanners.length,
+                                itemBuilder: (context, index) {
+                                  return _buildScannerCard(_scanners[index]);
+                                },
+                              ),
                       ),
           ),
         ],
@@ -117,7 +122,7 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
 
     if (widget.showAppBar) {
       return TeacherScaffold(
-        title: 'EduSphere',
+        title: 'EDUSPHERE',
         activeIndex: 5,
         body: bodyContent,
       );
@@ -359,6 +364,301 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDesktopTable() {
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 1200),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.02),
+                blurRadius: 15,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Scanner Devices',
+                      style: GoogleFonts.outfit(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      '${_scanners.length} scanners registered',
+                      style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFE2E8F0)),
+              Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(2.0), // Name
+                  1: FlexColumnWidth(1.2), // Type
+                  2: FlexColumnWidth(2.0), // Location
+                  3: FlexColumnWidth(2.0), // Allowed Roles
+                  4: FlexColumnWidth(1.2), // Geofence
+                  5: FlexColumnWidth(1.0), // Scans
+                  6: FlexColumnWidth(1.2), // Status
+                  7: FlexColumnWidth(1.5), // Actions
+                },
+                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                children: [
+                  TableRow(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF8FAFC),
+                    ),
+                    children: [
+                      _buildTableHeaderCell('Name'),
+                      _buildTableHeaderCell('Type'),
+                      _buildTableHeaderCell('Location'),
+                      _buildTableHeaderCell('Allowed Roles'),
+                      _buildTableHeaderCell('Geofence'),
+                      _buildTableHeaderCell('Scans'),
+                      _buildTableHeaderCell('Status'),
+                      _buildTableHeaderCell('Actions'),
+                    ],
+                  ),
+                  ..._scanners.map((scanner) => _buildTableRow(scanner)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableHeaderCell(String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      child: Text(
+        text,
+        style: GoogleFonts.outfit(
+          fontSize: 13.sp,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        ),
+      ),
+    );
+  }
+
+  TableRow _buildTableRow(Map<String, dynamic> scanner) {
+    final id = scanner['id'] as String? ?? '';
+    final name = scanner['name'] ?? 'Unnamed Scanner';
+    final location = scanner['location'] ?? '—';
+    final type = (scanner['scannerType'] ?? 'CLASSROOM').toString();
+    final isActive = scanner['isActive'] as bool? ?? false;
+    final todayScans = _todayScanCounts[id] ?? 0;
+    
+    List<String> allowedRoles = [];
+    if (scanner['allowedRoles'] != null) {
+      if (scanner['allowedRoles'] is List) {
+        allowedRoles = List<String>.from((scanner['allowedRoles'] as List).map((r) => r.toString()));
+      }
+    }
+    
+    final geofenceRadius = scanner['geofenceRadius'] as int? ?? 10;
+    final typeColor = _getTypeColor(type);
+
+    return TableRow(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      children: [
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Text(
+            name,
+            style: GoogleFonts.outfit(
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: typeColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Text(
+                  type.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                    color: typeColor,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.location_on_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
+              SizedBox(width: 6.w),
+              Flexible(
+                child: Text(
+                  location,
+                  style: AppTypography.small.copyWith(color: const Color(0xFF475569)),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Wrap(
+            spacing: 6.w,
+            runSpacing: 4.h,
+            children: allowedRoles.map((role) {
+              Color roleColor;
+              if (role.toUpperCase() == 'STUDENT') {
+                roleColor = const Color(0xFF22C55E);
+              } else if (role.toUpperCase() == 'TEACHER') {
+                roleColor = const Color(0xFF3B82F6);
+              } else {
+                roleColor = const Color(0xFFF59E0B);
+              }
+              return Container(
+                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                decoration: BoxDecoration(
+                  color: roleColor.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(4.r),
+                ),
+                child: Text(
+                  role.toUpperCase(),
+                  style: GoogleFonts.outfit(
+                    fontSize: 10.sp,
+                    fontWeight: FontWeight.w700,
+                    color: roleColor,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Text(
+            geofenceRadius > 0 ? '${geofenceRadius}m' : 'Not set',
+            style: AppTypography.small.copyWith(color: const Color(0xFF475569)),
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bar_chart_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
+              SizedBox(width: 4.w),
+              Text(
+                todayScans.toString(),
+                style: AppTypography.small.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                  borderRadius: BorderRadius.circular(6.r),
+                ),
+                child: Text(
+                  isActive ? 'Active' : 'Inactive',
+                  style: GoogleFonts.outfit(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                    color: isActive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () {
+                  if (widget.onScannerSelected != null) {
+                    widget.onScannerSelected!(id, name, location);
+                  } else {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PrepareScanScreen(
+                          theme: widget.theme,
+                          scannerId: id,
+                          scannerName: name,
+                          location: location,
+                          onBackToDetails: () => Navigator.pop(context),
+                        ),
+                      ),
+                    ).then((_) => _loadScannersData());
+                  }
+                },
+                icon: Icon(Icons.qr_code_scanner_rounded, size: 14.sp, color: Colors.white),
+                label: Text(
+                  'Scan',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF0066FF),
+                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
