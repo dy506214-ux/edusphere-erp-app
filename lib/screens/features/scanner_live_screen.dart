@@ -774,28 +774,35 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       text = 'GPS Pending';
     }
 
-    return Container(
-      padding: EdgeInsets.symmetric(
-          horizontal: isNarrow ? 8.w : 10.w, vertical: isNarrow ? 3.h : 4.h),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(isNarrow ? 4.r : 6.r),
-        border: Border.all(color: borderColor),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: isNarrow ? 11.sp : 13.sp,
-            color: textColor,
-          ),
-          SizedBox(width: isNarrow ? 4.w : 6.w),
-          Text(
-            text,
-            style: AppTypography.caption.copyWith(color: textColor),
-          ),
-        ],
+    return GestureDetector(
+      onTap: () {
+        if (_gpsStatus != 'GPS Ready') {
+          _initGPSTracking();
+        }
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: isNarrow ? 8.w : 10.w, vertical: isNarrow ? 3.h : 4.h),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(isNarrow ? 4.r : 6.r),
+          border: Border.all(color: borderColor),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: isNarrow ? 11.sp : 13.sp,
+              color: textColor,
+            ),
+            SizedBox(width: isNarrow ? 4.w : 6.w),
+            Text(
+              text,
+              style: AppTypography.caption.copyWith(color: textColor),
+            ),
+          ],
+        ),
       ),
     );
   }

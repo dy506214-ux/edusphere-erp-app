@@ -72,5 +72,9 @@
 	<string>EduSphere requires photo library access to upload profile pictures and homework attachments.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>EduSphere requires photo library write access to save documents and student report cards.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>EduSphere requires location access to verify geofence parameters when scanning QR attendance codes.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>EduSphere requires location access to verify geofence parameters when scanning QR attendance codes.</string>
 </dict>
 </plist>
