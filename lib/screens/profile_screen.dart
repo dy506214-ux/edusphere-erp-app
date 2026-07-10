@@ -1586,10 +1586,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
   }
 
   Future<void> _loadSessionData() async {
-    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
-      _lastSession = prefs.getString('app_last_session') ?? 'Initial session';
-      _joinedDate = widget.role == 'teacher' ? '12/08/2021' : '04/04/2023';
+      _lastSession = 'Initial session';
+      _joinedDate = 'N/A';
     });
   }
 
@@ -1737,27 +1737,42 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
 
         _dbQrCode = qrCode ?? userMap['qrCode'] as String?;
         _qrIssued = qrIssuedFromApi ?? userMap['qrIssued'] as bool? ?? false;
-        _activityStatus = (userMap['isActive'] as bool? ?? true) ? 'Active' : 'Inactive';
+
+        final rawActive = userMap['isActive'];
+        if (rawActive == false) {
+          _activityStatus = 'Offline';
+        } else if (rawActive == true) {
+          _activityStatus = 'Active';
+        } else if (rawActive == 'Offline') {
+          _activityStatus = 'Offline';
+        } else {
+          _activityStatus = rawActive?.toString() ?? 'Offline';
+        }
+
+        final lastLoginStr = userMap['lastLogin'] as String?;
+        if (lastLoginStr != null && lastLoginStr.isNotEmpty) {
+          try {
+            final parsed = DateTime.parse(lastLoginStr);
+            _lastSession =
+                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
+          } catch (_) {
+            _lastSession = lastLoginStr;
+          }
+        } else {
+          _lastSession = 'Initial session';
+        }
+
         _userRole = userMap['role']?.toString() ?? 'TEACHER';
 
-        _employeeId = 'ID_PENDING';
-        _designation = 'TEACHER';
+        _employeeId = tMap['employeeId']?.toString() ?? 'ID_PENDING';
+        _designation = userMap['role']?.toString() ?? 'TEACHER';
         _department = 'CORE_SYSTEM';
 
         final rawExp = tMap['experience']?.toString();
         _experience =
             (rawExp != null && rawExp.isNotEmpty) ? '$rawExp Years' : 'N/A';
 
-        final joinDateStr = tMap['joiningDate'] as String?;
-        if (joinDateStr != null) {
-          try {
-            final parsed = DateTime.parse(joinDateStr);
-            _joinedDate =
-                '${parsed.day.toString().padLeft(2, '0')}/${parsed.month.toString().padLeft(2, '0')}/${parsed.year}';
-          } catch (_) {
-            _joinedDate = joinDateStr;
-          }
-        }
+        _joinedDate = 'N/A';
 
         // Sync local variables which are shared with the QR identity card
         _studentName = _userName;
@@ -1779,7 +1794,6 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         await prefs.setString('teacher_design', _designation);
         await prefs.setString('teacher_dept', _department);
         await prefs.setString('teacher_exp', _experience);
-        await prefs.setString('teacher_activity', _activityStatus);
         await prefs.setString('teacher_last_pwd', _lastPasswordChange);
         if (_dbQrCode != null) {
           await prefs.setString('teacher_qrcode', _dbQrCode!);
@@ -1878,15 +1892,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           _bloodGroup = prefs.getString('teacher_blood') ?? 'Not assigned';
           _address =
               prefs.getString('teacher_address') ?? 'No location registered';
-          _employeeId = 'ID_PENDING';
+          _employeeId = prefs.getString('teacher_emp_id') ?? 'ID_PENDING';
           _designation = 'TEACHER';
           _department = 'CORE_SYSTEM';
           _experience = prefs.getString('teacher_exp') ?? 'N/A';
-          _activityStatus = prefs.getString('teacher_activity') ?? 'Offline';
+          _activityStatus = 'Offline';
           _pushEnabled = prefs.getBool('notifications_enabled') ?? true;
           _inAppEnabled = prefs.getBool('in_app_notifications') ?? true;
           _lastPasswordChange =
               prefs.getString('teacher_last_pwd') ?? 'Action Required';
+          _lastSession = 'Initial session';
+          _joinedDate = 'N/A';
           _dbQrCode = prefs.getString('teacher_qrcode');
           _studentName = _userName;
           _admissionNo = _employeeId;
@@ -5265,20 +5281,18 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           }
           final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
           await prefs.setString('${widget.role}_photo_url', busterUrl);
-          final base64Str = base64Encode(bytes);
-          final dataUrl = 'data:image/$extension;base64,$base64Str';
           
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(dataUrl);
+            widget.onAvatarUpdated!(busterUrl);
           }
           
           if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = dataUrl;
+            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
           }
           
           if (mounted) {
             setState(() {
-              _avatarUrl = dataUrl;
+              _avatarUrl = busterUrl;
             });
             showToast(context, 'Avatar updated successfully!');
           }

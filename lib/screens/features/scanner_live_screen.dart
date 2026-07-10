@@ -54,14 +54,50 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   }
 
   // QR Scanner State
-  final MobileScannerController _qrController = MobileScannerController();
+  final MobileScannerController _qrController = MobileScannerController(autoStart: false);
   bool _isProcessingQR = false;
   bool _cameraPermissionDenied = false;
+  bool _isCameraRunning = false;
+  bool _isCameraStarting = false;
+  bool _isDisposed = false;
 
   // GPS Tracking State
   Position? _currentPosition;
   StreamSubscription<Position>? _positionSubscription;
   String _gpsStatus = 'GPS Pending';
+
+  Future<void> _safeStartCamera() async {
+    if (_isDesktopOrWeb) return;
+    if (_cameraPermissionDenied) return;
+    if (_gpsStatus != 'GPS Ready') return;
+    if (_isDisposed) return;
+    if (_isCameraStarting || _isCameraRunning) return;
+
+    _isCameraStarting = true;
+    try {
+      await _qrController.start();
+      _isCameraRunning = true;
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error starting camera safely: $e');
+    } finally {
+      _isCameraStarting = false;
+    }
+  }
+
+  Future<void> _safeStopCamera() async {
+    if (_isDesktopOrWeb) return;
+    if (_isDisposed) return;
+    if (!_isCameraRunning) return;
+
+    try {
+      await _qrController.stop();
+      _isCameraRunning = false;
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Error stopping camera safely: $e');
+    }
+  }
 
   bool get _isDesktopPlatform {
     if (kIsWeb) return false;
@@ -108,6 +144,9 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
         setState(() {
           _cameraPermissionDenied = status.isDenied || status.isPermanentlyDenied;
         });
+        if (status.isGranted) {
+          _safeStartCamera();
+        }
       }
     } catch (e) {
       debugPrint('⚠️ [Camera Permission Error] Failed to request permission: $e');
@@ -140,14 +179,36 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
         return;
       }
 
-      final Position initialPos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
+      Position? initialPos;
+      try {
+        initialPos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
+        );
+      } catch (e) {
+        debugPrint('⚠️ [Geolocator getCurrentPosition error, trying last known] $e');
+        try {
+          initialPos = await Geolocator.getLastKnownPosition();
+        } catch (_) {}
+      }
+
+      if (initialPos == null) {
+        if (mounted) {
+          setState(() {
+            _gpsStatus = 'GPS Error';
+          });
+        }
+        return;
+      }
+
       if (mounted) {
         setState(() {
           _currentPosition = initialPos;
           _gpsStatus = 'GPS Ready';
         });
+        _safeStartCamera();
       }
 
       _positionSubscription = Geolocator.getPositionStream(
@@ -162,6 +223,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
               _currentPosition = pos;
               _gpsStatus = 'GPS Ready';
             });
+            _safeStartCamera();
           }
         },
         onError: (err) {
@@ -170,6 +232,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
             setState(() {
               _gpsStatus = 'GPS Error';
             });
+            _safeStopCamera();
           }
         },
       );
@@ -186,26 +249,17 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      if (!_cameraPermissionDenied && !_isDesktopOrWeb) {
-        try {
-          _qrController.start();
-        } catch (e) {
-          debugPrint('Error starting camera: $e');
-        }
-      }
+      _safeStartCamera();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      try {
-        _qrController.stop();
-      } catch (e) {
-        debugPrint('Error stopping camera: $e');
-      }
+      _safeStopCamera();
     }
   }
 
   void _setupRealtimeSubscription() {
     try {
-      debugPrint('⚡ [Socket.IO Subscription] Listening to ATTENDANCE_MARKED events');
+      debugPrint('⚡ [Socket.IO Subscription] Listening to events');
       SocketService().on('ATTENDANCE_MARKED', _onAttendanceMarked);
+      SocketService().on('attendance:qr-scan', _onAttendanceMarked);
     } catch (e) {
       debugPrint('⚡ [Socket.IO Subscription Error] Failed to subscribe: $e');
     }
@@ -213,12 +267,18 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
 
   @override
   void dispose() {
+    _isDisposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
-    _qrController.dispose();
     _positionSubscription?.cancel();
     try {
+      _qrController.dispose();
+    } catch (e) {
+      debugPrint('Error disposing qrController: $e');
+    }
+    try {
       SocketService().off('ATTENDANCE_MARKED', _onAttendanceMarked);
+      SocketService().off('attendance:qr-scan', _onAttendanceMarked);
     } catch (e) {
       debugPrint('⚠️ [Socket.IO Dispose Error] Failed to remove listener: $e');
     }
@@ -228,7 +288,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   Future<void> _processQRData(String rawCode) async {
     if (_isProcessingQR) return;
     setState(() => _isProcessingQR = true);
-    await _qrController.stop();
+    await _safeStopCamera();
 
     debugPrint(
         '================================================================');
@@ -321,8 +381,8 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       if (mounted) {
         setState(() => _isProcessingQR = false);
         Future.delayed(const Duration(seconds: 2), () {
-          if (mounted && !_isDesktopOrWeb) {
-            _qrController.start();
+          if (mounted) {
+            _safeStartCamera();
           }
         });
       }
@@ -543,7 +603,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
           );
 
     return TeacherScaffold(
-      title: 'EduSphere',
+      title: 'Live Scanner',
       activeIndex: 5,
       body: bodyContent,
     );
@@ -825,6 +885,192 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   }
 
   Widget _buildCameraPanel() {
+    Widget content;
+    
+    if (_cameraPermissionDenied) {
+      content = Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.videocam_off_rounded,
+                size: 48.sp,
+                color: const Color(0xFFEF4444),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'Camera access denied — check app camera permissions',
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFFEF4444)),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16.h),
+              ElevatedButton(
+                onPressed: () {
+                  openAppSettings();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.theme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                ),
+                child: Text(
+                  'Open Settings',
+                  style: AppTypography.caption.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (_gpsStatus == 'GPS Pending') {
+      content = Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: widget.theme.primary,
+              strokeWidth: 3.w,
+            ),
+            SizedBox(height: 16.h),
+            Text(
+              'Initialising camera...',
+              style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
+            ),
+          ],
+        ),
+      );
+    } else if (_gpsStatus == 'GPS Error') {
+      content = Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.location_off_rounded,
+                size: 48.sp,
+                color: const Color(0xFFEF4444),
+              ),
+              SizedBox(height: 12.h),
+              Text(
+                'Location is required for this scanner to verify geofence.',
+                style: AppTypography.caption
+                    .copyWith(color: const Color(0xFFEF4444)),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 16.h),
+              ElevatedButton(
+                onPressed: () {
+                  _initGPSTracking();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: widget.theme.primary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8.r),
+                  ),
+                ),
+                child: Text(
+                  'Retry GPS',
+                  style: AppTypography.caption.copyWith(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      content = Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.all(16.r),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12.r),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    MobileScanner(
+                      controller: _qrController,
+                      onDetect: (capture) async {
+                        if (_isProcessingQR) return;
+                        final barcodes = capture.barcodes;
+                        if (barcodes.isNotEmpty) {
+                          final code = barcodes.first.rawValue?.trim() ?? '';
+                          if (code.isEmpty) return;
+                          await _processQRData(code);
+                        }
+                      },
+                    ),
+                    Center(
+                      child: Container(
+                        width: 200.w,
+                        height: 200.w,
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                              color: widget.theme.primary, width: 4),
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                      ),
+                    ),
+                    if (_isProcessingQR)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.6),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const CircularProgressIndicator(color: Colors.white),
+                              SizedBox(height: 12.h),
+                              Text(
+                                'Processing...',
+                                style: GoogleFonts.inter(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.only(bottom: 16.h),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF22C55E),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 8.w),
+                Text(
+                  'Camera active — point at QR code',
+                  style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF64748B),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
     return Container(
       width: double.infinity,
       height: 420.h,
@@ -833,131 +1079,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: _cameraPermissionDenied
-          ? Center(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.videocam_off_rounded,
-                      size: 48.sp,
-                      color: const Color(0xFFEF4444),
-                    ),
-                    SizedBox(height: 12.h),
-                    Text(
-                      'Camera access denied — check app camera permissions',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFFEF4444)),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 16.h),
-                    ElevatedButton(
-                      onPressed: () {
-                        openAppSettings();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.theme.primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.r),
-                        ),
-                      ),
-                      child: Text(
-                        'Open Settings',
-                        style: AppTypography.caption.copyWith(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.r),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12.r),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          MobileScanner(
-                            controller: _qrController,
-                            onDetect: (capture) async {
-                              if (_isProcessingQR) return;
-                              final barcodes = capture.barcodes;
-                              if (barcodes.isNotEmpty) {
-                                final code = barcodes.first.rawValue?.trim() ?? '';
-                                if (code.isEmpty) return;
-                                await _processQRData(code);
-                              }
-                            },
-                          ),
-                          Center(
-                            child: Container(
-                              width: 200.w,
-                              height: 200.w,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                    color: widget.theme.primary, width: 4),
-                                borderRadius: BorderRadius.circular(12.r),
-                              ),
-                            ),
-                          ),
-                          if (_isProcessingQR)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.6),
-                              ),
-                              child: Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const CircularProgressIndicator(color: Colors.white),
-                                    SizedBox(height: 12.h),
-                                    Text(
-                                      'Processing...',
-                                      style: GoogleFonts.inter(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(bottom: 16.h),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 8.w,
-                        height: 8.w,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF22C55E),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'Camera active — point at QR code',
-                        style: AppTypography.caption.copyWith(
-                          color: const Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+      child: content,
     );
   }
 

@@ -531,18 +531,19 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
         final publicUrl = res['user']?['avatar'] as String?;
         final prefs = CacheService.instance.prefs;
         if (publicUrl != null) {
-          final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
-          
-          final base64Str = base64Encode(bytes);
-          final dataUrl = 'data:image/$extension;base64,$base64Str';
+          String finalUrl = publicUrl;
+          if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:image')) {
+            finalUrl = '${ApiConfig.serverBaseUrl}${finalUrl.startsWith('/') ? '' : '/'}$finalUrl';
+          }
+          final busterUrl = '$finalUrl?t=${DateTime.now().millisecondsSinceEpoch}';
           
           await prefs.setString('student_photo_url', busterUrl);
-          AppStateNotifier.userProfilePhotoUrl.value = dataUrl;
+          AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
           setState(() {
-            _avatarUrl = dataUrl;
+            _avatarUrl = busterUrl;
           });
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(dataUrl);
+            widget.onAvatarUpdated!(busterUrl);
           }
           if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated successfully!')));
         } else {

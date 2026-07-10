@@ -1086,7 +1086,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
                     'Marked By',
                     style: AppTypography.caption
@@ -1094,7 +1094,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                   ),
                 ),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: Center(
                     child: Text(
                       'Status',
@@ -1197,7 +1197,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       ),
                       // Marked By Column
                       Expanded(
-                        flex: 3,
+                        flex: 2,
                         child: Text(
                           markedByStr,
                           style: AppTypography.caption
@@ -1206,11 +1206,11 @@ class _AcademicScreenState extends State<AcademicScreen> {
                       ),
                       // Status Column
                       Expanded(
-                        flex: 2,
+                        flex: 3,
                         child: Center(
                           child: Container(
                             padding: EdgeInsets.symmetric(
-                                horizontal: 10.w, vertical: 6.h),
+                                horizontal: 8.w, vertical: 4.h),
                             decoration: BoxDecoration(
                               color: badgeBg,
                               borderRadius: BorderRadius.circular(12.r),
@@ -1220,6 +1220,8 @@ class _AcademicScreenState extends State<AcademicScreen> {
                               style: AppTypography.caption
                                   .copyWith(color: badgeText, fontWeight: FontWeight.w600),
                               textAlign: TextAlign.center,
+                              maxLines: 1,
+                              softWrap: false,
                             ),
                           ),
                         ),

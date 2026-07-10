@@ -104,9 +104,13 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadIds();
-    _loadTeacherName();
-    _loadAnnouncements(showLoading: true);
+    _initData();
+  }
+
+  Future<void> _initData() async {
+    await _loadIds();
+    await _loadTeacherName();
+    await _loadAnnouncements(showLoading: true);
     _connectRealTime();
   }
 
@@ -282,7 +286,8 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       final List<dynamic> data = res['announcements'] ?? res['data'] ?? [];
 
       final prefs = await SharedPreferences.getInstance();
-      final readIds = prefs.getStringList('read_announcements_$_studentId') ?? [];
+      final String readKey = isStudent ? 'read_announcements_$_studentId' : 'read_announcements_$_teacherId';
+      final readIds = prefs.getStringList(readKey) ?? [];
 
       if (mounted) {
         setState(() {
@@ -815,84 +820,65 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
     }
     final bool isPushed = Navigator.canPop(context);
     final bool isTeacher = widget.role == 'teacher';
-    final bodyContent = Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding:
-                EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
-            physics: const BouncingScrollPhysics(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // H1 Header and description
-                Text(
-                  'Announcements',
-                  style: GoogleFonts.outfit(
-                    fontSize: 28.sp,
-                    fontWeight: FontWeight.w900,
-                    color: const Color(0xFF0F172A),
-                  ),
+    final bodyContent = Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF3F8FC), Color(0xFFFCFDFE)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 12.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              _buildTeacherHeader(),
+              SizedBox(height: 16.h),
+              
+              // Stats Row (Horizontal!)
+              _buildTeacherStatsRow(),
+              SizedBox(height: 16.h),
+
+              // Announcements list
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () => _loadAnnouncements(showLoading: false),
+                  color: const Color(0xFF2563EB),
+                  child: _isLoading
+                      ? _buildSkeletonLoader()
+                      : _errorMessage != null
+                          ? Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.wifi_off_rounded,
+                                        size: 48.sp,
+                                        color: const Color(0xFF94A3B8)),
+                                    SizedBox(height: 16.h),
+                                    Text(
+                                      _errorMessage!,
+                                      textAlign: TextAlign.center,
+                                      style: AppTypography.small.copyWith(
+                                          color: const Color(0xFF64748B)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          : _announcements.isEmpty
+                              ? _buildEmptyStateCard()
+                              : _buildTeacherAnnouncementsList(),
                 ),
-                SizedBox(height: 4.h),
-                Text(
-                  'Create and manage school-wide announcements',
-                  style: AppTypography.small
-                      .copyWith(color: const Color(0xFF64748B)),
-                ),
-                SizedBox(height: 20.h),
-                // New Announcement Button
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0284C7),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10.r)),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 20.w, vertical: 12.h),
-                      elevation: 0,
-                    ),
-                    onPressed: () => _openCreateSheet(),
-                    icon: Icon(Icons.add,
-                        size: 18.sp, color: Colors.white),
-                    label: Text(
-                      "New Announcement",
-                      style: AppTypography.caption
-                          .copyWith(color: Colors.white),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 24.h),
-                // Stats Column (stacked vertically)
-                _buildStatsGrid(),
-                SizedBox(height: 24.h),
-                // Content Section (Empty State or List)
-                _isLoading
-                    ? Container(
-                        height: 250.h,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16.r),
-                          border: Border.all(
-                              color: const Color(0xFFE2E8F0)),
-                        ),
-                        child: const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF2563EB))),
-                      )
-                    : (_announcements.isEmpty
-                        ? _buildEmptyStateCard()
-                        : _buildAnnouncementsList()),
-                SizedBox(height: 100.h),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        // Bottom Navigation Bar
-        if (widget.showAppBar && widget.role != 'teacher')
-          _buildBottomNav(),
-      ],
+      ),
     );
 
     if (widget.showAppBar && isTeacher) {
@@ -1450,6 +1436,381 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // --- UI Component: Teacher Header ---
+  Widget _buildTeacherHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Announcements',
+          style: GoogleFonts.outfit(
+            fontSize: 28.sp,
+            fontWeight: FontWeight.w900,
+            color: const Color(0xFF0F172A),
+          ),
+        ),
+        SizedBox(height: 4.h),
+        Text(
+          'Create and manage school-wide announcements',
+          style: AppTypography.small
+              .copyWith(color: const Color(0xFF64748B)),
+        ),
+        SizedBox(height: 16.h),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF0284C7),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10.r)),
+            padding: EdgeInsets.symmetric(
+                horizontal: 20.w, vertical: 12.h),
+            elevation: 0,
+          ),
+          onPressed: () => _openCreateSheet(),
+          icon: Icon(Icons.add, size: 18.sp, color: Colors.white),
+          label: Text(
+            "New Announcement",
+            style: AppTypography.caption.copyWith(
+                color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- UI Component: Teacher Stats Row ---
+  Widget _buildTeacherStatsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMiniStatCard(
+            icon: Icons.notifications_none_rounded,
+            label: "Total",
+            value: _totalCount.toString(),
+            color: const Color(0xFF2563EB),
+            bgLight: const Color(0xFFEFF6FF),
+          ),
+        ),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: _buildMiniStatCard(
+            icon: Icons.check_circle_outline_rounded,
+            label: "Active",
+            value: _activeCount.toString(),
+            color: const Color(0xFF10B981),
+            bgLight: const Color(0xFFECFDF5),
+          ),
+        ),
+        SizedBox(width: 8.w),
+        Expanded(
+          child: _buildMiniStatCard(
+            icon: Icons.error_outline_rounded,
+            label: "Urgent",
+            value: _highPriorityCount.toString(),
+            color: Colors.redAccent,
+            bgLight: const Color(0xFFFEF2F2),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMiniStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required Color bgLight,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12.h, horizontal: 8.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 4.r,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.all(6.r),
+            decoration: BoxDecoration(
+              color: bgLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 16.sp),
+          ),
+          SizedBox(width: 8.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: AppTypography.caption.copyWith(
+                    color: const Color(0xFF64748B),
+                    fontSize: 10.sp,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- UI Component: Teacher Announcements List ---
+  Widget _buildTeacherAnnouncementsList() {
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics()),
+      itemCount: _announcements.length,
+      itemBuilder: (context, index) {
+        final ann = _announcements[index];
+        final isHigh = ann.priority.toUpperCase() == 'HIGH' ||
+            ann.priority.toUpperCase() == 'URGENT';
+        final color = _getNoticeColor(ann.priority, ann.title);
+        final icon = _getNoticeIcon(ann.title, ann.priority);
+        final bool isUnread = !ann.isRead;
+
+        // Split audience into individual tags
+        final List<String> audienceTags = ann.audience
+            .split(',')
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList();
+
+        final priorityBg =
+            isHigh ? const Color(0xFFFEE2E2) : const Color(0xFFFFEDD5);
+        final priorityTextColor =
+            isHigh ? const Color(0xFFEF4444) : const Color(0xFFF97316);
+        final priorityBorderColor =
+            isHigh ? const Color(0xFFFCA5A5) : const Color(0xFFFED7AA);
+
+        return GestureDetector(
+          onTap: () async {
+            // Mark as read
+            if (!ann.isRead) {
+              setState(() {
+                ann.isRead = true;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              final key = 'read_announcements_$_teacherId';
+              final readIds = prefs.getStringList(key) ?? [];
+              if (!readIds.contains(ann.id)) {
+                readIds.add(ann.id);
+                await prefs.setStringList(key, readIds);
+              }
+            }
+
+            // Navigate to Details Screen
+            if (context.mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AnnouncementDetailsScreen(
+                    announcement: ann,
+                    dateStr: ann.dateStr,
+                    tags: audienceTags,
+                    dotColor: color,
+                    bgColor: color.withValues(alpha: 0.15),
+                    icon: icon,
+                  ),
+                ),
+              );
+            }
+          },
+          child: Container(
+            margin: EdgeInsets.only(bottom: 12.h),
+            padding: EdgeInsets.all(16.r),
+            decoration: BoxDecoration(
+              color: isUnread ? const Color(0xFFF4F8FE) : Colors.white,
+              borderRadius: BorderRadius.circular(16.r),
+              border: Border.all(
+                  color: isUnread
+                      ? const Color(0xFF2563EB).withValues(alpha: 0.3)
+                      : const Color(0xFFE2EAF4)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.01),
+                  blurRadius: 6.r,
+                  offset: Offset(0, 3.h),
+                ),
+              ],
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: EdgeInsets.only(top: 12.h),
+                  width: 8.w,
+                  height: 8.w,
+                  decoration: BoxDecoration(
+                    color: isUnread ? color : Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                SizedBox(width: 10.w),
+                Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, color: color, size: 20.sp),
+                ),
+                SizedBox(width: 12.w),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              ann.title,
+                              style: AppTypography.small.copyWith(
+                                  color: const Color(0xFF0F2547),
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          // Action Buttons for Teacher
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              GestureDetector(
+                                onTap: () => _openCreateSheet(editItem: ann),
+                                child: Icon(Icons.edit_note_outlined,
+                                    size: 20.sp, color: const Color(0xFF475569)),
+                              ),
+                              SizedBox(width: 12.w),
+                              GestureDetector(
+                                onTap: () => _deleteAnnouncement(ann.id),
+                                child: Icon(Icons.delete_outline_rounded,
+                                    size: 20.sp, color: Colors.redAccent.withValues(alpha: 0.8)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 6.h),
+                      Wrap(
+                        spacing: 6.w,
+                        runSpacing: 4.h,
+                        children: [
+                          // Priority Badge
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: priorityBg,
+                              borderRadius: BorderRadius.circular(6.r),
+                              border: Border.all(
+                                  color: priorityBorderColor),
+                            ),
+                            child: Text(
+                              ann.priority.toUpperCase(),
+                              style: AppTypography.caption.copyWith(
+                                  color: priorityTextColor,
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                          // Audience Badges
+                          ...audienceTags.map((t) {
+                            final isSt = t == 'STUDENTS' || t == 'STUDENT';
+                            final bgColor = isSt ? const Color(0xFFEFF6FF) : const Color(0xFFF3E8FF);
+                            final textColor = isSt ? const Color(0xFF2563EB) : const Color(0xFF7C3AED);
+                            final borderColor = isSt ? const Color(0xFFBFDBFE) : const Color(0xFFE9D5FF);
+                            return Container(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 6.w, vertical: 2.h),
+                              decoration: BoxDecoration(
+                                color: bgColor,
+                                borderRadius:
+                                    BorderRadius.circular(6.r),
+                                border: Border.all(
+                                    color: borderColor),
+                              ),
+                              child: Text(
+                                t == 'ALL' ? 'EVERYONE' : t,
+                                style: AppTypography.caption.copyWith(
+                                    color: textColor,
+                                    fontSize: 9.sp,
+                                    fontWeight: FontWeight.w700),
+                              ),
+                            );
+                          }),
+                          // Active Status Badge
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.w, vertical: 2.h),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(6.r),
+                              border: Border.all(
+                                  color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: Text(
+                              'Active',
+                              style: AppTypography.caption.copyWith(
+                                  color: const Color(0xFF10B981),
+                                  fontSize: 9.sp,
+                                  fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 10.h),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today_outlined,
+                              size: 12.sp, color: const Color(0xFF6B7A90)),
+                          SizedBox(width: 4.w),
+                          Text(
+                            ann.dateStr,
+                            style: AppTypography.caption
+                                .copyWith(color: const Color(0xFF6B7A90), fontSize: 11.sp),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 10.h),
+                      Text(
+                        ann.content,
+                        style: AppTypography.caption.copyWith(
+                            color: const Color(0xFF475569), height: 1.4, fontSize: 12.sp),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

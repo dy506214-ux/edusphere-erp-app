@@ -60,7 +60,7 @@ class AnnouncementService {
             createdBy: userId,
         });
 
-        emitEvent('ANNOUNCEMENT_CREATED', announcement, 'ALL');
+        emitEvent('ANNOUNCEMENT_CREATED', announcement);
 
         // Create persistent notifications for the target audience
         const mappedRoles = [];
@@ -113,13 +113,13 @@ class AnnouncementService {
         });
 
         const updatedAnnouncement = await announcementRepo.updateAnnouncement(id, updateData);
-        emitEvent('ANNOUNCEMENT_UPDATED', updatedAnnouncement, 'ALL');
+        emitEvent('ANNOUNCEMENT_UPDATED', updatedAnnouncement);
         return updatedAnnouncement;
     }
 
     async deleteAnnouncement(id) {
         await announcementRepo.deleteAnnouncement(id);
-        emitEvent('ANNOUNCEMENT_DELETED', { id }, 'ALL');
+        emitEvent('ANNOUNCEMENT_DELETED', { id });
     }
 
     async getActiveAnnouncementsForUser(user) {

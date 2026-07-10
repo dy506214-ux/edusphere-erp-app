@@ -577,7 +577,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                   showAppBar: false,
                 ), // Index 3: Attendance
                 ScannerFeatureWrapper(
-                    theme: _theme, showAppBar: false), // Index 4: QR Scanner
+                  theme: _theme,
+                  showAppBar: false,
+                  onBack: () => _navigateTo(0),
+                ), // Index 4: QR Scanner
                 const CreateAssignmentScreen(
                     showAppBar: false), // Index 5: Assignments
                 AcademicScreen(
@@ -637,7 +640,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                     onNavigate: (int index) =>
                         _navigateTo(index)), // Index 4: More
                 ScannerFeatureWrapper(
-                    theme: _theme, showAppBar: false), // Index 5: QR Scanner
+                  theme: _theme,
+                  showAppBar: false,
+                  onBack: () => _navigateTo(4),
+                ), // Index 5: QR Scanner
                 const CreateAssignmentScreen(
                     showAppBar: false), // Index 6: Assignments
                 AcademicScreen(

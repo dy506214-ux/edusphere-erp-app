@@ -9,10 +9,12 @@ import '../../theme/typography.dart';
 class ScannerFeatureWrapper extends StatefulWidget {
   final RoleTheme theme;
   final bool showAppBar;
+  final VoidCallback? onBack;
   const ScannerFeatureWrapper({
     super.key,
     required this.theme,
     this.showAppBar = true,
+    this.onBack,
   });
 
   @override
@@ -101,7 +103,9 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
         location: _selectedLocation ?? 'Main Gate',
         showAppBar: widget.showAppBar,
         onBackToDetails: () {
-          // Do nothing, teacher cannot go back to list
+          if (widget.onBack != null) {
+            widget.onBack!();
+          }
         },
       );
     } else {

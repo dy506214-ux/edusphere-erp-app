@@ -19,6 +19,6 @@ router.get('/active', getActiveAnnouncementsForUser);
 router.get('/:id', getAnnouncement);
 router.post('/', requireRole('SUPER_ADMIN', 'ADMIN', 'TEACHER'), createAnnouncement);
 router.put('/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'TEACHER'), updateAnnouncement);
-router.delete('/:id', requireRole('SUPER_ADMIN', 'ADMIN'), deleteAnnouncement);
+router.delete('/:id', requireRole('SUPER_ADMIN', 'ADMIN', 'TEACHER'), deleteAnnouncement);
 
 module.exports = router;

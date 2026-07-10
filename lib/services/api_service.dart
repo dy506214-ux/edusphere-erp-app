@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as dev;
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import '../config/api_config.dart';
 import 'auth_service.dart';
 import 'cache_service.dart';
@@ -16,6 +17,17 @@ class ApiService {
       receiveTimeout: const Duration(seconds: 120),
       sendTimeout: const Duration(seconds: 120),
     ));
+    
+    if (!kIsWeb) {
+      _dio.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () {
+          final client = HttpClient();
+          client.badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+          return client;
+        },
+      );
+    }
+    
     _setupInterceptors();
   }
   static final ApiService instance = ApiService._privateConstructor();
