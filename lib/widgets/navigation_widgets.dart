@@ -270,7 +270,7 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
       }
     }
 
-    final isPushed = Navigator.canPop(context) && widget.title != 'EduSphere';
+
 
     return SafeArea(
       bottom: false,
@@ -297,15 +297,11 @@ class _TeacherTopNavbarState extends State<TeacherTopNavbar> with TickerProvider
                 // Left dynamic Back/Menu Button (NO circle background, NO text!)
                 GestureDetector(
                   onTap: () {
-                    if (isPushed) {
-                      Navigator.pop(context);
-                    } else {
-                      Scaffold.of(context).openDrawer();
-                    }
+                    Scaffold.of(context).openDrawer();
                   },
-                  child: Icon(
-                    isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
-                    color: const Color(0xFF0D47A1),
+                  child: const Icon(
+                    Icons.menu_rounded,
+                    color: Color(0xFF0D47A1),
                     size: 28,
                   ),
                 ),
@@ -925,7 +921,7 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
       }
     }
 
-    final isPushed = Navigator.canPop(context) && widget.title != 'EduSphere';
+
 
     return SafeArea(
       bottom: false,
@@ -952,15 +948,11 @@ class _StudentTopNavbarState extends State<StudentTopNavbar> with TickerProvider
                 // Left dynamic Back/Menu Button (NO circle background, NO text!)
                 GestureDetector(
                   onTap: () {
-                    if (isPushed) {
-                      Navigator.pop(context);
-                    } else {
-                      Scaffold.of(context).openDrawer();
-                    }
+                    Scaffold.of(context).openDrawer();
                   },
-                  child: Icon(
-                    isPushed ? Icons.arrow_back_rounded : Icons.menu_rounded,
-                    color: const Color(0xFF0D47A1),
+                  child: const Icon(
+                    Icons.menu_rounded,
+                    color: Color(0xFF0D47A1),
                     size: 28,
                   ),
                 ),
