@@ -69,7 +69,6 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   Future<void> _safeStartCamera() async {
     if (_isDesktopOrWeb) return;
     if (_cameraPermissionDenied) return;
-    if (_gpsStatus != 'GPS Ready') return;
     if (_isDisposed) return;
     if (_isCameraStarting || _isCameraRunning) return;
 
@@ -166,6 +165,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
             _gpsStatus = 'GPS Error';
           });
         }
+        _safeStartCamera();
         return;
       }
 
@@ -176,6 +176,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
             _gpsStatus = 'GPS Error';
           });
         }
+        _safeStartCamera();
         return;
       }
 
@@ -183,8 +184,8 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       try {
         initialPos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 5),
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 10),
           ),
         );
       } catch (e) {
@@ -197,23 +198,23 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       if (initialPos == null) {
         if (mounted) {
           setState(() {
-            _gpsStatus = 'GPS Error';
+            _gpsStatus = 'GPS Pending';
           });
         }
-        return;
-      }
-
-      if (mounted) {
-        setState(() {
-          _currentPosition = initialPos;
-          _gpsStatus = 'GPS Ready';
-        });
         _safeStartCamera();
+      } else {
+        if (mounted) {
+          setState(() {
+            _currentPosition = initialPos;
+            _gpsStatus = 'GPS Ready';
+          });
+          _safeStartCamera();
+        }
       }
 
       _positionSubscription = Geolocator.getPositionStream(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
+          accuracy: LocationAccuracy.medium,
           distanceFilter: 5,
         ),
       ).listen(
@@ -232,7 +233,6 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
             setState(() {
               _gpsStatus = 'GPS Error';
             });
-            _safeStopCamera();
           }
         },
       );
@@ -243,6 +243,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
           _gpsStatus = 'GPS Error';
         });
       }
+      _safeStartCamera();
     }
   }
 
@@ -919,62 +920,6 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
                 ),
                 child: Text(
                   'Open Settings',
-                  style: AppTypography.caption.copyWith(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else if (_gpsStatus == 'GPS Pending') {
-      content = Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: widget.theme.primary,
-              strokeWidth: 3.w,
-            ),
-            SizedBox(height: 16.h),
-            Text(
-              'Initialising camera...',
-              style: AppTypography.caption.copyWith(color: const Color(0xFF64748B)),
-            ),
-          ],
-        ),
-      );
-    } else if (_gpsStatus == 'GPS Error') {
-      content = Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.location_off_rounded,
-                size: 48.sp,
-                color: const Color(0xFFEF4444),
-              ),
-              SizedBox(height: 12.h),
-              Text(
-                'Location is required for this scanner to verify geofence.',
-                style: AppTypography.caption
-                    .copyWith(color: const Color(0xFFEF4444)),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 16.h),
-              ElevatedButton(
-                onPressed: () {
-                  _initGPSTracking();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.theme.primary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r),
-                  ),
-                ),
-                child: Text(
-                  'Retry GPS',
                   style: AppTypography.caption.copyWith(color: Colors.white),
                 ),
               ),
