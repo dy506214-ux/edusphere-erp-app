@@ -5281,18 +5281,20 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           }
           final busterUrl = '$publicUrl?t=${DateTime.now().millisecondsSinceEpoch}';
           await prefs.setString('${widget.role}_photo_url', busterUrl);
+          final base64Str = base64Encode(bytes);
+          final dataUrl = 'data:image/$extension;base64,$base64Str';
           
           if (widget.onAvatarUpdated != null) {
-            widget.onAvatarUpdated!(busterUrl);
+            widget.onAvatarUpdated!(dataUrl);
           }
           
           if (_isOwnProfile) {
-            AppStateNotifier.userProfilePhotoUrl.value = busterUrl;
+            AppStateNotifier.userProfilePhotoUrl.value = dataUrl;
           }
           
           if (mounted) {
             setState(() {
-              _avatarUrl = busterUrl;
+              _avatarUrl = dataUrl;
             });
             showToast(context, 'Avatar updated successfully!');
           }
