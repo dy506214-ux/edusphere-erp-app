@@ -40,6 +40,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
   String _selectedCategory = 'All';
   List<Map<String, dynamic>> _posts = [];
   bool _isLoading = false;
+  int _totalPosts = 0;
+  int _postsToday = 0;
+  int _totalComments = 0;
 
   final TextEditingController _detailsCommentCtrl = TextEditingController();
   String? _replyingToCommentId;
@@ -97,6 +100,23 @@ class _CommunityScreenState extends State<CommunityScreen> {
     }
   }
 
+  Future<void> _loadCommunityStats() async {
+    try {
+      final res = await ApiService.instance.get('community/stats');
+      if (res != null) {
+        if (mounted) {
+          setState(() {
+            _totalPosts = (res['totalPosts'] ?? 0) as int;
+            _postsToday = (res['postsToday'] ?? 0) as int;
+            _totalComments = (res['totalComments'] ?? 0) as int;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading community stats: $e');
+    }
+  }
+
   Future<void> _loadUserName() async {
     final prefs = await SharedPreferences.getInstance();
     final role = prefs.getString('user_role') ?? 'student';
@@ -116,6 +136,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _loadPosts() async {
+    _loadCommunityStats();
     setState(() {
       _isLoading = true;
     });
@@ -577,7 +598,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       Expanded(
                         child: _buildStatCard(
                           'Total Posts',
-                          _posts.length,
+                          _totalPosts,
                           Icons.trending_up_rounded,
                           const Color(0xFF3B82F6),
                         ),
@@ -586,7 +607,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       Expanded(
                         child: _buildStatCard(
                           'Posted Today',
-                          _postedTodayCount,
+                          _postsToday,
                           Icons.history_rounded,
                           const Color(0xFF10B981),
                         ),
@@ -595,7 +616,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       Expanded(
                         child: _buildStatCard(
                           'Comments',
-                          _commentsCountSum,
+                          _totalComments,
                           Icons.chat_bubble_outline_rounded,
                           const Color(0xFF8B5CF6),
                         ),
@@ -2089,6 +2110,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
         setState(() {
           _posts[actualIdx]['comments'] = _decodeCommentsList(commentsRaw);
           _posts[actualIdx]['commentsCount'] = _posts[actualIdx]['comments'].length;
+          _loadCommunityStats();
         });
       }
     } catch (e) {
@@ -2474,7 +2496,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
                       isLoadingComments = false;
                     });
                   }
-                  setState(() {});
+                  setState(() {
+                    _loadCommunityStats();
+                  });
                 } catch (e) {
                   debugPrint('Error loading comments: $e');
                   if (ctx.mounted) {
