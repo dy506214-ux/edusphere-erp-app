@@ -295,7 +295,6 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
   Future<void> _processQRData(String rawCode) async {
     if (_isProcessingQR) return;
     setState(() => _isProcessingQR = true);
-    await _safeStopCamera();
 
     debugPrint(
         '================================================================');
@@ -393,10 +392,9 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
       debugPrint(
           '================================================================');
       if (mounted) {
-        setState(() => _isProcessingQR = false);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
-            _safeStartCamera();
+            setState(() => _isProcessingQR = false);
           }
         });
       }
