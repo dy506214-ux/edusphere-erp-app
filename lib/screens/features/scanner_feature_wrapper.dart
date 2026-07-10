@@ -83,40 +83,31 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
       );
     }
 
-    if (_selectedScannerId == null) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Text(
-            'QR Scanner access denied or no scanner assigned.',
-            style: AppTypography.body.copyWith(color: Colors.red),
-          ),
-        ),
-      );
-    }
-
-    if (_showPrepare) {
+    if (_showPrepare && _selectedScannerId != null) {
       return PrepareScanScreen(
         theme: widget.theme,
-        scannerId: _selectedScannerId ?? 'main-gate-scanner-id',
-        scannerName: _selectedScannerName ?? 'main gate scanner',
-        location: _selectedLocation ?? 'Main Gate',
+        scannerId: _selectedScannerId!,
+        scannerName: _selectedScannerName ?? 'Assigned Scanner',
+        location: _selectedLocation ?? 'Assigned Location',
         showAppBar: widget.showAppBar,
         onBackToDetails: () {
-          if (widget.onBack != null) {
-            widget.onBack!();
-          }
+          setState(() {
+            _showPrepare = false;
+          });
         },
       );
     } else {
-      return Scaffold(
-        backgroundColor: const Color(0xFFF8FAFC),
-        body: Center(
-          child: Text(
-            'QR Scanner access denied.',
-            style: AppTypography.body.copyWith(color: Colors.red),
-          ),
-        ),
+      return ScannerListScreen(
+        theme: widget.theme,
+        showAppBar: widget.showAppBar,
+        onScannerSelected: (id, name, location) {
+          setState(() {
+            _selectedScannerId = id;
+            _selectedScannerName = name;
+            _selectedLocation = location;
+            _showPrepare = true;
+          });
+        },
       );
     }
   }
