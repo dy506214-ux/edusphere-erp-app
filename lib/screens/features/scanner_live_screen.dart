@@ -618,7 +618,7 @@ class _ScannerLiveScreenState extends State<ScannerLiveScreen> with WidgetsBindi
           );
 
     return TeacherScaffold(
-      title: 'Live Scanner',
+      title: 'EDUSPHERE',
       activeIndex: 5,
       body: bodyContent,
     );
