@@ -5,6 +5,8 @@ import '../../services/api_service.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common_widgets.dart';
 import 'prepare_scan_screen.dart';
+import 'scanner_detail_screen.dart';
+import 'scanner_live_screen.dart';
 import '../main_screen.dart';
 import '../../widgets/teacher_app_bar.dart';
 import '../../widgets/teacher_scaffold.dart';
@@ -13,12 +15,16 @@ import 'package:edusphere/theme/typography.dart';
 class ScannerListScreen extends StatefulWidget {
   final RoleTheme theme;
   final Function(String id, String name, String location)? onScannerSelected;
+  final Function(String id, String name, String location)? onScanPressed;
+  final VoidCallback? onBackToDetails;
   final bool showAppBar;
 
   const ScannerListScreen({
     super.key,
     required this.theme,
     this.onScannerSelected,
+    this.onScanPressed,
+    this.onBackToDetails,
     this.showAppBar = true,
   });
 
@@ -81,18 +87,108 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
     }
   }
 
+  Widget _buildPageHeader(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Color(0xFFF8FAFC),
+        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (widget.onBackToDetails != null) ...[
+                ElevatedButton.icon(
+                  onPressed: widget.onBackToDetails,
+                  icon: Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 16.sp,
+                  ),
+                  label: Text(
+                    'Back to Details',
+                    style: AppTypography.caption.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0066FF),
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 16.w,
+                      vertical: 10.h,
+                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.r),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 14.w),
+              ] else if (widget.showAppBar) ...[
+                GestureDetector(
+                  onTap: () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.pop(context);
+                    }
+                  },
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    margin: EdgeInsets.only(right: 14.w),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(12.r),
+                    ),
+                    child: Icon(Icons.arrow_back_ios_new_rounded,
+                        color: widget.theme.primary, size: 18.sp),
+                  ),
+                ),
+              ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      'QR Scanners',
+                      style: GoogleFonts.outfit(
+                        fontSize: 22.sp,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF0F172A),
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Manage scanner devices and their attendance permissions',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w400,
+                        color: const Color(0xFF64748B),
+                      ),
+                      textAlign: TextAlign.right,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isDesktop = MediaQuery.of(context).size.width > 900;
 
     final bodyContent = Column(
         children: [
-          PageHeader(
-            title: 'Attendance Scanners',
-            subtitle: 'Monitor school checkpoint systems',
-            theme: widget.theme,
-            showBackButton: widget.showAppBar,
-          ),
+          _buildPageHeader(context),
           Expanded(
             child: _isLoading
                 ? Center(
@@ -106,15 +202,7 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                     : RefreshIndicator(
                         onRefresh: _loadScannersData,
                         color: widget.theme.primary,
-                        child: isDesktop
-                            ? _buildDesktopTable()
-                            : ListView.builder(
-                                padding: EdgeInsets.all(16.r),
-                                itemCount: _scanners.length,
-                                itemBuilder: (context, index) {
-                                  return _buildScannerCard(_scanners[index]);
-                                },
-                              ),
+                        child: _buildDesktopTable(isDesktop),
                       ),
           ),
         ],
@@ -367,7 +455,7 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
     );
   }
 
-  Widget _buildDesktopTable() {
+  Widget _buildDesktopTable(bool isDesktop) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
@@ -410,36 +498,42 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                 ),
               ),
               const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(2.0), // Name
-                  1: FlexColumnWidth(1.2), // Type
-                  2: FlexColumnWidth(2.0), // Location
-                  3: FlexColumnWidth(2.0), // Allowed Roles
-                  4: FlexColumnWidth(1.2), // Geofence
-                  5: FlexColumnWidth(1.0), // Scans
-                  6: FlexColumnWidth(1.2), // Status
-                  7: FlexColumnWidth(1.5), // Actions
-                },
-                defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                children: [
-                  TableRow(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF8FAFC),
-                    ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: 1100.0,
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(2.0), // Name
+                      1: FlexColumnWidth(1.6), // Type (Increased to accommodate CLASSROOM)
+                      2: FlexColumnWidth(1.8), // Location
+                      3: FlexColumnWidth(1.8), // Allowed Roles
+                      4: FlexColumnWidth(1.2), // Geofence
+                      5: FlexColumnWidth(1.0), // Scans
+                      6: FlexColumnWidth(1.2), // Status
+                      7: FlexColumnWidth(1.5), // Actions
+                    },
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
                     children: [
-                      _buildTableHeaderCell('Name'),
-                      _buildTableHeaderCell('Type'),
-                      _buildTableHeaderCell('Location'),
-                      _buildTableHeaderCell('Allowed Roles'),
-                      _buildTableHeaderCell('Geofence'),
-                      _buildTableHeaderCell('Scans'),
-                      _buildTableHeaderCell('Status'),
-                      _buildTableHeaderCell('Actions'),
+                      TableRow(
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFF8FAFC),
+                        ),
+                        children: [
+                          _buildTableHeaderCell('Name'),
+                          _buildTableHeaderCell('Type'),
+                          _buildTableHeaderCell('Location'),
+                          _buildTableHeaderCell('Allowed Roles'),
+                          _buildTableHeaderCell('Geofence'),
+                          _buildTableHeaderCell('Scans'),
+                          _buildTableHeaderCell('Status'),
+                          _buildTableHeaderCell('Actions'),
+                        ],
+                      ),
+                      ..._scanners.map((scanner) => _buildTableRow(scanner)),
                     ],
                   ),
-                  ..._scanners.map((scanner) => _buildTableRow(scanner)),
-                ],
+                ),
               ),
             ],
           ),
@@ -450,11 +544,11 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
 
   Widget _buildTableHeaderCell(String text) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 14.0),
       child: Text(
         text,
         style: GoogleFonts.outfit(
-          fontSize: 13.sp,
+          fontSize: 13.0,
           fontWeight: FontWeight.w600,
           color: const Color(0xFF64748B),
         ),
@@ -485,63 +579,107 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       children: [
+        // Name Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Text(
-            name,
-            style: GoogleFonts.outfit(
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1E293B),
-            ),
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: typeColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: InkWell(
+              onTap: () {
+                if (widget.onScannerSelected != null) {
+                  widget.onScannerSelected!(id, name, location);
+                } else {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ScannerDetailScreen(
+                        theme: widget.theme,
+                        scannerId: id,
+                        scannerName: name,
+                        location: location,
+                        onBackToScanners: () => Navigator.pop(context),
+                        onOpenScanMode: (id, name, loc) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PrepareScanScreen(
+                                theme: widget.theme,
+                                scannerId: id,
+                                scannerName: name,
+                                location: loc,
+                                onBackToDetails: () => Navigator.pop(context),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ).then((_) => _loadScannersData());
+                }
+              },
+              borderRadius: BorderRadius.circular(4.0),
+              child: Padding(
+                padding: const EdgeInsets.all(4.0),
                 child: Text(
-                  type.toUpperCase(),
+                  name,
                   style: GoogleFonts.outfit(
-                    fontSize: 11.sp,
+                    fontSize: 14.0,
                     fontWeight: FontWeight.w700,
-                    color: typeColor,
-                    letterSpacing: 0.5,
+                    color: widget.theme.primary,
+                    decoration: TextDecoration.underline,
                   ),
                 ),
               ),
-            ],
+            ),
           ),
         ),
+        // Type Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: typeColor.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6.0),
+              ),
+              child: Text(
+                type.toUpperCase(),
+                style: GoogleFonts.outfit(
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w700,
+                  color: typeColor,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Location Column
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.location_on_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
-              SizedBox(width: 6.w),
+              const Icon(Icons.location_on_rounded, size: 14.0, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 6.0),
               Flexible(
                 child: Text(
                   location,
-                  style: AppTypography.small.copyWith(color: const Color(0xFF475569)),
+                  style: AppTypography.small.copyWith(color: const Color(0xFF475569), fontSize: 13.0),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
         ),
+        // Allowed Roles Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Wrap(
-            spacing: 6.w,
-            runSpacing: 4.h,
+            spacing: 6.0,
+            runSpacing: 4.0,
             children: allowedRoles.map((role) {
               Color roleColor;
               if (role.toUpperCase() == 'STUDENT') {
@@ -552,15 +690,15 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
                 roleColor = const Color(0xFFF59E0B);
               }
               return Container(
-                padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 2.h),
+                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
                 decoration: BoxDecoration(
                   color: roleColor.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(4.r),
+                  borderRadius: BorderRadius.circular(4.0),
                 ),
                 child: Text(
                   role.toUpperCase(),
                   style: GoogleFonts.outfit(
-                    fontSize: 10.sp,
+                    fontSize: 10.0,
                     fontWeight: FontWeight.w700,
                     color: roleColor,
                   ),
@@ -569,88 +707,91 @@ class _ScannerListScreenState extends State<ScannerListScreen> {
             }).toList(),
           ),
         ),
+        // Geofence Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Text(
             geofenceRadius > 0 ? '${geofenceRadius}m' : 'Not set',
-            style: AppTypography.small.copyWith(color: const Color(0xFF475569)),
+            style: AppTypography.small.copyWith(color: const Color(0xFF475569), fontSize: 13.0),
           ),
         ),
+        // Scans Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.bar_chart_rounded, size: 14.sp, color: const Color(0xFF94A3B8)),
-              SizedBox(width: 4.w),
+              const Icon(Icons.bar_chart_rounded, size: 14.0, color: Color(0xFF94A3B8)),
+              const SizedBox(width: 4.0),
               Text(
                 todayScans.toString(),
-                style: AppTypography.small.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
-                decoration: BoxDecoration(
-                  color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
-                  borderRadius: BorderRadius.circular(6.r),
-                ),
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w700,
-                    color: isActive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
-                  ),
+                style: AppTypography.small.copyWith(
+                  color: const Color(0xFF475569), 
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13.0,
                 ),
               ),
             ],
           ),
         ),
+        // Status Column
         Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: isActive ? const Color(0xFFDCFCE7) : const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(6.0),
+              ),
+              child: Text(
+                isActive ? 'Active' : 'Inactive',
+                style: GoogleFonts.outfit(
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w700,
+                  color: isActive ? const Color(0xFF15803D) : const Color(0xFFB91C1C),
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Actions Column
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               ElevatedButton.icon(
                 onPressed: () {
-                  if (widget.onScannerSelected != null) {
-                    widget.onScannerSelected!(id, name, location);
+                  if (widget.onScanPressed != null) {
+                    widget.onScanPressed!(id, name, location);
                   } else {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PrepareScanScreen(
+                        builder: (context) => ScannerLiveScreen(
                           theme: widget.theme,
                           scannerId: id,
-                          scannerName: name,
-                          location: location,
-                          onBackToDetails: () => Navigator.pop(context),
                         ),
                       ),
                     ).then((_) => _loadScannersData());
                   }
                 },
-                icon: Icon(Icons.qr_code_scanner_rounded, size: 14.sp, color: Colors.white),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 14.0, color: Colors.white),
                 label: Text(
                   'Scan',
                   style: GoogleFonts.outfit(
-                    fontSize: 12.sp,
+                    fontSize: 12.0,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF0066FF),
-                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8.r),
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
                   elevation: 0,
                 ),

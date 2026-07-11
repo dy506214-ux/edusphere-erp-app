@@ -24,6 +24,6 @@ router.put('/:id', requireRole('SUPER_ADMIN', 'ADMIN'), updateScanner);
 // Deactivate scanner (soft delete)
 router.delete('/:id', requireRole('SUPER_ADMIN'), deleteScanner);
 // Stats
-router.get('/:id/stats', requireRole('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER'), getScannerStats);
+router.get('/:id/stats', requireRole('SUPER_ADMIN', 'ADMIN', 'HR_MANAGER', 'TEACHER'), getScannerStats);
 
 module.exports = router;

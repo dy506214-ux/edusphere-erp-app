@@ -92,21 +92,33 @@ class _PrepareScanScreenState extends State<PrepareScanScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back to Details link
-                  GestureDetector(
-                    onTap: widget.onBackToDetails,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.arrow_back_rounded,
-                            color: AppColors.textMedium, size: 16.sp),
-                        SizedBox(width: 6.w),
-                        Text(
-                          'Back to Details',
-                          style: AppTypography.caption
-                              .copyWith(color: AppColors.textMedium),
-                        ),
-                      ],
+                  // Back to Details button
+                  ElevatedButton.icon(
+                    onPressed: widget.onBackToDetails,
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: Colors.white,
+                      size: 16.sp,
+                    ),
+                    label: Text(
+                      'Back to Details',
+                      style: AppTypography.caption.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: widget.theme.primary,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 10.h,
+                      ),
+                      elevation: 2,
+                      shadowColor: widget.theme.primary.withValues(alpha: 0.2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10.r),
+                      ),
                     ),
                   ),
                   SizedBox(height: 32.h),

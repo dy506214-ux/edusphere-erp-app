@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
 import 'prepare_scan_screen.dart';
 import 'scanner_list_screen.dart';
+import 'scanner_detail_screen.dart';
+import 'scanner_live_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/app_state_notifier.dart';
 import '../../theme/typography.dart';
@@ -22,7 +24,7 @@ class ScannerFeatureWrapper extends StatefulWidget {
 }
 
 class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
-  bool _showPrepare = true;
+  bool _showPrepare = true; // Start on prepare screen first
   String? _selectedScannerId;
   String? _selectedScannerName;
   String? _selectedLocation;
@@ -56,6 +58,7 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
           _selectedScannerId = mainScanner['id'].toString();
           _selectedScannerName = mainScanner['name'] ?? 'Assigned Scanner';
           _selectedLocation = mainScanner['location'] ?? 'Assigned Location';
+          _showPrepare = true; // Initially show prepare page first
           _isLoading = false;
         });
         return;
@@ -83,19 +86,42 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
       );
     }
 
-    if (_showPrepare && _selectedScannerId != null) {
-      return PrepareScanScreen(
-        theme: widget.theme,
-        scannerId: _selectedScannerId!,
-        scannerName: _selectedScannerName ?? 'Assigned Scanner',
-        location: _selectedLocation ?? 'Assigned Location',
-        showAppBar: widget.showAppBar,
-        onBackToDetails: () {
-          setState(() {
-            _showPrepare = false;
-          });
-        },
-      );
+    if (_selectedScannerId != null) {
+      if (_showPrepare) {
+        return PrepareScanScreen(
+          theme: widget.theme,
+          scannerId: _selectedScannerId!,
+          scannerName: _selectedScannerName ?? 'Assigned Scanner',
+          location: _selectedLocation ?? 'Assigned Location',
+          showAppBar: widget.showAppBar,
+          onBackToDetails: () {
+            setState(() {
+              _showPrepare = false;
+            });
+          },
+        );
+      } else {
+        return ScannerDetailScreen(
+          theme: widget.theme,
+          scannerId: _selectedScannerId!,
+          scannerName: _selectedScannerName ?? 'Assigned Scanner',
+          location: _selectedLocation ?? 'Assigned Location',
+          showAppBar: widget.showAppBar,
+          onBackToScanners: () {
+            setState(() {
+              _selectedScannerId = null;
+            });
+          },
+          onOpenScanMode: (id, name, location) {
+            setState(() {
+              _selectedScannerId = id;
+              _selectedScannerName = name;
+              _selectedLocation = location;
+              _showPrepare = true;
+            });
+          },
+        );
+      }
     } else {
       return ScannerListScreen(
         theme: widget.theme,
@@ -105,8 +131,28 @@ class _ScannerFeatureWrapperState extends State<ScannerFeatureWrapper> {
             _selectedScannerId = id;
             _selectedScannerName = name;
             _selectedLocation = location;
-            _showPrepare = true;
+            _showPrepare = false; // Go to Details page first when a scanner is selected
           });
+        },
+        onScanPressed: (id, name, location) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ScannerLiveScreen(
+                theme: widget.theme,
+                scannerId: id,
+              ),
+            ),
+          );
+        },
+        onBackToDetails: () {
+          final assignedId = AppStateNotifier.assignedScannerId.value;
+          if (assignedId != null && assignedId.isNotEmpty) {
+            setState(() {
+              _selectedScannerId = assignedId;
+              _showPrepare = true;
+            });
+          }
         },
       );
     }
