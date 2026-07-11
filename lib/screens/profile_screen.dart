@@ -2106,45 +2106,49 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         ),
       );
     } else {
-      bodyContent = SingleChildScrollView(
-        padding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding, vertical: verticalPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Back Button
-            if (widget.onBack != null && widget.studentId != null)
-              GestureDetector(
-                onTap: widget.onBack,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
-                    SizedBox(width: 8.w),
-                    Text(
-                      'Back to Students',
-                      style: GoogleFonts.inter(
-                        fontSize: 14.sp,
-                        fontWeight: FontWeight.w700,
-                        color: const Color(0xFF0F2547),
+      bodyContent = RefreshIndicator(
+        onRefresh: _loadStudentDataFromSupabase,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+              horizontal: horizontalPadding, vertical: verticalPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Back Button
+              if (widget.onBack != null && widget.studentId != null)
+                GestureDetector(
+                  onTap: widget.onBack,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back_ios_new_rounded, color: const Color(0xFF0F2547), size: 16.sp),
+                      SizedBox(width: 8.w),
+                      Text(
+                        'Back to Students',
+                        style: GoogleFonts.inter(
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF0F2547),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            SizedBox(height: 16.h),
-
-            // Header Card
-            _buildTabbedHeaderCard(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Tabbed Navigation
-            _buildTabbedNavigation(isDesktop),
-            SizedBox(height: 16.h),
-
-            // Tab Content
-            _buildTabbedTabContent(isDesktop),
-          ],
+              SizedBox(height: 16.h),
+  
+              // Header Card
+              _buildTabbedHeaderCard(isDesktop),
+              SizedBox(height: 16.h),
+  
+              // Tabbed Navigation
+              _buildTabbedNavigation(isDesktop),
+              SizedBox(height: 16.h),
+  
+              // Tab Content
+              _buildTabbedTabContent(isDesktop),
+            ],
+          ),
         ),
       );
     }
@@ -5402,8 +5406,10 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
     final double width = MediaQuery.of(context).size.width;
     final bool isDesktop = width > 900;
 
-    final bodyContent = SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
+    final bodyContent = RefreshIndicator(
+      onRefresh: _loadTeacherDataFromSupabase,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.fromLTRB(
             isDesktop ? 32.r : 16.r, 20.r, isDesktop ? 32.r : 16.r, 120.r),
         child: Column(
@@ -5425,11 +5431,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   .copyWith(color: const Color(0xFF64748B), height: 1.4),
             ),
             SizedBox(height: 24.h),
-
+  
             // Core Profile Card
             _buildCoreProfileCard(isDesktop),
             SizedBox(height: 20.h),
-
+  
             // Summary Cards
             if (isDesktop)
               Row(
@@ -5498,7 +5504,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ],
               ),
             SizedBox(height: 24.h),
-
+  
             // Detail Cards Row 1: Personal Info & Professional Identity
             if (isDesktop)
               Row(
@@ -5518,7 +5524,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ],
               ),
             SizedBox(height: 20.h),
-
+  
             // Detail Cards Row 2: Security Status & Notification Preferences
             if (isDesktop)
               Row(
@@ -5538,12 +5544,13 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                 ],
               ),
             SizedBox(height: 20.h),
-
+  
             // Digital Identity & QR Attendance Card
             _buildTeacherDigitalIdentityCard(isDesktop),
           ],
         ),
-      );
+      ),
+    );
 
     final fab = (widget.role == 'teacher' &&
             widget.teacherId != null &&

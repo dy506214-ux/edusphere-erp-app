@@ -421,25 +421,29 @@ class _TimetableScreenState extends State<TimetableScreen> {
         children: [
           _buildHeader(context),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(16.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTopBar(),
-                  SizedBox(height: 20.h),
-                  _isLoading
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(40),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      : _buildWeeklyGrid(),
-                  SizedBox(height: 24.h),
-                  _buildLegend(),
-                  SizedBox(height: 40.h),
-                ],
+            child: RefreshIndicator(
+              onRefresh: _loadTimetableSlots,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(16.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTopBar(),
+                    SizedBox(height: 20.h),
+                    _isLoading
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(40),
+                              child: CircularProgressIndicator(),
+                            ),
+                          )
+                        : _buildWeeklyGrid(),
+                    SizedBox(height: 24.h),
+                    _buildLegend(),
+                    SizedBox(height: 40.h),
+                  ],
+                ),
               ),
             ),
           ),
@@ -733,74 +737,80 @@ class _TimetableScreenState extends State<TimetableScreen> {
         children: [
           _buildStudentHeader(context),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(20.r),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(Icons.access_time_rounded,
-                              size: 20.sp, color: AppColors.textMedium),
-                          SizedBox(width: 10.w),
-                          Text('Weekly Timetable',
-                              style: AppTypography.bodyLarge
-                                  .copyWith(color: AppColors.textDark)),
-                        ],
-                      ),
-                      SizedBox(height: 16.h),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.delayed(const Duration(milliseconds: 800));
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(20.r),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
-                            _arrowBtn(Icons.keyboard_arrow_left_rounded),
-                            SizedBox(width: 8.w),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 14.w, vertical: 8.h),
-                              decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  border: Border.all(color: AppColors.border),
-                                  borderRadius: BorderRadius.circular(8.r)),
-                              child: Text('This Week',
-                                  style: AppTypography.caption
-                                      .copyWith(color: AppColors.textDark)),
-                            ),
-                            SizedBox(width: 8.w),
-                            _arrowBtn(Icons.keyboard_arrow_right_rounded),
-                            SizedBox(width: 16.w),
-                            ElevatedButton.icon(
-                              onPressed: () {},
-                              icon: Icon(Icons.file_download_outlined,
-                                  size: 18.sp),
-                              label: const Text('Download'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF6366F1),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: EdgeInsets.symmetric(
-                                    horizontal: 16.w, vertical: 10.h),
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8.r)),
-                                textStyle: AppTypography.caption,
-                              ),
-                            ),
+                            Icon(Icons.access_time_rounded,
+                                size: 20.sp, color: AppColors.textMedium),
+                            SizedBox(width: 10.w),
+                            Text('Weekly Timetable',
+                                style: AppTypography.bodyLarge
+                                    .copyWith(color: AppColors.textDark)),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 20.h),
-                  _buildStudentGrid(),
-                  SizedBox(height: 24.h),
-                  _buildStudentLegend(),
-                  SizedBox(height: 32.h),
-                  _buildNote(),
-                  SizedBox(height: 40.h),
-                ],
+                        SizedBox(height: 16.h),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _arrowBtn(Icons.keyboard_arrow_left_rounded),
+                              SizedBox(width: 8.w),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                    horizontal: 14.w, vertical: 8.h),
+                                decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: AppColors.border),
+                                    borderRadius: BorderRadius.circular(8.r)),
+                                child: Text('This Week',
+                                    style: AppTypography.caption
+                                        .copyWith(color: AppColors.textDark)),
+                              ),
+                              SizedBox(width: 8.w),
+                              _arrowBtn(Icons.keyboard_arrow_right_rounded),
+                              SizedBox(width: 16.w),
+                              ElevatedButton.icon(
+                                onPressed: () {},
+                                icon: Icon(Icons.file_download_outlined,
+                                    size: 18.sp),
+                                label: const Text('Download'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6366F1),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 16.w, vertical: 10.h),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8.r)),
+                                  textStyle: AppTypography.caption,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20.h),
+                    _buildStudentGrid(),
+                    SizedBox(height: 24.h),
+                    _buildStudentLegend(),
+                    SizedBox(height: 32.h),
+                    _buildNote(),
+                    SizedBox(height: 40.h),
+                  ],
+                ),
               ),
             ),
           ),

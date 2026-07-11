@@ -304,11 +304,13 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-          : SingleChildScrollView(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
-              physics: const BouncingScrollPhysics(),
-              child: Column(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Top Navigation / Header Actions Row
@@ -432,6 +434,7 @@ class _ClassReviewScreenState extends State<ClassReviewScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 

@@ -497,11 +497,14 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
       title: 'Student Allocations',
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 20.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   // Title & Subtitle Headers
                   Text(
                     'Student Allocations',
@@ -932,6 +935,7 @@ class _StudentAllocationsScreenState extends State<StudentAllocationsScreen> {
                 ],
               ),
             ),
+          ),
     );
   }
 

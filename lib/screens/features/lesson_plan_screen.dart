@@ -42,6 +42,15 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
     super.dispose();
   }
 
+  Widget _wrapWithRefresh(Widget tabContent) {
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.delayed(const Duration(milliseconds: 800));
+      },
+      child: tabContent,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,10 +63,10 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildOverviewTab(),
-                _buildTodayTab(),
-                _buildPlannerTab(),
-                _buildAnalyticsTab(),
+                _wrapWithRefresh(_buildOverviewTab()),
+                _wrapWithRefresh(_buildTodayTab()),
+                _wrapWithRefresh(_buildPlannerTab()),
+                _wrapWithRefresh(_buildAnalyticsTab()),
               ],
             ),
           ),
@@ -159,6 +168,7 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
 
   Widget _buildOverviewTab() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(16.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,6 +549,7 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
 
   Widget _buildTodayTab() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(20.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -646,6 +657,7 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
 
   Widget _buildPlannerTab() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(20.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,6 +824,7 @@ class _LessonPlanScreenState extends State<LessonPlanScreen>
 
   Widget _buildAnalyticsTab() {
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.all(20.r),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

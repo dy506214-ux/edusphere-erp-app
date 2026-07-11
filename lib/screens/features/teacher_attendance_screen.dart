@@ -445,6 +445,14 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     }
   }
 
+  Future<void> _handleRefresh() async {
+    await _loadApiClasses();
+    await _loadExistingSlotsForDate();
+    if (_analyticsLoaded) {
+      await _loadAnalytics();
+    }
+  }
+
   // ═════════════════════════════════════════════════════════════════════════
   // BUILD
   // ═════════════════════════════════════════════════════════════════════════
@@ -452,29 +460,32 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   @override
   Widget build(BuildContext context) {
     final bodyContent = SafeArea(
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Mark daily attendance and view date-wise analytics',
-              style: AppTypography.small
-                  .copyWith(color: const Color(0xFF475569)),
-            ),
-            SizedBox(height: 16.h),
-
-            // ── Tab Toggle ──
-            _buildTabToggle(),
-            SizedBox(height: 16.h),
-
-            // ── Content ──
-            if (_activeTab == 0) _buildMarkAttendanceContent(),
-            if (_activeTab == 1) _buildAnalyticsContent(),
-
-            SizedBox(height: 80.h),
-          ],
+      child: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Mark daily attendance and view date-wise analytics',
+                style: AppTypography.small
+                    .copyWith(color: const Color(0xFF475569)),
+              ),
+              SizedBox(height: 16.h),
+  
+              // ── Tab Toggle ──
+              _buildTabToggle(),
+              SizedBox(height: 16.h),
+  
+              // ── Content ──
+              if (_activeTab == 0) _buildMarkAttendanceContent(),
+              if (_activeTab == 1) _buildAnalyticsContent(),
+  
+              SizedBox(height: 80.h),
+            ],
+          ),
         ),
       ),
     );

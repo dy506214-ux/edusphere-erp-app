@@ -18,7 +18,7 @@ class ApiService {
       sendTimeout: const Duration(seconds: 120),
     ));
     
-    if (!kIsWeb) {
+    if (!kIsWeb && kDebugMode) {
       _dio.httpClientAdapter = IOHttpClientAdapter(
         createHttpClient: () {
           final client = HttpClient();

@@ -79,10 +79,15 @@ class DocumentsScreen extends StatelessWidget {
               subtitle: 'Official school documents',
               theme: roleThemes['student']!),
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.all(16.r),
-              itemCount: docs.length,
-              itemBuilder: (_, i) {
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.delayed(const Duration(milliseconds: 800));
+              },
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(16.r),
+                itemCount: docs.length,
+                itemBuilder: (_, i) {
                 final d = docs[i];
                 return Container(
                   margin: EdgeInsets.only(bottom: 12.h),
@@ -127,6 +132,7 @@ class DocumentsScreen extends StatelessWidget {
               },
             ),
           ),
+        ),
         ],
       ),
     );

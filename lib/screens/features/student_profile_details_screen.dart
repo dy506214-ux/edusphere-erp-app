@@ -1098,11 +1098,14 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: RefreshIndicator(
+        onRefresh: _loadStudentDataFromSupabase,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Top Header Card
             Container(
               padding: const EdgeInsets.all(20),
@@ -1549,6 +1552,7 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
           ],
         ),
       ),
+    ),
     );
   }
 

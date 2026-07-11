@@ -209,12 +209,15 @@ class _ScannerDetailScreenState extends State<ScannerDetailScreen> {
                 color: widget.theme.primary,
               ),
             )
-          : SingleChildScrollView(
-              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
-              child: Center(
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 1200),
-                  child: Column(
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
+                child: Center(
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 1200),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Back to Scanners button
@@ -358,6 +361,7 @@ class _ScannerDetailScreenState extends State<ScannerDetailScreen> {
                 ),
               ),
             ),
+          ),
     );
 
     if (widget.showAppBar) {

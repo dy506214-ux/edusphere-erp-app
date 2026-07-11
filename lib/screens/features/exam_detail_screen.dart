@@ -715,87 +715,90 @@ class _ExamDetailScreenState extends State<ExamDetailScreen> {
     final bodyContent = _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF2563EB)))
-          : SingleChildScrollView(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          padding: EdgeInsets.all(4.r),
-                          child: Icon(Icons.arrow_back_rounded,
-                              size: 24.sp,
-                              color: const Color(0xFF0F172A)),
-                        ),
-                      ),
-                      SizedBox(width: 8.w),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.examName,
-                              style: GoogleFonts.outfit(
-                                fontSize: 22.sp,
-                                fontWeight: FontWeight.w800,
-                                color: const Color(0xFF0F172A),
-                              ),
-                            ),
-                            SizedBox(height: 2.h),
-                            Text(
-                              subtitle,
-                              style: AppTypography.caption.copyWith(
-                                  color: const Color(0xFF64748B)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 14.h),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      backgroundColor: const Color(0xFFEFF6FF),
-                      side: const BorderSide(color: Color(0xFFDBEAFE)),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8.r)),
-                      padding: EdgeInsets.symmetric(
-                          horizontal: 16.w, vertical: 10.h),
-                    ),
-                    icon: Icon(Icons.assignment_outlined,
-                        size: 16.sp, color: const Color(0xFF1E40AF)),
-                    label: Text(
-                      'Class Review',
-                      style: AppTypography.caption
-                          .copyWith(color: const Color(0xFF1E40AF)),
-                    ),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ClassReviewScreen(
-                            examId: widget.examId,
-                            examName: widget.examName,
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        GestureDetector(
+                          onTap: () => Navigator.pop(context),
+                          child: Container(
+                            padding: EdgeInsets.all(4.r),
+                            child: Icon(Icons.arrow_back_rounded,
+                                size: 24.sp,
+                                color: const Color(0xFF0F172A)),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                  SizedBox(height: 18.h),
-                  _buildTabs(),
-                  SizedBox(height: 18.h),
-                  if (_activeTabIndex == 0) _buildScheduleTab(),
-                  if (_activeTabIndex == 1) _buildMarksEntryTab(),
-                  if (_activeTabIndex == 2) _buildBulkUploadTab(),
-                  if (_activeTabIndex == 3) _buildOverviewTab(),
-                  SizedBox(height: 100.h),
-                ],
+                        SizedBox(width: 8.w),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.examName,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 22.sp,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF0F172A),
+                                ),
+                              ),
+                              SizedBox(height: 2.h),
+                              Text(
+                                subtitle,
+                                style: AppTypography.caption.copyWith(
+                                    color: const Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 14.h),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        backgroundColor: const Color(0xFFEFF6FF),
+                        side: const BorderSide(color: Color(0xFFDBEAFE)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.r)),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 16.w, vertical: 10.h),
+                      ),
+                      icon: Icon(Icons.assignment_outlined,
+                          size: 16.sp, color: const Color(0xFF1E40AF)),
+                      label: Text(
+                        'Class Review',
+                        style: AppTypography.caption
+                            .copyWith(color: const Color(0xFF1E40AF)),
+                      ),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ClassReviewScreen(
+                              examId: widget.examId,
+                              examName: widget.examName,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    SizedBox(height: 18.h),
+                    _buildTabs(),
+                    SizedBox(height: 18.h),
+                    if (_activeTabIndex == 0) _buildScheduleTab(),
+                    if (_activeTabIndex == 1) _buildMarksEntryTab(),
+                    if (_activeTabIndex == 2) _buildBulkUploadTab(),
+                    if (_activeTabIndex == 3) _buildOverviewTab(),
+                    SizedBox(height: 100.h),
+                  ],
+                ),
               ),
             );
 

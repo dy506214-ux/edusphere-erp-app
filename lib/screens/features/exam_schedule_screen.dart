@@ -530,35 +530,41 @@ class _ExamScheduleScreenState extends State<ExamScheduleScreen> {
     final bodyContent = Stack(
         children: [
           Positioned.fill(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 100.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Examinations',
-                    style: GoogleFonts.outfit(
-                      fontSize: 26.sp,
-                      fontWeight: FontWeight.w900,
-                      color: const Color(0xFF0F172A),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await _loadFilterData();
+                await _loadExams();
+              },
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 100.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Examinations',
+                      style: GoogleFonts.outfit(
+                        fontSize: 26.sp,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF0F172A),
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4.h),
-                  Text(
-                    'Manage exams, schedules, and results',
-                    style: AppTypography.caption
-                        .copyWith(color: const Color(0xFF64748B)),
-                  ),
-                  SizedBox(height: 20.h),
-
-                  // Charts Row
-                  _buildChartsRow(),
-                  SizedBox(height: 16.h),
-
-                  // Schedule card
-                  _buildScheduleCard(),
-                ],
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Manage exams, schedules, and results',
+                      style: AppTypography.caption
+                          .copyWith(color: const Color(0xFF64748B)),
+                    ),
+                    SizedBox(height: 20.h),
+  
+                    // Charts Row
+                    _buildChartsRow(),
+                    SizedBox(height: 16.h),
+  
+                    // Schedule card
+                    _buildScheduleCard(),
+                  ],
+                ),
               ),
             ),
           ),

@@ -143,6 +143,7 @@ class _FeesScreenState extends State<FeesScreen> {
           feeItems: _feeItems,
           paymentHistory: _paymentHistory,
           totalOutstanding: _totalOutstanding,
+          onRefresh: _loadFeeData,
         );
     }
   }
@@ -156,12 +157,14 @@ class _OverviewPage extends StatelessWidget {
   final List<Map<String, String>> feeItems;
   final List<Map<String, String>> paymentHistory;
   final double totalOutstanding;
+  final RefreshCallback onRefresh;
 
   const _OverviewPage({
     required this.onPayNow,
     required this.feeItems,
     required this.paymentHistory,
     required this.totalOutstanding,
+    required this.onRefresh,
   });
 
   @override
@@ -179,10 +182,13 @@ class _OverviewPage extends StatelessWidget {
             theme: roleThemes['student']!,
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(16.r),
-              child: Column(
-                children: [
+            child: RefreshIndicator(
+              onRefresh: onRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(16.r),
+                child: Column(
+                  children: [
                   // Fee Summary Card
                   Container(
                     padding: EdgeInsets.all(20.r),
@@ -365,9 +371,10 @@ class _OverviewPage extends StatelessWidget {
               ),
             ),
           ),
-        ],
-      ),
-    );
+        ),
+      ],
+    ),
+  );
   }
 }
 

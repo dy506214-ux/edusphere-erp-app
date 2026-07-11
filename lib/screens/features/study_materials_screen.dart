@@ -507,10 +507,15 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
           ),
           // Material list
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.all(16.r),
-              itemCount: list.length,
-              itemBuilder: (_, i) {
+            child: RefreshIndicator(
+              onRefresh: () async {
+                await Future.delayed(const Duration(milliseconds: 800));
+              },
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(16.r),
+                itemCount: list.length,
+                itemBuilder: (_, i) {
                 final m = list[i];
                 return Container(
                   margin: EdgeInsets.only(bottom: 14.h),
@@ -621,6 +626,7 @@ class _StudyMaterialsScreenState extends State<StudyMaterialsScreen> {
               },
             ),
           ),
+        ),
         ],
       ),
     );

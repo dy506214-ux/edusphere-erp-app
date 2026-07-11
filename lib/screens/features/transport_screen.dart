@@ -262,9 +262,12 @@ class _TransportScreenState extends State<TransportScreen> {
 
                     // Main Card Section
                     Expanded(
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        child: _buildMainTransportCard(),
+                      child: RefreshIndicator(
+                        onRefresh: _loadTransportAllocation,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _buildMainTransportCard(),
+                        ),
                       ),
                     ),
                   ],
