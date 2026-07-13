@@ -402,7 +402,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               }
             });
             return;
-          } else if (statusCode == 500 || statusCode == 503) {
+          } else if (statusCode == 500 || statusCode == 502 || statusCode == 503 || statusCode == 504) {
             setState(() {
               _error = 'Server is temporarily unavailable.';
             });
