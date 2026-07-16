@@ -1574,8 +1574,16 @@ class _StudentProfileDetailsScreenState extends State<StudentProfileDetailsScree
             Icon(icon, size: 18, color: AppColors.textLight),
             const SizedBox(width: 12),
             Text(k, style: AppTypography.caption.copyWith(color: AppColors.textMedium)),
-            const Spacer(),
-            Text(v, style: AppTypography.caption.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                v,
+                textAlign: TextAlign.end,
+                style: AppTypography.caption.copyWith(color: AppColors.textDark, fontWeight: FontWeight.bold),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
       );

@@ -30,6 +30,9 @@ class _TransportScreenState extends State<TransportScreen> {
   String _arrivalTime = '—';
   String _vehicleNumber = '—';
   String _driverName = '—';
+  String _driverPhone = '—';
+  String _allocationStatus = 'Active';
+  bool _isGpsActive = false;
 
   String _studentIdDebug = 'Unknown';
 
@@ -38,7 +41,7 @@ class _TransportScreenState extends State<TransportScreen> {
   Timer? _simulationTimer;
   int _routeIndex = 0;
 
-  final List<LatLng> _busRoute = const [
+  List<LatLng> _busRoute = const [
     LatLng(28.70410, 77.10250),
     LatLng(28.70430, 77.10270),
     LatLng(28.70450, 77.10290),
@@ -75,12 +78,6 @@ class _TransportScreenState extends State<TransportScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _simulationTimer?.cancel();
-    SocketService().off('TRANSPORT_UPDATE', _handleTransportUpdate);
-    super.dispose();
-  }
 
   void _handleTransportUpdate(dynamic data) {
     if (mounted) {
@@ -88,14 +85,38 @@ class _TransportScreenState extends State<TransportScreen> {
     }
   }
 
+  void _handleBusLocationUpdate(dynamic data) {
+    if (data != null && data['latitude'] != null && data['longitude'] != null) {
+      final lat = double.tryParse(data['latitude'].toString());
+      final lng = double.tryParse(data['longitude'].toString());
+      if (lat != null && lng != null) {
+        if (mounted) {
+          setState(() {
+            _busLocation = LatLng(lat, lng);
+          });
+        }
+      }
+    }
+  }
+
   void _connectRealTime() {
     SocketService().on('TRANSPORT_UPDATE', _handleTransportUpdate);
+    SocketService().on('bus_location_update', _handleBusLocationUpdate);
+  }
+
+  @override
+  void dispose() {
+    _simulationTimer?.cancel();
+    SocketService().off('TRANSPORT_UPDATE', _handleTransportUpdate);
+    SocketService().off('bus_location_update', _handleBusLocationUpdate);
+    super.dispose();
   }
 
   Future<void> _loadTransportAllocation() async {
     if (!mounted) return;
     setState(() {
       _isLoading = true;
+      _isGpsActive = false;
     });
 
     try {
@@ -126,8 +147,6 @@ class _TransportScreenState extends State<TransportScreen> {
           final routeObj = allocation['route'] ?? allocation['TransportRoute'];
           if (routeObj != null) {
             _routeName = routeObj['name'] as String? ?? '—';
-            _vehicleNumber = routeObj['vehicleNumber'] as String? ?? '—';
-            _driverName = routeObj['driverName'] as String? ?? '—';
           }
           
           final stopObj = allocation['stop'] ?? allocation['RouteStop'];
@@ -138,8 +157,56 @@ class _TransportScreenState extends State<TransportScreen> {
               _arrivalTime = _formatArrivalTime(timeVal.toString());
             }
           }
-          final statusVal = allocation['status'] as String?;
-          // Enrollment status
+          
+          final statusVal = allocation['status'] as String? ?? 'ACTIVE';
+          _allocationStatus = statusVal[0].toUpperCase() + statusVal.substring(1).toLowerCase();
+
+          // Load active trip (if any) to get vehicle, driver, and real route stops
+          try {
+            final activeTripRes = await ApiService.instance.get('transport/active-trip');
+            if (activeTripRes != null && activeTripRes['success'] == true && activeTripRes['trip'] != null) {
+              final trip = activeTripRes['trip'];
+              _isGpsActive = true;
+              
+              final vehicleObj = trip['vehicle'];
+              if (vehicleObj != null) {
+                _vehicleNumber = vehicleObj['registrationNumber']?.toString() ?? '—';
+                final driverObj = vehicleObj['primaryDriver'];
+                if (driverObj != null && driverObj['user'] != null) {
+                  final userObj = driverObj['user'];
+                  _driverName = '${userObj['firstName'] ?? ''} ${userObj['lastName'] ?? ''}'.trim();
+                  _driverPhone = userObj['phone']?.toString() ?? '—';
+                }
+              }
+              
+              final List<dynamic> stopsList = trip['route']?['stops'] ?? [];
+              if (stopsList.isNotEmpty) {
+                final List<LatLng> points = stopsList.map((s) {
+                  final lat = double.tryParse(s['latitude'].toString()) ?? 0.0;
+                  final lng = double.tryParse(s['longitude'].toString()) ?? 0.0;
+                  return LatLng(lat, lng);
+                }).toList();
+                _busRoute = points;
+              }
+              
+              final List<dynamic> logs = trip['locationLogs'] as List<dynamic>? ?? [];
+              if (logs.isNotEmpty) {
+                final latestLog = logs.first;
+                final lat = double.tryParse(latestLog['latitude'].toString());
+                final lng = double.tryParse(latestLog['longitude'].toString());
+                if (lat != null && lng != null) {
+                  _busLocation = LatLng(lat, lng);
+                }
+              }
+              
+              final tripId = trip['id']?.toString();
+              if (tripId != null) {
+                SocketService().emit('join_trip', {'tripId': tripId});
+              }
+            }
+          } catch (tripError) {
+            debugPrint('Error loading active trip: $tripError');
+          }
         } else {
           _isTransportAssigned = false;
         }
@@ -154,6 +221,7 @@ class _TransportScreenState extends State<TransportScreen> {
       _arrivalTime = '—';
       _vehicleNumber = '—';
       _driverName = '—';
+      _driverPhone = '—';
     } finally {
       if (mounted) {
         setState(() {
@@ -381,6 +449,30 @@ class _TransportScreenState extends State<TransportScreen> {
                     thickness: 1.h),
                 _buildAllocationRow(
                     'SCHEDULED PICKUP', _arrivalTime, Icons.access_time),
+                if (_vehicleNumber != '—' && _vehicleNumber.isNotEmpty) ...[
+                  Divider(
+                      color: const Color(0xFFE2EAF4),
+                      height: 1.h,
+                      thickness: 1.h),
+                  _buildAllocationRow(
+                      'VEHICLE NUMBER', _vehicleNumber, Icons.directions_bus_outlined),
+                ],
+                if (_driverName != '—' && _driverName.isNotEmpty) ...[
+                  Divider(
+                      color: const Color(0xFFE2EAF4),
+                      height: 1.h,
+                      thickness: 1.h),
+                  _buildAllocationRow(
+                      'DRIVER NAME', _driverName, Icons.person_outline_rounded),
+                ],
+                if (_driverPhone != '—' && _driverPhone.isNotEmpty) ...[
+                  Divider(
+                      color: const Color(0xFFE2EAF4),
+                      height: 1.h,
+                      thickness: 1.h),
+                  _buildAllocationRow(
+                      'DRIVER PHONE', _driverPhone, Icons.phone_outlined),
+                ],
                 Divider(
                     color: const Color(0xFFE2EAF4),
                     height: 1.h,
@@ -401,7 +493,7 @@ class _TransportScreenState extends State<TransportScreen> {
                           ),
                           SizedBox(height: 4.h),
                           Text(
-                            'Active',
+                            _allocationStatus,
                             style: AppTypography.small
                                 .copyWith(color: const Color(0xFF10B981)),
                           ),
@@ -500,8 +592,8 @@ class _TransportScreenState extends State<TransportScreen> {
                         padding: EdgeInsets.symmetric(
                             horizontal: 10.w, vertical: 4.h),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFDCFCE7),
-                          border: Border.all(color: const Color(0xFF86EFAC)),
+                          color: _isGpsActive ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                          border: Border.all(color: _isGpsActive ? const Color(0xFF86EFAC) : const Color(0xFFCBD5E1)),
                           borderRadius: BorderRadius.circular(20.r),
                         ),
                         child: Row(
@@ -509,16 +601,16 @@ class _TransportScreenState extends State<TransportScreen> {
                             Container(
                               width: 6.w,
                               height: 6.w,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF16A34A),
+                              decoration: BoxDecoration(
+                                color: _isGpsActive ? const Color(0xFF16A34A) : const Color(0xFF64748B),
                                 shape: BoxShape.circle,
                               ),
                             ),
                             SizedBox(width: 4.w),
                             Text(
-                              'GPS Active',
+                              _isGpsActive ? 'GPS Active' : 'GPS Offline',
                               style: AppTypography.caption.copyWith(
-                                  color: const Color(0xFF16A34A),
+                                  color: _isGpsActive ? const Color(0xFF16A34A) : const Color(0xFF64748B),
                                   fontWeight: FontWeight.w600),
                             ),
                           ],

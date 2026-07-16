@@ -42,8 +42,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   int _activeTab = 0;
 
   // ── Filters ──
-  String? _selectedClass;
-  String _selectedSection = 'A';
+  String? _selectedClass = 'Select Class';
+  String _selectedSection = 'All Sections';
   DateTime _selectedDate = DateTime.now();
 
   final List<String> _classes = [];
@@ -51,28 +51,20 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   // Store classes fetched directly from Supabase (with correct UUIDs)
   List<Map<String, dynamic>> _apiClasses = [];
-  // Store all sections from Supabase keyed by classId
-  List<Map<String, dynamic>> _allSections = [];
+  // Store sections for currently selected class dynamically
+  List<Map<String, dynamic>> _classSections = [];
+  bool _isLoadingSections = false;
 
-  /// Load classes & sections directly from REST API — IDs match Student table
+  /// Load classes directly from REST API — IDs match Student table
   Future<void> _loadApiClasses() async {
     if (!mounted) return;
     try {
       final classesMap = await AcademicService.instance.getClasses();
-      final sectionsMap = await AcademicService.instance.getSections();
       final classesRes = classesMap['classes'] ?? classesMap['data'] ?? [];
-      final sectionsRes = sectionsMap['sections'] ?? sectionsMap['data'] ?? [];
 
       if (mounted) {
         setState(() {
-          _allSections = List<Map<String, dynamic>>.from(sectionsRes);
-          _apiClasses = List<Map<String, dynamic>>.from(classesRes)
-              .where((c) {
-                final name = c['name']?.toString() ?? '';
-                return name == 'Class 8' || name == 'Class 9' || name == 'Class 10' ||
-                       name == 'Grade 8' || name == 'Grade 9' || name == 'Grade 10';
-              })
-              .toList();
+          _apiClasses = List<Map<String, dynamic>>.from(classesRes);
           _classes.clear();
           for (var c in _apiClasses) {
             final name = c['name']?.toString() ?? '';
@@ -80,16 +72,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
               _classes.add(name);
             }
           }
-          // Sort classes numerically where possible, then alphabetically
-          _classes.sort((a, b) {
-            final numA = int.tryParse(a.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-            final numB = int.tryParse(b.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-            if (numA != numB) return numA.compareTo(numB);
-            return a.compareTo(b);
-          });
-          if (_classes.isNotEmpty) {
-            _selectedClass = _classes.first;
-            _updateSectionsForSelectedClass();
+          if (_selectedClass == null || !_classes.contains(_selectedClass)) {
+            _selectedClass = 'Select Class';
           }
         });
       }
@@ -98,30 +82,36 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     }
   }
 
-  void _updateSectionsForSelectedClass() {
-    if (_selectedClass == null) return;
-    final cls = _apiClasses.firstWhere(
-      (c) => c['name'] == _selectedClass,
-      orElse: () => {},
-    );
-    _sections.clear();
-    if (cls.isNotEmpty) {
-      final classId = cls['id']?.toString();
-      final secList = _allSections
-          .where((s) => s['classId']?.toString() == classId)
-          .toList();
-      for (var s in secList) {
-        final sName = s['name']?.toString() ?? '';
-        if (sName.isNotEmpty) {
-          _sections.add(sName);
-        }
+  Future<void> _loadSectionsForClass(String classId) async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingSections = true;
+      _sections.clear();
+      _classSections.clear();
+    });
+    try {
+      final res = await AcademicService.instance.getSections(classId: classId);
+      final List<dynamic> sectionsRes = res['sections'] ?? res['data'] ?? [];
+      if (mounted) {
+        setState(() {
+          _classSections = List<Map<String, dynamic>>.from(sectionsRes);
+          for (var s in _classSections) {
+            final sName = s['name']?.toString() ?? '';
+            if (sName.isNotEmpty && !_sections.contains('Section $sName')) {
+              _sections.add('Section $sName');
+            }
+          }
+          _sections.sort();
+        });
       }
-    }
-    _sections.sort();
-    if (_sections.isNotEmpty) {
-      _selectedSection = _sections.first;
-    } else {
-      _selectedSection = 'A';
+    } catch (e) {
+      debugPrint('Error loading sections for class: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingSections = false;
+        });
+      }
     }
   }
 
@@ -200,39 +190,54 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
-      // 1. Fetch classes & sections if not already loaded
+      // 1. Fetch classes if not already loaded
       if (_apiClasses.isEmpty) {
         final classesMap = await AcademicService.instance.getClasses();
-        final sectionsMap = await AcademicService.instance.getSections();
-        _allSections = List<Map<String, dynamic>>.from(sectionsMap['sections'] ?? sectionsMap['data'] ?? []);
-        _apiClasses = List<Map<String, dynamic>>.from(classesMap['classes'] ?? classesMap['data'] ?? [])
-            .where((c) {
-              final name = c['name']?.toString() ?? '';
-              return name == 'Class 8' || name == 'Class 9' || name == 'Class 10' ||
-                     name == 'Grade 8' || name == 'Grade 9' || name == 'Grade 10';
-            })
-            .toList();
+        _apiClasses = List<Map<String, dynamic>>.from(classesMap['classes'] ?? classesMap['data'] ?? []);
+        _classes.clear();
+        for (var c in _apiClasses) {
+          final name = c['name']?.toString() ?? '';
+          if (name.isNotEmpty && !_classes.contains(name)) {
+            _classes.add(name);
+          }
+        }
       }
 
-      // 2. Fetch all attendance slots for this date
-      final slotsRes = await AttendanceService.instance.getSlots(date: dateStr);
+      // 2. Fetch all attendance slots for this date (filtered by selected class if applicable)
+      String? classIdFilter;
+      if (_selectedClass != null && _selectedClass != 'Select Class') {
+        final cls = _apiClasses.firstWhere(
+          (c) => c['name'] == _selectedClass,
+          orElse: () => {},
+        );
+        if (cls.isNotEmpty) {
+          classIdFilter = cls['id']?.toString();
+        }
+      }
+
+      final slotsRes = await AttendanceService.instance.getSlots(
+        date: dateStr,
+        classId: classIdFilter,
+      );
       final List<dynamic> slotsList = slotsRes['slots'] ??
                                       (slotsRes['data'] is Map ? slotsRes['data']['slots'] : null) ??
                                       slotsRes['data'] ?? [];
-
-      // Get teacher class IDs to filter slots
-      final teacherClassIds = _apiClasses.map((c) => c['id']?.toString()).toSet();
 
       final List<Map<String, dynamic>> loadedSlots = [];
 
       for (var slot in slotsList) {
         final classId = slot['classId']?.toString();
-        // Skip slots that are not in the teacher's classes
-        if (!teacherClassIds.contains(classId)) continue;
-
         final rawClass = slot['class']?['name']?.toString() ?? '';
         final secName = slot['section']?['name']?.toString() ?? '';
         final String displaySection = secName.isNotEmpty ? 'Section $secName' : 'All Sections';
+
+        // Filter by section if selected
+        if (_selectedSection != 'All Sections') {
+          final secNameClean = _selectedSection.replaceAll('Section ', '').trim();
+          if (secName != secNameClean) {
+            continue;
+          }
+        }
 
         final bool isSub = slot['status']?.toString() == 'COMPLETED';
         final int totalCount = slot['studentCount'] as int? ?? 0;
@@ -313,6 +318,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       _isAnalyticsLoading = true;
     });
 
+    debugPrint('⚡ [Analytics LOG] Analytics API Started');
+
     try {
       String? classId;
       String? sectionId;
@@ -341,15 +348,22 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
         'attendeeType': 'STUDENT',
       };
 
-      final response = await ApiService.instance.get('attendance/analytics', queryParams: queryParams);
+      final response = await ApiService.instance.get(
+        'attendance/analytics',
+        queryParams: queryParams,
+      ).timeout(const Duration(seconds: 12));
 
-      if (response['success'] == true) {
+      debugPrint('⚡ [Analytics LOG] Analytics API Returned. Status Code: 200, Response type: ${response.runtimeType}');
+
+      if (response != null && (response is Map) && response['success'] == true) {
         final Map<String, dynamic> data = response['data'] is Map
             ? Map<String, dynamic>.from(response['data'] as Map)
-            : response;
+            : Map<String, dynamic>.from(response);
         final List<dynamic> breakdown = data['dailyBreakdown'] ?? [];
         final List<dynamic> matrix = data['studentMatrix'] ?? [];
         final summary = data['summary'] as Map<String, dynamic>?;
+
+        debugPrint('⚡ [Analytics LOG] JSON Parsed. Breakdown count: ${breakdown.length}, Matrix count: ${matrix.length}');
 
         final List<Map<String, dynamic>> list = breakdown.map((d) {
           final String dateStr = d['date']?.toString() ?? '';
@@ -398,16 +412,32 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             _isAnalyticsLoading = false;
             _analyticsLoaded = true;
           });
+          debugPrint('⚡ [Analytics LOG] State Updated. Loading False');
         }
       } else {
-        throw response['message'] ?? 'Failed to load analytics';
+        debugPrint('⚡ [Analytics LOG] API returned unsuccessful response or invalid format');
+        if (mounted) {
+          setState(() {
+            _analyticsData = [];
+            _analyticsStudentData = [];
+            _analyticsSummary = null;
+            _isAnalyticsLoading = false;
+            _analyticsLoaded = true;
+          });
+          debugPrint('⚡ [Analytics LOG] State Updated to Empty (API Non-Success). Loading False');
+        }
       }
-    } catch (e) {
-      dev.log('Error loading analytics: $e');
+    } catch (e, stack) {
+      debugPrint('⚡ [Analytics LOG] Error loading analytics: $e\n$stack');
       if (mounted) {
         setState(() {
+          _analyticsData = [];
+          _analyticsStudentData = [];
+          _analyticsSummary = null;
           _isAnalyticsLoading = false;
+          _analyticsLoaded = true;
         });
+        debugPrint('⚡ [Analytics LOG] State Updated to Empty (Error/Timeout). Loading False');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Unable to load attendance analytics. Please try again.'),
@@ -459,6 +489,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('⚡ [Analytics LOG] build() called. _isAnalyticsLoading: $_isAnalyticsLoading, _analyticsLoaded: $_analyticsLoaded');
     final bodyContent = SafeArea(
       child: RefreshIndicator(
         onRefresh: _handleRefresh,
@@ -658,13 +689,33 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
             icon: Icons.school_outlined,
             value: _selectedClass,
             hint: 'Select Class',
-            items: _classes,
+            items: ['Select Class', ..._classes],
             onChanged: (val) {
               if (val != null) {
                 setState(() {
                   _selectedClass = val;
-                  _updateSectionsForSelectedClass();
+                  _selectedSection = 'All Sections';
+                  _sections.clear();
+                  _classSections.clear();
+                  _createdSlots.clear();
                 });
+
+                if (val != 'Select Class') {
+                  final cls = _apiClasses.firstWhere(
+                    (c) => c['name'] == val,
+                    orElse: () => {},
+                  );
+                  if (cls.isNotEmpty) {
+                    final classId = cls['id']?.toString() ?? '';
+                    _loadSectionsForClass(classId).then((_) {
+                      _loadExistingSlotsForDate();
+                    });
+                  } else {
+                    _loadExistingSlotsForDate();
+                  }
+                } else {
+                  _loadExistingSlotsForDate();
+                }
               }
             },
           ),
@@ -676,12 +727,13 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           _buildDropdown(
             icon: Icons.grid_view_rounded,
             value: _selectedSection,
-            items: _sections,
+            items: ['All Sections', ..._sections],
             onChanged: (val) {
               if (val != null) {
                 setState(() {
                   _selectedSection = val;
                 });
+                _loadExistingSlotsForDate();
               }
             },
           ),
@@ -764,15 +816,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                 items: items
                     .map((c) => DropdownMenuItem(
                           value: c,
-                          child: Text(
-                            c == 'Class 8'
-                                ? '8th Grade'
-                                : c == 'Class 9'
-                                    ? '9th Grade'
-                                    : c == 'Class 10'
-                                        ? '10th Grade'
-                                        : c,
-                          ),
+                          child: Text(c),
                         ))
                     .toList(),
                 onChanged: onChanged,
@@ -785,6 +829,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   }
 
   Widget _buildAttendanceSlotsCard() {
+    final bool hasClassSelected = _selectedClass != null && _selectedClass != 'Select Class';
+    final String dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
     return Container(
       padding: EdgeInsets.all(20.r),
       decoration: BoxDecoration(
@@ -805,14 +852,17 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           // Header
           Row(
             children: [
-              Icon(Icons.access_time_rounded,
-                  size: 20.sp, color: const Color(0xFF0F172A)),
+              Icon(
+                hasClassSelected ? Icons.access_time_rounded : Icons.check_circle_outline_rounded,
+                size: 20.sp,
+                color: const Color(0xFF0F172A),
+              ),
               SizedBox(width: 8.w),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Attendance Slots",
+                    hasClassSelected ? "Attendance Slots" : "Today's Attendance Overview",
                     style: GoogleFonts.outfit(
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w800,
@@ -821,7 +871,7 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                   ),
                   SizedBox(height: 2.h),
                   Text(
-                    "Today's attendance slots",
+                    hasClassSelected ? "Today's attendance slots" : "student slots created for today ($dateStr)",
                     style: AppTypography.caption
                         .copyWith(color: const Color(0xFF94A3B8)),
                   ),
@@ -831,28 +881,30 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           ),
           SizedBox(height: 16.h),
 
-          // "+ Create Slot" Button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _isLoading ? null : _createNewSlotFromSelection,
-              icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
-              label: Text(
-                'Create Slot',
-                style: AppTypography.small.copyWith(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    const Color(0xFF0052CC), // Blue color matching mockup
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24.r), // Pill shape
+          // "+ Create Slot" Button (only visible when a class is selected)
+          if (hasClassSelected) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _createNewSlotFromSelection,
+                icon: Icon(Icons.add, color: Colors.white, size: 18.sp),
+                label: Text(
+                  'Create Slot',
+                  style: AppTypography.small.copyWith(color: Colors.white),
                 ),
-                padding: EdgeInsets.symmetric(vertical: 12.h),
-                elevation: 0,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      const Color(0xFF0052CC), // Blue color matching mockup
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24.r), // Pill shape
+                  ),
+                  padding: EdgeInsets.symmetric(vertical: 12.h),
+                  elevation: 0,
+                ),
               ),
             ),
-          ),
-          SizedBox(height: 20.h),
+            SizedBox(height: 20.h),
+          ],
 
           if (_isLoading) ...[
             SizedBox(height: 30.h),
@@ -1165,11 +1217,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
       String? sectionId;
       if (_selectedSection != 'All Sections') {
         final secName = _selectedSection.replaceAll('Section ', '').trim();
-        // Look up section from our Supabase-sourced sections list
-        final sec = _allSections.firstWhere(
-          (s) =>
-              s['classId']?.toString() == classId &&
-              s['name']?.toString() == secName,
+        // Look up section from our dynamically-loaded sections list for this class
+        final sec = _classSections.firstWhere(
+          (s) => s['name']?.toString() == secName,
           orElse: () => {},
         );
         if (sec.isNotEmpty) {
@@ -2466,68 +2516,65 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
           SizedBox(
             height: 380.h,
             child: SingleChildScrollView(
-              scrollDirection: Axis.vertical,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: SizedBox(
-                  width: tableWidth,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: EdgeInsets.symmetric(vertical: 8.h),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF8FAFC),
-                          border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: studentColWidth,
-                              child: Text(
-                                'Student',
-                                style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
-                              ),
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(
+                width: tableWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(vertical: 8.h),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF8FAFC),
+                        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: studentColWidth,
+                            child: Text(
+                              'Student',
+                              style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                             ),
-                            SizedBox(
-                              width: admColWidth,
-                              child: Text(
-                                'Adm.',
-                                style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
-                              ),
+                          ),
+                          SizedBox(
+                            width: admColWidth,
+                            child: Text(
+                              'Adm.',
+                              style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                             ),
-                            ...dates.map((d) {
-                              final String dateStr = d['date']?.toString() ?? '';
-                              String headerText = '';
-                              try {
-                                final dt = DateTime.parse(dateStr);
-                                headerText = DateFormat('dd').format(dt);
-                              } catch (_) {}
-                              return SizedBox(
-                                width: dateColWidth,
-                                child: Center(
-                                  child: Text(
-                                    headerText,
-                                    style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              );
-                            }),
-                            SizedBox(
-                              width: pctColWidth,
+                          ),
+                          ...dates.map((d) {
+                            final String dateStr = d['date']?.toString() ?? '';
+                            String headerText = '';
+                            try {
+                              final dt = DateTime.parse(dateStr);
+                              headerText = DateFormat('dd').format(dt);
+                            } catch (_) {}
+                            return SizedBox(
+                              width: dateColWidth,
                               child: Center(
                                 child: Text(
-                                  'Att. %',
+                                  headerText,
                                   style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
                                 ),
                               ),
+                            );
+                          }),
+                          SizedBox(
+                            width: pctColWidth,
+                            child: Center(
+                              child: Text(
+                                'Att. %',
+                                style: AppTypography.caption.copyWith(color: const Color(0xFF475569), fontWeight: FontWeight.bold),
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      ListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        shrinkWrap: true,
+                    ),
+                    Expanded(
+                      child: ListView.builder(
                         itemCount: _analyticsStudentData.length,
                         itemBuilder: (context, index) {
                           final student = _analyticsStudentData[index];
@@ -2635,8 +2682,8 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
                           );
                         },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

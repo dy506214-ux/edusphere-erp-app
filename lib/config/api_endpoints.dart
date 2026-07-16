@@ -13,7 +13,7 @@ class ApiEndpoints {
 
   // Transport Allocations
   static const String transportAllocations = 'transport/allocations';
-  static const String myTransportAllocation = 'transport/allocations/my';
+  static const String myTransportAllocation = 'transport/my-transport';
   static String deleteTransportAllocation(String id) => 'transport/allocations/$id';
   static const String transportRoutes = 'transport/routes';
 

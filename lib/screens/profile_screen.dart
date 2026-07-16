@@ -587,6 +587,22 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         }
       }
 
+      Map<String, dynamic>? transportAllocationData;
+      final transportAlloc = studentResMap['transportAllocation'] as Map<String, dynamic>?;
+      if (transportAlloc != null) {
+        transportAllocationData = transportAlloc;
+      } else {
+        // Fallback for production server
+        try {
+          final transRes = await ApiService.instance.get(ApiEndpoints.myTransportAllocation);
+          if (transRes != null && transRes['success'] == true && transRes['allocation'] != null) {
+            transportAllocationData = transRes['allocation'] as Map<String, dynamic>;
+          }
+        } catch (e) {
+          debugPrint('Error loading fallback transport allocation in profile: $e');
+        }
+      }
+
       setState(() {
         _studentName = '$firstName $lastName'.trim();
         if (_studentName.isEmpty) _studentName = widget.studentName ?? '—';
@@ -702,12 +718,11 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
         _admissionId = _admissionNo;
         _currentStudentDbId = studentResMap['id']?.toString();
         
-        final transportAlloc = studentResMap['transportAllocation'] as Map<String, dynamic>?;
-        if (transportAlloc != null) {
-          final routeMap = transportAlloc['route'] as Map<String, dynamic>?;
-          final stopMap = transportAlloc['stop'] as Map<String, dynamic>?;
+        if (transportAllocationData != null) {
+          final routeMap = transportAllocationData['route'] as Map<String, dynamic>?;
+          final stopMap = transportAllocationData['stop'] as Map<String, dynamic>?;
           _transportAllocation = {
-            'status': transportAlloc['status'],
+            'status': transportAllocationData['status'],
             'stop': stopMap,
             'route': routeMap,
           };

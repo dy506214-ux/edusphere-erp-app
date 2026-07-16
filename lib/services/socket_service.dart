@@ -23,7 +23,15 @@ class SocketService {
   String? get socketId => _socket?.id;
 
   /// Gets the default server URL based on the running platform/config
-  String get defaultServerUrl => ApiConfig.serverBaseUrl;
+  String get defaultServerUrl {
+    final baseUrl = ApiConfig.serverBaseUrl;
+    if (baseUrl.startsWith('http://')) {
+      return baseUrl.replaceFirst('http://', 'ws://');
+    } else if (baseUrl.startsWith('https://')) {
+      return baseUrl.replaceFirst('https://', 'wss://');
+    }
+    return baseUrl;
+  }
 
   /// Initialize and connect to the Socket.io server
   void connect(
@@ -37,25 +45,33 @@ class SocketService {
 
     if (_socket != null && _userId == userId && _role == role && _token == token) {
       if (_socket!.connected) {
-        dev.log('🔌 Socket already connected for user $userId ($role), skipping connection.', name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('🔌 Socket already connected for user $userId ($role), skipping connection.', name: 'SocketService');
+        }
         _isConnected = true;
         return;
       } else {
-        dev.log('🔌 Socket already initialized but not connected, attempting to connect...', name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('🔌 Socket already initialized but not connected, attempting to connect...', name: 'SocketService');
+        }
         _socket!.connect();
         return;
       }
     }
 
     if (_socket != null) {
-      dev.log('🔌 Socket active with different configuration or token, disconnecting and reconnecting...', name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('🔌 Socket active with different configuration or token, disconnecting and reconnecting...', name: 'SocketService');
+      }
       disconnect();
     }
 
     _token = token;
 
-    dev.log('🔌 Initializing socket connection to: $url',
-        name: 'SocketService');
+    if (kDebugMode) {
+      dev.log('🔌 Initializing socket connection to: $url',
+          name: 'SocketService');
+    }
 
     try {
       _socket = socket_io.io(
@@ -67,15 +83,18 @@ class SocketService {
               .enableAutoConnect()
               .enableForceNew()
               .setReconnectionDelay(2000)
+              .setReconnectionDelayMax(10000)
               .setReconnectionAttempts(
-                  30) // 30 attempts * 2s delay = 60s window (handles Render cold start)
+                  30) // 30 attempts * max 10s delay (exponential backoff up to 10s)
               .build());
 
       _setupBasicListeners();
       _socket!.connect();
     } catch (e, stack) {
-      dev.log('❌ Error initializing socket client: $e',
-          error: e, stackTrace: stack, name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('❌ Error initializing socket client: $e',
+            error: e, stackTrace: stack, name: 'SocketService');
+      }
     }
   }
 
@@ -85,21 +104,27 @@ class SocketService {
 
     _socket!.onConnect((_) {
       _isConnected = true;
-      dev.log('✅ Connected to WebSocket Server! Socket ID: ${_socket!.id}',
-          name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('✅ Connected to WebSocket Server! Socket ID: ${_socket!.id}',
+            name: 'SocketService');
+      }
 
       // Join targeted user room
       if (_userId != null) {
         _socket!.emit('join_user', _userId);
-        dev.log('👥 Joined room user_$_userId', name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('👥 Joined room user_$_userId', name: 'SocketService');
+        }
       }
 
       // Join role-based dashboard room
       if (_role != null) {
         final uppercaseRole = _role!.toUpperCase();
         _socket!.emit('join_dashboard', uppercaseRole);
-        dev.log('👥 Joined room dashboard_$uppercaseRole',
-            name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('👥 Joined room dashboard_$uppercaseRole',
+              name: 'SocketService');
+        }
       }
 
       // Trigger any registered custom connect listeners
@@ -108,18 +133,24 @@ class SocketService {
 
     _socket!.onDisconnect((data) {
       _isConnected = false;
-      dev.log('🔌 Disconnected from WebSocket Server: $data',
-          name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('🔌 Disconnected from WebSocket Server: $data',
+            name: 'SocketService');
+      }
       _triggerLocalListeners('disconnect', data);
     });
 
     _socket!.onConnectError((data) {
-      dev.log('❌ Connection error: $data', name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('❌ Connection error: $data', name: 'SocketService');
+      }
       _triggerLocalListeners('connect_error', data);
     });
 
     _socket!.onError((data) {
-      dev.log('⚠️ General Socket Error: $data', name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('⚠️ General Socket Error: $data', name: 'SocketService');
+      }
     });
 
     // Dynamic listener dispatcher for general events
@@ -138,11 +169,15 @@ class SocketService {
       _listeners[event] = [];
     }
     if (_listeners[event]!.contains(callback)) {
-      dev.log('⚠️ Callback already registered for event [$event], skipping duplicate registration.', name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('⚠️ Callback already registered for event [$event], skipping duplicate registration.', name: 'SocketService');
+      }
       return;
     }
     _listeners[event]!.add(callback);
-    dev.log('➕ Registered callback for event [$event]', name: 'SocketService');
+    if (kDebugMode) {
+      dev.log('➕ Registered callback for event [$event]', name: 'SocketService');
+    }
   }
 
   /// Unregister a callback from a specific socket event
@@ -150,12 +185,16 @@ class SocketService {
     if (_listeners.containsKey(event)) {
       if (callback == null) {
         _listeners.remove(event);
-        dev.log('➖ Unregistered all callbacks for event [$event]',
-            name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('➖ Unregistered all callbacks for event [$event]',
+              name: 'SocketService');
+        }
       } else {
         _listeners[event]!.remove(callback);
-        dev.log('➖ Unregistered specific callback for event [$event]',
-            name: 'SocketService');
+        if (kDebugMode) {
+          dev.log('➖ Unregistered specific callback for event [$event]',
+              name: 'SocketService');
+        }
         if (_listeners[event]!.isEmpty) {
           _listeners.remove(event);
         }
@@ -172,8 +211,10 @@ class SocketService {
         try {
           callback(data);
         } catch (e, stack) {
-          dev.log('❌ Error running callback for event [$event]: $e',
-              error: e, stackTrace: stack, name: 'SocketService');
+          if (kDebugMode) {
+            dev.log('❌ Error running callback for event [$event]: $e',
+                error: e, stackTrace: stack, name: 'SocketService');
+          }
         }
       }
     }
@@ -187,15 +228,19 @@ class SocketService {
         dev.log('📤 Emitted Event: [$event] -> $data', name: 'SocketService');
       }
     } else {
-      dev.log('⚠️ Cannot emit event [$event]: socket is not connected.',
-          name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('⚠️ Cannot emit event [$event]: socket is not connected.',
+            name: 'SocketService');
+      }
     }
   }
 
   /// Disconnect the socket client
   void disconnect() {
     if (_socket != null) {
-      dev.log('🔌 Disconnecting socket client...', name: 'SocketService');
+      if (kDebugMode) {
+        dev.log('🔌 Disconnecting socket client...', name: 'SocketService');
+      }
       _socket!.disconnect();
       _socket!.close();
       _socket = null;

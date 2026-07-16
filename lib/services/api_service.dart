@@ -13,9 +13,9 @@ class ApiService {
   ApiService._privateConstructor() {
     _dio = Dio(BaseOptions(
       baseUrl: ApiConfig.apiUrl.endsWith('/') ? ApiConfig.apiUrl : '${ApiConfig.apiUrl}/',
-      connectTimeout: const Duration(seconds: 120),
-      receiveTimeout: const Duration(seconds: 120),
-      sendTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+      sendTimeout: const Duration(seconds: 15),
     ));
     
     if (!kIsWeb && kDebugMode) {
@@ -40,9 +40,11 @@ class ApiService {
     if (_initialized) return;
     _token = await CacheService.instance.getToken();
     _initialized = true;
-    dev.log(
-        '🔑 ApiService initialized with token: ${_token != null ? "FOUND" : "NOT FOUND"}',
-        name: 'ApiService');
+    if (kDebugMode) {
+      dev.log(
+          '🔑 ApiService initialized with token: ${_token != null ? "FOUND" : "NOT FOUND"}',
+          name: 'ApiService');
+    }
   }
 
   Dio get dio => _dio;
@@ -77,23 +79,39 @@ class ApiService {
         if (_token != null && _token!.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $_token';
         }
-        dev.log('📡 [API REQUEST] ${options.method} | URL: ${options.uri}', name: 'ApiService');
-        if (options.data != null) {
-          dev.log('📡 [API REQUEST] Body: ${options.data}', name: 'ApiService');
+        if (kDebugMode) {
+          dev.log('📡 [API REQUEST] ${options.method} | URL: ${options.uri}', name: 'ApiService');
+          if (options.data != null) {
+            if (options.path.contains('auth/login')) {
+              dev.log('📡 [API REQUEST] Body: <masked_credentials>', name: 'ApiService');
+            } else {
+              dev.log('📡 [API REQUEST] Body: ${options.data}', name: 'ApiService');
+            }
+          }
         }
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        dev.log('📥 [API RESPONSE] Status: ${response.statusCode} for ${response.requestOptions.method} ${response.requestOptions.path}', name: 'ApiService');
-        dev.log('📥 [API RESPONSE] Body: ${response.data}', name: 'ApiService');
+        if (kDebugMode) {
+          dev.log('📥 [API RESPONSE] Status: ${response.statusCode} for ${response.requestOptions.method} ${response.requestOptions.path}', name: 'ApiService');
+          dev.log('📥 [API RESPONSE] Body: ${response.data}', name: 'ApiService');
+        }
         return handler.next(response);
       },
       onError: (DioException e, handler) async {
-        dev.log('❌ [API ERROR] URL: ${e.requestOptions.uri} | Status: ${e.response?.statusCode} | Message: ${e.message}', name: 'ApiService');
+        if (kDebugMode) {
+          dev.log('❌ [API ERROR] URL: ${e.requestOptions.uri} | Status: ${e.response?.statusCode} | Message: ${e.message}', name: 'ApiService');
+        }
 
-        // Check for 401 Session Expiry
-        if (e.response?.statusCode == 401 && !e.requestOptions.path.contains('auth/login')) {
-          dev.log('⚠️ Session expired (401). Triggering logout.', name: 'ApiService');
+        // Check for 401 Session Expiry (excluding AI chatbot endpoints)
+        if (e.response?.statusCode == 401 &&
+            !e.requestOptions.path.contains('auth/login') &&
+            !e.requestOptions.path.contains('ai/init') &&
+            !e.requestOptions.path.contains('ai/chat') &&
+            !e.requestOptions.path.contains('ai/action')) {
+          if (kDebugMode) {
+            dev.log('⚠️ Session expired (401). Triggering logout.', name: 'ApiService');
+          }
           unawaited(AuthService.handleSessionExpired());
           return handler.next(e);
         }
@@ -105,16 +123,22 @@ class ApiService {
 
         if (!kIsWeb && isSocketException && e.requestOptions.uri.host == 'edusphere-erp-frontend.onrender.com') {
           try {
-            dev.log('⚠️ [API WARNING] DNS resolution failed. Trying fallback IP 216.24.57.9...', name: 'ApiService');
+            if (kDebugMode) {
+              dev.log('⚠️ [API WARNING] DNS resolution failed. Trying fallback IP 216.24.57.9...', name: 'ApiService');
+            }
             final response = await _retryWithFallback(e.requestOptions, '216.24.57.9');
             return handler.resolve(response);
           } catch (e2) {
             try {
-              dev.log('⚠️ [API WARNING] Fallback 1 failed. Trying fallback IP 216.24.57.8...', name: 'ApiService');
+              if (kDebugMode) {
+                dev.log('⚠️ [API WARNING] Fallback 1 failed. Trying fallback IP 216.24.57.8...', name: 'ApiService');
+              }
               final response = await _retryWithFallback(e.requestOptions, '216.24.57.8');
               return handler.resolve(response);
             } catch (e3) {
-              dev.log('❌ [API ERROR] All fallback IPs failed: $e3', name: 'ApiService');
+              if (kDebugMode) {
+                dev.log('❌ [API ERROR] All fallback IPs failed: $e3', name: 'ApiService');
+              }
             }
           }
         }
@@ -125,7 +149,9 @@ class ApiService {
         final int retryCount = e.requestOptions.extra['retryCount'] ?? 0;
         if ((isSocketException || isRetryableHttpError) && retryCount < 5) {
           e.requestOptions.extra['retryCount'] = retryCount + 1;
-          dev.log('📡 [API RETRY] Retrying request ${e.requestOptions.uri} (${retryCount + 1}/5)...', name: 'ApiService');
+          if (kDebugMode) {
+            dev.log('📡 [API RETRY] Retrying request ${e.requestOptions.uri} (${retryCount + 1}/5)...', name: 'ApiService');
+          }
           await Future.delayed(Duration(seconds: 2 * (retryCount + 1))); // Exponential backoff
           try {
             final response = await _dio.fetch(e.requestOptions);
@@ -156,7 +182,9 @@ class ApiService {
       receiveTimeout: options.receiveTimeout,
     );
 
-    dev.log('📡 [API FALLBACK] Fetching: $fallbackUri', name: 'ApiService');
+    if (kDebugMode) {
+      dev.log('📡 [API FALLBACK] Fetching: $fallbackUri', name: 'ApiService');
+    }
     return await Dio().request(
       fallbackUri.toString(),
       data: options.data,
@@ -192,7 +220,9 @@ class ApiService {
       if (jwtToken != null && jwtToken.isNotEmpty) {
         await setToken(jwtToken);
       } else {
-        dev.log('⚠️ Warning: No JWT token found in login response', name: 'ApiService');
+        if (kDebugMode) {
+          dev.log('⚠️ Warning: No JWT token found in login response', name: 'ApiService');
+        }
       }
     }
     return data;
