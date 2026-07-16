@@ -1,7 +1,7 @@
 class ApiConfig {
   // Render Production URLs
-  static const String liveBaseUrl = 'https://edusphere-erp-frontend.onrender.com';
-  static const String liveApiUrl = 'https://edusphere-erp-frontend.onrender.com/api/v1';
+  static const String liveBaseUrl = 'https://edusphere-erp-latest-xffb.onrender.com';
+  static const String liveApiUrl = 'https://edusphere-erp-latest-xffb.onrender.com/api/v1';
 
   /// Get the active server/socket base URL
   static String get serverBaseUrl => liveBaseUrl;
