@@ -124,7 +124,7 @@ class _AcademicScreenState extends State<AcademicScreen> {
       final prefs = await SharedPreferences.getInstance();
       final savedEmail = prefs.getString('student_email') ??
           prefs.getString('user_email') ??
-          'student1@demoschool.com';
+          'student@school.com';
       _studentEmail = savedEmail;
 
       final cachedId = prefs.getString('student_id') ?? '';

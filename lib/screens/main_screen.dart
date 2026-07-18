@@ -515,7 +515,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       final currentUserId = CacheService.instance.prefs.getString('user_id');
       if (currentUserId == null || currentUserId.isEmpty) return;
 
-      final res = await ApiService.instance.get('teachers');
+      final res = await ApiService.instance.get('teachers', queryParams: {'limit': '1000'});
       if (res != null && res['success'] == true && res['teachers'] is List) {
         final teachersList = res['teachers'] as List;
         final match = teachersList.firstWhere(

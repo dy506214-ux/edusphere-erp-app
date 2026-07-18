@@ -58,7 +58,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         if (role == 'student') {
           profileRes = await ApiService.instance.get('students/me');
         } else if (role == 'teacher') {
-          profileRes = await ApiService.instance.get('teachers');
+          profileRes = await ApiService.instance.get('teachers', queryParams: {'limit': '1000'});
         } else {
           profileRes = null;
         }
@@ -173,7 +173,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         if (teacherIdVal.isEmpty ||
             teacherIdVal == 'b2f4c6d8-2345-6789-bcde-f23456789012') {
           try {
-            final teachersData = await ApiService.instance.get('teachers');
+            final teachersData = await ApiService.instance.get('teachers', queryParams: {'limit': '1000'});
             if (teachersData != null && teachersData['success'] == true) {
               final teachersList = teachersData['teachers'] as List? ?? [];
               final matchingTeacher = teachersList.firstWhere(

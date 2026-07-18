@@ -1629,7 +1629,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       }
 
       Map<String, dynamic>? teacherMap;
-      final res = await ApiService.instance.get('teachers');
+      final res = await ApiService.instance.get('teachers', queryParams: {'limit': '1000'});
       if (res != null && res['success'] == true && res['teachers'] is List) {
         final teachersList = res['teachers'] as List;
         final match = teachersList.firstWhere(
@@ -1900,7 +1900,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
           _avatarUrl = prefs.getString('teacher_photo_url');
           _userName = prefs.getString('teacher_name') ?? 'Vikram Yadav';
           _email =
-              prefs.getString('teacher_email') ?? 'teacher1@demoschool.com';
+              prefs.getString('teacher_email') ?? 'teacher@school.com';
           _phone = prefs.getString('teacher_mobile') ?? 'N/A';
           _gender = prefs.getString('teacher_gender') ?? 'Not Specified';
           _dob = prefs.getString('teacher_dob') ?? 'Not set';
